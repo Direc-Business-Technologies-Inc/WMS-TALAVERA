@@ -23,7 +23,6 @@
   </Folder>
   <Folder Name="/src/infrastructure/integration/">
     <Project Path="Integration.NS/Integration.NS.csproj" />
-    <Project Path="Integration.SAP/Integration.SAP.csproj" Id="546cbf91-3397-4c6d-ba93-981420ab82e5" />
   </Folder>
   <Folder Name="/src/presentation/">
     <Project Path="Mobile.MAUI/Mobile.MAUI.csproj" Id="766d6141-82b9-4dda-8bad-5d9c276e86de">
