@@ -1,0 +1,37 @@
+<Solution>
+  <Folder Name="/core/" />
+  <Folder Name="/core/application/">
+    <Project Path="Application.DataTransferObjects/Application.DataTransferObjects.csproj" Id="bd214695-11cf-4930-b1cb-5f5f2e2290e5" />
+    <Project Path="Application.UseCases/Application.UseCases.csproj" Id="327bf82e-c90f-4e32-8fc1-ea1a57c94434" />
+  </Folder>
+  <Folder Name="/core/domain/">
+    <Project Path="Domain.Entities/Domain.Entities.csproj" />
+  </Folder>
+  <Folder Name="/project/">
+    <File Path=".gitignore" />
+    <File Path="changelogs.md" />
+  </Folder>
+  <Folder Name="/shared/">
+    <Project Path="Shared.DataCipher/Shared.DataCipher.csproj" Id="62b1f967-e6e9-4abd-8fe4-a90871b7070a" />
+    <Project Path="Shared.Libraries/Shared.Libraries.csproj" />
+  </Folder>
+  <Folder Name="/src/" />
+  <Folder Name="/src/infrastructure/" />
+  <Folder Name="/src/infrastructure/database/">
+    <Project Path="Database.Libraries/Database.Libraries.csproj" Id="d850c5fe-5b4a-4827-aea6-acdd205c80ed" />
+    <Project Path="Database.MsSql/Database.MsSql.csproj" Id="938704db-3391-4a74-ab05-19916beda103" />
+  </Folder>
+  <Folder Name="/src/infrastructure/integration/">
+    <Project Path="Integration.NS/Integration.NS.csproj" />
+    <Project Path="Integration.SAP/Integration.SAP.csproj" Id="546cbf91-3397-4c6d-ba93-981420ab82e5" />
+  </Folder>
+  <Folder Name="/src/presentation/">
+    <Project Path="Mobile.MAUI/Mobile.MAUI.csproj" Id="766d6141-82b9-4dda-8bad-5d9c276e86de">
+      <Deploy Solution="Debug|*" />
+    </Project>
+    <Project Path="Web.BlazorServer/Web.BlazorServer.csproj" Id="7aed3800-45bd-4bd5-b086-0956e5231036" />
+  </Folder>
+  <Folder Name="/src/presentation/api/">
+    <Project Path="Api.CoreWebAPI/Api.CoreWebAPI.csproj" />
+  </Folder>
+</Solution>

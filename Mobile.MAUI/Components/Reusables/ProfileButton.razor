@@ -1,0 +1,18 @@
+﻿@using Mobile.MAUI.Components.Base
+
+@inherits BaseComponent
+<RadzenProfileMenu ShowIcon=false class="rz-p-0 rz-background-color-white">
+    <Template>
+        <RadzenGravatar Email="user@example.com" />
+    </Template>
+    <ChildContent>
+        <RadzenStack Gap="0" class="rz-w-100">
+            <RadzenStack Gap="0" class="rz-w-100 rz-mb-1 rz-pb-1 rz-px-2 rz-border-bottom">
+                <RadzenText Text="@User.FullName" class="fw-bold rz-color-base-800 rz-p-0 rz-m-0 text-capitalize" />
+                <RadzenText Text="@(User.PositionName)" TextStyle="TextStyle.Caption" class="rz-color-base-500 rz-p-0 rz-m-0" />
+            </RadzenStack>
+            <RadzenButton Text="Logout" Icon="logout" Size="ButtonSize.Small" Variant="Variant.Flat" ButtonStyle="ButtonStyle.Light" Click="@ConfirmLogout" class="text-capitalize rz-shadow-0 rz-border-radius-0" />
+        </RadzenStack>
+    </ChildContent>
+</RadzenProfileMenu>
+

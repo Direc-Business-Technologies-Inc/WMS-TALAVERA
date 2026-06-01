@@ -1,0 +1,89 @@
+@using Domain.Entities.Enums.Transaction.InventoryCounting
+@using Web.BlazorServer.Components.Security
+@using Web.BlazorServer.ViewModels.Transaction.InventoryCounting
+
+@inherits BaseComponent
+@page "/transactions/inventory/inventory-counting/sheet/view"
+@layout ProtectedLayout
+@attribute [AppAuthorizationAttribute("VIEW", "OICT")]
+
+<PageTitle>Inventory Counting Sheet</PageTitle>
+
+<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" class="rz-mb-4">
+    <AppBreadCrumbs ModuleCode="OICT" />
+    @if (!IsLoadingData && Sheet is not null)
+    {
+        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.25rem">
+            <RadzenText TextStyle="TextStyle.Body2" Text="Counter:" style="color: var(--rz-text-secondary-color);" />
+            <RadzenText TextStyle="TextStyle.Subtitle2" Text="@Sheet.Counter.Name" />
+        </RadzenStack>
+    }
+</RadzenStack>
+
+<AppContent>
+
+    @if (IsLoadingData)
+    {
+        <RadzenProgressBarCircular ShowValue="false" Mode="ProgressBarMode.Indeterminate" class="rz-m-auto rz-display-block" />
+    }
+    else
+    {
+        @* Sheet header badges *@
+        <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" class="rz-mb-2" Wrap="FlexWrap.Wrap" JustifyContent="JustifyContent.End">
+            <AppContentBadge Title="Sheet #" Content="@Sheet?.SheetNo.Value" />
+            <AppContentBadge Title="Counter" Content="@Sheet?.Counter.Name" />
+            <AppContentBadge Title="Submitted Date" Content="@Sheet?.SubmittedDate.ToString("MM/dd/yyyy")" />
+            <AppContentBadge Title="Status" Content="@Sheet?.Status.ToString()"
+                             ChildBadgeStyle="@(Sheet?.Status switch {
+                                 InventoryCountingSheetStatus.Synced => BadgeStyle.Success,
+                                 InventoryCountingSheetStatus.Async  => BadgeStyle.Warning,
+                                 InventoryCountingSheetStatus.Ignore => BadgeStyle.Light,
+                                 _ => BadgeStyle.Light
+                             })" />
+        </RadzenStack>
+
+        <AppTable TItem="InventoryCountingSheetLineVM"
+                  Id="ict_sheet_lines"
+                  ActionName="@ActionView"
+                  @bind-GridSettingsLoaded="@GridSettingsLoaded"
+                  Data="@([.. Sheet?.SheetLines ?? []])">
+            <Columns>
+                <RadzenDataGridColumn TItem="InventoryCountingSheetLineVM"
+                                      Property="@nameof(InventoryCountingSheetLineVM.ItemCode)"
+                                      Title="Item Code" Type="@typeof(string)" />
+                <RadzenDataGridColumn TItem="InventoryCountingSheetLineVM"
+                                      Property="@nameof(InventoryCountingSheetLineVM.ItemName)"
+                                      Title="Item Name" Type="@typeof(string)" />
+                <RadzenDataGridColumn TItem="InventoryCountingSheetLineVM"
+                                      Property="@nameof(InventoryCountingSheetLineVM.UoMName)"
+                                      Title="UoM" Width="100px" Type="@typeof(string)" />
+                <RadzenDataGridColumn TItem="InventoryCountingSheetLineVM"
+                                      Property="@nameof(InventoryCountingSheetLineVM.Quantity)"
+                                      Title="Count Qty" Width="120px" Type="@typeof(decimal)">
+                    <Template>
+                        @context.Quantity.ToString("N0")
+                    </Template>
+                </RadzenDataGridColumn>
+            </Columns>
+        </AppTable>
+
+        <RadzenStack class="rz-mt-4" Orientation="Orientation.Horizontal"
+                     AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
+            <RadzenButton Text="Back" ButtonStyle="ButtonStyle.Base" Click="@GoBack" />
+            @if (Sheet?.Status == InventoryCountingSheetStatus.Async)
+            {
+                <RadzenStack Orientation="Orientation.Horizontal" Gap="8px">
+                    <RadzenButton Text="Ignore Sheet" Icon="block"
+                                  ButtonStyle="ButtonStyle.Danger"
+                                  IsBusy="@AppBusyService.IsBusy(ActionIgnore)"
+                                  Click="@IgnoreSheet" />
+                    <RadzenButton Text="Sync Sheet" Icon="sync"
+                                  ButtonStyle="ButtonStyle.Info"
+                                  IsBusy="@AppBusyService.IsBusy(ActionSync)"
+                                  Click="@SyncSheet" />
+                </RadzenStack>
+            }
+        </RadzenStack>
+    }
+
+</AppContent>

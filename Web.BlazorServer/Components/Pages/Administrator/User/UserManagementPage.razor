@@ -1,0 +1,92 @@
+﻿@using Web.BlazorServer.Components.Security
+@using Web.BlazorServer.Extensions
+@using Web.BlazorServer.ViewModels.Administration.User
+
+@inherits BaseComponent
+@page "/administration/user/user-management"
+@layout ProtectedLayout
+@attribute [AppAuthorizationAttribute("VIEW", "OUSR")]
+
+
+<PageTitle>User Management</PageTitle>
+
+<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" class="rz-mb-4">
+    <AppBreadCrumbs ModuleCode="OUSR" />
+</RadzenStack>
+<AppContent>
+    <AppDataGrid @ref="@UsersDataGrid" Id="users_grid" TItem="UserDataGridVM" DataGetter="@LoadDataAsync" GridSettings="@UsersDataGridSettings" @bind-GridSettingsLoaded="@GridSettingsLoaded" ActionName="@ActionGetUsers">
+        <HeaderTemplate>
+            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" AlignItems="AlignItems.Center" Gap="8px">
+                <RadzenButton Icon="settings" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@OpenTableSettings" />
+                <RadzenButton Icon="sync" Size="ButtonSize.Small" Click="UsersDataGrid.ReloadDataAsync" />
+                <RadzenButton Visible="@Can.Create("OUSR")" Icon="add" Size=ButtonSize.Small ButtonStyle="ButtonStyle.Success" Shade="Shade.Light" Click="@CreateUser" />
+            </RadzenStack>
+        </HeaderTemplate>
+        <GridColumns>
+            <RadzenDataGridColumn TItem="UserDataGridVM"
+                                  Property="@nameof(UserDataGridVM.FullName)"
+                                  Type="@typeof(string)"
+                                  Title="Full Name" />
+            <RadzenDataGridColumn TItem="UserDataGridVM"
+                                  Property="@nameof(UserDataGridVM.UserName)"
+                                  Type="@typeof(string)"
+                                  Title="Username" />
+            <RadzenDataGridColumn TItem="UserDataGridVM"
+                                  Property="@nameof(UserDataGridVM.Email)"
+                                  Type="@typeof(string)"
+                                  Title="Email" />
+            <RadzenDataGridColumn TItem="UserDataGridVM"
+                                  Property="@nameof(UserDataGridVM.Phone)"
+                                  Type="@typeof(string)"
+                                  Title="Phone No." />
+            <RadzenDataGridColumn TItem="UserDataGridVM"
+                                  Property="@nameof(UserDataGridVM.Position)"
+                                  Type="@typeof(string)"
+                                  Title="Position" />
+            <RadzenDataGridColumn TItem="UserDataGridVM"
+                                  Property="@nameof(UserDataGridVM.Active)"
+                                  Type="@typeof(bool)"
+                                  Title="Status">
+                <Template Context="data">
+                    <RadzenBadge BadgeStyle="@(data.Active? BadgeStyle.Success: BadgeStyle.Base)" Text="@(data.Active ? "Active" : "Inactive")" />
+                </Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn TItem="UserDataGridVM"
+                                  Type="@typeof(bool)"
+                                  Frozen
+                                  FrozenPosition="FrozenColumnPosition.Right"
+                                  Width="70px"
+                                  MaxWidth="70px"
+                                  Pickable="false" Sortable="false" Filterable="false">
+                <Template Context="data">
+                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceEvenly">
+                        <RadzenButton Visible="@Can.Update("OUSR")" Icon="key_vertical" ButtonStyle="ButtonStyle.Info" Size="ButtonSize.ExtraSmall" Click="() => OpenPasswordManagement(data)" />
+                        <RadzenButton Icon="arrow_right_alt" Size="ButtonSize.ExtraSmall" Click="() => ViewUser(data)" />
+                    </RadzenStack>
+                </Template>
+            </RadzenDataGridColumn>
+        </GridColumns>
+    </AppDataGrid>
+</AppContent>
+
+@code {
+    async Task OpenTableSettings()
+    {
+        await DialogService.OpenAsync(
+            "Table Settings",
+            ds => @<AppGridSettings TItem="UserDataGridVM"
+            @bind-Grid=@UsersDataGrid.DataGrid
+            @bind-GridSettings=@UsersDataGridSettings />,
+        options: GridSettingsService.GetDialogOptions());
+
+        await UsersDataGrid.DataGrid.Reload();
+    }
+
+    async Task OpenPasswordManagement(UserDataGridVM user)
+    {
+        await DialogService.OpenAsync(
+            $"Update Password",
+            ds => @<UserPasswordManagement User="user" />,
+    options: GridSettingsService.GetDialogOptions().CloseByCustomButton());
+    }
+}

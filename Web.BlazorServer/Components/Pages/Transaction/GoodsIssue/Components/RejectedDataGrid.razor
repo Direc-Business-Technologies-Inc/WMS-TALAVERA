@@ -1,0 +1,58 @@
+﻿@using Web.BlazorServer.ViewModels.Transaction.GoodsIssue
+
+@inherits BaseComponent
+
+<AppDataGrid @ref="@GoodsIssueDataGrid" Id="rejected_goods_issue_grid" TItem="GoodsIssueDataGridVM" DataGetter="@LoadDataAsync" GridSettings="@GoodsIssueDataGridSettings" @bind-GridSettingsLoaded="@GridSettingsLoaded" ActionName="@ActionGetGoodsIssues">
+    <HeaderTemplate>
+        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" AlignItems="AlignItems.Center" Gap="8px">
+            <RadzenButton Icon="settings" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@OpenTableSettings" />
+            <RadzenButton Icon="sync" Size="ButtonSize.Small" Click="GoodsIssueDataGrid.ReloadDataAsync" />
+            <RadzenButton Icon="add" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Success" Click="@CreateGoodsIssue" />
+        </RadzenStack>
+    </HeaderTemplate>
+    <GridColumns>
+        <RadzenDataGridColumn TItem="GoodsIssueDataGridVM"
+                              Property="@nameof(GoodsIssueDataGridVM.DocEntry)"
+                              Type="@typeof(int)"
+                              Title="Doc No." />
+        <RadzenDataGridColumn TItem="GoodsIssueDataGridVM"
+                              Property="@nameof(GoodsIssueDataGridVM.DocDate)"
+                              Type="@typeof(DateTime)"
+                              Title="Doc Date">
+            <Template>
+                @context.DocDate.ToString("MM/dd/yyyy")
+            </Template>
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn TItem="GoodsIssueDataGridVM"
+                              Property="@nameof(GoodsIssueDataGridVM.PreparedBy)"
+                              Type="@typeof(string)"
+                              Title="Prepared By" />
+        <RadzenDataGridColumn TItem="GoodsIssueDataGridVM"
+                              Property="@nameof(GoodsIssueDataGridVM.TransTypeName)"
+                              Type="@typeof(string)"
+                              Title="Trans. Type" />
+        <RadzenDataGridColumn TItem="GoodsIssueDataGridVM"
+                              Frozen
+                              FrozenPosition="FrozenColumnPosition.Right"
+                              Width="35px"
+                              Filterable="false" Sortable="false" Pickable="false">
+            <Template>
+                <RadzenButton Icon="arrow_right_alt" Size="ButtonSize.ExtraSmall" Click="() => ViewGoodsIssue(context)" />
+            </Template>
+        </RadzenDataGridColumn>
+    </GridColumns>
+</AppDataGrid>
+
+@code {
+    async Task OpenTableSettings()
+    {
+        await DialogService.OpenAsync(
+            "Table Settings",
+            ds => @<AppGridSettings TItem="GoodsIssueDataGridVM"
+                                    @bind-Grid=@GoodsIssueDataGrid.DataGrid
+                                    @bind-GridSettings=@GoodsIssueDataGridSettings />,
+        options: GridSettingsService.GetDialogOptions());
+
+        await GoodsIssueDataGrid.DataGrid.Reload();
+    }
+}

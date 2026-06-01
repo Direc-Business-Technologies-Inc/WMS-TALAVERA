@@ -1,0 +1,31 @@
+﻿<style>
+    .loading-center {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        top: 0;
+        left: 0;
+    }
+</style>
+
+<RadzenStack class="w-100 position-relative" Style="min-height:300px">
+
+    <RadzenStack class="loading-center" Visible="@IsLoading" Gap="4px" AlignItems="AlignItems.Center">
+        <RadzenProgressBarCircular ProgressBarStyle="ProgressBarStyle.Light" Size="ProgressBarCircularSize.Small" Value="100" ShowValue="false" Mode="ProgressBarMode.Indeterminate" AriaLabel="Primary loading" />
+        <RadzenText Text="@Text" class="my-text-subtitle1" />
+    </RadzenStack>
+    <RadzenStack Visible="@(!IsLoading)">
+        @if (ChildContent is not null)
+        {
+            @ChildContent
+        }
+    </RadzenStack>
+</RadzenStack>
+@code {
+    [Parameter]
+    public bool IsLoading { get; set; }
+    [Parameter]
+    public string Text { get; set; } = string.Empty;
+    [Parameter]
+    public RenderFragment ChildContent { get; set; }
+}

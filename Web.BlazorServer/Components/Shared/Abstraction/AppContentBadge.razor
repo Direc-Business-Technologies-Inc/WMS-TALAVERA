@@ -1,0 +1,16 @@
+﻿<RadzenBadge Visible="@Visible" BadgeStyle="@ParentBadgeStyle" Shade="@ParentShade" Variant="@ParentVariant" class="rz-pt-0 rz-pb-0 rz-pr-0">
+    @Title
+    <RadzenBadge Text="@Content" Variant="@ChildVariant" BadgeStyle="@ChildBadgeStyle" Shade="@ChildShade" />
+</RadzenBadge>
+
+@code {
+    [Parameter] public bool Visible { get; set; } = true;
+    [Parameter] public string Title { get; set; } = "Badge";
+    [Parameter] public string Content { get; set; } = "Content";
+    [Parameter] public BadgeStyle ParentBadgeStyle { get; set; } = BadgeStyle.Base;
+    [Parameter] public Shade ParentShade { get; set; } = Shade.Lighter;
+    [Parameter] public Variant ParentVariant { get; set; } = Variant.Filled;
+    [Parameter] public BadgeStyle ChildBadgeStyle { get; set; } = BadgeStyle.Primary;
+    [Parameter] public Shade ChildShade { get; set; } = Shade.Light;
+    [Parameter] public Variant ChildVariant { get; set; } = Variant.Filled;
+}

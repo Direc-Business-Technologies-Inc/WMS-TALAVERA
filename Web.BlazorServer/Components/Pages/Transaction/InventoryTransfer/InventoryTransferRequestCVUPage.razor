@@ -1,0 +1,470 @@
+﻿@using Web.BlazorServer.Components.Pages.Transaction.InventoryTransfer.Components
+@using Web.BlazorServer.Components.Security
+@using Web.BlazorServer.Components.Shared.Skeletons
+@using Web.BlazorServer.Extensions
+@using Web.BlazorServer.ViewModels.Others
+@using Web.BlazorServer.ViewModels.Transaction.InventoryTransfer
+
+@inherits BaseForm<InventoryTransferRequestVM>
+@page "/transactions/inventory/inventory-transfer/inventory-transfer-request/view"
+@page "/transactions/inventory/inventory-transfer/inventory-transfer-request/create"
+@layout ProtectedLayout
+@attribute [AppAuthorizationAttribute("VIEW", "OITR")]
+
+<PageTitle>@(CreatingNew ? "New Inventory Transfer" : "ITR: ") @(IsLoadingData ? "..." : FormData.DocNum)</PageTitle>
+
+<RadzenStack Orientation="Orientation.Horizontal"
+             AlignItems="AlignItems.Center"
+             JustifyContent="JustifyContent.SpaceBetween"
+             class="rz-mb-4">
+    <AppBreadCrumbs ModuleCode="OITR" />
+</RadzenStack>
+
+<AppContent >
+    <AppFormSkeleton TItem="InventoryTransferRequestVM" Loading="@IsLoadingData" />
+    <RadzenStack Visible="@(!IsLoadingData)"
+                 Orientation="Orientation.Horizontal"
+                 AlignItems="AlignItems.Center"
+                 JustifyContent="JustifyContent.End"
+                 Gap="32px"
+                 class="rz-mb-2">
+        <AppContentBadge Title="Doc Date"
+                         Content="@FormData.DocDate.ToString("MM-dd-yy")"
+                         ChildBadgeStyle="BadgeStyle.Secondary"
+                         ChildShade="Shade.Default" />
+        <AppContentBadge Title="Doc" Content="@(CreatingNew ? "New" : FormData.DocNum.ToString())" />
+    </RadzenStack>
+    
+    <RadzenTemplateForm Visible="@(!IsLoadingData)"
+                        @ref="@TemplateForm"
+                        TItem="InventoryTransferRequestVM"
+                        @bind-Data="@FormData"
+                        EditContext="@EditContext"
+                        Submit="@HandleSubmit">
+        <RadzenStack Gap="1rem">
+            <RadzenFieldset AllowCollapse Text="Details">
+                <ChildContent>
+                    <RadzenStack Gap="0.5rem">
+                        <RadzenRow Gap="1rem">
+                            <RadzenColumn Size="12" SizeMD="6">
+                                <RadzenFormField Text="From Warehouse" class="rz-w-100" AllowFloatingLabel="false">
+                                    <ChildContent>
+                                        <RadzenTextBox ReadOnly
+                                                       Visible="@Viewing"
+                                                       Value="@(FormData.FromWarehouse?.WhsName)"
+                                                       Placeholder="No Warehouse Selected"
+                                                       Name="itr_from_whs_label"
+                                                       Disabled="@IsBusy"
+                                                       class="rz-w-100" />
+                                        <RadzenDropDown Visible="@(Creating)"
+                                                        @bind-Value="@FormData.FromWarehouse"
+                                                        Data="@Warehouses"
+                                                        Count="@WarehousesCount"
+                                                        LoadData="@LoadWarehouses"
+                                                        AllowVirtualization
+                                                        AllowClear
+                                                        Name="itr_from_whs_dropdown"
+                                                        AllowFiltering
+                                                        Change="@OnSourceWarehouseChanged"
+                                                        TextProperty="@(nameof(WarehouseVM.WhsName))"
+                                                        Placeholder="No Warehouse Selected"
+                                                        class="rz-w-100" />
+                                    </ChildContent>
+                                    <Helper>
+                                        <RadzenCustomValidator Visible="@(Creating)"
+                                                               Component="itr_from_whs_dropdown"
+                                                               Popup
+                                                               Validator="() => !string.IsNullOrEmpty(FormData.FromWarehouse?.WhsCode)"
+                                                               Text="Source warehouse is required" />
+                                    </Helper>
+                                </RadzenFormField>
+                            </RadzenColumn>
+
+                            <RadzenColumn Size="12" SizeMD="6">
+                                <RadzenFormField Text="To Warehouse" class="rz-w-100" AllowFloatingLabel="false">
+                                    <ChildContent>
+                                        <RadzenTextBox ReadOnly
+                                                       Visible="@Viewing"
+                                                       Value="@(FormData.ToWarehouse?.WhsName)"
+                                                       Placeholder="No Warehouse Selected"
+                                                       Name="itr_to_whs_label"
+                                                       Disabled="@IsBusy"
+                                                       class="rz-w-100" />
+                                        <RadzenDropDown Visible="@(Creating)"
+                                                        @bind-Value="@FormData.ToWarehouse"
+                                                        Data="@Warehouses"
+                                                        Count="@WarehousesCount"
+                                                        LoadData="@LoadWarehouses"
+                                                        AllowVirtualization
+                                                        AllowClear
+                                                        Name="itr_to_whs_dropdown"
+                                                        AllowFiltering
+                                                        TextProperty="@(nameof(WarehouseVM.WhsName))"
+                                                        Placeholder="No Warehouse Selected"
+                                                        class="rz-w-100" />
+                                    </ChildContent>
+                                    <Helper>
+                                        <RadzenCustomValidator Visible="@(Creating)"
+                                                               Component="itr_to_whs_dropdown"
+                                                               Popup
+                                                               Validator="() => !string.IsNullOrEmpty(FormData.ToWarehouse?.WhsCode)"
+                                                               Text="Destination warehouse is required" />
+                                                               
+                                        <RadzenCustomValidator Visible="@(Creating)"
+                                                               Component="itr_to_whs_dropdown"
+                                                               Popup
+                                                               Validator="() => FormData.ToWarehouse?.WhsCode != FormData.FromWarehouse?.WhsCode"
+                                                               Text="Source warehouse and destination warehouse must not be the same" />
+                                    </Helper>
+                                </RadzenFormField>
+                            </RadzenColumn>
+                        </RadzenRow>
+                        <RadzenRow Gap=1rem>
+                            <RadzenColumn Size="12" SizeMD="4">
+                                <RadzenFormField Text="Prepared By" class="rz-w-100" AllowFloatingLabel="false">
+                                    <ChildContent>
+                                        <RadzenTextBox ReadOnly="@Viewing"
+                                                       @bind-Value="@FormData.PreparedBy"
+                                                       Placeholder="WMS User"
+                                                       Name="itr_prepared_by"
+                                                       Disabled="@IsBusy"
+                                                       class="rz-w-100" />
+                                    </ChildContent>
+                                    <Helper>
+                                        <RadzenCustomValidator Visible="@(Creating)"
+                                                               Component="itr_to_whs_dropdown"
+                                                               Popup
+                                                               Validator="() => !string.IsNullOrEmpty(FormData.PreparedBy)"
+                                                               Text="'Prepared by' field is required" />
+                                    </Helper>
+                                </RadzenFormField>
+                            </RadzenColumn>
+                            <RadzenColumn Size="12" SizeMD="4">
+                                <RadzenFormField Text="Transfer Type" class="rz-w-100" AllowFloatingLabel="false">
+                                    <ChildContent>
+                                        <RadzenTextBox Visible="@Viewing"
+                                                       ReadOnly
+                                                       Value="@FormData.TransferType?.Name"
+                                                       Placeholder="Transfer Type"
+                                                       Name="itr_transfer_type"
+                                                       Disabled="@IsBusy"
+                                                       class="rz-w-100" />
+                                        <RadzenDropDown Visible="@Creating"
+                                                        @bind-Value="@FormData.TransferType"
+                                                        Data="@TransferTypes"
+                                                        Name="itr_transfer_type_dropdown"
+                                                        TextProperty="@nameof(TransferTypeVM.Name)"
+                                                        AllowFiltering
+                                                        AllowClear
+                                                        Placeholder="No Transfer Type Selected"
+                                                        class="rz-w-100" />
+                                    </ChildContent>
+                                    <Helper>
+                                        <RadzenCustomValidator Component="itr_transfer_type_dropdown"
+                                                               Popup
+                                                               Validator="@(() => !string.IsNullOrEmpty(FormData.TransferType?.Code))"
+                                                               Text="Transfer type is required" />
+                                    </Helper>
+                                </RadzenFormField>
+                            </RadzenColumn>
+                            <RadzenColumn Size="12" SizeMD="4">
+                                <RadzenFormField Text="School Year" class="rz-w-100" AllowFloatingLabel="false">
+                                    <ChildContent>
+                                        <RadzenTextBox Visible="@(Viewing)"
+                                                       ReadOnly
+                                                       Value="@FormData.SchoolYear?.Name"
+                                                       Name="itr_school_year"
+                                                       Placeholder="No School Year Selected"
+                                                       Disabled="@IsBusy"
+                                                       class="rz-w-100" />
+                                        <RadzenDropDown Visible="@(!Viewing)"
+                                                        @bind-Value="@FormData.SchoolYear"
+                                                        Data="@SchoolYears"
+                                                        Count="@SchoolYearsCount"
+                                                        LoadData="@LoadSchoolYears"
+                                                        TextProperty="@nameof(SchoolYearVM.Name)"
+                                                        AllowVirtualization
+                                                        AllowClear
+                                                        Name="itr_sy_dropdown"
+                                                        AllowFiltering
+                                                        Placeholder="No School Year Selected"
+                                                        class="rz-w-100" />
+                                    </ChildContent>
+                                    <Helper>
+                                        <RadzenCustomValidator Component="itr_sy_dropdown"
+                                                               Popup
+                                                               Validator="@(() => FormData.SchoolYear?.Code != null)"
+                                                               Text="School year is required" />
+                                    </Helper>
+                                </RadzenFormField>
+                            </RadzenColumn>
+                        </RadzenRow>
+                    </RadzenStack>
+                </ChildContent>
+            </RadzenFieldset>
+            <RadzenFieldset AllowCollapse Text="Items">
+                <RadzenRow>
+                    <RadzenColumn>
+                        <AppTable @ref="@InventoryTransferRequestTable"
+                                  Id="items"
+                                  TItem="InventoryTransferRequestLineVM"
+                                  @bind-GridSettingsLoaded="@GridSettingsLoaded"
+                                  Data="@FormData.Lines">
+                            <HeaderTemplate>
+                                <RadzenStack Orientation="Orientation.Horizontal"
+                                             JustifyContent="JustifyContent.End"
+                                             AlignItems="AlignItems.Center"
+                                             Gap="8px">
+                                    <RadzenButton Icon="settings"
+                                                  Size="ButtonSize.Small"
+                                                  ButtonStyle="ButtonStyle.Light"
+                                                  Click="@OpenTableSettings" />
+                                    <RadzenButton Visible="@CreatingNew"
+                                                  Icon="add"
+                                                  Size="ButtonSize.Small"
+                                                  ButtonStyle="ButtonStyle.Success"
+                                                  Click="@AddItems"
+                                                  Disabled="@(string.IsNullOrEmpty(FormData.FromWarehouse?.WhsCode))" />
+
+                                </RadzenStack>
+                            </HeaderTemplate>
+                            <Columns>
+                                <RadzenDataGridColumn TItem="InventoryTransferRequestLineVM"
+                                                      Type="@typeof(int)"
+                                                      Width="40px"
+                                                      Filterable="false" Sortable="false" Pickable="false"
+                                                      TextAlign="TextAlign.Center">
+                                    <Template Context="data">
+                                        @(CreatingNew? FormData.Lines.IndexOf(data) + 1 : data.LineNum + 1)
+                                    </Template>
+                                </RadzenDataGridColumn>
+                                <RadzenDataGridColumn TItem="InventoryTransferRequestLineVM"
+                                                      Property="@nameof(InventoryTransferRequestLineVM.ItemCode)"
+                                                      Type="@typeof(string)"
+                                                      Title="Item Code" />
+                                <RadzenDataGridColumn TItem="InventoryTransferRequestLineVM"
+                                                      Property="@nameof(InventoryTransferRequestLineVM.ItemName)"
+                                                      Type="@typeof(string)"
+                                                      Title="Description" />
+                                <RadzenDataGridColumn TItem="InventoryTransferRequestLineVM"
+                                                      Property="@nameof(InventoryTransferRequestLineVM.UoMName)"
+                                                      Type="@typeof(string)"
+                                                      Title="UoM" />
+                                @if (!CreatingNew)
+                                {
+                                    <RadzenDataGridColumn TItem="InventoryTransferRequestLineVM"
+                                                          Property="@nameof(InventoryTransferRequestLineVM.Quantity)"
+                                                          Type="@typeof(decimal)"
+                                                          Title="Required Quantity"
+                                                          Width="150px">
+                                        <Template Context="data">
+                                            <RadzenNumeric Format="N0"
+                                                           @bind-Value="@data.Quantity"
+                                                           Type="@typeof(decimal)"
+                                                           Min="0"
+                                                           ReadOnly
+                                                           ShowUpDown="false" />
+                                        </Template>
+                                    </RadzenDataGridColumn>
+                                    <RadzenDataGridColumn TItem="InventoryTransferRequestLineVM"
+                                                          Property="@nameof(InventoryTransferRequestLineVM.PendingQuantity)"
+                                                          Type="@typeof(decimal)"
+                                                          Title="Pending Quantity"
+                                                          Width="150px">
+                                        <Template Context="data">
+                                            <RadzenNumeric Format="N0"
+                                                           Value="@(data.PendingQuantity)"
+                                                           Type="@typeof(decimal)"
+                                                           Min="0"
+                                                           ReadOnly
+                                                           ShowUpDown="false" />
+                                        </Template>
+                                    </RadzenDataGridColumn>
+                                    <RadzenDataGridColumn TItem="InventoryTransferRequestLineVM"
+                                                          Property="@nameof(InventoryTransferRequestLineVM.OpenQuantity)"
+                                                          Type="@typeof(decimal)"
+                                                          Title="Open Quantity"
+                                                          Width="150px">
+                                        <Template Context="data">
+                                            <RadzenNumeric Format="N0"
+                                                           Value="@(data.OpenQuantity)"
+                                                           Type="@typeof(decimal)"
+                                                           Min="0"
+                                                           ReadOnly
+                                                           ShowUpDown="false" />
+                                        </Template>
+                                    </RadzenDataGridColumn>
+                                }
+                                @if (CreatingNew)
+                                {
+                                    <RadzenDataGridColumn TItem="InventoryTransferRequestLineVM"
+                                                          Property="@nameof(InventoryTransferRequestLineVM.OnHandQuantity)"
+                                                          Type="@typeof(decimal)"
+                                                          Title="On-hand Quantity"
+                                                          Width="150px">
+                                        <Template Context="data">
+                                            <RadzenNumeric Format="N0"
+                                                           ReadOnly
+                                                           ShowUpDown="false"
+                                                           @bind-Value="@data.OnHandQuantity"
+                                                           Type="@typeof(decimal)" />
+                                        </Template>
+                                    </RadzenDataGridColumn>
+                                }
+                                @if (Creating)
+                                {
+                                    <RadzenDataGridColumn TItem="InventoryTransferRequestLineVM"
+                                                          Property="@nameof(InventoryTransferRequestLineVM.AllotedQuantity)"
+                                                          Type="@typeof(decimal)"
+                                                          Title="@(CreatingNew ? "Quantity" : "Alloted Quantity")"
+                                                          Width="150px"
+                                                          Visible="@Creating">
+                                        <Template Context="data">
+                                            <RadzenNumeric Format="N0"
+                                                           @bind-Value="@data.AllotedQuantity"
+                                                           Type="@typeof(decimal)"
+                                                           Min="0"
+                                                           Max="@(CreatingNew ? decimal.MaxValue : data.OpenQuantity)" />
+                                        </Template>
+                                    </RadzenDataGridColumn>
+                                }
+                                @if (CreatingNew)
+                                {
+                                    <RadzenDataGridColumn TItem="InventoryTransferRequestLineVM"
+                                                          Type="@typeof(bool)"
+                                                          Frozen
+                                                          FrozenPosition="FrozenColumnPosition.Right"
+                                                          Width="45px"
+                                                          MaxWidth="45px"
+                                                          Pickable="false" Sortable="false" Filterable="false"
+                                                          Visible="@CreatingNew">
+                                        <Template Context="data">
+                                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceEvenly">
+                                                <RadzenButton Icon="delete"
+                                                              Size="ButtonSize.ExtraSmall"
+                                                              ButtonStyle="ButtonStyle.Danger"
+                                                              Click="() => RemoveLine(data)" />
+                                            </RadzenStack>
+                                        </Template>
+                                    </RadzenDataGridColumn>
+                                }
+                            </Columns>
+                        </AppTable>
+                    </RadzenColumn>
+                </RadzenRow>
+            </RadzenFieldset>
+            <RadzenRow>
+                <RadzenColumn Size="12" SizeMD="4">
+                    <RadzenFormField Text="Remarks" class="rz-w-100" AllowFloatingLabel="false">
+                        <ChildContent>
+                            <RadzenTextArea ReadOnly="@Viewing"
+                                            @bind-Value="@FormData.Remarks"
+                                            Name="itr_remarks"
+                                            Rows="3"
+                                            Disabled="@IsBusy"
+                                            class="rz-w-100"
+                                            Placeholder="..." />
+                        </ChildContent>
+                    </RadzenFormField>
+                </RadzenColumn>
+                <RadzenColumn Size="12" SizeMD="4" OffsetMD="4">
+                    <RadzenStack Gap="0.5rem">
+                        <RadzenFormField Text="Approved By" class="rz-w-100" AllowFloatingLabel="false">
+                            <ChildContent>
+                                <RadzenTextBox ReadOnly="@Viewing"
+                                               @bind-Value="@FormData.ApprovedBy"
+                                               Name="itr_app_by"
+                                               Placeholder="WMS User B"
+                                               Disabled="@IsBusy"
+                                               class="rz-w-100" />
+                            </ChildContent>
+                        </RadzenFormField>
+                        <RadzenFormField Text="Noted By" class="rz-w-100" AllowFloatingLabel="false">
+                            <ChildContent>
+                                <RadzenTextBox ReadOnly="@Viewing"
+                                               @bind-Value="@FormData.NotedBy"
+                                               Name="itr_noted_by"
+                                               Placeholder="WMS User A"
+                                               Disabled="@IsBusy"
+                                               class="rz-w-100" />
+                            </ChildContent>
+                        </RadzenFormField>
+                    </RadzenStack>
+                </RadzenColumn>
+            </RadzenRow>
+            
+            <RadzenRow>
+                <RadzenColumn>
+                    <RadzenStack class="rz-mt-8"
+                                 Orientation="Orientation.Horizontal"
+                                 AlignItems="AlignItems.Center"
+                                 JustifyContent="JustifyContent.SpaceBetween">
+                        <RadzenButton IsBusy="@IsBusy"
+                                      Text="Cancel"
+                                      Disabled="@(IsBusy && Creating)"
+                                      ButtonStyle="ButtonStyle.Base"
+                                      Click="@Return" />
+                        @if (Viewing)
+                        {
+                            <RadzenStack Visible="@(Can.Create("OITR"))"
+                                         Orientation="Orientation.Horizontal"
+                                         AlignItems="AlignItems.Center"
+                                         Gap="16px">
+                                <RadzenButton IsBusy="@IsBusy"
+                                              ButtonStyle="ButtonStyle.Primary"
+                                              ButtonType="ButtonType.Button"
+                                              Click="@OnEditButtonPressed">
+                                    Create
+                                </RadzenButton>
+                            </RadzenStack>
+                        }
+                        else
+                        {
+                            <RadzenStack Visible="@(Can.Create("OITR") && Creating)"
+                                         Orientation="Orientation.Horizontal"
+                                         AlignItems="AlignItems.Center"
+                                         Gap="16px">
+                                <RadzenButton IsBusy="@IsBusy"
+                                              Visible="@(Creating)"
+                                              ButtonStyle="ButtonStyle.Success"
+                                              ButtonType="ButtonType.Submit">
+                                    Save Changes
+                                </RadzenButton>
+                            </RadzenStack>
+                        }
+                    </RadzenStack>
+                </RadzenColumn>
+            </RadzenRow>
+        </RadzenStack>
+
+    </RadzenTemplateForm>
+    
+</AppContent>
+
+                                                      
+@code {
+    async Task AddItems()
+    {
+        if (!CreatingNew) return;
+
+        await DialogService.OpenAsync(
+            "Item Selection",
+            ds => @<ItemSelection @bind-Request="@FormData" />,
+    options: GridSettingsService.GetDialogOptions().MaximizedMode()
+        );
+
+        await InventoryTransferRequestTable.DataGrid.Reload();
+    }
+
+    async Task OpenTableSettings()
+    {
+        await DialogService.OpenAsync(
+            "Table Settings",
+            ds => @<AppGridSettings TItem="InventoryTransferRequestLineVM"
+                                    @bind-Grid=@InventoryTransferRequestTable.DataGrid
+                                    @bind-GridSettings=@InventoryTransferRequestTableSettings />,
+        options: GridSettingsService.GetDialogOptions());
+
+        await InventoryTransferRequestTable.DataGrid.Reload();
+    }
+}

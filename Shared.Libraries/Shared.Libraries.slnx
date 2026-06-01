@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/core/" />
+  <Folder Name="/core/application/" />
+  <Folder Name="/core/domain/">
+    <Project Path="../Domain.Entities/Domain.Entities.csproj" />
+  </Folder>
+  <Folder Name="/shared/">
+    <Project Path="Shared.Libraries.csproj" />
+  </Folder>
+</Solution>

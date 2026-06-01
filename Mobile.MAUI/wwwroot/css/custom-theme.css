@@ -1,0 +1,21 @@
+:root {
+    --rz-primary: #106D48 !important;
+    --rz-primary-light:#83cca6 !important;
+    --rz-primary-lighter: #8bf2c3 !important; 
+    --rz-secondary: ##1E8C4D !important;
+    --rz-danger: #b43030 !important;
+    --rz-warning: #f2b60f !important;
+    --rz-success: #0FAD14 !important;
+}
+
+.text-ellipsis{
+    overflow:hidden;
+    text-overflow:ellipsis;
+    flex-grow:1
+}
+.font-bold{
+    font-weight:500;
+}
+.font-bolder {
+    font-weight: 700;
+}

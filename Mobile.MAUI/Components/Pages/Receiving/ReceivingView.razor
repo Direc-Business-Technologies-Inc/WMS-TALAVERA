@@ -1,0 +1,18 @@
+﻿@page "/receiving"
+@using Mobile.MAUI.Components.Pages.Receiving.PurchaseOrder
+<PageHeading Title="Receiving" />
+
+<RadzenTabs Change=@OnChange TabPosition="TabPosition.Top" RenderMode="TabRenderMode.Client">
+    <Tabs>
+        <RadzenTabsItem Text="PO">
+            <PurchaseOrderView />
+        </RadzenTabsItem>
+        <RadzenTabsItem Text="TO">
+
+        </RadzenTabsItem>
+        <RadzenTabsItem Text="Returns">
+
+        </RadzenTabsItem>
+</Tabs>
+</RadzenTabs>
+

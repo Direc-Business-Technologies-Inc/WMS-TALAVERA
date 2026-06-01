@@ -1,0 +1,12 @@
+﻿﻿<RadzenStack Orientation="@Orientation"
+              JustifyContent="@JustfyContent"
+              AlignItems="@AlignItems"
+              Gap="@Gap"
+              Style="background-color: var(--rz-base-background-color);"
+              class="rz-p-4 rz-border rz-border-radius-1"
+              @Attributes="@AdditionalAttributes">
+
+    @if (ChildContent is not null)
+        @ChildContent
+    
+</RadzenStack>

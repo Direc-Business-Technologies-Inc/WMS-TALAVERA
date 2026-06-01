@@ -1,0 +1,8 @@
+SELECT
+	 UFD1.FldValue [Code]
+	,UFD1.Descr [Value]
+FROM CUFD
+INNER JOIN UFD1 ON CUFD.FieldID = UFD1.FieldID AND CUFD.TableID = UFD1.TableID
+WHERE 
+	CUFD.TableID LIKE 'ORDN'
+	AND CUFD.FieldID = 14

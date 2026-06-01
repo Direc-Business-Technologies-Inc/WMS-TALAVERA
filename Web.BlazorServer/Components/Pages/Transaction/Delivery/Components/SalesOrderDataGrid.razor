@@ -1,0 +1,61 @@
+@using Web.BlazorServer.Components.Security
+@using Web.BlazorServer.ViewModels.Transaction.Delivery
+
+@inherits BaseComponent
+
+<AppDataGrid @ref="@SalesOrderGrid" Id="sales_order_delivery_grid" TItem="SalesOrderDataGridVM" DataGetter="@LoadDataAsync" GridSettings="@SalesOrderDataGridSettings" @bind-GridSettingsLoaded="@GridSettingsLoaded" ActionName="@ActionGetAllSalesOrders">
+    <HeaderTemplate>
+        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" AlignItems="AlignItems.Center" Gap="8px">
+            <RadzenButton Icon="settings" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@OpenTableSettings" />
+            <RadzenButton Icon="sync" Size="ButtonSize.Small" Click="SalesOrderGrid.ReloadDataAsync" />
+        </RadzenStack>
+    </HeaderTemplate>
+    <GridColumns>
+        <RadzenDataGridColumn TItem="SalesOrderDataGridVM"
+                              Property="@nameof(SalesOrderDataGridVM.DocNum)"
+                              Type="@typeof(int)"
+                              Title="SO Doc No." />
+        <RadzenDataGridColumn TItem="SalesOrderDataGridVM"
+                              Property="@nameof(SalesOrderDataGridVM.DocDate)"
+                              Type="@typeof(DateTime)"
+                              Title="SO Date">
+            <Template>
+                @context.DocDate.ToString("MM/dd/yyyy")
+            </Template>
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn TItem="SalesOrderDataGridVM"
+                              Property="@nameof(SalesOrderDataGridVM.CardName)"
+                              Type="@typeof(string)"
+                              Title="Customer Name" />
+        <RadzenDataGridColumn TItem="SalesOrderDataGridVM"
+                              Property="@nameof(SalesOrderDataGridVM.ContactPerson)"
+                              Type="@typeof(string)"
+                              Title="Contact Person" />
+        <RadzenDataGridColumn TItem="SalesOrderDataGridVM"
+                              Property="@nameof(SalesOrderDataGridVM.Remarks)"
+                              Type="@typeof(string)"
+                              Title="Remarks" />
+        <RadzenDataGridColumn TItem="SalesOrderDataGridVM"
+                              Frozen
+                              FrozenPosition="FrozenColumnPosition.Right"
+                              Width="35px">
+            <Template>
+                <RadzenButton Icon="arrow_right_alt" Size="ButtonSize.ExtraSmall" Click="() => ViewSalesOrder(context)" />
+            </Template>
+        </RadzenDataGridColumn>
+    </GridColumns>
+</AppDataGrid>
+
+@code {
+    async Task OpenTableSettings()
+    {
+        await DialogService.OpenAsync(
+            "Table Settings",
+            ds => @<AppGridSettings TItem="SalesOrderDataGridVM"
+                                    @bind-Grid=@SalesOrderGrid.DataGrid
+                                    @bind-GridSettings=@SalesOrderDataGridSettings />,
+        options: GridSettingsService.GetDialogOptions());
+
+        await SalesOrderGrid.DataGrid.Reload();
+    }
+}

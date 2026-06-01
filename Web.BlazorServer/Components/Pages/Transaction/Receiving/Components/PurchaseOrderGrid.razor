@@ -1,0 +1,62 @@
+﻿@using Web.BlazorServer.Components.Security
+@using Web.BlazorServer.ViewModels.Administration.User
+@using Web.BlazorServer.ViewModels.Transaction.Receiving
+
+@inherits BaseComponent
+
+<AppDataGrid @ref="@PurchaseOrderDataGrid" Id="purchase_order_grid" TItem="PurchaseOrderDataGridVM" DataGetter="@LoadDataAsync" GridSettings="@PurchaseOrderDataGridSettings" @bind-GridSettingsLoaded="@GridSettingsLoaded" ActionName="@ActionGetPurchaseOrders">
+    <HeaderTemplate>
+        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" AlignItems="AlignItems.Center" Gap="8px">
+            <RadzenButton Icon="settings" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@OpenTableSettings" />
+            <RadzenButton Icon="sync" Size="ButtonSize.Small" Click="PurchaseOrderDataGrid.ReloadDataAsync" />
+        </RadzenStack>
+    </HeaderTemplate>
+    <GridColumns>
+        <RadzenDataGridColumn TItem="PurchaseOrderDataGridVM"
+                              Property="@nameof(PurchaseOrderDataGridVM.DocNum)"
+                              Type="@typeof(int)"
+                              Title="PO Doc No." />
+        <RadzenDataGridColumn TItem="PurchaseOrderDataGridVM"
+                              Property="@nameof(PurchaseOrderDataGridVM.DocDate)"
+                              Type="@typeof(DateTime)"
+                              Title="PO Date">
+            <Template>
+                @context.DocDate.ToString("MM/dd/yyyy")
+            </Template>
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn TItem="PurchaseOrderDataGridVM"
+                              Property="@nameof(PurchaseOrderDataGridVM.CardName)"
+                              Type="@typeof(string)"
+                              Title="Supplier Name" />
+        <RadzenDataGridColumn TItem="PurchaseOrderDataGridVM"
+                              Property="@nameof(PurchaseOrderDataGridVM.SupplierContactPerson)"
+                              Type="@typeof(string)"
+                              Title="Contact Person" />
+        <RadzenDataGridColumn TItem="PurchaseOrderDataGridVM"
+                              Property="@nameof(PurchaseOrderDataGridVM.Remarks)"
+                              Type="@typeof(string)"
+                              Title="Remarks" />
+        <RadzenDataGridColumn TItem="PurchaseOrderDataGridVM"
+                              Frozen
+                              FrozenPosition="FrozenColumnPosition.Right"
+                              Width="35px">
+            <Template>
+                <RadzenButton Icon="arrow_right_alt" Size="ButtonSize.ExtraSmall" Click="() => ViewPurchaseOrder(context)" />
+            </Template>
+        </RadzenDataGridColumn>
+    </GridColumns>
+</AppDataGrid>
+
+@code {
+    async Task OpenTableSettings()
+    {
+        await DialogService.OpenAsync(
+            "Table Settings",
+            ds => @<AppGridSettings TItem="PurchaseOrderDataGridVM"
+                                    @bind-Grid=@PurchaseOrderDataGrid.DataGrid
+                                    @bind-GridSettings=@PurchaseOrderDataGridSettings />,
+        options: GridSettingsService.GetDialogOptions());
+
+        await PurchaseOrderDataGrid.DataGrid.Reload();
+    }
+}

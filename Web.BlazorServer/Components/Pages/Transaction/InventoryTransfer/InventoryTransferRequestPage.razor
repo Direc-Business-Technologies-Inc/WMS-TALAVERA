@@ -1,0 +1,46 @@
+﻿@using Web.BlazorServer.Components.Pages.Transaction.InventoryTransfer.Components
+@using Web.BlazorServer.Components.Security
+
+@page "/transactions/inventory/inventory-transfer"
+@inherits BaseComponent
+@layout ProtectedLayout
+@attribute [AppAuthorizationAttribute("VIEW", "OITR")]
+
+<PageTitle>Inventory Transfer Request</PageTitle>
+
+<RadzenStack Orientation="Orientation.Horizontal"
+             AlignItems="AlignItems.Center"
+             JustifyContent="JustifyContent.SpaceBetween"
+             class="rz-mb-4">
+    <AppBreadCrumbs ModuleCode="OITR" />
+</RadzenStack>
+
+<AppContent>
+    <RadzenTabs @bind-SelectedIndex="@SelectedTab" @bind-SelectedIndex:after="@TabChanged">
+        <Tabs>
+            <RadzenTabsItem Text="Inventory Transfer Requests">
+                <DataGrid ViewItemURI="@ITR_VIEW_ITEM_URI"
+                          CreateItemURI="@ITR_CREATE_ITEM_URI"
+                          ActionName="@ActionGetInventoryTransferRequests"
+                          DataGetter="@ITRGetter" />
+            </RadzenTabsItem>
+            <RadzenTabsItem Text="Pending ITR">
+                <DataGrid ViewItemURI="@PENDING_ITR_VIEW_ITEM_URI"
+                          ActionName="@ActionGetPendingInventoryTransferRequests"
+                          IsDraft="@true"
+                          DataGetter="@PendingITRGetter" />
+            </RadzenTabsItem>
+            <RadzenTabsItem Text="Rejected ITR">
+                <DataGrid ViewItemURI="@REJECTED_ITR_VIEW_ITEM_URI"
+                          ActionName="@ActionGetRejectedInventoryTransferRequests"
+                          IsDraft="@true"
+                          DataGetter="@RejectedITRGetter" />
+            </RadzenTabsItem>
+            <RadzenTabsItem Text="Posted ITR">
+                <DataGrid ViewItemURI="@POSTED_ITR_VIEW_ITEM_URI"
+                          ActionName="@ActionGetPostedInventoryTransferRequests"
+                          DataGetter="@PostedITRGetter" />
+            </RadzenTabsItem>
+        </Tabs>
+    </RadzenTabs>
+</AppContent>

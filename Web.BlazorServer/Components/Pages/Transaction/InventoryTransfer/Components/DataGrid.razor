@@ -1,0 +1,75 @@
+﻿@using Web.BlazorServer.Components.Security
+@using Web.BlazorServer.ViewModels.Transaction.InventoryTransfer
+
+@inherits BaseComponent
+
+<AppDataGrid @ref="@InventoryTransferRequestDataGrid"
+             Id="posted_inventory_transfer_request_grid"
+             TItem="InventoryTransferRequestDataGridVM"
+             DataGetter="@LoadDataAsync"
+             GridSettings="@InventoryTransferRequestDataGridSettings"
+             @bind-GridSettingsLoaded="@GridSettingsLoaded"
+             ActionName="@ActionName">
+    <HeaderTemplate>
+        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" AlignItems="AlignItems.Center" Gap="8px">
+            <RadzenButton Icon="settings" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@OpenTableSettings" />
+            <RadzenButton Icon="sync" Size="ButtonSize.Small" Click="InventoryTransferRequestDataGrid.ReloadDataAsync" />
+            <RadzenButton Visible="@(CreateItemURI is not null)" Icon="add" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Success" Click="@CreateItem" />
+        </RadzenStack>
+    </HeaderTemplate>
+    <GridColumns>
+        <RadzenDataGridColumn TItem="InventoryTransferRequestDataGridVM"
+                              Property="@nameof(InventoryTransferRequestDataGridVM.DocEntry)"
+                              Type="@typeof(int)"
+                              Title="@(IsDraft ? "Draft Entry" : "Doc Entry")" />
+        <RadzenDataGridColumn TItem="InventoryTransferRequestDataGridVM"
+                              Property="@nameof(InventoryTransferRequestDataGridVM.FromWhsName)"
+                              Type="@typeof(string)"
+                              Title="From Warehouse">
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn TItem="InventoryTransferRequestDataGridVM"
+                              Property="@nameof(InventoryTransferRequestDataGridVM.ToWhsName)"
+                              Type="@typeof(string)"
+                              Title="To Warehouse">
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn TItem="InventoryTransferRequestDataGridVM"
+                              Property="@nameof(InventoryTransferRequestDataGridVM.DocDate)"
+                              Type="@typeof(DateTime)"
+                              Title="Doc Date">
+            <Template>
+                @context.DocDate.ToString("MM/dd/yyyy")
+            </Template>
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn TItem="InventoryTransferRequestDataGridVM"
+                              Property="@nameof(InventoryTransferRequestDataGridVM.Remarks)"
+                              Type="@typeof(string)"
+                              Title="Remarks" />
+        <RadzenDataGridColumn TItem="InventoryTransferRequestDataGridVM"
+                              Property="@nameof(InventoryTransferRequestDataGridVM.PreparedBy)"
+                              Type="@typeof(string)"
+                              Title="Prepared By" />
+        <RadzenDataGridColumn TItem="InventoryTransferRequestDataGridVM"
+                              Frozen
+                              FrozenPosition="FrozenColumnPosition.Right"
+                              Width="35px">
+            <Template>
+                <RadzenButton Icon="arrow_right_alt" Size="ButtonSize.ExtraSmall" Click="() => ViewInventoryTransferRequest(context)" />
+            </Template>
+        </RadzenDataGridColumn>
+
+    </GridColumns>
+</AppDataGrid>
+
+@code {
+    async Task OpenTableSettings()
+    {
+        await DialogService.OpenAsync(
+            "Table Settings",
+            ds => @<AppGridSettings TItem="InventoryTransferRequestDataGridVM"
+                                    @bind-Grid=@InventoryTransferRequestDataGrid.DataGrid
+                                    @bind-GridSettings=@InventoryTransferRequestDataGridSettings />,
+        options: GridSettingsService.GetDialogOptions());
+
+        await InventoryTransferRequestDataGrid.DataGrid.Reload();
+    }
+}

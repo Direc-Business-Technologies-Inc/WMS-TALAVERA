@@ -1,0 +1,53 @@
+﻿@using Web.BlazorServer.Components.Base
+@using Web.BlazorServer.Components.Shared.Skeletons
+
+@inherits BaseComponent
+@typeparam TItem where TItem : class
+
+<AppDataGridSkeleton TItem="TItem" Loading="@(!GridSettingsLoaded && !IsBusy)" />
+<RadzenDataGrid TItem="TItem"
+                Visible="@(GridSettingsLoaded && Visible && !IsBusy)"
+                @ref=@(DataGrid)
+                Count="@(Data.Count)"
+                IsLoading="@(IsBusy)"
+                Data=@(Data)
+                @bind-Value=@(SelectedItems)
+                FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                RowDoubleClick=@(OnRowDoubleClick)
+                RowClick=@(OnRowClick)
+                SelectionMode="@(DataGridSelectionMode)"
+                RowSelect="@(OnRowSelect)"
+                RowDeselect="@(OnRowDeselect)"
+                id="@(Id)"
+                Settings=@(GridSettings)
+                SettingsChanged=@(async args => GridSettings = await GridSettingsService.GridSettingsChanged(DataGrid, args))
+                AllowPaging
+                ShowPagingSummary
+                PagerHorizontalAlign="@HorizontalAlign.Right">
+
+        <HeaderTemplate>
+            @if (HeaderTemplate is not null)
+                @HeaderTemplate
+        
+        </HeaderTemplate>
+
+        <Columns>
+            @if (Columns is not null)
+                @Columns
+        </Columns>
+
+    <LoadingTemplate>
+        <RadzenProgressBarCircular ShowValue Mode="ProgressBarMode.Indeterminate">
+            <Template>Wait</Template>
+        </RadzenProgressBarCircular>
+    </LoadingTemplate>
+
+    <EmptyTemplate>
+        @if (EmptyTemplate is null)
+        {
+            <p style="color: lightgrey; font-size: 24px; text-align: center; margin: 2rem;">No records to display.</p>
+        }
+        else
+        @EmptyTemplate
+        </EmptyTemplate>
+</RadzenDataGrid>

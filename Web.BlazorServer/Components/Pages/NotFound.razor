@@ -1,0 +1,25 @@
+﻿@using Web.BlazorServer.Components.Security
+@layout MainLayout
+@inherits BaseComponent
+@page "/404"
+
+
+<AppContent>
+    <RadzenStack class="rz-w-100">
+
+        <RadzenText Text="Error 404" TextStyle="TextStyle.H4" class="rz-color-danger" />
+        <RadzenText Text="Module not Found" TextStyle="TextStyle.Subtitle2" class="rz-color-base-700" />
+
+        <RadzenButton Visible=@appAuthentication.IsAuthenticated() ButtonStyle="ButtonStyle.Base" Text="Go Back to Dashboard" Click="@ToDashboard" class="rz-mt-4" Style="max-width: 300px;" />
+    </RadzenStack>
+</AppContent>
+
+@code {
+
+    [Inject] AppAuthenticationService appAuthentication { get; set; }
+
+    void ToDashboard()
+    {
+        NavManager.NavigateTo("/dashboard", true);
+    }
+}

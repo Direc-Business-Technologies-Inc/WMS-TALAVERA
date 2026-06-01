@@ -1,0 +1,62 @@
+@using Web.BlazorServer.Components.Security
+@using Web.BlazorServer.ViewModels.Transaction.SalesReturn
+
+@inherits BaseComponent
+
+<AppDataGrid @ref="@SalesReturnDataGrid" Id="sales_return_grid" TItem="SalesReturnDataGridVM" DataGetter="@LoadDataAsync" GridSettings="@SalesReturnDataGridSettings" @bind-GridSettingsLoaded="@GridSettingsLoaded" ActionName="@ActionGetSalesReturns">
+    <HeaderTemplate>
+        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" AlignItems="AlignItems.Center" Gap="8px">
+            <RadzenButton Icon="settings" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@OpenTableSettings" />
+            <RadzenButton Icon="sync" Size="ButtonSize.Small" Click="SalesReturnDataGrid.ReloadDataAsync" />
+            <RadzenButton Icon="add" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Success" Click="@CreateSalesReturn" />
+        </RadzenStack>
+    </HeaderTemplate>
+    <GridColumns>
+        <RadzenDataGridColumn TItem="SalesReturnDataGridVM"
+                              Property="@nameof(SalesReturnDataGridVM.DocNum)"
+                              Type="@typeof(int)"
+                              Title="SR Doc No." />
+        <RadzenDataGridColumn TItem="SalesReturnDataGridVM"
+                              Property="@nameof(SalesReturnDataGridVM.DocDate)"
+                              Type="@typeof(DateTime)"
+                              Title="Doc Date">
+            <Template>
+                @context.DocDate.ToString("MM/dd/yyyy")
+            </Template>
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn TItem="SalesReturnDataGridVM"
+                              Property="@nameof(SalesReturnDataGridVM.CardCode)"
+                              Type="@typeof(string)"
+                              Title="Customer Code" />
+        <RadzenDataGridColumn TItem="SalesReturnDataGridVM"
+                              Property="@nameof(SalesReturnDataGridVM.CardName)"
+                              Type="@typeof(string)"
+                              Title="Customer Name" />
+        <RadzenDataGridColumn TItem="SalesReturnDataGridVM"
+                              Property="@nameof(SalesReturnDataGridVM.Remarks)"
+                              Type="@typeof(string)"
+                              Title="Remarks" />
+        <RadzenDataGridColumn TItem="SalesReturnDataGridVM"
+                              Frozen
+                              FrozenPosition="FrozenColumnPosition.Right"
+                              Width="35px">
+            <Template>
+                <RadzenButton Icon="arrow_right_alt" Size="ButtonSize.ExtraSmall" Click="() => ViewSalesReturn(context)" />
+            </Template>
+        </RadzenDataGridColumn>
+    </GridColumns>
+</AppDataGrid>
+
+@code {
+    async Task OpenTableSettings()
+    {
+        await DialogService.OpenAsync(
+            "Table Settings",
+            ds => @<AppGridSettings TItem="SalesReturnDataGridVM"
+                                    @bind-Grid=@SalesReturnDataGrid.DataGrid
+                                    @bind-GridSettings=@SalesReturnDataGridSettings />,
+        options: GridSettingsService.GetDialogOptions());
+
+        await SalesReturnDataGrid.DataGrid.Reload();
+    }
+}

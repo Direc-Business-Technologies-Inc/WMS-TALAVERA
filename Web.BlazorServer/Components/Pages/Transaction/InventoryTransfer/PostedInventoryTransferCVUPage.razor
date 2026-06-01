@@ -1,0 +1,17 @@
+﻿@using Web.BlazorServer.Components.Pages.Transaction.InventoryTransfer.Components
+@using Web.BlazorServer.Components.Security
+@using Web.BlazorServer.Components.Shared.Skeletons
+@using Web.BlazorServer.ViewModels.Others
+@using Web.BlazorServer.ViewModels.Transaction.InventoryTransfer
+
+@layout ProtectedLayout
+@inherits BaseComponent
+@page "/transactions/inventory/inventory-transfer/posted-inventory-transfer-request/view"
+@attribute [AppAuthorizationAttribute("VIEW", "OITR")]
+
+<PageTitle>Posted ITR : @Ref</PageTitle>
+
+<ReadOnlyForm ActionName="@ActionGetPostedInventoryTransferRequest"
+         DataGetter="@GetPostedInventoryTransferRequest" 
+         AdditionalRoutes="@AdditionalRoutes"
+         ParentURI="/transactions/inventory/inventory-transfer?T=posted"/>

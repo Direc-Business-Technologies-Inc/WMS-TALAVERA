@@ -1,0 +1,70 @@
+﻿@using Web.BlazorServer.Components.Security
+@using Web.BlazorServer.ViewModels.Administration.Role
+
+@inherits BaseComponent
+@page "/administration/user/role-management"
+@layout ProtectedLayout
+@attribute [AppAuthorizationAttribute("VIEW", "OROL")]
+
+
+<PageTitle>Role Management</PageTitle>
+
+<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" class="rz-mb-4">
+    <AppBreadCrumbs ModuleCode="OROL" />
+</RadzenStack>
+<AppContent>
+    <AppDataGrid @ref="@RolesDataGrid" Id="roles_grid" TItem="RoleVM" DataGetter="@LoadDataAsync" GridSettings="@RolesDataGridSettings" @bind-GridSettingsLoaded="@GridSettingsLoaded" ActionName="@ActionGetRoles" DataGridSelectionMode="DataGridSelectionMode.Single">
+        <HeaderTemplate>
+            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" AlignItems="AlignItems.Center" Gap="8px">
+                <RadzenButton Icon="settings" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@OpenTableSettings" />
+                <RadzenButton Icon="sync" Size="ButtonSize.Small" Click="RolesDataGrid.ReloadDataAsync" />
+                <RadzenButton Visible="@Can.Create("OROL")" Icon="add" Size=ButtonSize.Small ButtonStyle="ButtonStyle.Success" Shade="Shade.Light" Click="@CreateRole" />
+            </RadzenStack>
+        </HeaderTemplate>
+        <GridColumns>
+            <RadzenDataGridColumn TItem="RoleVM"
+                                  Property="@nameof(RoleVM.Active)"
+                                  Type="@typeof(bool)"
+                                  Title="Status">
+                <Template Context="data">
+                    @(data.Active ? "ACTIVE" : "INACTIVE")
+                </Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn TItem="RoleVM"
+                                  Property="@nameof(RoleVM.Code)"
+                                  Type="@typeof(string)"
+                                  Title="Code" />
+            <RadzenDataGridColumn TItem="RoleVM"
+                                  Property="@nameof(RoleVM.Name)"
+                                  Type="@typeof(string)"
+                                  Title="Name" />
+            <RadzenDataGridColumn TItem="RoleVM"
+                                  Type="@typeof(bool)"
+                                  Frozen
+                                  FrozenPosition="FrozenColumnPosition.Right"
+                                  MinWidth="35px"
+                                  Width="35px"
+                                  MaxWidth="35px"
+                                  TextAlign="TextAlign.Center"
+                                  Pickable="false" Sortable="false" Filterable="false">
+                <Template Context="data">
+                    <RadzenButton Icon="arrow_right_alt" Size="ButtonSize.ExtraSmall" Click="() => ViewRole(data)" />
+                </Template>
+            </RadzenDataGridColumn>
+        </GridColumns>
+    </AppDataGrid>
+</AppContent>
+
+@code {
+    async Task OpenTableSettings()
+    {
+        await DialogService.OpenAsync(
+            "Table Settings",
+            ds => @<AppGridSettings TItem="RoleVM"
+            @bind-Grid=@RolesDataGrid.DataGrid
+            @bind-GridSettings=@RolesDataGridSettings />,
+        options: GridSettingsService.GetDialogOptions());
+
+        await RolesDataGrid.DataGrid.Reload();
+    }
+}

@@ -1,0 +1,71 @@
+﻿@using Web.BlazorServer.ViewModels.Transaction.Receiving
+@inherits BaseComponent
+
+<AppDataGrid @ref="@PurchaseDeliveryNoteDataGrid" Id="goods_return_grpo_selection_grid" TItem="PurchaseDeliveryNoteDataGridVM" DataGetter="@LoadDataAsync" GridSettings="@PurchaseDeliveryNoteDataGridSettings" @bind-GridSettingsLoaded="@GridSettingsLoaded" ActionName="@ActionGetPurchaseDeliveryNotes">
+    <HeaderTemplate>
+        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" AlignItems="AlignItems.Center" Gap="8px">
+            <RadzenButton Icon="settings" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@OpenTableSettings" />
+            <RadzenButton Icon="sync" Size="ButtonSize.Small" Click="PurchaseDeliveryNoteDataGrid.ReloadDataAsync" />
+        </RadzenStack>
+    </HeaderTemplate>
+    <GridColumns>
+        <RadzenDataGridColumn TItem="PurchaseDeliveryNoteDataGridVM"
+                              Property="@nameof(PurchaseDeliveryNoteDataGridVM.DocNum)"
+                              Type="@typeof(int)"
+                              Title="GRPO Doc No." />
+        <RadzenDataGridColumn TItem="PurchaseDeliveryNoteDataGridVM"
+                              Property="@nameof(PurchaseDeliveryNoteDataGridVM.BaseDocNum)"
+                              Type="@typeof(int)"
+                              Title="PO Ref. No." />
+        <RadzenDataGridColumn TItem="PurchaseDeliveryNoteDataGridVM"
+                              Property="@nameof(PurchaseDeliveryNoteDataGridVM.PoDocDate)"
+                              Type="@typeof(DateTime)"
+                              Title="PO Doc Date">
+            <Template>
+                @context.PoDocDate.ToString("MM/dd/yyyy")
+            </Template>
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn TItem="PurchaseDeliveryNoteDataGridVM"
+                              Property="@nameof(PurchaseDeliveryNoteDataGridVM.CardName)"
+                              Type="@typeof(string)"
+                              Title="Supplier Name" />
+        <RadzenDataGridColumn TItem="PurchaseDeliveryNoteDataGridVM"
+                              Property="@nameof(PurchaseDeliveryNoteDataGridVM.ItemDesc)"
+                              Type="@typeof(string)"
+                              Title="Description" />
+        <RadzenDataGridColumn TItem="PurchaseDeliveryNoteDataGridVM"
+                              Property="@nameof(PurchaseDeliveryNoteDataGridVM.WhsName)"
+                              Type="@typeof(string)"
+                              Title="Warehouse" />
+        <RadzenDataGridColumn TItem="PurchaseDeliveryNoteDataGridVM"
+                              Property="@nameof(PurchaseDeliveryNoteDataGridVM.DocDate)"
+                              Type="@typeof(DateTime)"
+                              Title="Doc Date">
+            <Template>
+                @context.DocDate.ToString("MM/dd/yyyy")
+            </Template>
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn TItem="PurchaseDeliveryNoteDataGridVM"
+                              Frozen
+                              FrozenPosition="FrozenColumnPosition.Right"
+                              Width="35px">
+            <Template>
+                <RadzenButton Icon="arrow_right_alt" Size="ButtonSize.ExtraSmall" Click="() => SelectSource(context)" />
+            </Template>
+        </RadzenDataGridColumn>
+    </GridColumns>
+</AppDataGrid>
+
+@code {
+    async Task OpenTableSettings()
+    {
+        await DialogService.OpenAsync(
+            "Table Settings",
+            ds => @<AppGridSettings TItem="PurchaseDeliveryNoteDataGridVM"
+                                    @bind-Grid=@PurchaseDeliveryNoteDataGrid.DataGrid
+                                    @bind-GridSettings=@PurchaseDeliveryNoteDataGridSettings />,
+        options: GridSettingsService.GetDialogOptions());
+
+        await PurchaseDeliveryNoteDataGrid.DataGrid.Reload();
+    }
+}

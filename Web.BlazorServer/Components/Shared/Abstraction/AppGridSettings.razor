@@ -1,0 +1,56 @@
+﻿@typeparam TItem
+
+<RadzenStack>
+    @if (AdditionalSettings is not null)
+    {
+        @AdditionalSettings
+    }
+
+    <RadzenFormField Text="Page size">
+        <ChildContent>
+            <RadzenNumeric Disabled="@(!GridCopy.AllowPaging)" ShowUpDown="false" Min="1" @bind-Value=@GridCopy.PageSize Name="rn-pagesize" Change="@(async (int value) => await NotifyParent())" class="w-100" />
+        </ChildContent>
+        <End>
+            <RadzenCheckBox TValue="bool" TriState="false" Name="table_settings_use_paging" @bind-Value=@GridCopy.AllowPaging Change="@(async (bool value) => await SetPaging(value))" />
+        </End>
+    </RadzenFormField>
+
+    <RadzenFormField Text="Filter mode">
+        <RadzenDropDown @bind-Value=@GridCopy.FilterMode Data=@FilterModes Change=@NotifyParent />
+    </RadzenFormField>
+
+    <RadzenText id="show_adv_set_txt" Visible=@(!DisableAdvanceSettings) Text="@($"{(ShowAdvanceSettings ? "Hide" : "Show")} Advance Settings")" TextStyle="TextStyle.Caption" class="rz-color-primary" @onclick=@(() => ShowAdvanceSettings = !ShowAdvanceSettings) />
+
+    <RadzenStack Visible="@ShowAdvanceSettings">
+        <RadzenFormField Text="Grid line">
+            <RadzenDropDown TValue="DataGridGridLines" Multiple=false @bind-Data="@GridLines" @bind-Value=@GridCopy.GridLines Change=@NotifyParent />
+        </RadzenFormField>
+
+        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center">
+            <RadzenCheckBox TValue="bool" TriState="false" @bind-Value=@GridCopy.AllowColumnPicking Name="table_settings_allow_col_pic" Change="@(async (bool value) => await NotifyParent())" />
+            <RadzenLabel Component="table_settings_allow_col_pic" Text="Allow Column Picking" />
+        </RadzenStack>
+
+        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center">
+            <RadzenCheckBox TValue="bool" TriState="false" @bind-Value=@GridCopy.AllowColumnResize Name="table_settings_allow_col_resize" Change="@(async (bool value) => await NotifyParent())" />
+            <RadzenLabel Component="table_settings_allow_col_resize" Text="Allow Column Resizing" />
+        </RadzenStack>
+
+        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center">
+            <RadzenCheckBox TValue="bool" TriState="false" @bind-Value=@GridCopy.AllowFiltering Name="table_settings_allow_filtering" Change="@(async (bool value) => await NotifyParent())" />
+            <RadzenLabel Component="table_settings_allow_filtering" Text="Allow Filtering" />
+        </RadzenStack>
+
+        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center">
+            <RadzenCheckBox TValue="bool" TriState="false" @bind-Value=@GridCopy.AllowSorting Name="table_settings_allow_sotring" Change="@(async (bool value) => await NotifyParent())" />
+            <RadzenLabel Component="table_settings_allow_sotring" Text="Allow Sorting" />
+        </RadzenStack>
+    </RadzenStack>
+    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.End" class="rz-mt-8">
+        <RadzenButton Text="Save" ButtonStyle="ButtonStyle.Info" Click="@RefreshPage" />
+    </RadzenStack>
+</RadzenStack>
+
+@code {
+
+}

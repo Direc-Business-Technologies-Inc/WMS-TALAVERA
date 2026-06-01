@@ -1,0 +1,29 @@
+﻿@using Web.BlazorServer.Components.Pages.Transaction.Receiving.Components
+@using Web.BlazorServer.Components.Security
+@using Web.BlazorServer.ViewModels.Administration.User
+@using Web.BlazorServer.ViewModels.Transaction.Receiving
+
+@inherits BaseComponent
+@page "/transactions/purchasing/receiving"
+@layout ProtectedLayout
+@attribute [AppAuthorizationAttribute("VIEW", "ORCV")]
+
+
+<PageTitle>Receiving</PageTitle>
+
+<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" class="rz-mb-4">
+    <AppBreadCrumbs ModuleCode="ORCV" />
+</RadzenStack>
+
+<AppContent>
+    <RadzenTabs @bind-SelectedIndex="@SelectedTab" @bind-SelectedIndex:after="@TabChanged">
+        <Tabs>
+            <RadzenTabsItem Text="Purchase Orders">
+                <PurchaseOrderGrid />
+            </RadzenTabsItem>
+            <RadzenTabsItem Text="GRPO">
+                <PurchaseDeliveryNoteGrid />
+            </RadzenTabsItem>
+        </Tabs>
+    </RadzenTabs>
+</AppContent>

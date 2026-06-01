@@ -1,0 +1,11 @@
+﻿@using Web.BlazorServer.Components.Security
+@page "/dashboard"
+@layout ProtectedLayout
+@inherits BaseComponent
+@attribute [AppAuthorizationAttribute("VIEW", "ODSB")]
+
+<PageTitle>Dashboard</PageTitle>
+
+<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" class="rz-mb-4">
+    <AppBreadCrumbs ModuleCode="ODSB" />
+</RadzenStack>

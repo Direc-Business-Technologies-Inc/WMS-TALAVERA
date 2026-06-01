@@ -1,0 +1,81 @@
+@using Domain.Entities.Enums.Transaction.InventoryCounting
+@using Web.BlazorServer.ViewModels.Transaction.InventoryCounting
+
+@inherits BaseComponent
+
+<AppDataGrid @ref="@DataGrid"
+             Id="inventory_counting_open_grid"
+             TItem="InventoryCountingDataGridVM"
+             DataGetter="@LoadDataAsync"
+             GridSettings="@GridSettings"
+             @bind-GridSettingsLoaded="@GridSettingsLoaded"
+             ActionName="@ActionGetAll">
+    <HeaderTemplate>
+        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" AlignItems="AlignItems.Center" Gap="8px">
+            <RadzenButton Icon="settings" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@OpenTableSettings" />
+            <RadzenButton Icon="sync" Size="ButtonSize.Small" Click="DataGrid.ReloadDataAsync" />
+            <RadzenButton Icon="add" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Success" Click="@CreateDocument" />
+        </RadzenStack>
+    </HeaderTemplate>
+    <GridColumns>
+        <RadzenDataGridColumn TItem="InventoryCountingDataGridVM"
+                              Property="@nameof(InventoryCountingDataGridVM.AppDocNum)"
+                              Title="Doc #"
+                              Type="@typeof(string)" />
+        <RadzenDataGridColumn TItem="InventoryCountingDataGridVM"
+                              Property="@nameof(InventoryCountingDataGridVM.Warehouse)"
+                              Title="Warehouse"
+                              Type="@typeof(string)" />
+        <RadzenDataGridColumn TItem="InventoryCountingDataGridVM"
+                              Property="@nameof(InventoryCountingDataGridVM.CycleType)"
+                              Title="Cycle Type">
+            <Template>
+                @context.CycleType.ToString()
+            </Template>
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn TItem="InventoryCountingDataGridVM"
+                              Property="@nameof(InventoryCountingDataGridVM.Status)"
+                              Title="Status">
+            <Template>
+                <AppContentBadge Title="" Content="@context.Status.ToString()"
+                                 ChildBadgeStyle="@(context.Status switch {
+                                     InventoryCountingDocumentStatus.Open => BadgeStyle.Success,
+                                     InventoryCountingDocumentStatus.Recount => BadgeStyle.Warning,
+                                     _ => BadgeStyle.Light
+                                 })" />
+            </Template>
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn TItem="InventoryCountingDataGridVM"
+                              Property="@nameof(InventoryCountingDataGridVM.CreatedBy)"
+                              Title="Created By"
+                              Type="@typeof(string)" />
+        <RadzenDataGridColumn TItem="InventoryCountingDataGridVM"
+                              Property="@nameof(InventoryCountingDataGridVM.CreatedDate)"
+                              Title="Created Date"
+                              Type="@typeof(DateTime)">
+            <Template>
+                @context.CreatedDate.ToString("MM/dd/yyyy")
+            </Template>
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn TItem="InventoryCountingDataGridVM"
+                              Frozen FrozenPosition="FrozenColumnPosition.Right"
+                              Width="35px" Filterable="false" Sortable="false" Pickable="false">
+            <Template>
+                <RadzenButton Icon="arrow_right_alt" Size="ButtonSize.ExtraSmall" Click="() => ViewDocument(context)" />
+            </Template>
+        </RadzenDataGridColumn>
+    </GridColumns>
+</AppDataGrid>
+
+@code {
+    async Task OpenTableSettings()
+    {
+        await DialogService.OpenAsync(
+            "Table Settings",
+            ds => @<AppGridSettings TItem="InventoryCountingDataGridVM"
+                                    @bind-Grid=@DataGrid.DataGrid
+                                    @bind-GridSettings=@GridSettings />,
+            options: GridSettingsService.GetDialogOptions());
+        await DataGrid.DataGrid.Reload();
+    }
+}

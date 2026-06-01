@@ -1,0 +1,47 @@
+﻿@using Web.BlazorServer.ViewModels.Enums
+@inherits BaseComponent
+@typeparam TItem where TItem : class
+
+<RadzenStack Gap="1rem" class="rz-w-100">
+        <AppDataGrid @ref="@SourceDataGrid"
+                     Id="@SourceGridId"
+                     TItem="TItem"
+                     DataGetter="@LoadDataAsync"
+                     GridSettings="@SourceDataGridSettings"
+                     @bind-GridSettingsLoaded="@SourceGridSettingsLoaded"
+                     @bind-SelectedItems="@SelectedSourceItems"
+                     DataGridSelectionMode="DataGridSelectionMode.Multiple"
+                     OnRowSelect="@OnSourceRowSelectAsync"
+                     OnRowDeselect="@OnSourceRowDeselectAsync"
+                     ActionName="@SourceActionName"
+                     OnRowDoubleClick="@OnRowDoubleClick"
+                     DefaultFilters="@SelectedSourceItemsFilter">
+            <Columns>
+                @Columns
+            </Columns>
+        </AppDataGrid>
+
+        <RadzenStack class="rz-w-100" Orientation="Orientation.Horizontal" Gap="10px" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Center">
+            <RadzenButton Icon="keyboard_double_arrow_down" Size="ButtonSize.Small" Click="@MassTransfer" Disabled="@(Disabled)" />
+            <RadzenButton Icon="keyboard_arrow_down" Size="ButtonSize.Small" Click="@TransferSelected" Disabled="@(Disabled || SelectedSourceItems.Count <= 0)" />
+            <RadzenButton Icon="keyboard_arrow_up" Size="ButtonSize.Small" Click="@RemoveSelected" Disabled="@(Disabled || SelectedTargetItems.Count <= 0)" />
+            <RadzenButton Icon="keyboard_double_arrow_up" Size="ButtonSize.Small" Click="@MassRemove" Disabled="@(Disabled)" />
+        </RadzenStack>
+
+    <AppDataGrid @ref="TargetDataGrid"
+                 Id="@TargetGridId"
+                 TItem="TItem"
+                 GridSettings="@TargetDataGridSettings"
+                 @bind-GridSettingsLoaded="@TargetGridSettingsLoaded"
+                 ClientSide
+                 @bind-Data="@TargetItems"
+                 DataGridSelectionMode="DataGridSelectionMode.Multiple"
+                 OnRowSelect="@OnTargetRowSelectAsync"
+                 OnRowDeselect="@OnTargetRowDeselectAsync"
+                 OnRowDoubleClick="@OnRowDoubleClick">
+        <Columns>
+            @Columns
+        </Columns>
+    </AppDataGrid>
+
+</RadzenStack>

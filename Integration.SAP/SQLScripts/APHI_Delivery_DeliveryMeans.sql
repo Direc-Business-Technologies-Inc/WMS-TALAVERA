@@ -1,0 +1,8 @@
+SELECT DISTINCT 
+    UFD1.FldValue [Code]
+    ,UFD1.Descr [Name]
+FROM CUFD 
+INNER JOIN UFD1 ON CUFD.TableId = UFD1.TableId AND CUFD.FieldID = UFD1.FieldID
+WHERE 
+    CUFD.TableID = 'ODLN'
+    AND CUFD.FieldID = 45

@@ -1,0 +1,61 @@
+@using Web.BlazorServer.ViewModels.Transaction.Delivery
+@using Web.BlazorServer.ViewModels.Transaction.SalesReturn
+
+@inherits BaseComponent
+
+<AppDataGrid @ref="@DeliveryDataGrid" Id="sales_return_delivery_selection_grid" TItem="DeliveryDataGridVM" DataGetter="@LoadDataAsync" GridSettings="@DeliveryDataGridSettings" @bind-GridSettingsLoaded="@GridSettingsLoaded" ActionName="@ActionGetDeliveries">
+    <HeaderTemplate>
+        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" AlignItems="AlignItems.Center" Gap="8px">
+            <RadzenButton Icon="settings" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@OpenTableSettings" />
+            <RadzenButton Icon="sync" Size="ButtonSize.Small" Click="DeliveryDataGrid.ReloadDataAsync" />
+        </RadzenStack>
+    </HeaderTemplate>
+    <GridColumns>
+        <RadzenDataGridColumn TItem="DeliveryDataGridVM"
+                              Property="@nameof(DeliveryDataGridVM.DocNum)"
+                              Type="@typeof(int)"
+                              Title="Delivery Doc No." />
+        <RadzenDataGridColumn TItem="DeliveryDataGridVM"
+                              Property="@nameof(DeliveryDataGridVM.DocDate)"
+                              Type="@typeof(DateTime)"
+                              Title="Doc Date">
+            <Template>
+                @context.DocDate.ToString("MM/dd/yyyy")
+            </Template>
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn TItem="DeliveryDataGridVM"
+                              Property="@nameof(DeliveryDataGridVM.CardCode)"
+                              Type="@typeof(string)"
+                              Title="Customer Code" />
+        <RadzenDataGridColumn TItem="DeliveryDataGridVM"
+                              Property="@nameof(DeliveryDataGridVM.CardName)"
+                              Type="@typeof(string)"
+                              Title="Customer Name" />
+        <RadzenDataGridColumn TItem="DeliveryDataGridVM"
+                              Property="@nameof(DeliveryDataGridVM.Remarks)"
+                              Type="@typeof(string)"
+                              Title="Remarks" />
+        <RadzenDataGridColumn TItem="DeliveryDataGridVM"
+                              Frozen
+                              FrozenPosition="FrozenColumnPosition.Right"
+                              Width="35px">
+            <Template>
+                <RadzenButton Icon="arrow_right_alt" Size="ButtonSize.ExtraSmall" Click="() => SelectSource(context)" />
+            </Template>
+        </RadzenDataGridColumn>
+    </GridColumns>
+</AppDataGrid>
+
+@code {
+    async Task OpenTableSettings()
+    {
+        await DialogService.OpenAsync(
+            "Table Settings",
+            ds => @<AppGridSettings TItem="DeliveryDataGridVM"
+                                    @bind-Grid=@DeliveryDataGrid.DataGrid
+                                    @bind-GridSettings=@DeliveryDataGridSettings />,
+        options: GridSettingsService.GetDialogOptions());
+
+        await DeliveryDataGrid.DataGrid.Reload();
+    }
+}

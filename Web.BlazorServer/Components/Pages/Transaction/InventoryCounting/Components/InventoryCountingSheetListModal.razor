@@ -1,0 +1,51 @@
+@using Domain.Entities.Enums.Transaction.InventoryCounting
+@using Web.BlazorServer.ViewModels.Transaction.InventoryCounting
+
+@inherits BaseComponent
+
+<RadzenDataGrid TItem="InventoryCountingSheetVM"
+                Data="@Sheets"
+                AllowPaging ShowPagingSummary>
+    <Columns>
+        <RadzenDataGridColumn TItem="InventoryCountingSheetVM"
+                              Title="Sheet No">
+            <Template>
+                @context.SheetNo.Value
+            </Template>
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn TItem="InventoryCountingSheetVM"
+                              Title="Counter"
+                              Property="@nameof(InventoryCountingSheetVM.Counter)">
+            <Template>
+                @context.Counter.Name
+            </Template>
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn TItem="InventoryCountingSheetVM"
+                              Title="Submitted Date"
+                              Property="@nameof(InventoryCountingSheetVM.SubmittedDate)">
+            <Template>
+                @context.SubmittedDate.ToString("MM/dd/yyyy")
+            </Template>
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn TItem="InventoryCountingSheetVM"
+                              Title="Status">
+            <Template>
+                <AppContentBadge Title="" Content="@context.Status.ToString()"
+                                 ChildBadgeStyle="@(context.Status switch {
+                                     InventoryCountingSheetStatus.Synced => BadgeStyle.Success,
+                                     InventoryCountingSheetStatus.Async => BadgeStyle.Warning,
+                                     InventoryCountingSheetStatus.Ignore => BadgeStyle.Light,
+                                     _ => BadgeStyle.Light
+                                 })" />
+            </Template>
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn TItem="InventoryCountingSheetVM"
+                              Frozen FrozenPosition="FrozenColumnPosition.Right"
+                              Width="45px" Filterable="false" Sortable="false" Pickable="false">
+            <Template>
+                <RadzenButton Icon="arrow_right_alt" Size="ButtonSize.ExtraSmall"
+                              Click="() => ViewSheet(context)" />
+            </Template>
+        </RadzenDataGridColumn>
+    </Columns>
+</RadzenDataGrid>

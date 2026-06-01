@@ -1,0 +1,51 @@
+﻿@using Web.BlazorServer.Components.Shared.Skeletons
+@using Web.BlazorServer.ViewModels.Enums
+@using global::Shared.Kernel
+@inherits BaseComponent
+
+<AppBreadcrumbSkeleton Loading="@IsBusy" />
+<RadzenStack Visible="@(!IsBusy)" Orientation="Orientation.Horizontal" Gap="16px" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Start">
+    @if (Routes.Count() == 1)
+    {
+        <RadzenStack Orientation="Orientation.Horizontal" Gap="4px" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Start">
+            <RadzenIcon class="rz-color-primary filled-icon" Visible="@(!string.IsNullOrEmpty(Routes.First().Icon))" Icon="home" />
+            <RadzenText TextStyle="TextStyle.Subtitle1" Text="@Routes.First().Name" class="rz-m-0 rz-color-primary" />
+        </RadzenStack>
+    }
+    else
+    {
+        <RadzenStack Orientation="Orientation.Horizontal" Gap="4px" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Start">
+            <RadzenIcon class="rz-color-base-400 filled-icon" Visible="@(!string.IsNullOrEmpty(Routes.First().Icon))" Icon="home" />
+            <RadzenText TextStyle="TextStyle.Body1" Text="Home" class="rz-m-0 rz-color-base-400" />
+        </RadzenStack>
+        <RadzenText TextStyle="TextStyle.Body1" Text="/" class="rz-m-0 rz-color-base-400" />
+
+        @foreach (var route in Routes.Skip(1).SkipLast(1))
+        {
+            <RadzenStack Orientation="Orientation.Horizontal" Gap="4px" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Start">
+                <RadzenIcon class="rz-color-base-400 filled-icon" Visible="@(!string.IsNullOrEmpty(route.Icon))" Icon="@route.Icon" />
+                <RadzenText TextStyle="TextStyle.Body1" Text="@route.Name" class="rz-m-0 rz-color-base-400" />
+            </RadzenStack>
+            <RadzenText TextStyle="TextStyle.Body1" Text="/" class="rz-m-0 rz-color-base-400" />
+        }
+
+        <RadzenStack Orientation="Orientation.Horizontal" Gap="4px" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Start">
+            <RadzenIcon class="rz-color-primary filled-icon" Visible="@(!string.IsNullOrEmpty(Routes.Last().Icon))" Icon="@(Routes.Last().Icon)" />
+            <RadzenText TextStyle="TextStyle.Subtitle1" Text="@(Routes.Last().Name)" class="rz-m-0 rz-color-primary" />
+        </RadzenStack>
+    }
+    @if (PageAction is not null)
+    {
+        <RadzenText Visible="@(!string.IsNullOrEmpty(ActionIcon()))" TextStyle="TextStyle.Body1" Text="/" class="rz-m-0 rz-color-primary" />
+        <RadzenStack Orientation="Orientation.Horizontal" Gap="4px" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Start">
+            <RadzenIcon class="rz-color-primary filled-icon" Visible="@(!string.IsNullOrEmpty(ActionIcon()))" Icon="@(ActionIcon())" />
+            <RadzenText Visible="@(!string.IsNullOrEmpty(ActionIcon()))" TextStyle="TextStyle.Subtitle1" Text="@(EnumHelper.GetEnumDescription(PageAction))" class="rz-m-0 rz-color-primary" />
+        </RadzenStack>
+    }
+    </RadzenStack>
+
+<style>
+    .filled-icon {
+        font-variation-settings: 'FILL' 1;
+    }
+</style>

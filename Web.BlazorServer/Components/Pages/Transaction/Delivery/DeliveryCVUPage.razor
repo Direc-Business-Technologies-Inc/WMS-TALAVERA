@@ -1,0 +1,323 @@
+@using Web.BlazorServer.Components.Security
+@using Web.BlazorServer.Components.Shared.Skeletons
+@using Web.BlazorServer.ViewModels.Transaction.Delivery
+
+@inherits BaseForm<DeliveryVM>
+@page "/transactions/sales/delivery/create"
+@page "/transactions/sales/delivery/view"
+@layout ProtectedLayout
+@attribute [AppAuthorizationAttribute("VIEW", "ODLV")]
+
+<PageTitle>@(Creating ? "New Delivery Document" : string.Empty)@(Viewing ? $"Delivery {FormData.SapReference.DocNum}" : string.Empty)</PageTitle>
+
+<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" class="rz-mb-4">
+    <AppBreadCrumbs ModuleCode="ODLV" AdditionalRoutes="@AdditionalRoutes" />
+</RadzenStack>
+
+<AppContent>
+
+    <AppFormSkeleton TItem="DeliveryVM" Loading="@IsLoadingData" />
+
+    <RadzenStack Visible="@(!IsLoadingData)"
+                 Orientation="Orientation.Horizontal"
+                 AlignItems="AlignItems.Center"
+                 JustifyContent="JustifyContent.End"
+                 Gap="32px"
+                 class="rz-mb-2">
+        <AppContentBadge Visible="@Viewing" Title="Doc" Content="@FormData.SapReference.DocNum.ToString()" />
+        <AppContentBadge Title="Doc Date" Content="@FormData.DocDate.ToString("MM-dd-yy")" ChildBadgeStyle="BadgeStyle.Secondary" ChildShade="Shade.Default" />
+        <AppContentBadge Title="Delivery Date" Content="@FormData.DocDueDate.ToString("MM-dd-yy")" ChildBadgeStyle="BadgeStyle.Secondary" ChildShade="Shade.Default" />
+    </RadzenStack>
+
+    <RadzenTemplateForm Visible="@(!IsLoadingData)" @ref="@TemplateForm" TItem="DeliveryVM" @bind-Data="@FormData" EditContext="@EditContext" Submit="@HandleSubmit">
+        <RadzenStack Gap="1rem">
+
+            <RadzenFieldset AllowCollapse Text="Details">
+                <ChildContent>
+                    <RadzenStack Gap="0.5rem">
+
+                        <RadzenRow Gap="1rem">
+                            <RadzenColumn Size="12" SizeMD="4">
+                                <RadzenFormField Text="Customer" class="rz-w-100" AllowFloatingLabel="false">
+                                    <ChildContent>
+                                        <RadzenTextBox ReadOnly Value="@FormData.BusinessPartner?.CardName" Placeholder="Customer ABC" Name="dlv_customer" Disabled="@IsBusy" class="rz-w-100" />
+                                    </ChildContent>
+                                </RadzenFormField>
+                            </RadzenColumn>
+                            <RadzenColumn Size="12" SizeMD="4">
+                                <RadzenFormField Text="Contact Person" class="rz-w-100" AllowFloatingLabel="false">
+                                    <ChildContent>
+                                        <RadzenTextBox ReadOnly="@Viewing" @bind-Value="@FormData.ContactPerson" Placeholder="N/A" Name="dlv_contact_person" Disabled="@IsBusy" class="rz-w-100" />
+                                    </ChildContent>
+                                </RadzenFormField>
+                            </RadzenColumn>
+                            <RadzenColumn Size="12" SizeMD="4">
+                                <RadzenFormField Text="School Year" class="rz-w-100" AllowFloatingLabel="false">
+                                    <ChildContent>
+                                        <RadzenTextBox ReadOnly="@Viewing" @bind-Value="@FormData.SchoolYear" Placeholder="N/A" Name="dlv_school_year" Disabled="@IsBusy" class="rz-w-100" />
+                                    </ChildContent>
+                                </RadzenFormField>
+                            </RadzenColumn>
+                        </RadzenRow>
+
+                        <RadzenRow Gap="1rem">
+                            <RadzenColumn Size="12" SizeMD="4">
+                                <RadzenFormField Text="DR No." class="rz-w-100" AllowFloatingLabel="false">
+                                    <ChildContent>
+                                        <RadzenTextBox ReadOnly="@Viewing" @bind-Value="@FormData.DRNo" Placeholder="DR-001" Name="dlv_dr_no" Disabled="@IsBusy" class="rz-w-100" />
+                                    </ChildContent>
+                                </RadzenFormField>
+                            </RadzenColumn>
+                            <RadzenColumn Size="12" SizeMD="4">
+                                <RadzenFormField Text="Actual Delivery Date" class="rz-w-100" AllowFloatingLabel="false">
+                                    <ChildContent>
+                                        <RadzenTextBox Visible="@Viewing" Value="@(DateTime.TryParse(FormData.ActualDelivDate, out DateTime actualDeliveryDate) ? actualDeliveryDate.ToString("MM-dd-yy") : "N/A")" Placeholder="N/A" Name="dlv_actual_date" Disabled="@IsBusy" class="rz-w-100" />
+                                        <RadzenDatePicker Visible="@Creating" ShowTime="true" DateFormat="MM-dd-yy" Name="dlv_actual_date" Placeholder="1400" @bind-Value="@ActualDeliveryDate" @bind-Value:after="@ParseActualDeliveryDate" />
+                                    </ChildContent>
+                                </RadzenFormField>
+                            </RadzenColumn>
+                            <RadzenColumn Size="12" SizeMD="4">
+                                <RadzenFormField Text="Delivery Means" class="rz-w-100" AllowFloatingLabel="false">
+                                    <ChildContent>
+                                        <RadzenTextBox Visible="@Viewing" ReadOnly Value="@FormData.DeliveryMeans" Placeholder="N/A" Name="dlv_means_view" Disabled="@IsBusy" class="rz-w-100" />
+                                        <RadzenDropDown Visible="@Creating"
+                                                        @bind-Value="@FormData.DeliveryMeans"
+                                                        Change="(args) => OnFieldChanged(nameof(FormData.DeliveryMeans))"
+                                                        Data="@DeliveryMeans"
+                                                        Name="dlv_means"
+                                                        AllowFiltering
+                                                        AllowClear
+                                                        ValueProperty="@nameof(DeliveryMeansVM.Code)"
+                                                        TextProperty="@nameof(DeliveryMeansVM.Name)"
+                                                        Placeholder="No Delivery Means Selected"
+                                                        class="rz-w-100" />
+                                    </ChildContent>
+                                </RadzenFormField>
+                            </RadzenColumn>
+                        </RadzenRow>
+
+                        <RadzenRow Gap="1rem">
+                            <RadzenColumn Size="12" SizeMD="4">
+                                <RadzenFormField Text="Courier" class="rz-w-100" AllowFloatingLabel="false">
+                                    <ChildContent>
+                                        <RadzenTextBox ReadOnly="@Viewing" @bind-Value="@FormData.Courier" Placeholder="N/A" Name="dlv_courier" Disabled="@IsBusy" class="rz-w-100" />
+                                    </ChildContent>
+                                </RadzenFormField>
+                            </RadzenColumn>
+                            <RadzenColumn Size="12" SizeMD="4">
+                                <RadzenFormField Text="Courier Name" class="rz-w-100" AllowFloatingLabel="false">
+                                    <ChildContent>
+                                        <RadzenTextBox ReadOnly="@Viewing" @bind-Value="@FormData.CourierName" Placeholder="N/A" Name="dlv_courier_name" Disabled="@IsBusy" class="rz-w-100" />
+                                    </ChildContent>
+                                </RadzenFormField>
+                            </RadzenColumn>
+                            <RadzenColumn Size="12" SizeMD="4">
+                                <RadzenFormField Text="Driver" class="rz-w-100" AllowFloatingLabel="false">
+                                    <ChildContent>
+                                        <RadzenTextBox ReadOnly="@Viewing" @bind-Value="@FormData.Driver" Placeholder="N/A" Name="dlv_driver" Disabled="@IsBusy" class="rz-w-100" />
+                                    </ChildContent>
+                                </RadzenFormField>
+                            </RadzenColumn>
+                        </RadzenRow>
+
+                        <RadzenRow Gap="1rem">
+                            <RadzenColumn Size="12" SizeMD="4">
+                                <RadzenFormField Text="Waybill No." class="rz-w-100" AllowFloatingLabel="false">
+                                    <ChildContent>
+                                        <RadzenTextBox ReadOnly="@Viewing" @bind-Value="@FormData.WayBillNo" Placeholder="N/A" Name="dlv_waybill" Disabled="@IsBusy" class="rz-w-100" />
+                                    </ChildContent>
+                                </RadzenFormField>
+                            </RadzenColumn>
+                            <RadzenColumn Size="12" SizeMD="4">
+                                <RadzenFormField Text="Plate No." class="rz-w-100" AllowFloatingLabel="false">
+                                    <ChildContent>
+                                        <RadzenTextBox ReadOnly="@Viewing" @bind-Value="@FormData.PlateNo" Placeholder="N/A" Name="dlv_plate_no" Disabled="@IsBusy" class="rz-w-100" />
+                                    </ChildContent>
+                                </RadzenFormField>
+                            </RadzenColumn>
+                            <RadzenColumn Size="12" SizeMD="4">
+                                <RadzenFormField Text="Designation" class="rz-w-100" AllowFloatingLabel="false">
+                                    <ChildContent>
+                                        <RadzenTextBox ReadOnly="@Viewing" @bind-Value="@FormData.Designation" Placeholder="N/A" Name="dlv_designation" Disabled="@IsBusy" class="rz-w-100" />
+                                    </ChildContent>
+                                </RadzenFormField>
+                            </RadzenColumn>
+                        </RadzenRow>
+
+                    </RadzenStack>
+                </ChildContent>
+            </RadzenFieldset>
+
+            <RadzenFieldset AllowCollapse Text="Items">
+                <ChildContent>
+                    <RadzenRow>
+                        <RadzenColumn>
+                            @if (Creating)
+                            {
+                                <AppTable @ref="@SalesOrderLinesTable" Id="dlv_so_items" TItem="SalesOrderLineVM" @bind-GridSettingsLoaded="@GridSettingsLoaded" Data="[.. SalesOrderData.DocumentLines]">
+                                    <HeaderTemplate>
+                                        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" AlignItems="AlignItems.Center" Gap="8px">
+                                            <RadzenButton Icon="settings" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@OpenSalesOrderTableSettings" />
+                                        </RadzenStack>
+                                    </HeaderTemplate>
+                                    <Columns>
+                                        <RadzenDataGridColumn TItem="SalesOrderLineVM"
+                                                              Property="@nameof(SalesOrderLineVM.LineNum)"
+                                                              Width="40px" TextAlign="TextAlign.Center" />
+                                        <RadzenDataGridColumn TItem="SalesOrderLineVM"
+                                                              Property="@nameof(SalesOrderLineVM.ItemCode)"
+                                                              Title="Item Code" />
+                                        <RadzenDataGridColumn TItem="SalesOrderLineVM"
+                                                              Property="@nameof(SalesOrderLineVM.ItemName)"
+                                                              Title="Item Name" />
+                                        <RadzenDataGridColumn TItem="SalesOrderLineVM"
+                                                              Property="@nameof(SalesOrderLineVM.Warehouse.WhsName)"
+                                                              Title="Warehouse" Width="150px" />
+                                        <RadzenDataGridColumn TItem="SalesOrderLineVM"
+                                                              Property="@nameof(SalesOrderLineVM.UoMName)"
+                                                              Title="UoM" Width="100px" />
+                                        <RadzenDataGridColumn TItem="SalesOrderLineVM"
+                                                              Property="@nameof(SalesOrderLineVM.TargetQty)"
+                                                              Title="Target Qty" Width="130px">
+                                            <Template Context="data">
+                                                @data.TargetQty.ToString("N0")
+                                            </Template>
+                                        </RadzenDataGridColumn>
+                                        <RadzenDataGridColumn TItem="SalesOrderLineVM"
+                                                              Property="@nameof(SalesOrderLineVM.OpenQty)"
+                                                              Title="Open Qty" Width="130px">
+                                            <Template Context="data">
+                                                @data.OpenQty.ToString("N0")
+                                            </Template>
+                                        </RadzenDataGridColumn>
+                                        <RadzenDataGridColumn TItem="SalesOrderLineVM"
+                                                              Title="Deliver Qty" Width="140px">
+                                            <Template Context="data">
+                                                <RadzenNumeric Format="N0" @bind-Value="@data.Quantity"
+                                                               Min="0"
+                                                               Max="@(data.OpenQty)"
+                                                               class="rz-w-100" />
+                                            </Template>
+                                        </RadzenDataGridColumn>
+                                    </Columns>
+                                </AppTable>
+                            }
+                            else
+                            {
+                                <AppTable @ref="@DeliveryLinesTable" Id="dlv_items" TItem="DeliveryLineVM" @bind-GridSettingsLoaded="@GridSettingsLoaded" Data="[.. FormData.DocumentLines]">
+                                    <HeaderTemplate>
+                                        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" AlignItems="AlignItems.Center" Gap="8px">
+                                            <RadzenButton Icon="settings" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@OpenDeliveryTableSettings" />
+                                        </RadzenStack>
+                                    </HeaderTemplate>
+                                    <Columns>
+                                        <RadzenDataGridColumn TItem="DeliveryLineVM"
+                                                              Property="@nameof(DeliveryLineVM.LineNum)"
+                                                              Width="40px" TextAlign="TextAlign.Center" />
+                                        <RadzenDataGridColumn TItem="DeliveryLineVM"
+                                                              Property="@nameof(DeliveryLineVM.ItemCode)"
+                                                              Title="Item Code" />
+                                        <RadzenDataGridColumn TItem="DeliveryLineVM"
+                                                              Property="@nameof(DeliveryLineVM.ItemName)"
+                                                              Title="Item Name" />
+                                        <RadzenDataGridColumn TItem="DeliveryLineVM"
+                                                              Property="@nameof(DeliveryLineVM.Warehouse)"
+                                                              Title="Warehouse" Width="150px">
+                                            <Template Context="data">
+                                                @(data.Warehouse?.WhsName ?? "-")
+                                            </Template>
+                                        </RadzenDataGridColumn>
+                                        <RadzenDataGridColumn TItem="DeliveryLineVM"
+                                                              Property="@nameof(DeliveryLineVM.UoMName)"
+                                                              Title="UoM" Width="100px" />
+                                        <RadzenDataGridColumn TItem="DeliveryLineVM"
+                                                              Property="@nameof(DeliveryLineVM.Quantity)"
+                                                              Title="Quantity" Width="130px">
+                                            <Template Context="data">
+                                                @data.Quantity.ToString("N0")
+                                            </Template>
+                                        </RadzenDataGridColumn>
+                                    </Columns>
+                                </AppTable>
+                            }
+                        </RadzenColumn>
+                    </RadzenRow>
+                </ChildContent>
+            </RadzenFieldset>
+
+            <RadzenRow>
+                <RadzenColumn Size="12" SizeMD="4">
+                    <RadzenFormField Text="Remarks" class="rz-w-100" AllowFloatingLabel="false">
+                        <ChildContent>
+                            <RadzenTextArea ReadOnly="@Viewing" @bind-Value="@FormData.DocRemarks" Name="dlv_remarks" Rows="3" Disabled="@IsBusy" class="rz-w-100" Placeholder="Delivery remarks..." />
+                        </ChildContent>
+                    </RadzenFormField>
+                </RadzenColumn>
+                <RadzenColumn Size="12" SizeMD="4" OffsetMD="4">
+                    <RadzenStack Gap="0.5rem">
+                        <RadzenFormField Text="Prepared By" class="rz-w-100" AllowFloatingLabel="false">
+                            <ChildContent>
+                                <RadzenTextBox ReadOnly Value="@FormData.PreparedBy" Name="dlv_prep_by" Disabled="@IsBusy" class="rz-w-100" />
+                            </ChildContent>
+                        </RadzenFormField>
+                        <RadzenFormField Text="Received By" class="rz-w-100" AllowFloatingLabel="false">
+                            <ChildContent>
+                                <RadzenTextBox ReadOnly="@Viewing" @bind-Value="@FormData.ReceivedBy" Name="dlv_rec_by" Disabled="@IsBusy" class="rz-w-100" />
+                            </ChildContent>
+                        </RadzenFormField>
+                        <RadzenFormField Text="Approved By" class="rz-w-100" AllowFloatingLabel="false">
+                            <ChildContent>
+                                <RadzenTextBox ReadOnly="@Viewing" @bind-Value="@FormData.ApprovedBy" Name="dlv_app_by" Disabled="@IsBusy" class="rz-w-100" />
+                            </ChildContent>
+                        </RadzenFormField>
+                        <RadzenFormField Text="Noted By" class="rz-w-100" AllowFloatingLabel="false">
+                            <ChildContent>
+                                <RadzenTextBox ReadOnly="@Viewing" @bind-Value="@FormData.NotedBy" Name="dlv_noted_by" Disabled="@IsBusy" class="rz-w-100" />
+                            </ChildContent>
+                        </RadzenFormField>
+                    </RadzenStack>
+                </RadzenColumn>
+            </RadzenRow>
+
+            <RadzenRow>
+                <RadzenColumn>
+                    <RadzenStack class="rz-mt-8" Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
+                        <RadzenButton IsBusy="@IsBusy" Text="Back" Disabled="@(IsBusy && Creating)" ButtonStyle="ButtonStyle.Base" Click="@Back" />
+                        <RadzenStack Visible="@(Can.Create("ODLV") && Creating)" Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="16px">
+                            <RadzenButton IsBusy="@IsBusy" Visible="@Creating" ButtonStyle="ButtonStyle.Success" ButtonType="ButtonType.Submit">
+                                Save
+                            </RadzenButton>
+                        </RadzenStack>
+                    </RadzenStack>
+                </RadzenColumn>
+            </RadzenRow>
+
+        </RadzenStack>
+    </RadzenTemplateForm>
+</AppContent>
+
+@code {
+    async Task OpenSalesOrderTableSettings()
+    {
+        await DialogService.OpenAsync(
+            "Table Settings",
+            ds => @<AppGridSettings TItem="SalesOrderLineVM"
+                                    @bind-Grid=@SalesOrderLinesTable.DataGrid
+                                    @bind-GridSettings=@SalesOrderLinesTableSettings />,
+        options: GridSettingsService.GetDialogOptions());
+
+        await SalesOrderLinesTable.DataGrid.Reload();
+    }
+
+    async Task OpenDeliveryTableSettings()
+    {
+        await DialogService.OpenAsync(
+            "Table Settings",
+            ds => @<AppGridSettings TItem="DeliveryLineVM"
+                                    @bind-Grid=@DeliveryLinesTable.DataGrid
+                                    @bind-GridSettings=@DeliveryLinesTableSettings />,
+        options: GridSettingsService.GetDialogOptions());
+
+        await DeliveryLinesTable.DataGrid.Reload();
+    }
+}

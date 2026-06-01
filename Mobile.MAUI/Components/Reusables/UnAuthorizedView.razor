@@ -1,0 +1,7 @@
+<RadzenStack JustifyContent="JustifyContent.Center" AlignItems="AlignItems.Center" class="rz-w-100 rz-h-100" Style="position:fixed;z-index:1000">
+    <RadzenText Text="You are not authorized to view this page." />
+    <RadzenButton Text="Login" Click="@(()=> _navManager.NavigateTo("/login",true))" ButtonStyle="ButtonStyle.Primary" Shade="Shade.Light" />
+</RadzenStack>
+@code {
+    [Inject] NavigationManager _navManager { get; set; }
+}

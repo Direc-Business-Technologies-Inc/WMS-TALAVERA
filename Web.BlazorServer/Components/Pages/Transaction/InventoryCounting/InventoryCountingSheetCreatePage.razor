@@ -1,0 +1,115 @@
+@using Web.BlazorServer.Components.Pages.Transaction.InventoryCounting.Components
+@using Web.BlazorServer.Components.Security
+@using Web.BlazorServer.Components.Shared.Skeletons
+@using Web.BlazorServer.ViewModels.Transaction.InventoryCounting
+
+@inherits BaseForm<InventoryCountingSheetVM>
+@page "/transactions/inventory/inventory-counting/new-sheet"
+@layout ProtectedLayout
+@attribute [AppAuthorizationAttribute("CREATE", "OICT")]
+
+<PageTitle>New Inventory Counting Sheet</PageTitle>
+
+<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" class="rz-mb-4">
+    <AppBreadCrumbs ModuleCode="OICT" />
+</RadzenStack>
+
+<AppContent>
+
+    <AppFormSkeleton TItem="InventoryCountingSheetVM" Loading="@IsLoadingData" />
+
+    @* Parent document info badges *@
+    <RadzenStack Visible="@(!IsLoadingData)" Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.End" Gap="0.5rem" class="rz-mb-2 rz-w-100">
+        <AppContentBadge Title="Doc #" Content="@ParentDocument?.AppDocNum.Value" />
+        <AppContentBadge Title="Warehouse" Content="@ParentDocument?.Warehouse.WhsName" />
+        <AppContentBadge Title="Counting Date" Content="@ParentDocument?.CountingDate.ToString("MM/dd/yyyy")" />
+    </RadzenStack>
+
+    <RadzenTemplateForm Visible="@(!IsLoadingData)"
+                        @ref="@TemplateForm" TItem="InventoryCountingSheetVM"
+                        @bind-Data="@FormData" EditContext="@EditContext" Submit="@HandleSubmit">
+        <RadzenStack Gap="1rem">
+
+            <RadzenFieldset AllowCollapse Text="Sheet Info">
+                <ChildContent>
+                    <RadzenRow Gap="1rem">
+                        <RadzenColumn Size="12" SizeMD="4">
+                            <RadzenFormField Text="Counter" class="rz-w-100" AllowFloatingLabel="false">
+                                <RadzenTextBox ReadOnly Value="@FormData.Counter.Name" class="rz-w-100" />
+                            </RadzenFormField>
+                        </RadzenColumn>
+                        <RadzenColumn Size="12" SizeMD="4">
+                            <RadzenFormField Text="Submitted Date" class="rz-w-100" AllowFloatingLabel="false">
+                                <RadzenTextBox ReadOnly Value="@FormData.SubmittedDate.ToString("MM/dd/yyyy")" class="rz-w-100" />
+                            </RadzenFormField>
+                        </RadzenColumn>
+                    </RadzenRow>
+                </ChildContent>
+            </RadzenFieldset>
+
+            <RadzenFieldset AllowCollapse Text="Sheet Lines">
+                <ChildContent>
+                    <AppTable @ref="@SheetLinesTable"
+                              Id="ict_sheet_lines"
+                              TItem="InventoryCountingSheetLineVM"
+                              @bind-GridSettingsLoaded="@GridSettingsLoaded"
+                              Data="[..FormData.SheetLines]">
+                        <HeaderTemplate>
+                            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" AlignItems="AlignItems.Center" Gap="8px">
+                                <RadzenButton Icon="settings" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@OpenSheetLinesSettings" />
+                                <RadzenButton Text="Scan Barcode" Icon="qr_code_scanner"
+                                              Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Primary"
+                                              Click="@OpenScannerDialog" />
+                            </RadzenStack>
+                        </HeaderTemplate>
+                        <Columns>
+                            <RadzenDataGridColumn TItem="InventoryCountingSheetLineVM"
+                                                  Property="@nameof(InventoryCountingSheetLineVM.ItemCode)"
+                                                  Title="Item Code" Type="@typeof(string)" />
+                            <RadzenDataGridColumn TItem="InventoryCountingSheetLineVM"
+                                                  Property="@nameof(InventoryCountingSheetLineVM.ItemName)"
+                                                  Title="Item Name" Type="@typeof(string)" />
+                            <RadzenDataGridColumn TItem="InventoryCountingSheetLineVM"
+                                                  Property="@nameof(InventoryCountingSheetLineVM.UoMName)"
+                                                  Title="UoM" Width="100px" Type="@typeof(string)" />
+                            <RadzenDataGridColumn TItem="InventoryCountingSheetLineVM"
+                                                  Title="Count Qty" Width="160px">
+                                <Template Context="line">
+                                    <RadzenNumeric Format="N0" @bind-Value="@line.Quantity" Min="0" ShowUpDown />
+                                </Template>
+                            </RadzenDataGridColumn>
+                        </Columns>
+                    </AppTable>
+                </ChildContent>
+            </RadzenFieldset>
+
+            <RadzenRow>
+                <RadzenColumn>
+                    <RadzenStack class="rz-mt-4" Orientation="Orientation.Horizontal"
+                                 AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
+                        <RadzenButton Text="Back" ButtonStyle="ButtonStyle.Base" Click="@GoBack" />
+                        <RadzenButton ButtonStyle="ButtonStyle.Success" ButtonType="ButtonType.Submit"
+                                      IsBusy="@AppBusyService.IsBusy(ActionCreate)">
+                            Save Sheet
+                        </RadzenButton>
+                    </RadzenStack>
+                </RadzenColumn>
+            </RadzenRow>
+
+        </RadzenStack>
+    </RadzenTemplateForm>
+
+</AppContent>
+
+@code {
+    async Task OpenSheetLinesSettings()
+    {
+        await DialogService.OpenAsync(
+            "Table Settings",
+            ds => @<AppGridSettings TItem="InventoryCountingSheetLineVM"
+                                    @bind-Grid=@SheetLinesTable.DataGrid
+                                    @bind-GridSettings=@SheetLinesTableSettings />,
+            options: GridSettingsService.GetDialogOptions());
+        await SheetLinesTable.DataGrid.Reload();
+    }
+}

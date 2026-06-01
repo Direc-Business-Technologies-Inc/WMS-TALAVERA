@@ -1,0 +1,38 @@
+﻿@inherits BaseComponent
+<RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center" Gap="0" class="rz-px-4 rz-pt-1">
+    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="8px">
+        @* <span style="height: 35px; display: inline-flex; align-items: center;">
+            <svg width="auto" height="100%" viewBox="0 0 105 163" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M15.3329 137C-10.1671 111.5 -2.1671 61 26.8329 28C34.6662 19.6667 50.6329 2.4 51.8329 0C62.8329 15 138.833 79.5 85.3329 142C70.8329 156 59.6622 174 50.3329 151.5C43.9061 136 38.3329 117.5 37.3329 67C34.8329 72.5 13.3329 103 37.3329 162C32.3329 155 22.8329 144.5 15.3329 137Z" fill="url(#paint0_radial_4_2)" />
+                <defs>
+                    <radialGradient id="paint0_radial_4_2" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(52.1117 81.077) rotate(89.8092) scale(66.4234 42.6932)">
+                        <stop stop-color="#559C32" />
+                        <stop offset="1" stop-color="#50972D" />
+                    </radialGradient>
+                </defs>
+            </svg>
+        </span>
+
+        <RadzenText Text="MacroLPG" TextStyle="TextStyle.DisplayH6" Style="color: var(--rz-danger-darker); font-weight: 900" class="rz-m-0 rz-p-0 lsms-text-no-select lsms-cursor-pointer" @onclick=@NavigateToHome /> *@
+        <RadzenImage Path="/assets/direc_2025_logo.png" style="width: 100px;" Click="@NavigateToHome" />
+    </RadzenStack>
+
+    <RadzenStack Visible=@WithAccount Orientation="Orientation.Horizontal" JustifyContent=JustifyContent.End AlignItems="AlignItems.Center" Gap="8px">
+        @* <RadzenAppearanceToggle /> *@
+        <RadzenProfileMenu Visible="@AuthService.IsAuthenticated()" ShowIcon=false>
+            <Template>
+                <RadzenGravatar Email="@AuthService.GetUserEmail()"/>
+            </Template>
+            <ChildContent>
+                <RadzenStack Gap="8px" class="rz-p-2">
+                    <RadzenStack class="rz-p-2" Gap="2px">
+                        <RadzenText Text="@AuthService.GetUserName()" class="rz-m-0" />
+                        <RadzenText TextStyle="TextStyle.Caption" Text="@AuthService.GetUserRoleName()" class="rz-m-0" />
+                    </RadzenStack>
+                    <RadzenButton Text="Logout" Icon="power_settings_new" ButtonStyle=ButtonStyle.Base Variant="Variant.Text" Click="@Logout" class="rz-text-capitalize" />
+                </RadzenStack>
+            </ChildContent>
+        </RadzenProfileMenu>
+    </RadzenStack>
+</RadzenStack>
+

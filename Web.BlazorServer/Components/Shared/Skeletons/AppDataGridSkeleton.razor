@@ -1,0 +1,89 @@
+﻿@typeparam TItem where TItem : class
+
+@RenderLoading()
+
+@code {
+
+    internal RenderFragment RenderLoading()
+    {
+        return __builder =>
+        {
+            <text>
+                <!-- Skeleton loading state -->
+                <RadzenTable Visible="@Loading">
+                    <RadzenTableHeader>
+                        <RadzenTableHeaderRow>
+                            <RadzenTableHeaderCell Style="width: 300px;">
+                                <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center" class="rz-p-0">
+                                    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Start" AlignItems="AlignItems.Center" Gap="1.5rem">
+                                        <RadzenSkeleton Style="width: 1rem;" />
+                                        <RadzenSkeleton Style="width: var(--rz-gravatar-width);" />
+                                        <RadzenSkeleton Style="width: 2rem;" />
+                                    </RadzenStack>
+                                    <RadzenSkeleton Variant="SkeletonVariant.Circular" Style="width: 1.25rem; height: 1.25rem" />
+                                </RadzenStack>
+                            </RadzenTableHeaderCell>
+                            @for (int i = 0; i < 6; i++)
+                            {
+                                <RadzenTableHeaderCell Style="width: 160px;">
+                                    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center" class="rz-p-0">
+                                        <RadzenSkeleton Style="width: 50%;" />
+                                        <RadzenSkeleton Variant="SkeletonVariant.Circular" Style="width: 1.25rem; height: 1.25rem" />
+                                    </RadzenStack>
+                                </RadzenTableHeaderCell>
+                            }
+                        </RadzenTableHeaderRow>
+                    </RadzenTableHeader>
+                    <RadzenTableBody>
+                        <!-- Table rows skeleton -->
+                        @for (int i = 0; i < 5; i++)
+                        {
+                            <RadzenTableRow>
+                                <RadzenTableCell>
+                                    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Start" AlignItems="AlignItems.Center" Gap="1.5rem">
+                                        <RadzenSkeleton Style="width: 1rem;" />
+                                        <RadzenSkeleton Variant="SkeletonVariant.Circular" Style="width: var(--rz-gravatar-width); height: var(--rz-gravatar-height);" />
+                                        <RadzenSkeleton Animation="SkeletonAnimation.Wave" Style="width: 1.5rem; flex: 1;" />
+                                    </RadzenStack>
+                                </RadzenTableCell>
+                                <RadzenTableCell>
+                                    <RadzenSkeleton Animation="SkeletonAnimation.Wave" Style="width: 50%;" />
+                                </RadzenTableCell>
+                                <RadzenTableCell>
+                                    <RadzenSkeleton Animation="SkeletonAnimation.Wave" Style="width: 90%;" />
+                                </RadzenTableCell>
+                                <RadzenTableCell>
+                                    <RadzenSkeleton Animation="SkeletonAnimation.Wave" Style="width: 20%;" />
+                                </RadzenTableCell>
+                                <RadzenTableCell>
+                                    <RadzenSkeleton Animation="SkeletonAnimation.Wave" Style="width: 70%;" />
+                                </RadzenTableCell>
+                                <RadzenTableCell>
+                                    <RadzenSkeleton Animation="SkeletonAnimation.Wave" Style="width: 80%;" />
+                                </RadzenTableCell>
+                                <RadzenTableCell>
+                                    <RadzenSkeleton Animation="SkeletonAnimation.Wave" Style="width: 80%;" />
+                                </RadzenTableCell>
+                            </RadzenTableRow>
+                        }
+                    </RadzenTableBody>
+                    <RadzenTableBody>
+                        <!-- Pager -->
+                        <RadzenTableRow>
+                            <RadzenTableCell colspan="7">
+                                <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Center" class="rz-p-5" Gap="8px">
+                                    <RadzenSkeleton Style="width: 1.5rem; height: 1.5rem" />
+                                    <RadzenSkeleton Style="width: 1.5rem; height: 1.5rem" />
+                                    <RadzenSkeleton Style="width: 1.5rem; height: 1.5rem" />
+                                    <RadzenSkeleton Style="width: 1.5rem; height: 1.5rem" />
+                                    <RadzenSkeleton Style="width: 1.5rem; height: 1.5rem" />
+                                </RadzenStack>
+                            </RadzenTableCell>
+                        </RadzenTableRow>
+                    </RadzenTableBody>
+                </RadzenTable>
+            </text>
+        };
+    }
+
+}

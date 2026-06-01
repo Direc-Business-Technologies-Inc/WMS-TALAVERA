@@ -1,0 +1,6 @@
+﻿
+<RadzenButton Click="RefreshCallback" Icon="refresh" Size="ButtonSize.Medium" ButtonStyle="ButtonStyle.Light" class="rz-w-fit"/>
+@code {
+    [Parameter]
+    public  Func<Task> RefreshCallback { get; set; }
+}

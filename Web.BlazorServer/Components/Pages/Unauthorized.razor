@@ -1,0 +1,42 @@
+﻿@page "/401"
+@layout MainLayout
+@inherits BaseComponent
+
+<PageTitle>Unauthorized</PageTitle>
+
+<AppContent>
+    <RadzenStack class="rz-w-100">
+        <RadzenText Text="Error 401" TextStyle="TextStyle.H4" class="rz-color-danger" />
+        <RadzenText Text="Access to this Module is Unauthorized" TextStyle="TextStyle.Subtitle2" class="rz-color-base-700" />
+        <RadzenStack Orientation="Orientation.Horizontal" Gap="8px" AlignItems="AlignItems.Center" class="rz-my-2">
+            <RadzenProgressBarCircular Mode="ProgressBarMode.Indeterminate">
+                <Template>
+                    @number
+                </Template>
+            </RadzenProgressBarCircular>
+            <RadzenText Text="Redirecting ..." TextStyle="TextStyle.Button" />
+        </RadzenStack>
+    </RadzenStack>
+</AppContent>
+
+@code {
+    int number { get; set; } = 5;
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await ToDashboard();
+        }
+    }
+    async Task ToDashboard()
+    {
+        while (number > 0)
+        {
+            await Task.Delay(1000);
+            number--;
+            StateHasChanged();
+        }
+
+        NavManager.NavigateTo("/dashboard", true);
+    }
+}

@@ -1,0 +1,16 @@
+﻿<RadzenStack @onclick="@Click" Gap="8px" AlignItems="AlignItems.Center" class="rz-px-3 rz-py-3 rz-background-color-base-200 rz-mx-auto rz-border-radius-" Style="width:fit-content;border-radius:0 0 12px 12px"  Orientation="Orientation.Horizontal">
+	@if (BackPath is not null)
+	{
+		<BackButton Path="@BackPath" />
+	}
+	<RadzenText TextAlign="TextAlign.Center" class="rz-color-primary font-bolder " Text="@Title" Style="font-size: .95rem; margin-bottom:0; text-transform:uppercase !important;" />
+</RadzenStack>
+@code {
+	[Inject] NavigationManager _navManager { get; set; }
+	[Parameter]
+	public string Title { get; set; }
+	[Parameter]
+	public string? BackPath { get; set; }
+	[Parameter]
+	public EventCallback<MouseEventArgs> Click { get; set; }
+}

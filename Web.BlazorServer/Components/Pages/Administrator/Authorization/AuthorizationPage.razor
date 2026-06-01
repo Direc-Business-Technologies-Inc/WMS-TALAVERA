@@ -1,0 +1,30 @@
+﻿@using Web.BlazorServer.Components.Security
+@using Web.BlazorServer.ViewModels.Administration.Role
+@using Web.BlazorServer.ViewModels.System
+
+@inherits BaseComponent
+@page "/administration/user/authorization-management"
+@layout ProtectedLayout
+@attribute [AppAuthorizationAttribute("VIEW", "OAUT")]
+
+<PageTitle>Authorization Management</PageTitle>
+
+<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" class="rz-mb-4">
+    <AppBreadCrumbs ModuleCode="OAUT" />
+    <RadzenSelectBar TValue="AuthorizationType" @bind-Value="@ActiveTab">
+        <Items>
+            <RadzenSelectBarItem Text="Role Authorization" Value="AuthorizationType.Role" />
+            <RadzenSelectBarItem Text="User Authorization" Value="AuthorizationType.User" />
+        </Items>
+    </RadzenSelectBar>
+</RadzenStack>
+<AppContent>
+    @if (ActiveTab.Equals(AuthorizationType.Role))
+    {
+        <RoleAuthorization @bind-CurrentTab="@ActiveTab" />
+    }
+    else
+    {
+        <UserAuthorization @bind-CurrentTab="@ActiveTab" />
+    }
+</AppContent>

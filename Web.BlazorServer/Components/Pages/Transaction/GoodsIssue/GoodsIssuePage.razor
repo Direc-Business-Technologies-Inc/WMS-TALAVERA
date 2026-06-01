@@ -1,0 +1,29 @@
+﻿@inherits BaseComponent
+@page "/transactions/inventory/goods-issue"
+@using Web.BlazorServer.Components.Pages.Transaction.GoodsIssue.Components
+@using Web.BlazorServer.Components.Security
+@layout ProtectedLayout
+@attribute [AppAuthorizationAttribute("VIEW", "OGIS")]
+
+
+<PageTitle>Goods Issue</PageTitle>
+
+<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" class="rz-mb-4">
+    <AppBreadCrumbs ModuleCode="OGIS" />
+</RadzenStack>
+
+<AppContent>
+    <RadzenTabs @bind-SelectedIndex="@SelectedTab" @bind-SelectedIndex:after="@TabChanged">
+        <Tabs>
+            <RadzenTabsItem Text="Pending">
+                <PendingDataGrid />
+            </RadzenTabsItem>
+            <RadzenTabsItem Text="Approved">
+                <ApprovedDataGrid />
+            </RadzenTabsItem>
+            <RadzenTabsItem Text="Rejected">
+                <RejectedDataGrid />
+            </RadzenTabsItem>
+        </Tabs>
+    </RadzenTabs>
+</AppContent>

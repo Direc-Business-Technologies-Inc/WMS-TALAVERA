@@ -1,0 +1,50 @@
+﻿<RadzenTemplateForm TItem="ClientEndpointVM" Data="@EndpointVM" Submit="@Submit">
+    <RadzenStack>
+
+        
+        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center">
+            <RadzenFormField Text="Protocol">
+                <ChildContent>
+                    <RadzenDropDown @bind-Value=@(EndpointVM.Protocol) Data="@(Enum.GetValues(typeof(Protocol)).Cast<Protocol>().ToList())"  Name="protocol" />
+                </ChildContent>
+                <Helper>
+                    <RadzenRequiredValidator Component="protocol" Text="Required" />
+                </Helper>
+            </RadzenFormField>
+
+        </RadzenStack>
+
+        <RadzenFormField Text="IP Address">
+            <ChildContent>
+                <RadzenTextBox @bind-Value=@EndpointVM.Server  Name="ip"/>
+            </ChildContent>
+            <Helper>
+                <RadzenRequiredValidator Component="ip" Text="Required" />
+            </Helper>
+        </RadzenFormField>
+        
+        <RadzenFormField Text="Port">
+            <ChildContent>
+                <RadzenTextBox @bind-Value=@(EndpointVM.Port) Name="port"/>
+            </ChildContent>
+            <Helper>
+                <RadzenRequiredValidator Component="port" Text="Required" />
+            </Helper>
+        </RadzenFormField>
+        
+        <RadzenFormField Text="Base Endpoint">
+            <ChildContent>
+                <RadzenTextBox @bind-Value=@EndpointVM.BaseEndpoint Name="base-endpoint"/>
+            </ChildContent>
+            <Helper>
+                <RadzenRequiredValidator Component="base-endpoint" Text="Required" />
+            </Helper>
+        </RadzenFormField>
+    </RadzenStack>
+
+    <RadzenStack  Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" AlignItems=AlignItems.Center class="rz-mt-5 rz-w-100">
+        <RadzenButton Text="Submit" ButtonType="ButtonType.Submit" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Success" Shade="Shade.Light" />
+    </RadzenStack>
+</RadzenTemplateForm>
+
+

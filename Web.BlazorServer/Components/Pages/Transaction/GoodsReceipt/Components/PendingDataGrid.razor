@@ -1,0 +1,57 @@
+﻿@using Web.BlazorServer.ViewModels.Transaction.GoodsReceipt
+
+@inherits BaseComponent
+
+<AppDataGrid @ref="@GoodsReceiptDataGrid" Id="approved_goods_receipt_grid" TItem="GoodsReceiptDataGridVM" DataGetter="@LoadDataAsync" GridSettings="@GoodsReceiptDataGridSettings" @bind-GridSettingsLoaded="@GridSettingsLoaded" ActionName="@ActionGetGoodsReceipts">
+    <HeaderTemplate>
+        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" AlignItems="AlignItems.Center" Gap="8px">
+            <RadzenButton Icon="settings" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@OpenTableSettings" />
+            <RadzenButton Icon="sync" Size="ButtonSize.Small" Click="GoodsReceiptDataGrid.ReloadDataAsync" />
+            <RadzenButton Icon="add" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Success" Click="@CreateGoodsReceipt" />
+        </RadzenStack>
+    </HeaderTemplate>
+    <GridColumns>
+        <RadzenDataGridColumn TItem="GoodsReceiptDataGridVM"
+                              Property="@nameof(GoodsReceiptDataGridVM.DocEntry)"
+                              Type="@typeof(int)"
+                              Title="Doc No." />
+        <RadzenDataGridColumn TItem="GoodsReceiptDataGridVM"
+                              Property="@nameof(GoodsReceiptDataGridVM.DocDate)"
+                              Type="@typeof(DateTime)"
+                              Title="Doc Date">
+            <Template>
+                @context.DocDate.ToString("MM/dd/yyyy")
+            </Template>
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn TItem="GoodsReceiptDataGridVM"
+                              Property="@nameof(GoodsReceiptDataGridVM.PreparedBy)"
+                              Type="@typeof(string)"
+                              Title="Prepared By" />
+        <RadzenDataGridColumn TItem="GoodsReceiptDataGridVM"
+                              Property="@nameof(GoodsReceiptDataGridVM.TransTypeName)"
+                              Type="@typeof(string)"
+                              Title="Trans. Type" />
+        <RadzenDataGridColumn TItem="GoodsReceiptDataGridVM"
+                              Frozen
+                              FrozenPosition="FrozenColumnPosition.Right"
+                              Width="35px">
+            <Template>
+                <RadzenButton Icon="arrow_right_alt" Size="ButtonSize.ExtraSmall" Click="() => ViewGoodsReceipt(context)" />
+            </Template>
+        </RadzenDataGridColumn>
+    </GridColumns>
+</AppDataGrid>
+
+@code {
+    async Task OpenTableSettings()
+    {
+        await DialogService.OpenAsync(
+            "Table Settings",
+            ds => @<AppGridSettings TItem="GoodsReceiptDataGridVM"
+                                    @bind-Grid=@GoodsReceiptDataGrid.DataGrid
+                                    @bind-GridSettings=@GoodsReceiptDataGridSettings />,
+        options: GridSettingsService.GetDialogOptions());
+
+        await GoodsReceiptDataGrid.DataGrid.Reload();
+    }
+}

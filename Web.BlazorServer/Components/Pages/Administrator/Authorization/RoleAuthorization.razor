@@ -1,0 +1,136 @@
+﻿@using Web.BlazorServer.ViewModels.Administration.Role
+@using Web.BlazorServer.ViewModels.System
+
+@inherits BaseComponent
+@layout ProtectedLayout
+
+<RadzenStack Visible="@CurrentTab.Equals(AuthorizationType.Role)" Orientation="Orientation.Horizontal" AlignItems="AlignItems.Start" JustifyContent="JustifyContent.SpaceBetween" Gap="8px" class="rz-mb-2 rz-w-100 rz-h-100">
+    <RadzenListBox @ref="@RolesListBox" Disabled="@Editable" @bind-Value="@SelectedRole" @bind-Value:after="@OnRoleSelect" Data="@Roles.Items" Count="@Roles.Count" AllowVirtualization TextProperty="@nameof(RoleVM.Name)" AllowFiltering FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" Style="max-height: 500px; width: 400px; max-width: 400px;" PageSize="10" LoadData="@RoleLoadData" />
+    <RadzenStack Visible="@(SelectedRole is null)" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Center" class="rz-w-100 rz-h-100" Style="min-height:400px;">
+        <RadzenText Text="Please Select a Role" TextStyle="TextStyle.Subtitle1" class="rz-mt-2 rz-text-center rz-color-base-600" />
+    </RadzenStack>
+    <RadzenStack Visible="@(AppBusyService.IsBusy(ActionGetRolePermissions))" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Center" class="rz-w-100 rz-h-100" Style="min-height:500px;">
+        <RadzenProgressBarCircular ProgressBarStyle="ProgressBarStyle.Primary" Value="100" ShowValue="false" Mode="ProgressBarMode.Indeterminate" AriaLabel="Primary loading" Size="ProgressBarCircularSize.ExtraSmall" />
+        <RadzenText Text="Loading Permissions ..." TextStyle="TextStyle.Body1" class="rz-mt-2 rz-text-center" />
+    </RadzenStack>
+    <RadzenStack Visible="@(SelectedRole is not null && !AppBusyService.IsBusy(ActionGetRolePermissions))" Gap="16px" class="rz-w-100">
+        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" class="rz-w-100 rz-p-4 rz-border rz-border-base-300 rz-border-radius-1">
+            <RadzenStack Gap="0" Style="min-width: 200px;">
+                <RadzenStack Orientation="Orientation.Horizontal" Gap="4px" AlignItems="AlignItems.Center" class="rz-mb-2">
+                    <RadzenBadge Text="@(SelectedRole!.Active ? "Active" : "Inactive")" BadgeStyle="@(SelectedRole.Active? BadgeStyle.Success: BadgeStyle.Base)" Shade="Shade.Lighter" />
+                    <RadzenText Text="@SelectedRole.Code.ToUpper()" TextStyle="TextStyle.Subtitle2" class="rz-color-base-500 rz-m-0" />
+                </RadzenStack>
+                <RadzenText Text="@SelectedRole!.Name" TextStyle="TextStyle.DisplayH5" class="rz-m-0" />
+            </RadzenStack>
+            <RadzenStack Visible="@Can.Update("OAUT")" Orientation="Orientation.Horizontal" AlignItems="AlignItems.Start">
+                <RadzenButton Visible="@(!Editable)" Text="Edit Permissions" ButtonStyle="ButtonStyle.Success" Click="@OnEdit" />
+                <RadzenButton Visible="@(Editable)" Text="Cancel" ButtonStyle="ButtonStyle.Base" Click="@CancelEdit" />
+                <RadzenButton Visible="@(Editable)" Text="Save Changes" ButtonStyle="ButtonStyle.Success" Click="@SaveChanges" />
+                <RadzenButton Visible="@(Editable)" Text="Cascade Changes" ButtonStyle="ButtonStyle.Success" Click="@CascadeChanges" />
+            </RadzenStack>
+        </RadzenStack>
+        <RadzenDataGrid Data="@Modules.Items" Count="@Modules.Count" TItem="ModuleDataGridVM" AllowPaging PageSize="10" ShowPagingSummary PagerHorizontalAlign="HorizontalAlign.Right" AllowFiltering AllowSorting class="rz-border-radius-2" GridLines="DataGridGridLines.Horizontal">
+            <Columns>
+                <RadzenDataGridColumn TItem="ModuleDataGridVM"
+                                      Property="@nameof(ModuleDataGridVM.Code)"
+                                      Type="@typeof(string)"
+                                      Title="Module Code"
+                                      Visible="false" />
+                <RadzenDataGridColumn TItem="ModuleDataGridVM"
+                                      Property="@nameof(ModuleDataGridVM.Name)"
+                                      Type="@typeof(string)"
+                                      Title="Module Name" />
+                <RadzenDataGridColumn TItem="ModuleDataGridVM"
+                                      Type="@typeof(bool)"
+                                      Title="View"
+                                      TextAlign="TextAlign.Center"
+                                      Filterable="false"
+                                      Sortable="false"
+                                      Width="120px">
+                    <Template Context="data">
+                        <RadzenCheckBox ReadOnly="@(!Editable)"
+                                        Visible="@(data.HasPermission("VIEW"))"
+                                        TValue="bool"
+                                        Value="@HasPermission("VIEW", data.Code)"
+                                        Change="@(() => OnPermissionChange(data.Permissions.FirstOrDefault(p => p.Permission == "VIEW")))" />
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="ModuleDataGridVM"
+                                      Type="@typeof(bool)"
+                                      Title="Create"
+                                      TextAlign="TextAlign.Center"
+                                      Filterable="false"
+                                      Sortable="false"
+                                      Width="120px">
+                    <Template Context="data">
+                        <RadzenCheckBox ReadOnly="@(!Editable)"
+                                        Visible="@(data.HasPermission("CREATE"))"
+                                        TValue="bool"
+                                        Value="@HasPermission("CREATE", data.Code)"
+                                        Change="@(() => OnPermissionChange(data.Permissions.FirstOrDefault(p => p.Permission == "CREATE")))" />
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="ModuleDataGridVM"
+                                      Type="@typeof(bool)"
+                                      Title="Update"
+                                      TextAlign="TextAlign.Center"
+                                      Filterable="false"
+                                      Sortable="false"
+                                      Width="120px">
+                    <Template Context="data">
+                        <RadzenCheckBox ReadOnly="@(!Editable)"
+                                        Visible="@(data.HasPermission("UPDATE"))"
+                                        TValue="bool"
+                                        Value="@HasPermission("UPDATE", data.Code)"
+                                        Change="@(() => OnPermissionChange(data.Permissions.FirstOrDefault(p => p.Permission == "UPDATE")))" />
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="ModuleDataGridVM"
+                                      Type="@typeof(bool)"
+                                      Title="Archive"
+                                      TextAlign="TextAlign.Center"
+                                      Filterable="false"
+                                      Sortable="false"
+                                      Width=" 120px">
+                    <Template Context="data">
+                        <RadzenCheckBox ReadOnly="@(!Editable)"
+                                        Visible="@(data.HasPermission("ARCHIVE"))"
+                                        TValue="bool"
+                                        Value="@HasPermission("ARCHIVE", data.Code)"
+                                        Change="@(() => OnPermissionChange(data.Permissions.FirstOrDefault(p => p.Permission == "ARCHIVE")))" />
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="ModuleDataGridVM"
+                                      Type="@typeof(bool)"
+                                      Title="Approve"
+                                      TextAlign="TextAlign.Center"
+                                      Filterable="false"
+                                      Sortable="false"
+                                      Width="120px">
+                    <Template Context="data">
+                        <RadzenCheckBox ReadOnly="@(!Editable)"
+                                        Visible="@(data.HasPermission("APPROVE"))"
+                                        TValue="bool"
+                                        Value="@HasPermission("APPROVE", data.Code)"
+                                        Change="@(() => OnPermissionChange(data.Permissions.FirstOrDefault(p => p.Permission == "APPROVE")))" />
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="ModuleDataGridVM"
+                                      Type="@typeof(bool)"
+                                      Title="Admin"
+                                      TextAlign="TextAlign.Center"
+                                      Filterable="false"
+                                      Sortable="false"
+                                      Width="120px">
+                    <Template Context="data">
+                        <RadzenCheckBox ReadOnly="@(!Editable)"
+                                        Visible="@(data.HasPermission("ADMIN"))"
+                                        TValue="bool"
+                                        Value="@HasPermission("ADMIN", data.Code)"
+                                        Change="@(() => OnPermissionChange(data.Permissions.FirstOrDefault(p => p.Permission == "ADMIN")))" />
+                    </Template>
+                </RadzenDataGridColumn>
+            </Columns>
+        </RadzenDataGrid>
+    </RadzenStack>
+</RadzenStack>

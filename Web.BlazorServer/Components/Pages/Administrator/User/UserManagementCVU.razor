@@ -1,0 +1,211 @@
+﻿@using Mapster
+@using Web.BlazorServer.Components.Security
+@using Web.BlazorServer.Components.Shared.Skeletons
+@using Web.BlazorServer.Extensions
+@using Web.BlazorServer.ViewModels.Administration.Role
+@using Web.BlazorServer.ViewModels.Administration.User
+
+@inherits BaseForm<UserVM>
+@page "/administration/user/user-management/create"
+@page "/administration/user/user-management/view"
+@page "/administration/user/user-management/update"
+@layout ProtectedLayout
+@attribute [AppAuthorizationAttribute("VIEW", "OUSR")]
+
+<PageTitle>@(Creating ? "New" : Updating ? "Updating" : string.Empty) User @(Viewing || Updating ? FormData.Account.UserName.Value : string.Empty)</PageTitle>
+
+<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" class="rz-mb-4">
+    <AppBreadCrumbs ModuleCode="OUSR" />
+</RadzenStack>
+<AppContent>
+    <AppFormSkeleton TItem="UserVM" Loading="@IsLoadingData" />
+    <RadzenStack Visible="@(!IsLoadingData)" Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.End" Gap="8px" class="rz-mb-2">
+        <RadzenBadge BadgeStyle="@(Creating? BadgeStyle.Success: FormData.Active? BadgeStyle.Success: BadgeStyle.Base)" Text="@(Creating ? "New" : FormData.Active ? "Active" : "Inactive")" />
+        |
+        <RadzenText Text="@(string.IsNullOrEmpty(FormData.Name.FullName) ? "WMS User" : FormData.Name.FullName)" />
+        |
+        <RadzenText Text="@FormData.CreatedDate.ToString("MMM dd, yyyy")" />
+    </RadzenStack>
+    <RadzenTemplateForm Visible="@(!IsLoadingData)" @ref="@TemplateForm" TItem="UserVM" @bind-Data="@FormData" EditContext="@EditContext" Submit="@HandleSubmit">
+        <RadzenStack Gap="1rem">
+            <RadzenRow>
+                <RadzenColumn Size="12" SizeMD="4">
+                    <RadzenFieldset AllowCollapse Text="User Details">
+                        <ChildContent>
+                            <RadzenRow class="rz-my-2">
+                                <RadzenColumn Size="12">
+                                    <RadzenFormField Text="First Name*" class="rz-w-100" AllowFloatingLabel="false">
+                                        <ChildContent>
+                                            <RadzenTextBox ReadOnly="@Viewing" @bind-Value="@FormData.Name.FirstName" Placeholder="User First Name" Name="user_firstname" Disabled="@IsBusy" class="rz-w-100" />
+                                        </ChildContent>
+                                        <Helper>
+                                            <RadzenRequiredValidator Component="user_firstname" Text="First Name is required" Popup />
+                                        </Helper>
+                                    </RadzenFormField>
+                                </RadzenColumn>
+                            </RadzenRow>
+                            <RadzenRow class="rz-my-2">
+                                <RadzenColumn Size="12">
+                                    <RadzenFormField Text="Middle Name" class="rz-w-100" AllowFloatingLabel="false">
+                                        <ChildContent>
+                                            <RadzenTextBox ReadOnly="@Viewing" @bind-Value="@FormData.Name.MiddleName" Placeholder="User Middle Name" Name="user_middlename" Disabled="@IsBusy" class="rz-w-100" />
+                                        </ChildContent>
+                                    </RadzenFormField>
+                                </RadzenColumn>
+                            </RadzenRow>
+                            <RadzenRow class="rz-my-2">
+                                <RadzenColumn Size="12">
+                                    <RadzenFormField Text="Last Name*" class="rz-w-100" AllowFloatingLabel="false">
+                                        <ChildContent>
+                                            <RadzenTextBox ReadOnly="@Viewing" @bind-Value="@FormData.Name.LastName" Placeholder="User Last Name" Name="user_lastname" Disabled="@IsBusy" class="rz-w-100" />
+                                        </ChildContent>
+                                        <Helper>
+                                            <RadzenRequiredValidator Component="user_lastname" Text="Last Name is required" Popup />
+                                        </Helper>
+                                    </RadzenFormField>
+                                </RadzenColumn>
+                            </RadzenRow>
+                        </ChildContent>
+                    </RadzenFieldset>
+                </RadzenColumn>
+                <RadzenColumn Size="12" SizeMD="4">
+                    <RadzenFieldset AllowCollapse Text="Contact Details">
+                        <ChildContent>
+                            <RadzenRow class="rz-my-2">
+                                <RadzenColumn Size="12">
+                                    <RadzenFormField Text="Email*" class="rz-w-100" AllowFloatingLabel="false">
+                                        <ChildContent>
+                                            <RadzenTextBox ReadOnly="@Viewing" @bind-Value="@FormData.Email.Address" Placeholder="email@email.com" Name="user_email" Disabled="@IsBusy" class="rz-w-100" />
+                                        </ChildContent>
+                                        <Helper>
+                                            <RadzenRequiredValidator Component="user_email" Text="Email Address is required" Popup />
+                                            <RadzenEmailValidator Component="user_email" Text="Email Address format is incorrect" Popup />
+                                        </Helper>
+                                    </RadzenFormField>
+                                </RadzenColumn>
+                            </RadzenRow>
+                            <RadzenRow class="rz-my-2">
+                                <RadzenColumn Size="12">
+                                    <RadzenFormField Text="Phone No.*" class="rz-w-100" AllowFloatingLabel="false">
+                                        <ChildContent>
+                                            <RadzenTextBox ReadOnly="@Viewing" @bind-Value="@FormData.PhoneNumber" Placeholder="0999 XXX XXXX" Name="user_phone" Disabled="@IsBusy" class="rz-w-100" />
+                                        </ChildContent>
+                                        <Helper>
+                                            <RadzenRequiredValidator Component="user_phone" Text="Phone Number is required" Popup />
+                                            <RadzenRegexValidator Component="user_phone" Pattern="^(09)\d{9}$" Text="Invalid format. Use digits only." Popup />
+                                        </Helper>
+                                    </RadzenFormField>
+                                </RadzenColumn>
+                            </RadzenRow>
+                            <RadzenRow class="rz-my-2">
+                                <RadzenColumn Size="12">
+                                    <RadzenFormField Text="Company*" class="rz-w-100" AllowFloatingLabel="false">
+                                        <ChildContent>
+                                            <RadzenTextBox ReadOnly="@Viewing" @bind-Value="@FormData.Company" Placeholder="Direc" Name="user_company" Disabled="@IsBusy" class="rz-w-100" />
+                                        </ChildContent>
+                                        <Helper>
+                                            <RadzenRequiredValidator Component="user_company" Text="Company is required" Popup />
+                                        </Helper>
+                                    </RadzenFormField>
+                                </RadzenColumn>
+                            </RadzenRow>
+                        </ChildContent>
+                    </RadzenFieldset>
+                </RadzenColumn>
+                <RadzenColumn Size="12" SizeMD="4">
+                    <RadzenFieldset AllowCollapse Text="Account">
+                        <ChildContent>
+                            <RadzenRow Gap="100" class="rz-mt-6 rz-mb-3">
+                                <RadzenColumn Size="12">
+                                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="16px" Wrap="FlexWrap.Wrap" class="rz-w-100">
+                                        <RadzenStack Visible="@(Viewing || Updating)" Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="8px" class="rz-h-100">
+                                            <RadzenSwitch ReadOnly="@(Viewing)" @bind-Value="@FormData.Active" />
+                                            <RadzenText class="rz-m-0" TextStyle="TextStyle.Subtitle2" Text="@(FormData.Active ? "Active" : "Inactive")" />
+                                        </RadzenStack>
+                                        <RadzenStack Visible="@(Viewing || Updating)" Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="8px" class="rz-h-100">
+                                            <RadzenSwitch ReadOnly="@(Viewing)" @bind-Value="@(FormData.Account.Locked)" />
+                                            <RadzenText class="rz-m-0" TextStyle="TextStyle.Subtitle2" Text="@(!FormData.Account.Locked ? "Unlocked" : "Locked")" />
+                                        </RadzenStack>
+                                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="8px" class="rz-h-100">
+                                            <RadzenSwitch ReadOnly="@(Viewing)" @bind-Value="@FormData.Account.LockoutEnabled" />
+                                            <RadzenText class="rz-m-0" TextStyle="TextStyle.Subtitle2" Text="@(FormData.Account.LockoutEnabled ? "Lockout Enabled" : "Lockout Disabled")" />
+                                        </RadzenStack>
+                                    </RadzenStack>
+                                </RadzenColumn>
+                            </RadzenRow>
+                            <RadzenRow Gap="1rem" class="rz-my-2" AlignItems="AlignItems.End">
+                                <RadzenColumn Size="12">
+                                    <RadzenFormField Text="Role*" class="rz-w-100" AllowFloatingLabel="false">
+                                        <ChildContent>
+                                            <RadzenTextBox Visible="@Viewing" ReadOnly Value="@FormData.Role?.Name" Placeholder="WMS-0000" Name="user_username" Disabled="@IsBusy" class="rz-w-100" />
+                                            <RadzenDropDown Visible="@(Creating || Updating)" @bind-Value="@FormData.Role" Placeholder="Administrator" Data="@Roles" TextProperty="@nameof(RoleVM.Name)" AllowFiltering FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" Name="user_role" />
+                                        </ChildContent>
+                                        <Helper>
+                                            <RadzenRequiredValidator Component="user_role" Text="User Role is required" Popup />
+                                        </Helper>
+                                    </RadzenFormField>
+                                </RadzenColumn>
+                            </RadzenRow>
+                            <RadzenRow Gap="1rem" class="rz-my-2" AlignItems="AlignItems.End">
+                                <RadzenColumn Size="12" SizeMD="@(Creating ? 6 : 12)">
+                                    <RadzenFormField Text="Username*" class="rz-w-100" AllowFloatingLabel="false">
+                                        <ChildContent>
+                                            <RadzenTextBox ReadOnly @bind-Value="@FormData.Account.UserName.Value" Placeholder="WMS-0000" Name="user_username" Disabled="@IsBusy" class="rz-w-100" />
+                                        </ChildContent>
+                                        <End>
+                                            <RadzenButton Visible="@Updating" Size="ButtonSize.ExtraSmall" Icon="key_vertical" Text="Change Password" Click="() => OpenPasswordManagement(FormData.Adapt<UserDataGridVM>())" />
+                                        </End>
+                                        <Helper>
+                                            <RadzenRequiredValidator Component="user_username" Text="Username is required" Popup />
+                                        </Helper>
+                                    </RadzenFormField>
+                                </RadzenColumn>
+                                <RadzenColumn Visible="@(Creating)" Size="12" SizeMD="6">
+                                    <RadzenFormField Text="Password*" class="rz-w-100" AllowFloatingLabel="false">
+                                        <ChildContent>
+                                            <RadzenPassword Visible="@(!PasswordVisibility)" ReadOnly="@Viewing" @bind-Value="@FormData.Account.HashedPassword" Placeholder="********" Name="user_password_h" Disabled="@IsBusy" class="rz-w-100" />
+                                            <RadzenTextBox Visible="@PasswordVisibility" ReadOnly="@Viewing" @bind-Value="@FormData.Account.HashedPassword" Placeholder="********" Name="user_password_v" Disabled="@IsBusy" class="rz-w-100" />
+                                        </ChildContent>
+                                        <End>
+                                            <RadzenButton Icon="@(PasswordVisibility ? "visibility_off" : "visibility")" Size="ButtonSize.ExtraSmall" Click="@ToggleVisibility" />
+                                        </End>
+                                        <Helper>
+                                            <RadzenRequiredValidator Visible="@(!PasswordVisibility)" Component="user_password_h" Text="Password is required" Popup />
+                                            <RadzenRegexValidator Visible="@(!PasswordVisibility)" Component="user_password_h" Text="Password must be at least 8 characters long, contain at least one uppercase letter, one lowercase letter, one special character, and must not contain spaces" Pattern="^(?=.*[a-z])(?=.*[A-Z])(?=.*[^a-zA-Z0-9])\S{8,}$" Popup />
+                                            <RadzenRequiredValidator Visible="@(PasswordVisibility)" Component="user_password_v" Text="Password is required" Popup />
+                                            <RadzenRegexValidator Visible="@(PasswordVisibility)" Component="user_password_v" Text="Password must be at least 8 characters long, contain at least one uppercase letter, one lowercase letter, one special character, and must not contain spaces" Pattern="^(?=.*[a-z])(?=.*[A-Z])(?=.*[^a-zA-Z0-9])\S{8,}$" Popup />
+                                        </Helper>
+                                    </RadzenFormField>
+                                </RadzenColumn>
+                            </RadzenRow>
+                        </ChildContent>
+                    </RadzenFieldset>
+                </RadzenColumn>
+            </RadzenRow>
+            <RadzenRow>
+                <RadzenColumn>
+                    <RadzenStack class="rz-mt-8" Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
+                        <RadzenButton Text="Back" ButtonStyle="ButtonStyle.Base" Click="@Return" />
+                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="16px">
+                            <RadzenButton Visible="@(Updating && Can.Update("OUSR"))" Text="Cancel Edit" ButtonStyle="ButtonStyle.Base" Click="@CancelEditing" />
+                            <RadzenButton Visible="@(Viewing && Can.Update("OUSR"))" Text="Edit" ButtonStyle="ButtonStyle.Success" Click="@InitializeEditing" />
+                            <RadzenButton Visible="@((Creating && Can.Create("OUSR")) || (Updating && Can.Update("OUSR")))" ButtonStyle="ButtonStyle.Success" ButtonType="ButtonType.Submit">
+                                Save @(Updating ? "Changes" : string.Empty)
+                            </RadzenButton>
+                        </RadzenStack>
+                    </RadzenStack>
+                </RadzenColumn>
+            </RadzenRow>
+        </RadzenStack>
+    </RadzenTemplateForm>
+</AppContent>
+
+@code {
+    async Task OpenPasswordManagement(UserDataGridVM user)
+    {
+        await DialogService.OpenAsync(
+            $"Update Password",
+            ds => @<UserPasswordManagement User="user" />,
+    options: GridSettingsService.GetDialogOptions().CloseByCustomButton());
+    }
+}

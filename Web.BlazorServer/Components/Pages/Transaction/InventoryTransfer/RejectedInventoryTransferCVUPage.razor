@@ -1,0 +1,21 @@
+﻿@using Web.BlazorServer.Components.Pages.Transaction.InventoryTransfer.Components
+@using Web.BlazorServer.Components.Security
+@using Web.BlazorServer.Components.Shared.Skeletons
+@using Web.BlazorServer.ViewModels.Others
+@using Web.BlazorServer.ViewModels.Transaction.InventoryTransfer
+
+@layout ProtectedLayout
+@inherits BaseComponent
+@page "/transactions/inventory/inventory-transfer/rejected-inventory-transfer-request/view"
+@attribute [AppAuthorizationAttribute("VIEW", "OITR")]
+
+<PageTitle>Rejected ITR : @Ref</PageTitle>
+
+<ReadOnlyForm ActionName="@ActionGetRejectedInventoryTransferRequest"
+              DataGetter="@GetRejectedInventoryTransferRequest"
+              AdditionalRoutes="@AdditionalRoutes"
+              ParentURI="/transactions/inventory/inventory-transfer?T=rejected">
+    <ContentBadges>
+        <AppContentBadge Title="Status" Content="Rejected" ChildBadgeStyle="BadgeStyle.Danger" />
+    </ContentBadges>
+</ReadOnlyForm>

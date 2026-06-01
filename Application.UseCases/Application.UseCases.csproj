@@ -1,0 +1,30 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFramework>net8.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+	</PropertyGroup>
+
+	<ItemGroup>
+	  <None Include="Queries\Transaction\InventoryTransfer\GetInventoryTransferRequestQry.cs" />
+	  <None Include="Queries\Transaction\InventoryTransfer\GetInventoryTransferPendingRequestsQry.cs" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Mapster" Version="7.4.0" />
+		<PackageReference Include="Mapster.DependencyInjection" Version="1.0.1" />
+		<PackageReference Include="MediatR" Version="13.1.0" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.11" />
+		<PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <ProjectReference Include="..\Application.DataTransferObjects\Application.DataTransferObjects.csproj" />
+	  <ProjectReference Include="..\Domain.Entities\Domain.Entities.csproj" />
+	  <ProjectReference Include="..\Shared.DataCipher\Shared.DataCipher.csproj" />
+	</ItemGroup>
+	
+	
+
+</Project>

@@ -1,0 +1,32 @@
+﻿@RenderBreadcrumbLoading()
+
+@code {
+    [Parameter]
+    public bool Loading { get; set; }
+
+    [Parameter]
+    public int ItemCount { get; set; } = 3;
+
+    internal RenderFragment RenderBreadcrumbLoading()
+    {
+        return __builder =>
+        {
+            <text>
+                @if (Loading)
+                {
+                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem" class="rz-p-2">
+                        @for (int i = 0; i < ItemCount; i++)
+                        {
+                            <RadzenSkeleton Animation="SkeletonAnimation.Wave" Style="width: 4rem; height: 1rem;" />
+
+                            @if (i < ItemCount - 1)
+                            {
+                                <RadzenSkeleton Animation="SkeletonAnimation.Wave" Style="width: 0.5rem; height: 0.5rem;" />
+                            }
+                        }
+                    </RadzenStack>
+                }
+            </text>
+        };
+    }
+}

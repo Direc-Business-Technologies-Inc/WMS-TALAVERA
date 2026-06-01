@@ -1,0 +1,30 @@
+﻿@using Web.BlazorServer.Components.Pages.Transaction.GoodsReturn.Components
+@using Web.BlazorServer.Components.Pages.Transaction.Receiving.Components
+@using Web.BlazorServer.Components.Security
+@using Web.BlazorServer.ViewModels.Administration.User
+@using Web.BlazorServer.ViewModels.Transaction.Receiving
+
+@inherits BaseComponent
+@page "/transactions/purchasing/goods-return"
+@layout ProtectedLayout
+@attribute [AppAuthorizationAttribute("VIEW", "OGRN")]
+
+
+<PageTitle>Goods Return</PageTitle>
+
+<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" class="rz-mb-4">
+    <AppBreadCrumbs ModuleCode="OGRN" />
+</RadzenStack>
+
+<AppContent>
+    <RadzenTabs @bind-SelectedIndex="@SelectedTab" @bind-SelectedIndex:after="@TabChanged">
+        <Tabs>
+            <RadzenTabsItem Text="Goods Returns">
+                <GoodsReturnGrid />
+            </RadzenTabsItem>
+            <RadzenTabsItem Text="Goods Return Requests">
+                <GoodsReturnRequestGrid />
+            </RadzenTabsItem>
+        </Tabs>
+    </RadzenTabs>
+</AppContent>

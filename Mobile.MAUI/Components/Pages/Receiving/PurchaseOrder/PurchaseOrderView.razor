@@ -1,0 +1,43 @@
+﻿@using Mobile.MAUI.Components.Base
+@using Shared.Libraries.ViewModel
+
+@inherits BaseComponent
+<RadzenStack>
+    <RadzenStack class="mt-4">
+        <Loading IsLoading="@ActionGetPurchaseOrder.Busy" Text="Loading picklists..">
+            <ChildContent>
+               <RadzenStack>
+                    <EmptyListTemplate ReloadCallback="LoadData" Visible="@(Data.Count == 0)" />
+                    <RadzenDataList Data="@(Data ?? Enumerable.Empty<PurchaseOrderVM>())"
+                                    TItem="PurchaseOrderVM"
+                                    class="trans-list">
+                        <Template Context="row">
+                            <RadzenStack class="trans-card"
+                                         @onclick="@(() => NavManager.NavigateTo($"/purchaseorder/{row.OrderNumber}"))"
+                                         Orientation="Orientation.Horizontal"
+                                         AlignItems="AlignItems.Center"
+                                         JustifyContent="JustifyContent.SpaceBetween">
+
+                                <RadzenStack Gap="4px">
+                                    <RadzenText Text="@row.OrderNumber"
+                                                class="trans-number" />
+
+                                    <RadzenText class="trans-detail"
+                                                Text="@($"Vendor: {row.CustomerName}")" />
+
+                                    <RadzenText class="trans-detail"
+                                                Text="@($"Document Date: {row.NetsuiteOrderDocumentDate:MMMM d, yyyy}")" />
+                                </RadzenStack>
+
+                                <RadzenBadge Text="@row.GetShortName(row.OrderStatus)"
+                                             class="trans-status-badge" />
+                            </RadzenStack>
+                        </Template>
+                    </RadzenDataList>
+               </RadzenStack>
+           </ChildContent>
+        </Loading>
+    </RadzenStack>
+</RadzenStack>
+
+

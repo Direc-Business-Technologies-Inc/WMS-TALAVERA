@@ -1,0 +1,222 @@
+@using Web.BlazorServer.Components.Security
+@using Web.BlazorServer.Components.Shared.Skeletons
+@using Web.BlazorServer.ViewModels.Transaction.Delivery
+
+@inherits BaseForm<SalesOrderVM>
+@page "/transactions/sales/delivery/sales-order/view"
+@layout ProtectedLayout
+@attribute [AppAuthorizationAttribute("VIEW", "ODLV")]
+
+<PageTitle>Sales Order @FormData.SapReference.DocNum</PageTitle>
+
+<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" class="rz-mb-4">
+    <AppBreadCrumbs ModuleCode="ODLV" AdditionalRoutes="@AdditionalRoutes" />
+</RadzenStack>
+
+<AppContent>
+
+    <AppFormSkeleton TItem="SalesOrderVM" Loading="@IsLoadingData" />
+
+    <RadzenStack Visible="@(!IsLoadingData)"
+                 Orientation="Orientation.Horizontal"
+                 AlignItems="AlignItems.Center"
+                 JustifyContent="JustifyContent.End"
+                 Gap="32px"
+                 class="rz-mb-2">
+        <AppContentBadge Title="Doc" Content="@FormData.SapReference.DocNum.ToString()" />
+        <AppContentBadge Title="Doc Date" Content="@FormData.DocDate.ToString("MM-dd-yy")" ChildBadgeStyle="BadgeStyle.Secondary" ChildShade="Shade.Default" />
+        <AppContentBadge Title="Doc Due Date" Content="@FormData.DocDueDate.ToString("MM-dd-yy")" ChildBadgeStyle="BadgeStyle.Secondary" ChildShade="Shade.Default" />
+    </RadzenStack>
+
+    <RadzenTemplateForm Visible="@(!IsLoadingData)" @ref="@TemplateForm" TItem="SalesOrderVM" @bind-Data="@FormData" EditContext="@EditContext" Submit="@HandleSubmit">
+        <RadzenStack Gap="1rem">
+
+            <RadzenFieldset AllowCollapse Text="Details">
+                <ChildContent>
+                    <RadzenStack Gap="0.5rem">
+
+                        <RadzenRow Gap="1rem">
+                            <RadzenColumn Size="12" SizeMD="4">
+                                <RadzenFormField Text="Customer Code" class="rz-w-100" AllowFloatingLabel="false">
+                                    <ChildContent>
+                                        <RadzenTextBox ReadOnly Value="@FormData.BusinessPartner?.CardCode" Placeholder="CUST-001" Name="so_card_code" Disabled="@IsBusy" class="rz-w-100" />
+                                    </ChildContent>
+                                </RadzenFormField>
+                            </RadzenColumn>
+                            <RadzenColumn Size="12" SizeMD="4">
+                                <RadzenFormField Text="Customer Name" class="rz-w-100" AllowFloatingLabel="false">
+                                    <ChildContent>
+                                        <RadzenTextBox ReadOnly Value="@FormData.BusinessPartner?.CardName" Placeholder="Customer ABC" Name="so_card_name" Disabled="@IsBusy" class="rz-w-100" />
+                                    </ChildContent>
+                                </RadzenFormField>
+                            </RadzenColumn>
+                            <RadzenColumn Size="12" SizeMD="4">
+                                <RadzenFormField Text="Contact Person" class="rz-w-100" AllowFloatingLabel="false">
+                                    <ChildContent>
+                                        <RadzenTextBox ReadOnly Value="@(string.IsNullOrEmpty(FormData.ContactPerson) ? "N/A" : FormData.ContactPerson)" Placeholder="N/A" Name="so_contact_person" Disabled="@IsBusy" class="rz-w-100" />
+                                    </ChildContent>
+                                </RadzenFormField>
+                            </RadzenColumn>
+                        </RadzenRow>
+
+                        <RadzenRow Gap="1rem">
+                            <RadzenColumn Size="12" SizeMD="4">
+                                <RadzenFormField Text="PO No." class="rz-w-100" AllowFloatingLabel="false">
+                                    <ChildContent>
+                                        <RadzenTextBox ReadOnly Value="@FormData.PONo" Placeholder="N/A" Name="so_po_no" Disabled="@IsBusy" class="rz-w-100" />
+                                    </ChildContent>
+                                </RadzenFormField>
+                            </RadzenColumn>
+                            <RadzenColumn Size="12" SizeMD="4">
+                                <RadzenFormField Text="DR No." class="rz-w-100" AllowFloatingLabel="false">
+                                    <ChildContent>
+                                        <RadzenTextBox ReadOnly Value="@FormData.DRNo" Placeholder="N/A" Name="so_dr_no" Disabled="@IsBusy" class="rz-w-100" />
+                                    </ChildContent>
+                                </RadzenFormField>
+                            </RadzenColumn>
+                            <RadzenColumn Size="12" SizeMD="4">
+                                <RadzenFormField Text="School Year" class="rz-w-100" AllowFloatingLabel="false">
+                                    <ChildContent>
+                                        <RadzenTextBox ReadOnly Value="@FormData.SchoolYear" Placeholder="N/A" Name="so_school_year" Disabled="@IsBusy" class="rz-w-100" />
+                                    </ChildContent>
+                                </RadzenFormField>
+                            </RadzenColumn>
+                        </RadzenRow>
+
+                        <RadzenRow Gap="1rem">
+                            <RadzenColumn Size="12" SizeMD="4">
+                                <RadzenFormField Text="Area" class="rz-w-100" AllowFloatingLabel="false">
+                                    <ChildContent>
+                                        <RadzenTextBox ReadOnly Value="@FormData.Area" Placeholder="N/A" Name="so_area" Disabled="@IsBusy" class="rz-w-100" />
+                                    </ChildContent>
+                                </RadzenFormField>
+                            </RadzenColumn>
+                            <RadzenColumn Size="12" SizeMD="4">
+                                <RadzenFormField Text="Designation" class="rz-w-100" AllowFloatingLabel="false">
+                                    <ChildContent>
+                                        <RadzenTextBox ReadOnly Value="@FormData.Designation" Placeholder="N/A" Name="so_designation" Disabled="@IsBusy" class="rz-w-100" />
+                                    </ChildContent>
+                                </RadzenFormField>
+                            </RadzenColumn>
+                            <RadzenColumn Size="12" SizeMD="4">
+                                <RadzenFormField Text="Ordered By" class="rz-w-100" AllowFloatingLabel="false">
+                                    <ChildContent>
+                                        <RadzenTextBox ReadOnly Value="@FormData.OrderedBy" Placeholder="N/A" Name="so_ordered_by" Disabled="@IsBusy" class="rz-w-100" />
+                                    </ChildContent>
+                                </RadzenFormField>
+                            </RadzenColumn>
+                        </RadzenRow>
+
+                    </RadzenStack>
+                </ChildContent>
+            </RadzenFieldset>
+
+            <RadzenFieldset AllowCollapse Text="Items">
+                <ChildContent>
+                    <RadzenRow>
+                        <RadzenColumn>
+                            <AppTable @ref="@SalesOrderTable" Id="so_cvu_items" TItem="SalesOrderLineVM" @bind-GridSettingsLoaded="@GridSettingsLoaded" Data="[..FormData.DocumentLines]">
+                                <HeaderTemplate>
+                                    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" AlignItems="AlignItems.Center" Gap="8px">
+                                        <RadzenButton Icon="settings" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@OpenTableSettings" />
+                                    </RadzenStack>
+                                </HeaderTemplate>
+                                <Columns>
+                                    <RadzenDataGridColumn TItem="SalesOrderLineVM"
+                                                          Property="@nameof(SalesOrderLineVM.LineNum)"
+                                                          Width="40px" TextAlign="TextAlign.Center" />
+                                    <RadzenDataGridColumn TItem="SalesOrderLineVM"
+                                                          Property="@nameof(SalesOrderLineVM.ItemCode)"
+                                                          Title="Item Code" />
+                                    <RadzenDataGridColumn TItem="SalesOrderLineVM"
+                                                          Property="@nameof(SalesOrderLineVM.ItemName)"
+                                                          Title="Item Name" />
+                                    <RadzenDataGridColumn TItem="SalesOrderLineVM"
+                                                          Property="@nameof(SalesOrderLineVM.Warehouse.WhsName)"
+                                                          Title="Warehouse" Width="150px" />
+                                    <RadzenDataGridColumn TItem="SalesOrderLineVM"
+                                                          Property="@nameof(SalesOrderLineVM.UoMName)"
+                                                          Title="UoM" Width="100px" />
+                                    <RadzenDataGridColumn TItem="SalesOrderLineVM"
+                                                          Property="@nameof(SalesOrderLineVM.TargetQty)"
+                                                          Title="Target Qty" Width="130px">
+                                        <Template Context="data">
+                                            @data.TargetQty.ToString("N0")
+                                        </Template>
+                                    </RadzenDataGridColumn>
+                                    <RadzenDataGridColumn TItem="SalesOrderLineVM"
+                                                          Property="@nameof(SalesOrderLineVM.OpenQty)"
+                                                          Title="Open Qty" Width="130px">
+                                        <Template Context="data">
+                                            @data.OpenQty.ToString("N0")
+                                        </Template>
+                                    </RadzenDataGridColumn>
+                                </Columns>
+                            </AppTable>
+                        </RadzenColumn>
+                    </RadzenRow>
+                </ChildContent>
+            </RadzenFieldset>
+
+            <RadzenRow>
+                <RadzenColumn Size="12" SizeMD="4">
+                    <RadzenFormField Text="Remarks" class="rz-w-100" AllowFloatingLabel="false">
+                        <ChildContent>
+                            <RadzenTextArea ReadOnly @bind-Value="@FormData.DocRemarks" Name="so_remarks" Rows="3" Disabled="@IsBusy" class="rz-w-100" />
+                        </ChildContent>
+                    </RadzenFormField>
+                </RadzenColumn>
+                <RadzenColumn Size="12" SizeMD="4" OffsetMD="4">
+                    <RadzenStack Gap="0.5rem">
+                        <RadzenFormField Text="Prepared By" class="rz-w-100" AllowFloatingLabel="false">
+                            <ChildContent>
+                                <RadzenTextBox ReadOnly Value="@FormData.PreparedBy" Name="so_prep_by" Disabled="@IsBusy" class="rz-w-100" />
+                            </ChildContent>
+                        </RadzenFormField>
+                        <RadzenFormField Text="Reviewed By" class="rz-w-100" AllowFloatingLabel="false">
+                            <ChildContent>
+                                <RadzenTextBox ReadOnly Value="@FormData.ReviewedBy" Name="so_rev_by" Disabled="@IsBusy" class="rz-w-100" />
+                            </ChildContent>
+                        </RadzenFormField>
+                        <RadzenFormField Text="Approved By" class="rz-w-100" AllowFloatingLabel="false">
+                            <ChildContent>
+                                <RadzenTextBox ReadOnly Value="@FormData.ApprovedBy" Name="so_app_by" Disabled="@IsBusy" class="rz-w-100" />
+                            </ChildContent>
+                        </RadzenFormField>
+                        <RadzenFormField Text="Noted By" class="rz-w-100" AllowFloatingLabel="false">
+                            <ChildContent>
+                                <RadzenTextBox ReadOnly Value="@FormData.NotedBy" Name="so_noted_by" Disabled="@IsBusy" class="rz-w-100" />
+                            </ChildContent>
+                        </RadzenFormField>
+                    </RadzenStack>
+                </RadzenColumn>
+            </RadzenRow>
+
+            <RadzenRow>
+                <RadzenColumn>
+                    <RadzenStack class="rz-mt-8" Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
+                        <RadzenButton IsBusy="@IsBusy" Text="Back" ButtonStyle="ButtonStyle.Base" Click="@Back" />
+                        <RadzenStack Visible="@Can.Create("ODLV")" Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="16px">
+                            <RadzenButton IsBusy="@IsBusy" Text="Create" ButtonStyle="ButtonStyle.Success" Click="@CreateDelivery" />
+                        </RadzenStack>
+                    </RadzenStack>
+                </RadzenColumn>
+            </RadzenRow>
+
+        </RadzenStack>
+    </RadzenTemplateForm>
+</AppContent>
+
+@code {
+    async Task OpenTableSettings()
+    {
+        await DialogService.OpenAsync(
+            "Table Settings",
+            ds => @<AppGridSettings TItem="SalesOrderLineVM"
+                                    @bind-Grid=@SalesOrderTable.DataGrid
+                                    @bind-GridSettings=@SalesOrderTableSettings />,
+        options: GridSettingsService.GetDialogOptions());
+
+        await SalesOrderTable.DataGrid.Reload();
+    }
+}

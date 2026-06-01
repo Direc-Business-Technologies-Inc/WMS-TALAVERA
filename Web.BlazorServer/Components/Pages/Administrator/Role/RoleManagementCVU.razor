@@ -1,0 +1,71 @@
+﻿@using Web.BlazorServer.Components.Security
+@using Web.BlazorServer.ViewModels.Administration.Role
+@using Web.BlazorServer.ViewModels.Administration.User
+
+@inherits BaseForm<RoleVM>
+@page "/administration/user/role-management/create"
+@page "/administration/user/role-management/view"
+@page "/administration/user/role-management/update"
+@layout ProtectedLayout
+@attribute [AppAuthorizationAttribute("VIEW", "OROL")]
+
+<PageTitle>@(Creating ? "New" : Updating ? "Updating" : string.Empty) Role @(Viewing || Updating ? FormData.Name : string.Empty)</PageTitle>
+
+<RadzenStack Visible="@(!ModalMode)" Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" class="rz-mb-4">
+    <AppBreadCrumbs ModuleCode="OROL" />
+</RadzenStack>
+<AppContent>
+    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.End" Gap="8px" class="rz-mb-2">
+        <RadzenBadge BadgeStyle="@(Creating? BadgeStyle.Success: FormData.Active? BadgeStyle.Success: BadgeStyle.Base)" Text="@(Creating ? "New" : FormData.Active ? "Active" : "Inactive")" />
+        |
+        <RadzenText Text="@(string.IsNullOrEmpty(FormData.Code) ? "WMS Role" : FormData.Code)" />
+        |
+        <RadzenText Text="@FormData.CreatedDate.ToString("MMM dd, yyyy")" />
+    </RadzenStack>
+    <RadzenTemplateForm @ref="@TemplateForm" TItem="RoleVM" @bind-Data="@FormData" EditContext="@EditContext" Submit="@HandleSubmit">
+        <RadzenStack Gap="1rem">
+            <RadzenFieldset AllowCollapse Text="Details">
+                <ChildContent>
+                    <RadzenRow>
+                        <RadzenColumn Size="12" SizeMD="4">
+                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="8px" class="rz-h-100">
+                                <RadzenSwitch ReadOnly="@(Viewing)" @bind-Value="@FormData.Active" />
+                                <RadzenText class="rz-m-0" TextStyle="TextStyle.Subtitle2" Text="@(FormData.Active ? "Active" : "Inactive")" />
+                            </RadzenStack>
+                        </RadzenColumn>
+                        <RadzenColumn Size="12" SizeMD="4">
+                            <RadzenFormField Text="Code" class="rz-w-100">
+                                <ChildContent>
+                                    <RadzenTextBox ReadOnly="@Viewing" @bind-Value="@FormData.Code" Name="role_code" Disabled="@IsBusy" class="rz-w-100" />
+                                </ChildContent>
+                                <Helper>
+                                    <RadzenRequiredValidator Component="role_code" Text="Role Code is required" />
+                                </Helper>
+                            </RadzenFormField>
+                        </RadzenColumn>
+                        <RadzenColumn Size="12" SizeMD="4">
+                            <RadzenFormField Text="Name" class="rz-w-100">
+                                <ChildContent>
+                                    <RadzenTextBox ReadOnly="@Viewing" @bind-Value="@FormData.Name" Name="role_name" Disabled="@IsBusy" class="rz-w-100" />
+                                </ChildContent>
+                                <Helper>
+                                    <RadzenRequiredValidator Component="role_name" Text="Role Name is required" />
+                                </Helper>
+                            </RadzenFormField>
+                        </RadzenColumn>
+                    </RadzenRow>
+                </ChildContent>
+            </RadzenFieldset>
+            <RadzenStack class="rz-mt-8" Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
+                <RadzenButton Text="Back" ButtonStyle="ButtonStyle.Base" Click="@Return" />
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="16px">
+                    <RadzenButton Visible="@(Updating || Can.Update("OROL"))" Text="Cancel Edit" ButtonStyle="ButtonStyle.Base" Click="@CancelEditing" />
+                    <RadzenButton Visible="@(Viewing || Can.Update("OROL"))" Text="Edit" ButtonStyle="ButtonStyle.Success" Click="@InitializeEditing" />
+                    <RadzenButton Visible="@((Creating && Can.Update("OROL")) || (Updating && Can.Create("OROL")))" ButtonStyle="ButtonStyle.Success" ButtonType="ButtonType.Submit">
+                        Save @(Updating ? "Changes" : string.Empty)
+                    </RadzenButton>
+                </RadzenStack>
+            </RadzenStack>
+        </RadzenStack>
+    </RadzenTemplateForm>
+</AppContent>

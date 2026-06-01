@@ -1,0 +1,26 @@
+@using Web.BlazorServer.Components.Pages.Transaction.SalesReturn.Components
+@using Web.BlazorServer.Components.Security
+
+@inherits BaseComponent
+@page "/transactions/sales/sales-return"
+@layout ProtectedLayout
+@attribute [AppAuthorizationAttribute("VIEW", "OSRN")]
+
+<PageTitle>Sales Return</PageTitle>
+
+<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" class="rz-mb-4">
+    <AppBreadCrumbs ModuleCode="OSRN" />
+</RadzenStack>
+
+<AppContent>
+    <RadzenTabs @bind-SelectedIndex="@SelectedTab" @bind-SelectedIndex:after="@TabChanged">
+        <Tabs>
+            <RadzenTabsItem Text="Sales Returns">
+                <SalesReturnGrid />
+            </RadzenTabsItem>
+            <RadzenTabsItem Text="Sales Return Requests">
+                <SalesReturnRequestGrid />
+            </RadzenTabsItem>
+        </Tabs>
+    </RadzenTabs>
+</AppContent>

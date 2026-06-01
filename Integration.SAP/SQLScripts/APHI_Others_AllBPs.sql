@@ -1,0 +1,5 @@
+﻿SELECT DISTINCT
+	 T0.CardCode
+	,T0.CardName
+FROM OCRD T0
+WHERE ISNULL(T0.CardName, '') <> ''

@@ -1,0 +1,37 @@
+﻿@page "/login"
+@using Mobile.MAUI.Components.Base
+@using Mobile.MAUI.Components.Pages.Administrator
+@layout CleanLayout
+@inherits BaseComponent
+<RadzenButton Icon="settings" Size=ButtonSize.Small IconColor="@Radzen.Colors.Base500" Variant="Variant.Text" class="rz-border-radius-10 rz-shadow-1 position-absolute" Style="top: 5px; right: 10px;" Click="@OpenEditEndpointSettingsDialog" />
+
+<RadzenTemplateForm Data="@Credential" TItem="CredentialVM" Submit="@SubmitLogin">
+    <RadzenStack JustifyContent=JustifyContent.Center AlignItems="AlignItems.Center" Style="height: 100vh;">
+        <RadzenStack JustifyContent=JustifyContent.Center AlignItems="AlignItems.Center" class="rz-w-md-50 rz-l-25" Gap="0">
+            <RadzenImage Path="/img/wms_with_text.png" />
+            <RadzenStack>
+                <RadzenFormField Text="Username" class="rz-w-100 rz-mt-4" >
+                    <RadzenTextBox Name="username-fld" @bind-Value=@Credential.UserName class="rz-w-100" />
+                </RadzenFormField>
+                <RadzenRequiredValidator Component="username-fld" Text="Required" />
+            </RadzenStack>
+            <RadzenStack>
+                <RadzenFormField Text="Password" class="rz-w-100 ra6-mt-3">
+                    <RadzenPassword Name="password-fld" @bind-Value=@Credential.Password class="rz-w-100" />
+                </RadzenFormField>
+                <RadzenRequiredValidator Component="password-fld" Text="Required" />
+            </RadzenStack>
+
+
+            <RadzenButton @ref="SubmitBtn" class="rz-w-100 rz-mt-6" IsBusy="Actionlogin.Busy" Text="Login" BusyText="Logging in" ButtonType="ButtonType.Submit" />
+        </RadzenStack>
+    </RadzenStack>
+</RadzenTemplateForm>
+@code {
+    async Task OpenEditEndpointSettingsDialog()
+    {
+        await _dialogService.OpenAsync<EditEndpointDialog>("Edit Api Endpoint", options: new(){ CloseDialogOnEsc=false, CloseDialogOnOverlayClick=false });
+    }
+}
+
+

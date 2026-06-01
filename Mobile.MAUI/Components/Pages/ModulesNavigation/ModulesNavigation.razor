@@ -1,0 +1,14 @@
+﻿@page "/"
+@using Mobile.MAUI.Components.Base
+@using static Mobile.MAUI.Enums.CustomEnum
+@layout MainLayout
+
+@inherits BaseComponent
+
+<RadzenStack JustifyContent=JustifyContent.Center AlignItems="AlignItems.Center" Style="height: 100vh;">
+	<RadzenStack JustifyContent=JustifyContent.Center AlignItems="AlignItems.Center" class="rz-w-md-50 rz-l-25" Gap="0">
+		<RadzenImage Path="/img/wms_with_text.png" />
+		<RadzenButton Text="Receiving" Click=@(async () => await ConfirmModule(ModuleNavigation.Receiving)) ButtonStyle=ButtonStyle.Success Shade="Shade.Dark" class="rz-w-100 rz-mt-4" />
+	</RadzenStack>
+</RadzenStack>
+

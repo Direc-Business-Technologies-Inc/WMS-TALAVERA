@@ -1,0 +1,23 @@
+﻿<RadzenStack Visible="@Visible" AlignItems="AlignItems.Center"   Style=" height:150px; margin:50% 0;">
+    <RadzenIcon class="rz-color-base-400"  Style="font-size:32px;" Icon="search_off"/>
+    <RadzenText class="rz-color-base-400" Style="" Text="No records found." />
+    <RadzenButton Click="Reload" @ref="LoadingBtn" Icon="refresh" class="rz-border-radius-3" Text="Reload"  ButtonStyle="ButtonStyle.Primary" />
+</RadzenStack>
+@code{
+    [Parameter]
+    public bool Visible { get; set; }
+    [Parameter] 
+    public Func<Task> ReloadCallback { get; set; }
+    bool IsLoading { get; set; }
+    RadzenButton LoadingBtn { get; set; }
+    protected override void OnInitialized()
+    {
+       // Visible = false;
+
+    }
+
+    async Task Reload()
+    {
+        await ReloadCallback();
+    }
+}

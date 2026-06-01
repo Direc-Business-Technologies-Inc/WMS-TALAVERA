@@ -1,0 +1,94 @@
+@using Web.BlazorServer.Components.Shared.Integration
+
+@inherits BaseComponent
+
+<RadzenStack Gap="1rem" AlignItems="AlignItems.Center">
+    @if (IsScanning)
+    {
+        <RadzenText Text="Point the camera at the Barcode to scan." TextStyle="TextStyle.Body2" />
+
+        <CameraScannerReaderCanvas UpdateScannedDataEvent="@OnScannedDataReceived"
+                                   UpdateStateEvent="@OnStateUpdated"
+                                   ScannedData="@ScannedData" />
+
+        <RadzenStack Orientation="Orientation.Horizontal" Gap="8px">
+            <RadzenButton Text="Stop"
+                          Icon="stop"
+                          ButtonStyle="ButtonStyle.Danger"
+                          Click="@ToggleScanning" />
+            <RadzenButton Text="Cancel" ButtonStyle="ButtonStyle.Base"
+                          Click="@Cancel" />
+        </RadzenStack>
+    }
+    else if (!string.IsNullOrEmpty(LastScannedData))
+    {
+        <RadzenStack Gap="1.5rem" AlignItems="AlignItems.Center" Style="padding: 1rem;">
+            <RadzenIcon Icon="check_circle" IconColor="var(--rz-success)" Style="font-size: 3rem;" />
+            
+            <RadzenStack Gap="0.5rem" AlignItems="AlignItems.Center">
+                <RadzenText Text="Barcode Scanned Successfully!" TextStyle="TextStyle.Subtitle1" />
+                <RadzenText Text="@LastScannedData" TextStyle="TextStyle.H6" Style="font-weight: bold;" />
+            </RadzenStack>
+
+            <RadzenText Text="Do you want to scan another barcode?" TextStyle="TextStyle.Body2" />
+
+            <RadzenStack Orientation="Orientation.Horizontal" Gap="12px">
+                <RadzenButton Text="Scan Again" Icon="qr_code_scanner" ButtonStyle="ButtonStyle.Primary"
+                              Click="@RestartScanning" />
+                <RadzenButton Text="Finish" Icon="done_all" ButtonStyle="ButtonStyle.Secondary" 
+                              Click="@Finish" />
+            </RadzenStack>
+        </RadzenStack>
+    }
+    else
+    {
+        <RadzenText Text="Camera is stopped." TextStyle="TextStyle.Body2" />
+        <RadzenStack Orientation="Orientation.Horizontal" Gap="8px">
+            <RadzenButton Text="Start Camera"
+                          Icon="qr_code_scanner"
+                          ButtonStyle="ButtonStyle.Primary"
+                          Click="@ToggleScanning" />
+            <RadzenButton Text="Cancel" ButtonStyle="ButtonStyle.Base"
+                          Click="@Cancel" />
+        </RadzenStack>
+    }
+</RadzenStack>
+
+@code {
+    [Parameter] public EventCallback<string> OnScan { get; set; }
+
+    bool IsScanning { get; set; } = true;
+    string ScannedData { get; set; } = string.Empty;
+    string LastScannedData { get; set; } = string.Empty;
+
+    void ToggleScanning() => IsScanning = !IsScanning;
+
+    async Task OnScannedDataReceived(string data)
+    {
+        IsScanning = false;
+        LastScannedData = data;
+        
+        if (OnScan.HasDelegate)
+        {
+            await OnScan.InvokeAsync(data);
+        }
+        
+        StateHasChanged();
+    }
+
+    async Task OnStateUpdated(int state)
+    {
+        await InvokeAsync(StateHasChanged);
+    }
+
+    void RestartScanning()
+    {
+        LastScannedData = string.Empty;
+        IsScanning = true;
+        StateHasChanged();
+    }
+
+    void Finish() => DialogService.Close(LastScannedData);
+
+    void Cancel() => DialogService.Close(string.Empty);
+}

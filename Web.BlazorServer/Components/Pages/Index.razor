@@ -1,0 +1,54 @@
+﻿@using Web.BlazorServer.ViewModels.Security
+@inherits BaseForm<AuthenticationVM>
+@page "/"
+
+<RadzenStack AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Center" class="rz-w-100 rz-h-100">
+    <RadzenStack Orientation="Orientation.Vertical"
+                 class="rz-w-100 rz-px-12 rz-py-8 rz-background-color-white rz-shadow-1 rz-border-radius-2" Style="max-width: 400px;">
+        <RadzenTemplateForm @ref="@TemplateForm" TItem="AuthenticationVM" @bind-Data="@FormData" EditContext="@EditContext" Submit="@HandleSubmit">
+            <RadzenRow>
+                <RadzenColumn Size="12">
+                    <h2 class="rz-mb-4">Login to APHI WMS</h2>
+                </RadzenColumn>
+            </RadzenRow>
+            <RadzenRow>
+                <RadzenColumn Size="12">
+                    <RadzenFormField Text="Username" class="rz-w-100">
+                        <ChildContent>
+                            <RadzenTextBox @bind-Value="@FormData.UserName" Name="login_username" Disabled="@IsBusy" class="rz-w-100" />
+                        </ChildContent>
+                        <Helper>
+                            <RadzenRequiredValidator Component="login_username" Text="Username is required" Popup />
+                        </Helper>
+                    </RadzenFormField>
+                </RadzenColumn>
+            </RadzenRow>
+            <RadzenRow>
+                <RadzenColumn Size="12">
+                    <RadzenFormField Text="Password" class="rz-w-100">
+                        <ChildContent>
+                            <RadzenPassword Visible="@(!PasswordVisible)" @bind-Value="@FormData.Password" Name="login_password" Disabled="@IsBusy" class="rz-w-100" />
+                            <RadzenTextBox Visible="@PasswordVisible" @bind-Value="@FormData.Password" Name="login_password_visible" Disabled="@IsBusy" class="rz-w-100" />
+                        </ChildContent>
+                        <End>
+                            <RadzenButton Size="ButtonSize.ExtraSmall" Icon="@(PasswordVisible ? "visibility_off" : "visibility")" Click="@ChangePasswordVisiblity" />
+                        </End>
+                        <Helper>
+                            <RadzenRequiredValidator Visible="@(!PasswordVisible)" Component="login_password" Text="Password is required" Popup />
+                            <RadzenRequiredValidator Visible="@PasswordVisible" Component="login_password_visible" Text="Password is required" Popup />
+                        </Helper>
+                    </RadzenFormField>
+                </RadzenColumn>
+            </RadzenRow>
+            <RadzenRow>
+                <RadzenColumn Size="12">
+                    <RadzenButton Text="Login" ButtonType="ButtonType.Submit" Disabled="@IsBusy" class="rz-w-100 rz-mt-4" />
+                </RadzenColumn>
+            </RadzenRow>
+        </RadzenTemplateForm>
+    </RadzenStack>
+    <RadzenStack Visible="@(Success is false && ShowMessage)" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" class="rz-background-color-danger-lighter rz-border rz-border-danger rz-border-radius-1 rz-w-100 rz-mt-5 rz-py-4 rz-px-2" Style="max-width: 400px;">
+        <RadzenText TextStyle="TextStyle.Subtitle2" Text="@Message" class="rz-color-danger" />
+        <RadzenButton Icon="Close" Size="ButtonSize.ExtraSmall" ButtonStyle="ButtonStyle.Danger" Variant="Variant.Text" Click="@HideMessage" />
+    </RadzenStack>
+</RadzenStack>

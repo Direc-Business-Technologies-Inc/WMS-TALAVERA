@@ -1,0 +1,27 @@
+﻿@using Web.BlazorServer.Components.Shared.CascadingValues
+<RadzenStack Visible=@loadingScreenProvider.IsLoading class="rz-background-color-base-50 " Style="z-index: 9999; width: 100vw; height: 100vh; opacity: 0.6; position: absolute; top: 0;">
+    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent=JustifyContent.Center class="rz-w-100 rz-h-100">
+        <RadzenProgressBarCircular ShowValue="true" Mode="ProgressBarMode.Indeterminate" Size="ProgressBarCircularSize.Large">
+            <Template>Loading</Template>
+        </RadzenProgressBarCircular>
+    </RadzenStack>
+</RadzenStack>
+
+@code {
+    [CascadingParameter] protected LoadingScreenProvider loadingScreenProvider { get; set; }
+
+    protected override void OnInitialized()
+    {
+        loadingScreenProvider.IsLoadingChanged += OnLoadingChanged;
+    }
+
+    void OnLoadingChanged(bool isLoading)
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        loadingScreenProvider.IsLoadingChanged -= OnLoadingChanged;
+    }
+}

@@ -1,0 +1,12 @@
+﻿<RadzenStack JustifyContent="JustifyContent.Center" AlignItems="AlignItems.Center">
+    <RadzenIcon Icon="warning" IconColor="@Colors.Warning" Style="font-size: 55pt;" class="filled-icon" />
+    <RadzenText Text="Are you sure you want to logout?" TextStyle="TextStyle.Caption" />
+    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Center" AlignItems="AlignItems.Center" class="rz-w-75">
+        <RadzenButton Text="Confirm" ButtonStyle="ButtonStyle.Success" Click=@(() => _dialogService.Close(true)) class="rz-w-50" />
+        <RadzenButton Text="Back" ButtonStyle="ButtonStyle.Light" Click="@(() => _dialogService.Close(false))" class="rz-w-50" />
+    </RadzenStack>
+</RadzenStack>
+
+@code {
+
+}

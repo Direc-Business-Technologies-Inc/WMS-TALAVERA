@@ -1,0 +1,60 @@
+﻿@using Web.BlazorServer.ViewModels.Transaction.Commons
+
+@inherits BaseComponent
+
+<RadzenStack Gap="2rem">
+    <AppDataGrid @ref="@IssueItemsDataGrid"
+                 Id="goods_issue_item_selection_grid"
+                 TItem="ItemVM"
+                 GridSettingsLoaded="@GridSettingsLoaded"
+                 DataGetter="@LoadDataAsync"
+                 ActionName="ActionGetItems"
+                 SelectedItems="@SelectedItems"
+                 DataGridSelectionMode="DataGridSelectionMode.Multiple"
+                 OnRowSelect="@OnRowSelect"
+                 OnRowDeselect="@OnRowDeselect">
+        <HeaderTemplate>
+            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" AlignItems="AlignItems.Center" Gap="8px">
+                <RadzenButton Icon="settings" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@OpenTableSettings" />
+            </RadzenStack>
+        </HeaderTemplate>
+        <GridColumns>
+            <RadzenDataGridColumn TItem="ItemVM"
+                                  Width="45px"
+                                  TextAlign="TextAlign.Center"
+                                  Frozen
+                                  FrozenPosition="FrozenColumnPosition.Left"
+                                  Filterable="false" Sortable="false" Pickable="false">
+                <Template Context="data">
+                    <RadzenCheckBox Value="@(SelectedItems.Any(si => si.ItemCode == data.ItemCode))" />
+                </Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn TItem="ItemVM"
+                                  Title="Item Code"
+                                  Property="@nameof(ItemVM.ItemCode)"
+                                  Type="@typeof(string)" />
+            <RadzenDataGridColumn TItem="ItemVM"
+                                  Title="Item Name"
+                                  Property="@nameof(ItemVM.ItemName)"
+                                  Type="@typeof(string)" />
+            <RadzenDataGridColumn TItem="ItemVM"
+                                  Title="UoM"
+                                  Property="@nameof(ItemVM.UoMName)"
+                                  Type="@typeof(string)" />
+        </GridColumns>
+    </AppDataGrid>
+</RadzenStack>
+
+@code {
+    async Task OpenTableSettings()
+    {
+        await DialogService.OpenAsync(
+            "Table Settings",
+            ds => @<AppGridSettings TItem="ItemVM"
+                                    @bind-Grid=@IssueItemsDataGrid.DataGrid
+                                    @bind-GridSettings=@IssueItemsDataGridSettings />,
+        options: GridSettingsService.GetDialogOptions());
+
+        await IssueItemsDataGrid.DataGrid.Reload();
+    }
+}

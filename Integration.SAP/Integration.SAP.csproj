@@ -1,0 +1,43 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Application.UseCases\Application.UseCases.csproj" />
+    <ProjectReference Include="..\Database.Libraries\Database.Libraries.csproj" />
+    <ProjectReference Include="..\Shared.Libraries\Shared.Libraries.csproj" />
+  </ItemGroup>
+	<ItemGroup>
+		<PackageReference Include="Ardalis.GuardClauses" Version="5.0.0" />
+		<PackageReference Include="B1SLayer" Version="2.1.2" />
+		<PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="10.0.0" />
+		<PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="10.0.0" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<Content Include="SQLScripts\**">
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+			<Link>Scripts\%(RecursiveDir)%(Filename)%(Extension)</Link>
+		</Content>
+	</ItemGroup>
+
+	<ItemGroup>
+	  <Content Update="SQLScripts\APHI_InventoryTransferRequest_DataGrid.sql" Link="Scripts\APHI_InventoryTransfer_RequestDataGrid.sql" />
+	  <Content Update="SQLScripts\APHI_InventoryTransfer_TransferTypes.sql" Link="Scripts\APHI_InventoryTransfer_TransferTypes.sql" />
+	  <Content Update="SQLScripts\APHI_InventoryTransfer_PendingRequestDataGrid.sql" Link="Scripts\APHI_InventoryTransfer_PendingRequestDataGrid.sql" />
+	  <Content Update="SQLScripts\APHI_InventoryTransfer_DraftRequestHeader.sql" Link="Scripts\APHI_InventoryTransfer_DraftRequestHeader.sql" />
+	  <Content Update="SQLScripts\APHI_InventoryTransfer_DraftRequestLines.sql" Link="Scripts\APHI_InventoryTransfer_DraftRequestLines.sql" />
+	  <Content Update="SQLScripts\APHI_InventoryTransfer_RequestLines.sql" Link="Scripts\APHI_InventoryTransfer_RequestLines.sql" />
+	  <Content Update="SQLScripts\APHI_InventoryTransfer_RequestHeader.sql" Link="Scripts\APHI_InventoryTransfer_RequestHeader.sql" />
+	  <Content Update="SQLScripts\APHI_InventoryTransfer_PendingRequestDataGrid.sql" Link="Scripts\APHI_InventoryTransfer_PendingRequestDataGrid.sql" />
+	  <Content Update="SQLScripts\APHI_InventoryTransfer_PostedRequestDataGrid.sql" Link="Scripts\APHI_InventoryTransfer_PostedRequestDataGrid.sql" />
+	  <Content Update="SQLScripts\APHI_InventoryTransfer_PostedRequestHeader.sql" Link="Scripts\APHI_InventoryTransfer_PostedRequestHeader.sql" />
+	  <Content Update="SQLScripts\APHI_InventoryTransfer_PostedRequestLines.sql" Link="Scripts\APHI_InventoryTransfer_PostedRequestLines.sql" />
+	  <Content Update="SQLScripts\APHI_Others_TransferTypes.sql" Link="Scripts\APHI_InventoryTransfers_TransferTypes.sql" />
+	</ItemGroup>
+
+</Project>

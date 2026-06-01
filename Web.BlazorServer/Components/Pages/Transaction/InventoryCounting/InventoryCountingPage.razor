@@ -1,0 +1,26 @@
+@using Web.BlazorServer.Components.Pages.Transaction.InventoryCounting.Components
+@using Web.BlazorServer.Components.Security
+
+@inherits BaseComponent
+@page "/transactions/inventory/inventory-counting"
+@layout ProtectedLayout
+@attribute [AppAuthorizationAttribute("VIEW", "OICT")]
+
+<PageTitle>Inventory Counting</PageTitle>
+
+<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" class="rz-mb-4">
+    <AppBreadCrumbs ModuleCode="OICT" />
+</RadzenStack>
+
+<AppContent>
+    <RadzenTabs @bind-SelectedIndex="@SelectedTab" @bind-SelectedIndex:after="@TabChanged">
+        <Tabs>
+            <RadzenTabsItem Text="Inventory Counting Documents">
+                <InventoryCountingOpenGrid />
+            </RadzenTabsItem>
+            <RadzenTabsItem Text="History">
+                <InventoryCountingHistoryGrid />
+            </RadzenTabsItem>
+        </Tabs>
+    </RadzenTabs>
+</AppContent>

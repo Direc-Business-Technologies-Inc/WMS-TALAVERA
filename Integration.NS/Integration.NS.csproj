@@ -1,0 +1,32 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Http" Version="2.3.10" />
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.18.0" />
+  </ItemGroup>
+
+	<ItemGroup>
+		<Content Include="NSScripts\**">
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+			<Link>Scripts\%(RecursiveDir)%(Filename)%(Extension)</Link>
+		</Content>
+	</ItemGroup>
+	
+  <ItemGroup>
+    <ProjectReference Include="..\Application.DataTransferObjects\Application.DataTransferObjects.csproj" />
+    <ProjectReference Include="..\Application.UseCases\Application.UseCases.csproj" />
+    <ProjectReference Include="..\Database.Libraries\Database.Libraries.csproj" />
+  </ItemGroup>
+	
+  <ItemGroup>
+    <Content Update="NSScripts\NS_PurchaseOrder_GetAll.sql" Link="Scripts\NS_PurchaseOrder_Get_Pending.sql" />
+    <Content Update="NSScripts\NS_PurchaseOrder_Get_PendingReceipt.sql" Link="Scripts\NS_PurchaseOrder_Get_PendingReceipt.sql" />
+  </ItemGroup>
+
+</Project>
