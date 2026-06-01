@@ -2,7 +2,7 @@ using Application.UseCases;
 using Database.Libraries;
 using Database.MsSql;
 using Database.MsSql.Core;
-using Integration.SAP;
+using Integration.NS;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Components.Authorization;
@@ -20,7 +20,7 @@ DotNetEnv.Env.Load();
 #region Infrastructure Configuration
 builder.Services.AddDatabaseMsSqlServices();
 builder.Services.AddDatabaseLibrariesServices();
-builder.Services.AddSAPServicesIntegraton();
+builder.Services.AddNSServicesIntegraton();
 #endregion Infrastructure Configuration
 
 #region Utilities Configuration

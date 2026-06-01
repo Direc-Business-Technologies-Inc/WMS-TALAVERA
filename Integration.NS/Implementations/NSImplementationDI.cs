@@ -3,15 +3,16 @@ using Application.UseCases.Repositories.Integration.Transaction.Delivery;
 using Application.UseCases.Repositories.Integration.Transaction.GoodsIssue;
 using Application.UseCases.Repositories.Integration.Transaction.GoodsReceipt;
 using Application.UseCases.Repositories.Integration.Transaction.GoodsReturn;
+using Application.UseCases.Repositories.Integration.Transaction.InventoryCounting;
 using Application.UseCases.Repositories.Integration.Transaction.InventoryTransfer;
 using Application.UseCases.Repositories.Integration.Transaction.Receiving;
 using Application.UseCases.Repositories.Integration.Transaction.SalesReturn;
+using Integration.NS.Implementations.Others;
+using Integration.NS.Implementations.Transactions;
+using Integration.NS.Implementations.Vestigial;
+using Integration.NS.Services;
 using Microsoft.Extensions.DependencyInjection;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Integration.NS.Implementations;
 
@@ -19,6 +20,25 @@ public static class NSImplementationDI
 {
     public static IServiceCollection AddNSImplementationsIntegraton(this IServiceCollection services)
     {
+
+        services.TryAddTransient<IReceivingIntegration, ReceivingIntegration>();
+        services.TryAddTransient<IInventoryTransferIntegration, InventoryTransferIntegration>();
+        services.TryAddTransient<IGoodsReturnIntegration, GoodsReturnIntegration>();
+        services.TryAddTransient<IBusinessPartnerIntegration, BusinessPartnerIntegration>();
+        services.TryAddTransient<IItemMasterDataIntegration, ItemMasterDataIntegration>();
+        services.TryAddTransient<IWarehouseMasterDataIntegration, WarehouseMasterDataIntegration>();
+        services.TryAddTransient<IGoodsIssueIntegration, GoodsIssueIntegration>();
+        services.TryAddTransient<IGoodsReceiptIntegration, GoodsReceiptIntegration>();
+        services.TryAddTransient<IDeliveryIntegration, DeliveryIntegration>();
+        services.TryAddTransient<ISalesReturnIntegration, SalesReturnIntegration>();
+        services.TryAddTransient<IInventoryCountingIntegration, InventoryCountingIntegration>();
+
+        services.TryAddTransient<INetSuiteApiClientService, NetSuiteApiClientService>();
+
+        // TODO FOR REMOVAL
+        services.TryAddTransient<ITransactionTypeIntegration, TransactionTypeIntegration>();
+        services.TryAddTransient<ISchoolYearIntegration, SchoolYearIntegration>();
+        services.TryAddTransient<ITransferTypeIntegration, TransferTypeIntegration>();
 
         return services;
     }

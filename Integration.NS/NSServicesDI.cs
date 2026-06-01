@@ -13,8 +13,6 @@ public static class NSServicesDI
     {
 
         services.AddScoped<INetSuiteApiClientService, NetSuiteApiClientService>();
-
-
         services.AddScoped<HttpContextAccessor>();
 
         services.AddNSImplementationsIntegraton();
