@@ -11,7 +11,6 @@ public static class NSServicesDI
 {
     public static IServiceCollection AddNSServicesIntegraton(this IServiceCollection services)
     {
-
         services.AddScoped<INetSuiteApiClientService, NetSuiteApiClientService>();
         services.AddScoped<HttpContextAccessor>();
 

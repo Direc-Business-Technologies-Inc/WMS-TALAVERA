@@ -224,9 +224,9 @@ namespace Integration.NS.Services
             throw new Exception($"Request failed with status code: {httpResponse.StatusCode}");
         }
         async Task<T> MakeRequest<T>(string url, string? reqBody = null)
-            {
+        {
             return await MakeRequest<T>(url, reqBody, HttpMethod.Post);
-            }
+        }
 
         public async Task<IEnumerable<PurchaseOrderDTO?>> GetAllPOPendingReceipt([Optional] int limit, [Optional] int offset)
         {
@@ -254,5 +254,19 @@ namespace Integration.NS.Services
             var result = await MakeRequest<NetSuiteResponse<PurchaseOrderDTO>>(url, jsonBody);
             return result.items;
         }
+
+        public async Task<NetSuiteResponse<T>> ExecuteSuiteQLQuery<T>(string query, int? limit = null, int? offset = null)
+        {
+            var url = SuiteQLRoot;
+            if (limit.HasValue) url += $"?limit={limit.Value}" + (offset.HasValue ? $"&offset={offset.Value}" : "");
+            else if (offset.HasValue) url += $"?offset={offset.Value}";
+
+            query = FormatQuery(query);
+
+            var jsonBody = JsonSerializer.Serialize(new{ q = query });
+
+            return await MakeRequest<NetSuiteResponse<T>>(url, jsonBody);
+        }
+        
     }
 }

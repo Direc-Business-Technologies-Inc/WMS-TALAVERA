@@ -17,6 +17,7 @@ public class GetPurchaseOrdersQryHandler(
     {
         (IEnumerable<PurchaseOrderSAPDTO> Data, int Count) = await receivingIntegration.GetPurchaseOrdersListAsync(request.Intent);
 
-        return (Data.Adapt<IEnumerable<PurchaseOrderDataGridDTO>>(), Count);
+        var x = Data.Adapt<IEnumerable<PurchaseOrderDataGridDTO>>();
+        return (x, Count);
     }
 }
