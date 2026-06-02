@@ -190,12 +190,12 @@ namespace Integration.NS.Services
             return Regex.Replace(query, @"\s+", " ").Trim();
         }
 
-        async Task<T> MakeRequest<T>(string url, string? reqBody)
+        async Task<T> MakeRequest<T>(string url, string? reqBody, HttpMethod method)
         {
             if (_accessToken == null || DateTime.Now >= _tokenExpiryTime)
                 _accessToken = await GetAccessToken();
 
-            using var httpRequest = new HttpRequestMessage(HttpMethod.Post, url);
+            using var httpRequest = new HttpRequestMessage(method, url);
 
             httpRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _accessToken);
 
@@ -214,51 +214,19 @@ namespace Integration.NS.Services
             {
                 var responseJson = await httpResponse.Content.ReadAsStringAsync();
                 //_logger.LogDebug("SuiteQLQuery Result: {@Result}", responseJson);
-                if (string.IsNullOrEmpty(responseJson))
-                {
-                    return default(T);
-                }
+                if (string.IsNullOrEmpty(responseJson)) throw new Exception("Empty response from NetSuite API");
 
-                T obj = System.Text.Json.JsonSerializer.Deserialize<T>(responseJson, JsonSerializerOption);
-                return obj;
+                var response = JsonSerializer.Deserialize<T>(responseJson, JsonSerializerOption);
+                if (response == null) throw new Exception("Bad response from NetSuite API");
+                return response;
             }
 
             throw new Exception($"Request failed with status code: {httpResponse.StatusCode}");
         }
-        async Task<T> MakeRequest<T>(string url, string? reqBody, HttpMethod method)
-        {
-            if (_accessToken == null || DateTime.Now >= _tokenExpiryTime)
-                _accessToken = await GetAccessToken();
-
-            using var httpRequest = new HttpRequestMessage(method, url);
-
-            httpRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _accessToken);
-
-            // Add other custom headers
-            httpRequest.Headers.Add("Prefer", "transient");
-
-
-            if (!string.IsNullOrEmpty(reqBody))
+        async Task<T> MakeRequest<T>(string url, string? reqBody = null)
             {
-                httpRequest.Content = new StringContent(reqBody, Encoding.UTF8, "application/json");
+            return await MakeRequest<T>(url, reqBody, HttpMethod.Post);
             }
-
-            var httpResponse = await _httpClient.SendAsync(httpRequest);
-
-
-            if (httpResponse.IsSuccessStatusCode)
-            {
-                var responseJson = await httpResponse.Content.ReadAsStringAsync();
-                if (string.IsNullOrEmpty(responseJson))
-                {
-                    return default(T);
-                }
-                T obj = System.Text.Json.JsonSerializer.Deserialize<T>(responseJson);
-                return obj;
-            }
-
-            throw new Exception($"Request failed with status code: {httpResponse.StatusCode}");
-        }
 
         public async Task<IEnumerable<PurchaseOrderDTO?>> GetAllPOPendingReceipt([Optional] int limit, [Optional] int offset)
         {
