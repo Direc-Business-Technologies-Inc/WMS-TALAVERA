@@ -1,11 +1,12 @@
-﻿using Application.DataTransferObjects.Others;
-using Application.DataTransferObjects.Transactions.Commons;
-using Domain.Entities.Enums.Transaction.Receiving;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Numerics;
+using System.Text;
+using System.Threading.Tasks;
 
-namespace Application.DataTransferObjects.Transactions.Receiving;
-
-public class PurchaseOrderLineDTO
+namespace Application.DataTransferObjects.Transactions.Receiving.NS;
+public class PurchaseOrderLineNSDTO
 {
     public string ItemCode { get; set; } = string.Empty;
     public string ItemDescription { get; set; } = string.Empty;

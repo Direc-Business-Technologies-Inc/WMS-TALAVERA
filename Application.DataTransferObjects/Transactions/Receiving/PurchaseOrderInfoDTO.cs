@@ -4,9 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Application.DataTransferObjects.Transactions.Receiving.NS;
+namespace Application.DataTransferObjects.Transactions.Receiving;
 
-public class PurchaseOrderInfoNSDTO
+public class PurchaseOrderInfoDTO
 {
     public int Id { get; set; }
     public string ReferenceNumber { get; set; } = string.Empty;

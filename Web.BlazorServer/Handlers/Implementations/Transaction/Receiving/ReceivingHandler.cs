@@ -33,8 +33,14 @@ public class ReceivingHandler(
     {
         GetPurchaseOrderQry qry = new(docEntry);
         PurchaseOrderDTO? response = await Sender.Send(qry);
+        PurchaseOrderVM vm = new();
+        if (response is not null)
+        {
+            response.DocumentInfo.Adapt(vm);
+            vm.DocumentLines = [..response.DocumentLines.Adapt<IEnumerable<PurchaseOrderLineVM>>()];
+        }
 
-        return response.Adapt<PurchaseOrderVM?>();
+        return vm;
     }
 
     public async Task<(IEnumerable<PurchaseOrderDataGridVM> Data, int Count)> GetPurchaseOrderDataGridAsync(DataGridIntent intent)

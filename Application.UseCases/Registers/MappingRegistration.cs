@@ -415,41 +415,6 @@ public class MappingRegistration : IRegister
             .Map(d => d.DeliveryDate, s => s.DocDueDate)
             .Map(d => d.Status, s => EnumHelper.ParseStringToEnum<DocumentStatus>(s.DocStatus));
 
-        config.NewConfig<PurchaseOrderHeaderSAPDTO, PurchaseOrderDTO>()
-            .Map(d => d.SapReference, s => new SapDocumentReferenceDTO()
-            {
-                DocEntry = s.DocEntry,
-                DocNum = s.DocNum,
-            })
-            .Map(d => d.DocDate, s => s.DocDate)
-            .Map(d => d.DocDueDate, s => s.DocDueDate)
-            .Map(d => d.BusinessPartner, s => new BusinessPartnerDTO()
-            {
-                CardCode = s.CardCode,
-                CardName = s.CardName,
-            })
-            .Map(d => d.ItemGroupCodes, s => SplitAndTrim(s.ItemGroupCodes))
-            .Map(d => d.SupplierContactPerson, s => s.SupplierContactPerson)
-            .Map(d => d.Remarks, s => s.Remarks);
-
-        config.NewConfig<PurchaseOrderLineSAPDTO, PurchaseOrderLineDTO>()
-            .Map(d => d.DocEntry, s => s.DocEntry)
-            .Map(d => d.DocNum, s => s.DocNum)
-            .Map(d => d.LineNum, s => s.LineNum + 1)
-            .Map(d => d.ItemCode, s => s.ItemCode)
-            .Map(d => d.ItemName, s => s.ItemName)
-            .Map(d => d.ISBN, s => s.ISBN)
-            .Map(d => d.TargetQuantity, s => s.TargetQuantity)
-            .Map(d => d.OpenQuantity, s => s.OpenQuantity)
-            .Map(d => d.UoMCode, s => s.UoMCode)
-            .Map(d => d.UoMValue, s => s.UoMValue)
-            .Map(d => d.UoMName, s => s.UoMName)
-            .Map(d => d.Warehouse, s => new WarehouseDTO()
-            {
-                WhsCode = s.WhsCode,
-                WhsName = s.WhsName,
-            })
-            .Map(d => d.VatGroup, s => s.VatGroup);
 
         config.NewConfig<PurchaseDeliveryNoteSAPDTO, PurchaseDeliveryNoteDataGridDTO>()
             .Map(d => d.DocEntry, s => s.DocEntry)
@@ -502,31 +467,6 @@ public class MappingRegistration : IRegister
                 WhsName = s.WhsName,
             })
             .Map(d => d.InputType, s => EnumHelper.ParseStringToEnum<InputType>(s.InputType));
-
-        config.NewConfig<PurchaseOrderDTO, PurchaseDeliveryNoteDTO>()
-            .Map(d => d.SapReference, s => new SapDocumentReferenceDTO()
-            {
-                BaseEntry = s.SapReference.DocEntry,
-                BaseDocNum = s.SapReference.DocNum,
-            })
-            .Map(d => d.BusinessPartner, s => s.BusinessPartner)
-            .Map(d => d.DocDate, s => s.DocDate)
-            .Map(d => d.DocDueDate, s => s.DocDueDate)
-            .Map(d => d.ReceivedBy, s => s.ReceivedBy);
-
-        config.NewConfig<PurchaseOrderLineDTO, PurchaseDeliveryNoteLineDTO>()
-            .Map(d => d.BaseEntry, s => s.DocEntry)
-            .Map(d => d.BaseDocNum, s => s.DocNum)
-            .Map(d => d.LineNum, s => s.LineNum)
-            .Map(d => d.BaseLine, s => s.LineNum)
-            .Map(d => d.ItemCode, s => s.ItemCode)
-            .Map(d => d.ItemName, s => s.ItemName)
-            .Map(d => d.TaxCode, s => s.VatGroup)
-            .Map(d => d.Quantity, s => s.Quantity)
-            .Map(d => d.Price, s => s.Price)
-            .Map(d => d.Warehouse, s => s.Warehouse)
-            .Map(d => d.Free, s => s.Free)
-            .Map(d => d.InputType, s => s.InputType);
 
         #endregion Receiving
 

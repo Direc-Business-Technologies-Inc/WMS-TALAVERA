@@ -7,9 +7,9 @@
     <RadzenDataGrid Data="@Items" TItem="PurchaseOrderLineVM" SelectionMode="DataGridSelectionMode.Single" @bind-Value="@SelectedItems">
         <Columns>
             <RadzenDataGridColumn TItem="PurchaseOrderLineVM" Property="@nameof(PurchaseOrderLineVM.ItemCode)" Title="Item Code" />
-            <RadzenDataGridColumn TItem="PurchaseOrderLineVM" Property="@nameof(PurchaseOrderLineVM.ItemName)" Title="Item Name" />
-            <RadzenDataGridColumn TItem="PurchaseOrderLineVM" Property="@nameof(PurchaseOrderLineVM.OpenQuantity)" Title="Open Qty" TextAlign="TextAlign.Right" />
-            <RadzenDataGridColumn TItem="PurchaseOrderLineVM" Property="@nameof(PurchaseOrderLineVM.Quantity)" Title="Received Qty" TextAlign="TextAlign.Right" />
+            <RadzenDataGridColumn TItem="PurchaseOrderLineVM" Property="@nameof(PurchaseOrderLineVM.ItemDescription)" Title="Item Description" />
+            <RadzenDataGridColumn TItem="PurchaseOrderLineVM" Property="@nameof(PurchaseOrderLineVM.QuantityOpen)" Title="Open Qty" TextAlign="TextAlign.Right" />
+            <RadzenDataGridColumn TItem="PurchaseOrderLineVM" Property="@nameof(PurchaseOrderLineVM.QuantityPlanned)" Title="Received Qty" TextAlign="TextAlign.Right" />
         </Columns>
     </RadzenDataGrid>
     <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="10px">

@@ -1,4 +1,5 @@
 ﻿using Application.DataTransferObjects.Transactions.Receiving;
+using Application.DataTransferObjects.Transactions.Receiving.NS;
 using Application.UseCases.Repositories.Integration.Transaction.Receiving;
 using Integration.SAP.Entities.Transactional.Receiving;
 using Mapster;
@@ -14,16 +15,20 @@ public class GetPurchaseOrderQryHandler(
 {
     public async Task<PurchaseOrderDTO?> Handle(GetPurchaseOrderQry request, CancellationToken cancellationToken)
     {
-        PurchaseOrderHeaderSAPDTO? headerResponse = await receivingIntegration.GetPurchaseOrderHeaderAsync(request.DocEntry);
-        if (headerResponse is null)
-            return null;
-        IEnumerable<PurchaseOrderLineSAPDTO> linesResponse = await receivingIntegration.GetPurchaseOrderLinesAsync(request.DocEntry);
+        PurchaseOrderInfoNSDTO? headerResponse = await receivingIntegration.GetPurchaseOrderHeaderAsync(request.DocEntry);
+        if (headerResponse is null) return null;
 
-        PurchaseOrderDTO purchaseOrderDTO = headerResponse.Adapt<PurchaseOrderDTO>();
+        IEnumerable<PurchaseOrderLineNSDTO> linesResponse = await receivingIntegration.GetPurchaseOrderLinesAsync(request.DocEntry);
+
+        PurchaseOrderInfoDTO purchaseOrderDTO = headerResponse.Adapt<PurchaseOrderInfoDTO>();
         IEnumerable<PurchaseOrderLineDTO> purchaseOrderLinesDTO = linesResponse.Adapt<IEnumerable<PurchaseOrderLineDTO>>();
 
-        purchaseOrderDTO.DocumentLines = [.. purchaseOrderLinesDTO];
+        PurchaseOrderDTO dto = new()
+        {
+            DocumentInfo = purchaseOrderDTO,
+            DocumentLines = [.. purchaseOrderLinesDTO]
+        };
 
-        return purchaseOrderDTO;
+        return dto;
     }
 }

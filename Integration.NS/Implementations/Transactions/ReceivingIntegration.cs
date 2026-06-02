@@ -4,6 +4,7 @@ using Application.DataTransferObjects.Transactions.Receiving.NS;
 using Application.DataTransferObjects.Transactions.Receiving.SAP;
 using Application.UseCases.Repositories.Integration.Others;
 using Application.UseCases.Repositories.Integration.Transaction.Receiving;
+using Domain.Entities.ValueObjects.Others;
 using Integration.NS.Services;
 using Integration.SAP.Entities.Transactional.Receiving;
 using Shared.Entities;
@@ -14,10 +15,12 @@ using System.Runtime.Intrinsics.X86;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
+using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
 using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace Integration.NS.Implementations.Transactions;
-public class ReceivingIntegration (
+
+public class ReceivingIntegration(
     INetSuiteApiClientService netsuiteService,
     SuiteQLQueryBuilderFactoryService builderFactory)
     : IReceivingIntegration
@@ -37,19 +40,58 @@ public class ReceivingIntegration (
         throw new NotImplementedException();
     }
 
-    public Task<PurchaseOrderHeaderSAPDTO?> GetPurchaseOrderHeaderAsync(int docEntry)
+    public async Task<PurchaseOrderInfoNSDTO?> GetPurchaseOrderHeaderAsync(int docEntry)
     {
-        throw new NotImplementedException();
+        var queryString = $"""
+            SELECT 
+                t.id AS Id,
+                t.tranid AS ReferenceNumber,
+                t.status AS Status,
+                TO_CHAR(t.createdDate, 'YYYY-MM-DD"T"HH24:MI:SS') AS Date,
+                entity.altname AS VendorName,
+                entity.entityid AS VendorCode,
+                t.memo as Memo
+            FROM 
+                transaction t
+            JOIN 
+                entity ON entity.id = t.entity
+            WHERE
+                t.id = {docEntry}
+            """;
+
+        var response = await netsuiteService.ExecuteSuiteQLQuery<PurchaseOrderInfoNSDTO>(queryString);
+        return response.items.FirstOrDefault();
     }
 
-    public Task<IEnumerable<PurchaseOrderLineSAPDTO>> GetPurchaseOrderLinesAsync(int docEntry)
+    public async Task<IEnumerable<PurchaseOrderLineNSDTO>> GetPurchaseOrderLinesAsync(int docEntry)
     {
-        throw new NotImplementedException();
+        var queryString = $"""
+            SELECT
+                item.itemId AS ItemCode,
+                BUILTIN.DF(tl.units) as UoM,
+                BUILTIN.DF(tl.location) as Warehouse,
+                item.displayname AS ItemDescription,
+                tl.quantity AS QuantityPlanned,
+                tl.quantityshiprecv AS QuantityReceived,
+                (tl.quantity - tl.quantityshiprecv) AS QuantityOpen
+            FROM
+                transaction t
+            JOIN 
+                transactionline tl ON tl.transaction = t.id
+            JOIN
+                item ON item.id = tl.item
+            WHERE
+                t.id = {docEntry}
+            """;
+
+        var response = await netsuiteService.ExecuteSuiteQLQuery<PurchaseOrderLineNSDTO>(queryString);
+
+        return response.items;
     }
 
     public async Task<(IEnumerable<PurchaseOrderInfoNSDTO>, int)> GetPurchaseOrdersListAsync(DataGridIntent intent)
     {
-    var queryString = """
+        var queryString = """
             SELECT 
                 t.id AS Id,
                 t.tranid AS ReferenceNumber,
@@ -81,7 +123,9 @@ public class ReceivingIntegration (
                 ComparisonOperator = ComparisonOperatorEnum.Equals,
                 Value = "purchaseorder"
             }, propertyMap);
+
         SuiteQLQuery query = builder.Build();
+
         var response = await netsuiteService.ExecuteSuiteQLQuery<PurchaseOrderInfoNSDTO>(query.Query, limit: query.Limit, offset: query.Offset);
         return (response.items, response.totalResults);
     }
