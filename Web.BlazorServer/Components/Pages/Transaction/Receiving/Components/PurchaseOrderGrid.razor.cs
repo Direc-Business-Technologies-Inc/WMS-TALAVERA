@@ -47,6 +47,15 @@ public partial class PurchaseOrderGrid
         {
             AppBusyService.SetBusy(ActionGetPurchaseOrders, true);
 
+            if (intent.Sorts.Count == 0)
+            {
+                intent.Sorts.Add(new()
+                {
+                    Property = "Date",
+                    Direction = SortDirectionEnum.Descending
+                });
+            }
+
             var response = await ReceivingHandler.GetPurchaseOrderDataGridAsync(intent);
 
             return response;
@@ -57,5 +66,5 @@ public partial class PurchaseOrderGrid
         return DataGridResultVM<PurchaseOrderDataGridVM>.New(action.Result.Data ?? [], action.Result.Count);
     }
 
-    void ViewPurchaseOrder(PurchaseOrderDataGridVM purchaseOrder) => NavManager.NavigateTo($"/transactions/purchasing/receiving/purchase-order/view?ref={purchaseOrder.DocEntry}", true);
+    void ViewPurchaseOrder(PurchaseOrderDataGridVM purchaseOrder) => NavManager.NavigateTo($"/transactions/purchasing/receiving/purchase-order/view?ref={purchaseOrder.Id}", true);
 }

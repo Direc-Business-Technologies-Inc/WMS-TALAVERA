@@ -4,13 +4,11 @@ namespace Application.DataTransferObjects.Transactions.Receiving;
 
 public class PurchaseOrderDataGridDTO
 {
-    public int DocEntry { get; set; }
-    public int DocNum { get; set; }
-    public DateTime DocDate { get; set; }
-    public DateTime DocDueDate { get; set; }
-    public DocumentStatus DocStatus { get; set; }
-    public string CardCode { get; set; }
-    public string CardName { get; set; }
-    public string SupplierContactPerson { get; set; }
-    public string Remarks { get; set; }
+    public int Id { get; set; }
+    public string ReferenceNumber { get; set; } = string.Empty;
+    public DateTime Date { get; set; }
+    public DateTime DeliveryDate { get; set; }
+    public DocumentStatus Status { get; set; }
+    public string VendorName { get; set; } = string.Empty;
+    public string Memo { get; set; } = string.Empty;
 }

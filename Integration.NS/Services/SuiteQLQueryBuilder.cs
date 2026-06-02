@@ -29,6 +29,7 @@ public class SuiteQLQueryBuilder
         ApplyDataGridFilters(intent, mapFields);
         ApplyDataGridSorts(intent, mapFields);
         Take = intent.Take;
+        Skip = intent.Skip;
         return this;
     }
     public SuiteQLQueryBuilder ApplyDataGridFilters(DataGridIntent intent, Dictionary<string, string>? mapFields = null)

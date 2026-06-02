@@ -13,25 +13,23 @@
     </HeaderTemplate>
     <GridColumns>
         <RadzenDataGridColumn TItem="PurchaseOrderDataGridVM"
-                              Property="@nameof(PurchaseOrderDataGridVM.DocNum)"
+                              Property="@nameof(PurchaseOrderDataGridVM.ReferenceNumber)"
                               Type="@typeof(int)"
-                              Title="PO Doc No." />
+                              Title="Reference Number" />
         <RadzenDataGridColumn TItem="PurchaseOrderDataGridVM"
-                              Property="@nameof(PurchaseOrderDataGridVM.DocDate)"
+                              Property="@nameof(PurchaseOrderDataGridVM.Date)"
                               Type="@typeof(DateTime)"
-                              Title="PO Date">
-            <Template>
-                @context.DocDate.ToString("MM/dd/yyyy")
-            </Template>
-        </RadzenDataGridColumn>
+                              FormatString="{0:yyyy-MM-dd}"
+                              Title="Purchase Order Date" />
         <RadzenDataGridColumn TItem="PurchaseOrderDataGridVM"
-                              Property="@nameof(PurchaseOrderDataGridVM.CardName)"
-                              Type="@typeof(string)"
-                              Title="Supplier Name" />
+                              Property="@nameof(PurchaseOrderDataGridVM.DeliveryDate)"
+                              Type="@typeof(DateTime)"
+                              FormatString="{0:yyyy-MM-dd}"
+                              Title="Delivery Date" />
         <RadzenDataGridColumn TItem="PurchaseOrderDataGridVM"
-                              Property="@nameof(PurchaseOrderDataGridVM.SupplierContactPerson)"
+                              Property="@nameof(PurchaseOrderDataGridVM.Vendor)"
                               Type="@typeof(string)"
-                              Title="Contact Person" />
+                              Title="Vendor Name" />
         <RadzenDataGridColumn TItem="PurchaseOrderDataGridVM"
                               Property="@nameof(PurchaseOrderDataGridVM.Remarks)"
                               Type="@typeof(string)"

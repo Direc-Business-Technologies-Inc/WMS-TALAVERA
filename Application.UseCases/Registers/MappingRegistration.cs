@@ -409,14 +409,11 @@ public class MappingRegistration : IRegister
         #region Receiving
 
         config.NewConfig<PurchaseOrderSAPDTO, PurchaseOrderDataGridDTO>()
-            .Map(d => d.DocEntry, s => s.DocEntry)
-            .Map(d => d.DocNum, s => s.DocNum)
-            .Map(d => d.DocDate, s => s.DocDate)
-            .Map(d => d.DocDueDate, s => s.DocDueDate)
-            .Map(d => d.DocStatus, s => EnumHelper.ParseStringToEnum<DocumentStatus>(s.DocStatus))
-            .Map(d => d.CardCode, s => s.CardCode)
-            .Map(d => d.CardName, s => s.CardName)
-            .Map(d => d.SupplierContactPerson, s => s.SupplierContactPerson);
+            .Map(d => d.Id, s => s.DocEntry)
+            .Map(d => d.ReferenceNumber, s => s.DocNum)
+            .Map(d => d.Date, s => s.DocDate)
+            .Map(d => d.DeliveryDate, s => s.DocDueDate)
+            .Map(d => d.Status, s => EnumHelper.ParseStringToEnum<DocumentStatus>(s.DocStatus));
 
         config.NewConfig<PurchaseOrderHeaderSAPDTO, PurchaseOrderDTO>()
             .Map(d => d.SapReference, s => new SapDocumentReferenceDTO()

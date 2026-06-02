@@ -42,7 +42,16 @@ public class ReceivingHandler(
         GetPurchaseOrdersQry qry = new(intent);
         (IEnumerable<PurchaseOrderDataGridDTO> Data, int Count) = await Sender.Send(qry);
 
-        return (Data.Adapt<IEnumerable<PurchaseOrderDataGridVM>>(), Count);
+        var x = Data.Select(x => new PurchaseOrderDataGridVM
+        {
+            Id = x.Id,
+            ReferenceNumber = x.ReferenceNumber,
+            Date = x.Date,
+            Vendor = x.VendorName,
+            Remarks = x.Memo
+        });
+
+        return (x, Count);
     }
 
     public async Task<bool> PostGoodsReceiptPOAsync(PurchaseOrderVM data)

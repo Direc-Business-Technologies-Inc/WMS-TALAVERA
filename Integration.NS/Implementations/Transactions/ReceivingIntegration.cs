@@ -1,5 +1,6 @@
 ﻿using Application.DataTransferObjects.Others.NS;
 using Application.DataTransferObjects.Transactions.Receiving;
+using Application.DataTransferObjects.Transactions.Receiving.NS;
 using Application.DataTransferObjects.Transactions.Receiving.SAP;
 using Application.UseCases.Repositories.Integration.Others;
 using Application.UseCases.Repositories.Integration.Transaction.Receiving;
@@ -46,22 +47,23 @@ public class ReceivingIntegration (
         throw new NotImplementedException();
     }
 
-    public async Task<(IEnumerable<PurchaseOrderSAPDTO>, int)> GetPurchaseOrdersListAsync(DataGridIntent intent)
+    public async Task<(IEnumerable<PurchaseOrderInfoNSDTO>, int)> GetPurchaseOrdersListAsync(DataGridIntent intent)
     {
-        var queryString = """
+    var queryString = """
             SELECT 
-                t.id AS DocNum,
-                t.status AS DocStatus,
-                TO_CHAR(t.createdDate, 'YYYY-MM-DD"T"HH24:MI:SS') AS DocDate,
-                entity.altname AS CardName,
-                entity.email AS SupplierContactPerson,
-                entity.entityid AS CardCode,
-                t.memo as Remarks
+                t.id AS Id,
+                t.tranid AS ReferenceNumber,
+                t.status AS Status,
+                TO_CHAR(t.createdDate, 'YYYY-MM-DD"T"HH24:MI:SS') AS Date,
+                entity.altname AS VendorName,
+                entity.entityid AS VendorCode,
+                t.memo as Memo
             FROM 
                 transaction t
             JOIN 
                 entity ON entity.id = t.entity
             """;
+
         Dictionary<string, string> propertyMap = new()
         {
             { "CardName", "entity.altname" },
@@ -80,7 +82,7 @@ public class ReceivingIntegration (
                 Value = "purchaseorder"
             }, propertyMap);
         SuiteQLQuery query = builder.Build();
-        var response = await netsuiteService.ExecuteSuiteQLQuery<PurchaseOrderSAPDTO>(query.Query, limit: query.Limit, offset: query.Offset);
+        var response = await netsuiteService.ExecuteSuiteQLQuery<PurchaseOrderInfoNSDTO>(query.Query, limit: query.Limit, offset: query.Offset);
         return (response.items, response.totalResults);
     }
 

@@ -1,4 +1,5 @@
 ﻿using Application.DataTransferObjects.Transactions.Receiving;
+using Application.DataTransferObjects.Transactions.Receiving.NS;
 using Application.UseCases.Repositories.Integration.Transaction.Receiving;
 using Integration.SAP.Entities.Transactional.Receiving;
 using Mapster;
@@ -15,7 +16,7 @@ public class GetPurchaseOrdersQryHandler(
 {
     public async Task<(IEnumerable<PurchaseOrderDataGridDTO> Data, int Count)> Handle(GetPurchaseOrdersQry request, CancellationToken cancellationToken)
     {
-        (IEnumerable<PurchaseOrderSAPDTO> Data, int Count) = await receivingIntegration.GetPurchaseOrdersListAsync(request.Intent);
+        (IEnumerable<PurchaseOrderInfoNSDTO> Data, int Count) = await receivingIntegration.GetPurchaseOrdersListAsync(request.Intent);
 
         var x = Data.Adapt<IEnumerable<PurchaseOrderDataGridDTO>>();
         return (x, Count);
