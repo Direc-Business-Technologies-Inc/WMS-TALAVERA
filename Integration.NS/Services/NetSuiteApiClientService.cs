@@ -185,7 +185,7 @@ namespace Integration.NS.Services
         //    return jsonString;
         //}
 
-        string FormatQuery(string query) 
+        string FormatQuery(string query)
         {
             return Regex.Replace(query, @"\s+", " ").Trim();
         }
@@ -260,30 +260,41 @@ namespace Integration.NS.Services
             throw new Exception($"Request failed with status code: {httpResponse.StatusCode}");
         }
 
-        public async Task<IEnumerable<PurchaseOrderDTO?>> GetAllPOPendingReceipt([Optional] int limit, [Optional] int offset)
+        public async Task<IEnumerable<T>?> NetsuiteQuery<T>(
+            string queryName,
+            Dictionary<string, string>? parameters = null,
+            int limit = 0,
+            int offset = 0)
         {
             var url = SuiteQLRoot;
 
-            if(limit > 0 && offset >= 0)
+            if (limit > 0 && offset >= 0)
             {
                 url += $"?limit={limit}&offset={offset}";
             }
 
-            var query = sqlQuery.GetSqlScriptWithMetadata("NS_PurchaseOrder_Get_PendingReceipt", out string myquery, out bool isFound);
+            sqlQuery.GetSqlScriptWithMetadata(queryName, out string query, out bool isFound);
 
-            if(!isFound)
+            if (!isFound)
             {
-                throw new Exception("SQL query not found.");
+                throw new Exception($"SQL query '{queryName}' not found.");
             }
 
-            var formattedQuery = FormatQuery(myquery);
+            if (parameters != null)
+            {
+                foreach (var parameter in parameters)
+                {
+                    query = query.Replace($"@{parameter.Key}", $"'{parameter.Value}'");
+                }
+            }
 
             var jsonBody = JsonSerializer.Serialize(new
             {
-                q = formattedQuery
+                q = FormatQuery(query)
             });
 
-            var result = await MakeRequest<NetSuiteResponse<PurchaseOrderDTO>>(url, jsonBody);
+            var result = await MakeRequest<NetSuiteResponse<T>>(url, jsonBody);
+
             return result.items;
         }
     }
