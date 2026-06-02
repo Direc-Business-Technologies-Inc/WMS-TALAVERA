@@ -1,24 +1,25 @@
-﻿namespace Application.DataTransferObjects.Transactions.Receiving.NS;
+﻿namespace Shared.Libraries.ViewModel;
 
-public class PurchaseOrderLineDTO
+public class TransferOrderLineVM
 {
     public int NetsuiteOrderInternalId { get; set; }
     public string OrderNumber { get; set; } = string.Empty;
     public string OrderType { get; set; } = string.Empty;
     public string OrderStatus { get; set; } = string.Empty;
 
-    public int NetsuiteLocationInternalId { get; set; }
+    public int NetsuiteFromLocationInternalId { get; set; }
+    public int NetsuiteToLocationInternalId { get; set; }
+    public int NetsuiteFromSubsidiaryInternalId { get; set; }
+    public int NetsuiteToSubsidiaryInternalId { get; set; }
+
+
     public string LocationName { get; set; } = string.Empty;
     public string LocationUsedBin { get; set; } = string.Empty;
 
     public int LineSequenceNumber { get; set; }
     public string TransactionLineType { get; set; } = string.Empty;
 
-    public int NetsuiteVendorInternalId { get; set; }
-    public string VendorName { get; set; } = string.Empty;
-    public int VendorBinAssignmentId { get; set; }
-
-    public int NetsuiteMaterialInternalId { get; set; } 
+    public int NetsuiteMaterialInternalId { get; set; }
     public string MaterialCode { get; set; } = string.Empty;
     public string MaterialName { get; set; } = string.Empty;
     public int LineQuantity { get; set; }

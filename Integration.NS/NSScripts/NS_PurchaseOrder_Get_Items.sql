@@ -4,14 +4,14 @@ SELECT
 	t.recordtype AS OrderType,
 	t.status AS OrderStatus,
 	
-	tl.location AS LocationInternalId,
+	tl.location AS NetsuiteLocationInternalId,
 	loc.name AS LocationName,
 	loc.usebins as LocationUsedBin,
 	
 	tl.id AS LineSequenceNumber,
 	tl.transactionlinetype as TransactionLineType,
 	
-	t.entity AS VendorEntityId,
+	t.entity AS NetsuiteVendorInternalId,
 	e.fullname AS VendorName,
 	ba.custrecord_dbti_vba_assigned_bin AS VendorBinAssignmentId,
 	
@@ -20,7 +20,8 @@ SELECT
 	i.itemid as MaterialCode,
 	i.displayname as MaterialName,
 	tl.quantity AS LineQuantity,
-	tl.units AS UoMId,
+	tl.quantityshiprecv AS LineQuantityReceived,
+	tl.units AS NetsuiteUoMInternalId,
 	uom.unitname AS UoMName,
 	uom.conversionrate AS UoMRate,
 	
@@ -37,5 +38,6 @@ FROM
 	
 WHERE
 	t.recordtype = 'purchaseorder'
-	AND t.status IN ('B', 'E')	AND t.tranid = @tranid
+	AND t.status IN ('B', 'E')	
+	AND t.tranid = @tranid
 	
