@@ -1,5 +1,7 @@
 ﻿using Api.CoreWebAPI.Controllers.Authentication.Repositories;
 using Application.DataTransferObjects.Others.NS;
+using Application.DataTransferObjects.Transactions.Receiving.NS;
+using Application.DataTransferObjects.Transactions.Receiving.Request;
 using Application.UseCases.Queries.Transaction.Receiving.PurchaseOrder.Mobile;
 using Mapster;
 using MediatR;
@@ -23,6 +25,16 @@ namespace Api.CoreWebAPI.Controllers
             List<PurchaseOrderVM> ret = result.Adapt<List<PurchaseOrderVM>>();
 
             return ApiResult<IEnumerable<PurchaseOrderVM>>.Succeeded(ret);
+        }
+
+        [HttpPost("PO/Items")]
+        public async Task<ApiResult<IEnumerable<PurchaseOrderLineVM>>> PurchaseOrderItems(PurchaseOrderLineRequestDTO req)
+        {
+            var result = await Sender.Send(new MGetPurchaseOrderLineQry(req));
+
+            List<PurchaseOrderLineVM> ret = result.Adapt<List<PurchaseOrderLineVM>>();
+
+            return ApiResult<IEnumerable<PurchaseOrderLineVM>>.Succeeded(ret);
         }
     }
 }

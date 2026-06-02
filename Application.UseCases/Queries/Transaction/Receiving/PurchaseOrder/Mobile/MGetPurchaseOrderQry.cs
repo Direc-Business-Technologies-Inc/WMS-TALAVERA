@@ -2,22 +2,21 @@
 using Application.UseCases.Repositories.Integration.Others;
 using Mapster;
 using MediatR;
-using PurchaseOrderDTO = Application.DataTransferObjects.Others.NS.PurchaseOrderDTO;
+using Application.DataTransferObjects.Others.NS;
 
 namespace Application.UseCases.Queries.Transaction.Receiving.PurchaseOrder.Mobile;
 
-public record MGetPurchaseOrdersQry() : IRequest<IEnumerable<PurchaseOrderDTO>>;
+public record MGetPurchaseOrdersQry() : IRequest<IEnumerable<OrdersDTO>>;
 
 public class MGetPurchaseOrdersQryHandler(
     INetSuiteApiClientService netSuiteApiClientService)
-    : IRequestHandler<MGetPurchaseOrdersQry, IEnumerable<PurchaseOrderDTO>>
+    : IRequestHandler<MGetPurchaseOrdersQry, IEnumerable<OrdersDTO>>
 {
-    public async Task<IEnumerable<PurchaseOrderDTO>> Handle(
+    public async Task<IEnumerable<OrdersDTO>> Handle(
         MGetPurchaseOrdersQry request,
         CancellationToken cancellationToken)
     {
-        var Data = await netSuiteApiClientService.GetAllPOPendingReceipt();
-
-        return Data.Adapt<IEnumerable<PurchaseOrderDTO>>();
+        var Data = await netSuiteApiClientService.NetsuiteQuery<OrdersDTO>("NS_PurchaseOrder_Get_PendingReceipt");
+        return Data.Adapt<IEnumerable<OrdersDTO>>();
     }
 }

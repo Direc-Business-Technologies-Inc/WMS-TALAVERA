@@ -228,7 +228,11 @@ namespace Integration.NS.Services
             return await MakeRequest<T>(url, reqBody, HttpMethod.Post);
         }
 
-        public async Task<IEnumerable<PurchaseOrderDTO?>> GetAllPOPendingReceipt([Optional] int limit, [Optional] int offset)
+        public async Task<IEnumerable<T>?> NetsuiteQuery<T>(
+            string queryName,
+            Dictionary<string, string>? parameters = null,
+            int limit = 0,
+            int offset = 0)
         {
             var url = SuiteQLRoot;
 
@@ -237,21 +241,28 @@ namespace Integration.NS.Services
                 url += $"?limit={limit}&offset={offset}";
             }
 
-            var query = sqlQuery.GetSqlScriptWithMetadata("NS_PurchaseOrder_Get_PendingReceipt", out string myquery, out bool isFound);
+            sqlQuery.GetSqlScriptWithMetadata(queryName, out string query, out bool isFound);
 
             if (!isFound)
             {
-                throw new Exception("SQL query not found.");
+                throw new Exception($"SQL query '{queryName}' not found.");
             }
 
-            var formattedQuery = FormatQuery(myquery);
+            if (parameters != null)
+            {
+                foreach (var parameter in parameters)
+                {
+                    query = query.Replace($"@{parameter.Key}", $"'{parameter.Value}'");
+                }
+            }
 
             var jsonBody = JsonSerializer.Serialize(new
             {
-                q = formattedQuery
+                q = FormatQuery(query)
             });
 
-            var result = await MakeRequest<NetSuiteResponse<PurchaseOrderDTO>>(url, jsonBody);
+            var result = await MakeRequest<NetSuiteResponse<T>>(url, jsonBody);
+
             return result.items;
         }
 
