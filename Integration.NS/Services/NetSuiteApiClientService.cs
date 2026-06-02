@@ -185,7 +185,7 @@ namespace Integration.NS.Services
         //    return jsonString;
         //}
 
-        string FormatQuery(string query) 
+        string FormatQuery(string query)
         {
             return Regex.Replace(query, @"\s+", " ").Trim();
         }
@@ -232,14 +232,14 @@ namespace Integration.NS.Services
         {
             var url = SuiteQLRoot;
 
-            if(limit > 0 && offset >= 0)
+            if (limit > 0 && offset >= 0)
             {
                 url += $"?limit={limit}&offset={offset}";
             }
 
             var query = sqlQuery.GetSqlScriptWithMetadata("NS_PurchaseOrder_Get_PendingReceipt", out string myquery, out bool isFound);
 
-            if(!isFound)
+            if (!isFound)
             {
                 throw new Exception("SQL query not found.");
             }
@@ -263,10 +263,9 @@ namespace Integration.NS.Services
 
             query = FormatQuery(query);
 
-            var jsonBody = JsonSerializer.Serialize(new{ q = query });
+            var jsonBody = JsonSerializer.Serialize(new { q = query });
 
             return await MakeRequest<NetSuiteResponse<T>>(url, jsonBody);
         }
-        
     }
 }

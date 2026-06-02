@@ -14,6 +14,7 @@ public static class NSServicesDI
         services.AddScoped<INetSuiteApiClientService, NetSuiteApiClientService>();
         services.AddScoped<HttpContextAccessor>();
 
+        services.AddSingleton<SuiteQLQueryBuilderFactoryService>();
         services.AddNSImplementationsIntegraton();
 
         return services;
