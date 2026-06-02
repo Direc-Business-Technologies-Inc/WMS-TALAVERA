@@ -81,7 +81,7 @@ public class ReceivingIntegration (
             }, propertyMap);
         SuiteQLQuery query = builder.Build();
         var response = await netsuiteService.ExecuteSuiteQLQuery<PurchaseOrderSAPDTO>(query.Query, limit: query.Limit, offset: query.Offset);
-        return (response.items, response.count);
+        return (response.items, response.totalResults);
     }
 
     public Task<IEnumerable<PurchaseTypeSAPDTO>> GetPurchaseTypesAsync()
