@@ -69,7 +69,7 @@ public class ReceivingIntegration(
             SELECT
                 item.itemId AS ItemCode,
                 BUILTIN.DF(tl.units) as UoM,
-                BUILTIN.DF(tl.location) as Warehouse,
+                BUILTIN.DF(tl.location) as Location,
                 item.displayname AS ItemDescription,
                 tl.quantity AS QuantityPlanned,
                 tl.quantityshiprecv AS QuantityReceived,
@@ -81,7 +81,9 @@ public class ReceivingIntegration(
             JOIN
                 item ON item.id = tl.item
             WHERE
-                t.id = {docEntry}
+                t.id = {docEntry} AND
+                tl.mainline = 'F'
+
             """;
 
         var response = await netsuiteService.ExecuteSuiteQLQuery<ReceivingLineNSDTO>(queryString);

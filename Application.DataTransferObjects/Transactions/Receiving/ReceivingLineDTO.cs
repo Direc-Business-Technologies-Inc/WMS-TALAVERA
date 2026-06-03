@@ -10,7 +10,7 @@ public class ReceivingLineDTO
     public string ItemCode { get; set; } = string.Empty;
     public string ItemDescription { get; set; } = string.Empty;
     public string UoM { get; set; } = string.Empty;
-    public string Warehouse { get; set; } = string.Empty;
+    public string Location { get; set; } = string.Empty;
     public decimal WeightReceived { get; set; }
     public decimal WeightTotal { get; set; }
     public decimal QuantityPlanned { get; set; }
