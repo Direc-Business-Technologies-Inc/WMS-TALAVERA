@@ -103,11 +103,18 @@ public class ReceivingIntegration(
             .From("transaction t")
             .Join("entity", "entity.id = t.entity")
             .WithDatagridIntent(intent)
-            .WithFilter(new AppFilterDescriptor
-            {
-                Property = "t.recordtype",
-                ComparisonOperator = ComparisonOperatorEnum.Equals,
-                Value = "purchaseorder"
+            .WithFilters(
+                new AppFilterDescriptor
+                {
+                    Property = "t.recordtype",
+                    ComparisonOperator = ComparisonOperatorEnum.Equals,
+                    Value = "purchaseorder"
+                },
+                new AppFilterDescriptor
+                {
+                    Property = "t.status",
+                    ComparisonOperator = ComparisonOperatorEnum.In,
+                    Value = new string[] { "B", "E" }
             });
 
         SuiteQLQuery query = builder.Build();
@@ -129,23 +136,24 @@ public class ReceivingIntegration(
                 ("BUILTIN.DF(t.transferlocation)", "TransferLocation"))
             .From("transaction t")
             .Join("transactionline tl", on:"tl.transaction = t.id")
-            .WithFilter(new AppFilterDescriptor
-            {
-                Property = "tl.mainline",
-                ComparisonOperator = ComparisonOperatorEnum.Equals,
-                Value = "T"
-            })
-            .WithFilter(new AppFilterDescriptor
-            {
-                Property = "t.recordtype",
-                ComparisonOperator = ComparisonOperatorEnum.Equals,
-                Value = "intercompanytransferorder"
-            })
-            .WithFilter(new AppFilterDescriptor
-            {
-                Property = "t.status",
-                ComparisonOperator = ComparisonOperatorEnum.In,
-                Value = new string[] { "F", "E" }
+            .WithFilters(
+                new AppFilterDescriptor
+                {
+                    Property = "tl.mainline",
+                    ComparisonOperator = ComparisonOperatorEnum.Equals,
+                    Value = "T"
+                },
+                new AppFilterDescriptor
+                {
+                    Property = "t.recordtype",
+                    ComparisonOperator = ComparisonOperatorEnum.Equals,
+                    Value = "intercompanytransferorder"
+                },
+                new AppFilterDescriptor
+                {
+                    Property = "t.status",
+                    ComparisonOperator = ComparisonOperatorEnum.In,
+                    Value = new string[] { "F", "E" }
             })
             .WithDatagridIntent(intent)
             .Build();

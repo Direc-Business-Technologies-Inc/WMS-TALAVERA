@@ -185,6 +185,21 @@ public class SuiteQLQueryBuilder
         return this;
     }
 
+    public SuiteQLQueryBuilder WithFilters(params AppFilterDescriptor[] filters)
+    {
+        return WithFilters(null, filters);
+    }
+
+    public SuiteQLQueryBuilder WithFilters(Dictionary<string, string>? propertyMap, params AppFilterDescriptor[] filters)
+    {
+        foreach (var filter in filters)
+        {
+            WithFilter(filter, propertyMap);
+        }
+
+        return this;
+    }
+
     private string _binary(string prop, string op, object? value, Dictionary<string, string>? propertyMap = null)
     {
         if (value is null) throw new InvalidOperationException($"no value given for {prop}");
