@@ -1,4 +1,5 @@
 SELECT
+	t.id AS NetsuiteOrderInternalId,
 	t.tranId as OrderNumber,
 	t.recordtype as OrderType,
 	t.status as OrderStatus,

@@ -9,6 +9,11 @@ public class OrdersDTO
     public string OrderType { get; set; } = string.Empty;
     public string OrderStatus { get; set; } = string.Empty;
 
+    public int NetsuiteFromLocationInternalId { get; set; }
+    public int NetsuiteToLocationInternalId { get; set; }
+    public int NetsuiteFromSubsidiaryInternalId { get; set; }
+    public int NetsuiteToSubsidiaryInternalId { get; set; }
+
     public string LocationInternalId { get; set; } = string.Empty;
     public string LocationName { get; set; } = string.Empty;
     public string LocationUsedBin { get; set; } = string.Empty;
