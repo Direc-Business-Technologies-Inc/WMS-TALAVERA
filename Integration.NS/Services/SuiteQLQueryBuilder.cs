@@ -1,7 +1,10 @@
 ﻿using Application.DataTransferObjects.Others.NS;
+using Microsoft.Net.Http.Headers;
 using Shared.Entities;
+using System.Collections;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using static System.Net.WebRequestMethods;
 
 namespace Integration.NS.Services;
 
@@ -141,16 +144,36 @@ public class SuiteQLQueryBuilder
             case ComparisonOperatorEnum.EndsWith:
                 if (filter.Value is not string) throw new InvalidOperationException($"{filter.Property} is not a string and does not support the ends with operation");
                 return _binary(filter.Property, "LIKE", $"%{filter.Value}", propertyMap);
+            case ComparisonOperatorEnum.In :
+                return _listOp(filter.Property, "IN", filter.Value, propertyMap);
+            case ComparisonOperatorEnum.NotIn :
+                return _listOp(filter.Property, "NOT IN", filter.Value, propertyMap);
             case ComparisonOperatorEnum.IsEmpty  :
             case ComparisonOperatorEnum.IsNotNull :
             case ComparisonOperatorEnum.IsNotEmpty:
-            case ComparisonOperatorEnum.In :
-            case ComparisonOperatorEnum.NotIn :
             case ComparisonOperatorEnum.IsNull :
                 break;
         }
 
         throw new NotImplementedException($"Error at {nameof(SuiteQLQueryBuilder)}: {filter.ComparisonOperator} is not implemented ");
+    }
+
+    private string _stringifyValue(object value)
+    {
+        if (value is string strVal) return $"'{strVal}'";
+        if (value is DateTime dateVal) return $"'{dateVal.ToString(DATETIME_FORMAT_STRING)}'";
+        if (value is null) return "NULL";
+        if (value is object[] arrayVal) return "(" + string.Join(", ", arrayVal.Select(_stringifyValue)) + ")";
+        return JsonSerializer.Serialize(value);
+    }
+
+    private string _listOp(string prop, string op, object? value, Dictionary<string, string>? propertyMap = null)
+    {
+        if (value is null || value is not object[] arrayVal) throw new InvalidOperationException($"operation {op} requires an array type as its value");
+
+        prop = propertyMap != null && propertyMap.ContainsKey(prop) ? propertyMap[prop] : prop;
+
+        return $"{prop} {op} {_stringifyValue(value)}";
     }
 
     public SuiteQLQueryBuilder WithFilter(AppFilterDescriptor filter, Dictionary<string, string>? propertyMap = null)
@@ -165,14 +188,10 @@ public class SuiteQLQueryBuilder
     private string _binary(string prop, string op, object? value, Dictionary<string, string>? propertyMap = null)
     {
         if (value is null) throw new InvalidOperationException($"no value given for {prop}");
-        if (value is DateTime) value = ((DateTime)value).ToString(DATETIME_FORMAT_STRING);
-
-        if (value is string) value = $"'{value}'";
-        else value = JsonSerializer.Serialize(value);
 
         prop = propertyMap != null && propertyMap.ContainsKey(prop) ? propertyMap[prop] : prop;
 
-        return $"{prop} {op} {value}";
+        return $"{prop} {op} {_stringifyValue(value)}";
     }
 
     private string _parseFilterGroup(AppFilterDescriptor filter, Dictionary<string, string>? propertyMap = null)

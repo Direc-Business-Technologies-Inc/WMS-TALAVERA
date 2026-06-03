@@ -116,6 +116,35 @@ public class ReceivingIntegration(
         return (response.items, response.totalResults);
     }
 
+    public Task<(IEnumerable<ReceivingInfoNSDTO>, int count)> GetTransferOrderListAsync(DataGridIntent intent)
+    {
+        var builder = builderFactory.Create()
+            .Select(
+                ("t.id", "Id"),
+                ("t.tranid", "ReferenceNumber"),
+                ("t.status", "Status"),
+                ("TO_CHAR(t.createdDate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", "Date"),
+                ("entity.altname", "VendorName"),
+                ("entity.entityid", "VendorCode"),
+                ("t.memo", "Memo"))
+            .From("transaction t")
+            .Join("entity", "entity.id = t.entity")
+            .WithFilter(new AppFilterDescriptor
+            {
+                Property = "t.recordtype",
+                ComparisonOperator = ComparisonOperatorEnum.Equals,
+                Value = "intercompanytransferorder"
+            })
+            .WithFilter(new AppFilterDescriptor
+            {
+                Property = "t.recordtype",
+                ComparisonOperator = ComparisonOperatorEnum.Equals,
+                Value = "intercompanytransferorder"
+            })
+            .WithDatagridIntent(intent);
+            
+    }
+
     public Task<IEnumerable<PurchaseTypeSAPDTO>> GetPurchaseTypesAsync()
     {
         throw new NotImplementedException();
