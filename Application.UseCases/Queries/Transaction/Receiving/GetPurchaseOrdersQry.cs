@@ -16,7 +16,7 @@ public class GetPurchaseOrdersQryHandler(
 {
     public async Task<(IEnumerable<PurchaseOrderDataGridDTO> Data, int Count)> Handle(GetPurchaseOrdersQry request, CancellationToken cancellationToken)
     {
-        (IEnumerable<PurchaseOrderInfoNSDTO> Data, int Count) = await receivingIntegration.GetPurchaseOrdersListAsync(request.Intent);
+        (IEnumerable<ReceivingInfoNSDTO> Data, int Count) = await receivingIntegration.GetPurchaseOrdersListAsync(request.Intent);
 
         var x = Data.Adapt<IEnumerable<PurchaseOrderDataGridDTO>>();
         return (x, Count);

@@ -32,7 +32,7 @@ public class ReceivingHandler(
     public async Task<PurchaseOrderVM?> GetPurchaseOrderAsync(int docEntry)
     {
         GetPurchaseOrderQry qry = new(docEntry);
-        PurchaseOrderDTO? response = await Sender.Send(qry);
+        ReceivingDTO? response = await Sender.Send(qry);
         PurchaseOrderVM vm = new();
         if (response is not null)
         {
@@ -62,7 +62,7 @@ public class ReceivingHandler(
 
     public async Task<bool> PostGoodsReceiptPOAsync(PurchaseOrderVM data)
     {
-        PostGoodsReceiptPOCmd cmd = new(data.Adapt<PurchaseOrderDTO>());
+        PostGoodsReceiptPOCmd cmd = new(data.Adapt<ReceivingDTO>());
         bool result = await Sender.Send(cmd);
 
         return result;

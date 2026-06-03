@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Application.DataTransferObjects.Transactions.Receiving;
 
-public class PurchaseOrderInfoDTO
+public class ReceivingInfoDTO
 {
     public int Id { get; set; }
     public string ReferenceNumber { get; set; } = string.Empty;

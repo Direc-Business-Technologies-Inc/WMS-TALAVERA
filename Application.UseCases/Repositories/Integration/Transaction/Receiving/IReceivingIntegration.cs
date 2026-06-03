@@ -8,9 +8,9 @@ namespace Application.UseCases.Repositories.Integration.Transaction.Receiving;
 
 public interface IReceivingIntegration
 {
-    public Task<(IEnumerable<PurchaseOrderInfoNSDTO>, int)> GetPurchaseOrdersListAsync(DataGridIntent intent);
-    public Task<PurchaseOrderInfoNSDTO?> GetPurchaseOrderHeaderAsync(int docEntry);
-    public Task<IEnumerable<PurchaseOrderLineNSDTO>> GetPurchaseOrderLinesAsync(int docEntry);
+    public Task<(IEnumerable<ReceivingInfoNSDTO>, int)> GetPurchaseOrdersListAsync(DataGridIntent intent);
+    public Task<ReceivingInfoNSDTO?> GetPurchaseOrderHeaderAsync(int docEntry);
+    public Task<IEnumerable<ReceivingLineNSDTO>> GetPurchaseOrderLinesAsync(int docEntry);
     public Task<(IEnumerable<PurchaseDeliveryNoteSAPDTO>, int)> GetPurchaseDeliveryNotesListAsync(DataGridIntent intent);
     public Task<PurchaseDeliveryNoteHeaderSAPDTO?> GetPurchaseDeliveryNoteHeaderAsync(int docEntry);
     public Task<IEnumerable<PurchaseDeliveryNoteLineSAPDTO>> GetPurchaseDeliveryNoteLinesAsync(int docEntry);

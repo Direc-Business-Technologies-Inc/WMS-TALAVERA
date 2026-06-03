@@ -3,27 +3,27 @@ using Application.DataTransferObjects.Transactions.Receiving.NS;
 using Application.UseCases.Repositories.Integration.Transaction.Receiving;
 using Mapster;
 using MediatR;
-using PurchaseOrderLineDTO = Application.DataTransferObjects.Transactions.Receiving.PurchaseOrderLineDTO;
+using ReceivingLineDTO = Application.DataTransferObjects.Transactions.Receiving.ReceivingLineDTO;
 
 namespace Application.UseCases.Queries.Transaction.Receiving;
 
-public record GetPurchaseOrderQry(int DocEntry) : IRequest<PurchaseOrderDTO?>;
+public record GetPurchaseOrderQry(int DocEntry) : IRequest<ReceivingDTO?>;
 
 public class GetPurchaseOrderQryHandler(
     IReceivingIntegration receivingIntegration) 
-    : IRequestHandler<GetPurchaseOrderQry, PurchaseOrderDTO?>
+    : IRequestHandler<GetPurchaseOrderQry, ReceivingDTO?>
 {
-    public async Task<PurchaseOrderDTO?> Handle(GetPurchaseOrderQry request, CancellationToken cancellationToken)
+    public async Task<ReceivingDTO?> Handle(GetPurchaseOrderQry request, CancellationToken cancellationToken)
     {
-        PurchaseOrderInfoNSDTO? headerResponse = await receivingIntegration.GetPurchaseOrderHeaderAsync(request.DocEntry);
+        ReceivingInfoNSDTO? headerResponse = await receivingIntegration.GetPurchaseOrderHeaderAsync(request.DocEntry);
         if (headerResponse is null) return null;
 
-        IEnumerable<PurchaseOrderLineNSDTO> linesResponse = await receivingIntegration.GetPurchaseOrderLinesAsync(request.DocEntry);
+        IEnumerable<ReceivingLineNSDTO> linesResponse = await receivingIntegration.GetPurchaseOrderLinesAsync(request.DocEntry);
 
-        PurchaseOrderInfoDTO purchaseOrderDTO = headerResponse.Adapt<PurchaseOrderInfoDTO>();
-        IEnumerable<PurchaseOrderLineDTO> purchaseOrderLinesDTO = linesResponse.Adapt<IEnumerable<PurchaseOrderLineDTO>>();
+        ReceivingInfoDTO purchaseOrderDTO = headerResponse.Adapt<ReceivingInfoDTO>();
+        IEnumerable<ReceivingLineDTO> purchaseOrderLinesDTO = linesResponse.Adapt<IEnumerable<ReceivingLineDTO>>();
 
-        PurchaseOrderDTO dto = new()
+        ReceivingDTO dto = new()
         {
             DocumentInfo = purchaseOrderDTO,
             DocumentLines = [.. purchaseOrderLinesDTO]

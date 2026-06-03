@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Application.DataTransferObjects.Transactions.Receiving.NS;
 
-public class PurchaseOrderInfoNSDTO
+public class ReceivingInfoNSDTO
 {
     public int Id { get; set; }
     public string ReferenceNumber { get; set; } = string.Empty;
@@ -16,4 +16,9 @@ public class PurchaseOrderInfoNSDTO
     public string VendorName { get; set; } = string.Empty;
     public string Memo { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;
+    public string Location { get; set; } = string.Empty;
+    public string TransferLocation { get; set; } = string.Empty;
+    public string SourceSubsidiary { get; set; } = string.Empty;
+    public string DestinationSubsidiary { get; set; } = string.Empty;
+    public string Type { get; set; } = string.Empty;
 }

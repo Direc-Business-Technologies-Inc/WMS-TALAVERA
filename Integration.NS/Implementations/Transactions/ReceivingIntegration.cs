@@ -40,7 +40,7 @@ public class ReceivingIntegration(
         throw new NotImplementedException();
     }
 
-    public async Task<PurchaseOrderInfoNSDTO?> GetPurchaseOrderHeaderAsync(int docEntry)
+    public async Task<ReceivingInfoNSDTO?> GetPurchaseOrderHeaderAsync(int docEntry)
     {
         var queryString = $"""
             SELECT 
@@ -59,11 +59,11 @@ public class ReceivingIntegration(
                 t.id = {docEntry}
             """;
 
-        var response = await netsuiteService.ExecuteSuiteQLQuery<PurchaseOrderInfoNSDTO>(queryString);
+        var response = await netsuiteService.ExecuteSuiteQLQuery<ReceivingInfoNSDTO>(queryString);
         return response.items.FirstOrDefault();
     }
 
-    public async Task<IEnumerable<PurchaseOrderLineNSDTO>> GetPurchaseOrderLinesAsync(int docEntry)
+    public async Task<IEnumerable<ReceivingLineNSDTO>> GetPurchaseOrderLinesAsync(int docEntry)
     {
         var queryString = $"""
             SELECT
@@ -84,12 +84,12 @@ public class ReceivingIntegration(
                 t.id = {docEntry}
             """;
 
-        var response = await netsuiteService.ExecuteSuiteQLQuery<PurchaseOrderLineNSDTO>(queryString);
+        var response = await netsuiteService.ExecuteSuiteQLQuery<ReceivingLineNSDTO>(queryString);
 
         return response.items;
     }
 
-    public async Task<(IEnumerable<PurchaseOrderInfoNSDTO>, int)> GetPurchaseOrdersListAsync(DataGridIntent intent)
+    public async Task<(IEnumerable<ReceivingInfoNSDTO>, int)> GetPurchaseOrdersListAsync(DataGridIntent intent)
     {
         var builder = builderFactory.Create()
             .Select(
@@ -112,7 +112,7 @@ public class ReceivingIntegration(
 
         SuiteQLQuery query = builder.Build();
 
-        var response = await netsuiteService.ExecuteSuiteQLQuery<PurchaseOrderInfoNSDTO>(query.Query, limit: query.Limit, offset: query.Offset);
+        var response = await netsuiteService.ExecuteSuiteQLQuery<ReceivingInfoNSDTO>(query.Query, limit: query.Limit, offset: query.Offset);
         return (response.items, response.totalResults);
     }
 

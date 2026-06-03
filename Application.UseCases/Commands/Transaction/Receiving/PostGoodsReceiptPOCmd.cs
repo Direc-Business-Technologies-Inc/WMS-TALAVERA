@@ -6,7 +6,7 @@ using MediatR;
 
 namespace Application.UseCases.Commands.Transaction.Receiving;
 
-public record PostGoodsReceiptPOCmd(PurchaseOrderDTO Data) : ITransactionalRequest<bool>;
+public record PostGoodsReceiptPOCmd(ReceivingDTO Data) : ITransactionalRequest<bool>;
 
 public class PostGoodsReceiptPOCmdHandler(IReceivingIntegration receivingIntegration) : IRequestHandler<PostGoodsReceiptPOCmd, bool>
 {

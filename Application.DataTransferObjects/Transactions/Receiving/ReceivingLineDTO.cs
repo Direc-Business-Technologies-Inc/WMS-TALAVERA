@@ -5,7 +5,7 @@ using System.Numerics;
 
 namespace Application.DataTransferObjects.Transactions.Receiving;
 
-public class PurchaseOrderLineDTO
+public class ReceivingLineDTO
 {
     public string ItemCode { get; set; } = string.Empty;
     public string ItemDescription { get; set; } = string.Empty;
