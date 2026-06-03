@@ -4,16 +4,16 @@ using Application.UseCases.Repositories.Integration.Others;
 using Mapster;
 using MediatR;
 
-namespace Application.UseCases.Queries.Transaction.Receiving.PurchaseOrder.Mobile;
+namespace Application.UseCases.Queries.Transaction.Receiving.NS.PurchaseOrder;
 
-public record MGetPurchaseOrderLineQry(PurchaseOrderLineRequestDTO order) : IRequest<IEnumerable<PurchaseOrderLineDTO>>;
+public record GetPurchaseOrderLineQry(PurchaseOrderLineRequestDTO order) : IRequest<IEnumerable<PurchaseOrderLineDTO>>;
 
 public class MGetPurchaseOrderLineQryHandler(
     INetSuiteApiClientService netSuiteApiClientService)
-    : IRequestHandler<MGetPurchaseOrderLineQry, IEnumerable<PurchaseOrderLineDTO>>
+    : IRequestHandler<GetPurchaseOrderLineQry, IEnumerable<PurchaseOrderLineDTO>>
 {
     public async Task<IEnumerable<PurchaseOrderLineDTO>> Handle(
-        MGetPurchaseOrderLineQry request,
+        GetPurchaseOrderLineQry request,
         CancellationToken cancellationToken)
     {
         var parameters = new Dictionary<string, string>

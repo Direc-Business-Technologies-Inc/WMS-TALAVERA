@@ -1,20 +1,18 @@
 ﻿using Application.DataTransferObjects.Others.NS;
-using Application.DataTransferObjects.Transactions.Commons;
+using Application.DataTransferObjects.Transactions.Receiving.NS.Payload;
 using Application.UseCases.Repositories.Integration.Others;
 using Database.Libraries.Repositories;
 using Integration.NS.Entities;
 using Microsoft.AspNetCore.Http;
 using Microsoft.IdentityModel.Tokens;
+using Newtonsoft.Json;
 using System.ComponentModel;
 using System.IdentityModel.Tokens.Jwt;
 using System.Net.Http.Headers;
-using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
-using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.RegularExpressions;
-using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
 
 namespace Integration.NS.Services
 {
@@ -27,6 +25,8 @@ namespace Integration.NS.Services
         private static readonly string AccountId = Environment.GetEnvironmentVariable("ACCOUNT_ID") ?? string.Empty;
 
         private static readonly string ItemFulfillmentUrl = $"https://{AccountId}.suitetalk.api.netsuite.com/services/rest/record/v1/{{0}}/{{1}}/!transform/itemFulfillment";
+
+        private static readonly string ItemReceiptUrl = $"https://{AccountId}.suitetalk.api.netsuite.com/services/rest/record/v1/{{0}}/{{1}}/!transform/itemReceipt";
 
         private static readonly string UpdateRecordUrl = $"https://{AccountId}.suitetalk.api.netsuite.com/services/rest/record/v1/{{0}}/{{1}}";
 
@@ -167,24 +167,6 @@ namespace Integration.NS.Services
             return tokenHandler.WriteToken(token);
         }
 
-        //string GetJSONString(string query)
-        //{
-        //    var jsonBody = new
-        //    {
-        //        q = Regex.Replace(query, @"\s+", " ")
-        //    }; //format of netsuite api body
-        //       //2359556
-        //       // Convert the JSON body to a string
-
-        //    var serializerOptions = new System.Text.Json.JsonSerializerOptions
-        //    {
-        //        WriteIndented = false, // Keep it compact if needed
-        //        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping // Prevent over-escaping
-        //    };
-        //    string jsonString = System.Text.Json.JsonSerializer.Serialize(jsonBody, serializerOptions);
-        //    return jsonString;
-        //}
-
         string FormatQuery(string query)
         {
             return Regex.Replace(query, @"\s+", " ").Trim();
@@ -284,11 +266,17 @@ namespace Integration.NS.Services
             {
                 foreach (var parameter in parameters)
                 {
-                    query = query.Replace($"@{parameter.Key}", $"'{parameter.Value}'");
+                    query = query.Replace(
+                        $"@{parameter.Key}",
+                        $"'{parameter.Value.Replace("'", "''")}'");
+
+                    query = query.Replace(
+                        $"{{{parameter.Key}}}",
+                        parameter.Value);
                 }
             }
 
-            var jsonBody = JsonSerializer.Serialize(new
+            var jsonBody = System.Text.Json.JsonSerializer.Serialize(new
             {
                 q = FormatQuery(query)
             });
@@ -296,6 +284,32 @@ namespace Integration.NS.Services
             var result = await MakeRequest<NetSuiteResponse<T>>(url, jsonBody);
 
             return result.items;
+        }
+
+        public async Task<bool> SaveItemReceipt(int orderId, PurchaseOrderPayloadDTO itemReceipt)
+        {
+            try
+            {
+                //var jsonString = JsonConvert.SerializeObject(itemReceipt, new JsonSerializerSettings
+                //{
+                //    NullValueHandling = Newtonsoft.Json.NullValueHandling.Ignore
+                //});
+                var jsonString = System.Text.Json.JsonSerializer.Serialize(itemReceipt, new JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = null,
+                    WriteIndented = true
+                });
+
+                string url = string.Format(ItemReceiptUrl, "purchaseOrder", orderId);
+                await MakeRequest<object>(url, jsonString);
+
+                return true;
+
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("An error occurred in saving item receipt");
+            }
         }
     }
 }
