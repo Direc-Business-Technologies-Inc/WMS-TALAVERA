@@ -43,18 +43,35 @@ public class ReceivingHandler(
         return vm;
     }
 
-    public async Task<(IEnumerable<PurchaseOrderDataGridVM> Data, int Count)> GetPurchaseOrderDataGridAsync(DataGridIntent intent)
+    public async Task<(IEnumerable<ReceivingPurchaseOrderDataGridVM> Data, int Count)> GetPurchaseOrderDataGridAsync(DataGridIntent intent)
     {
         GetPurchaseOrdersQry qry = new(intent);
-        (IEnumerable<PurchaseOrderDataGridDTO> Data, int Count) = await Sender.Send(qry);
+        (IEnumerable<ReceivingDataGridDTO> Data, int Count) = await Sender.Send(qry);
 
-        var x = Data.Select(x => new PurchaseOrderDataGridVM
+        var x = Data.Select(x => new ReceivingPurchaseOrderDataGridVM
         {
             Id = x.Id,
             ReferenceNumber = x.ReferenceNumber,
             Date = x.Date,
-            Vendor = x.VendorName,
+            Vendor = x.SourceSubsidiary,
             Remarks = x.Memo
+        });
+
+        return (x, Count);
+    }
+
+    public async Task<(IEnumerable<ReceivingTransferOrderDataGridVM> Data, int Count)> GetTransferOrderDataGridAsync(DataGridIntent intent)
+    {
+        GetTransferOrdersQry qry = new(intent);
+        (IEnumerable<ReceivingDataGridDTO> Data, int Count) = await Sender.Send(qry);
+
+        var x = Data.Select(x => new ReceivingTransferOrderDataGridVM
+        {
+            Id = x.Id,
+            ReferenceNumber = x.ReferenceNumber,
+            Date = x.Date,
+            SourceLocation = x.Location,
+            TransferLocation = x.TransferLocation
         });
 
         return (x, Count);

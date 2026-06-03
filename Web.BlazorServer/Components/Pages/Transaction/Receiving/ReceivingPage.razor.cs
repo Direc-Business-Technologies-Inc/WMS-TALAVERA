@@ -19,7 +19,7 @@ public partial class ReceivingPage
     {
         base.OnParametersSet();
         if (T is not null)
-            SelectedTab = T.ToLower() == "grpo" ? 1 : 0;
+            SelectedTab = T.ToLower() == "to" ? 1 : 0;
     }
 
     #endregion Overrides
@@ -27,7 +27,7 @@ public partial class ReceivingPage
     #region Custom Functions
     void TabChanged()
     {
-        T = SelectedTab == 0 ? "po" : "grpo";
+        T = SelectedTab == 0 ? "po" : "to";
         NavManager.NavigateTo($"/transactions/purchasing/receiving?T={T}");
     }
     #endregion Custom Functions

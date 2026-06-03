@@ -408,7 +408,7 @@ public class MappingRegistration : IRegister
 
         #region Receiving
 
-        config.NewConfig<PurchaseOrderSAPDTO, PurchaseOrderDataGridDTO>()
+        config.NewConfig<PurchaseOrderSAPDTO, ReceivingDataGridDTO>()
             .Map(d => d.Id, s => s.DocEntry)
             .Map(d => d.ReferenceNumber, s => s.DocNum)
             .Map(d => d.Date, s => s.DocDate)

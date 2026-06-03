@@ -8,17 +8,17 @@ using Shared.Entities;
 
 namespace Application.UseCases.Queries.Transaction.Receiving;
 
-public record GetPurchaseOrdersQry(DataGridIntent Intent) : IRequest<(IEnumerable<PurchaseOrderDataGridDTO> Data, int Count)>;
+public record GetPurchaseOrdersQry(DataGridIntent Intent) : IRequest<(IEnumerable<ReceivingDataGridDTO> Data, int Count)>;
 
 public class GetPurchaseOrdersQryHandler(
     IReceivingIntegration receivingIntegration) 
-    : IRequestHandler<GetPurchaseOrdersQry, (IEnumerable<PurchaseOrderDataGridDTO> Data, int Count)>
+    : IRequestHandler<GetPurchaseOrdersQry, (IEnumerable<ReceivingDataGridDTO> Data, int Count)>
 {
-    public async Task<(IEnumerable<PurchaseOrderDataGridDTO> Data, int Count)> Handle(GetPurchaseOrdersQry request, CancellationToken cancellationToken)
+    public async Task<(IEnumerable<ReceivingDataGridDTO> Data, int Count)> Handle(GetPurchaseOrdersQry request, CancellationToken cancellationToken)
     {
         (IEnumerable<ReceivingInfoNSDTO> Data, int Count) = await receivingIntegration.GetPurchaseOrdersListAsync(request.Intent);
 
-        var x = Data.Adapt<IEnumerable<PurchaseOrderDataGridDTO>>();
+        var x = Data.Adapt<IEnumerable<ReceivingDataGridDTO>>();
         return (x, Count);
     }
 }

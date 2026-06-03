@@ -19,10 +19,10 @@
     <RadzenTabs @bind-SelectedIndex="@SelectedTab" @bind-SelectedIndex:after="@TabChanged">
         <Tabs>
             <RadzenTabsItem Text="Purchase Orders">
-                <PurchaseOrderGrid />
+                <ReceivingPurchaseOrderGrid />
             </RadzenTabsItem>
-            <RadzenTabsItem Text="GRPO">
-                <PurchaseDeliveryNoteGrid />
+            <RadzenTabsItem Text="Transfer Orders">
+                <ReceivingTransferOrderGrid />
             </RadzenTabsItem>
         </Tabs>
     </RadzenTabs>

@@ -2,7 +2,7 @@
 
 namespace Web.BlazorServer.ViewModels.Transaction.Receiving;
 
-public class PurchaseOrderDataGridVM
+public class ReceivingPurchaseOrderDataGridVM
 {
     public int Id { get; set; }
     public string ReferenceNumber { get; set; } = string.Empty;

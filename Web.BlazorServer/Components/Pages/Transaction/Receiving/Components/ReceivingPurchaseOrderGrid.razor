@@ -4,7 +4,7 @@
 
 @inherits BaseComponent
 
-<AppDataGrid @ref="@PurchaseOrderDataGrid" Id="purchase_order_grid" TItem="PurchaseOrderDataGridVM" DataGetter="@LoadDataAsync" GridSettings="@PurchaseOrderDataGridSettings" @bind-GridSettingsLoaded="@GridSettingsLoaded" ActionName="@ActionGetPurchaseOrders">
+<AppDataGrid @ref="@PurchaseOrderDataGrid" Id="purchase_order_grid" TItem="ReceivingPurchaseOrderDataGridVM" DataGetter="@LoadDataAsync" GridSettings="@PurchaseOrderDataGridSettings" @bind-GridSettingsLoaded="@GridSettingsLoaded" ActionName="@ActionGetPurchaseOrders">
     <HeaderTemplate>
         <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" AlignItems="AlignItems.Center" Gap="8px">
             <RadzenButton Icon="settings" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@OpenTableSettings" />
@@ -12,29 +12,29 @@
         </RadzenStack>
     </HeaderTemplate>
     <GridColumns>
-        <RadzenDataGridColumn TItem="PurchaseOrderDataGridVM"
-                              Property="@nameof(PurchaseOrderDataGridVM.ReferenceNumber)"
+        <RadzenDataGridColumn TItem="ReceivingPurchaseOrderDataGridVM"
+                              Property="@nameof(ReceivingPurchaseOrderDataGridVM.ReferenceNumber)"
                               Type="@typeof(int)"
                               Title="Reference Number" />
-        <RadzenDataGridColumn TItem="PurchaseOrderDataGridVM"
-                              Property="@nameof(PurchaseOrderDataGridVM.Date)"
+        <RadzenDataGridColumn TItem="ReceivingPurchaseOrderDataGridVM"
+                              Property="@nameof(ReceivingPurchaseOrderDataGridVM.Date)"
                               Type="@typeof(DateTime)"
                               FormatString="{0:yyyy-MM-dd}"
                               Title="Purchase Order Date" />
-        <RadzenDataGridColumn TItem="PurchaseOrderDataGridVM"
-                              Property="@nameof(PurchaseOrderDataGridVM.DeliveryDate)"
+        <RadzenDataGridColumn TItem="ReceivingPurchaseOrderDataGridVM"
+                              Property="@nameof(ReceivingPurchaseOrderDataGridVM.DeliveryDate)"
                               Type="@typeof(DateTime)"
                               FormatString="{0:yyyy-MM-dd}"
                               Title="Delivery Date" />
-        <RadzenDataGridColumn TItem="PurchaseOrderDataGridVM"
-                              Property="@nameof(PurchaseOrderDataGridVM.Vendor)"
+        <RadzenDataGridColumn TItem="ReceivingPurchaseOrderDataGridVM"
+                              Property="@nameof(ReceivingPurchaseOrderDataGridVM.Vendor)"
                               Type="@typeof(string)"
                               Title="Vendor Name" />
-        <RadzenDataGridColumn TItem="PurchaseOrderDataGridVM"
-                              Property="@nameof(PurchaseOrderDataGridVM.Remarks)"
+        <RadzenDataGridColumn TItem="ReceivingPurchaseOrderDataGridVM"
+                              Property="@nameof(ReceivingPurchaseOrderDataGridVM.Remarks)"
                               Type="@typeof(string)"
                               Title="Remarks" />
-        <RadzenDataGridColumn TItem="PurchaseOrderDataGridVM"
+        <RadzenDataGridColumn TItem="ReceivingPurchaseOrderDataGridVM"
                               Frozen
                               FrozenPosition="FrozenColumnPosition.Right"
                               Width="35px">
@@ -50,7 +50,7 @@
     {
         await DialogService.OpenAsync(
             "Table Settings",
-            ds => @<AppGridSettings TItem="PurchaseOrderDataGridVM"
+            ds => @<AppGridSettings TItem="ReceivingPurchaseOrderDataGridVM"
                                     @bind-Grid=@PurchaseOrderDataGrid.DataGrid
                                     @bind-GridSettings=@PurchaseOrderDataGridSettings />,
         options: GridSettingsService.GetDialogOptions());

@@ -97,7 +97,7 @@ public class ReceivingIntegration(
                 ("t.tranid", "ReferenceNumber"),
                 ("t.status", "Status"),
                 ("TO_CHAR(t.createdDate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", "Date"),
-                ("entity.altname", "VendorName"),
+                ("entity.altname", "SourceSubsidiary"),
                 ("entity.entityid", "VendorCode"),
                 ("t.memo", "Memo"))
             .From("transaction t")
@@ -116,24 +116,24 @@ public class ReceivingIntegration(
         return (response.items, response.totalResults);
     }
 
-    public Task<(IEnumerable<ReceivingInfoNSDTO>, int count)> GetTransferOrderListAsync(DataGridIntent intent)
+    public async Task<(IEnumerable<ReceivingInfoNSDTO>, int count)> GetTransferOrderListAsync(DataGridIntent intent)
     {
-        var builder = builderFactory.Create()
+        var query = builderFactory.Create()
             .Select(
                 ("t.id", "Id"),
                 ("t.tranid", "ReferenceNumber"),
                 ("t.status", "Status"),
                 ("TO_CHAR(t.createdDate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", "Date"),
-                ("entity.altname", "VendorName"),
-                ("entity.entityid", "VendorCode"),
-                ("t.memo", "Memo"))
+                ("t.memo", "Memo"),
+                ("BUILTIN.DF(tl.location)", "Location"),
+                ("BUILTIN.DF(t.transferlocation)", "TransferLocation"))
             .From("transaction t")
-            .Join("entity", "entity.id = t.entity")
+            .Join("transactionline tl", on:"tl.transaction = t.id")
             .WithFilter(new AppFilterDescriptor
             {
-                Property = "t.recordtype",
+                Property = "tl.mainline",
                 ComparisonOperator = ComparisonOperatorEnum.Equals,
-                Value = "intercompanytransferorder"
+                Value = "T"
             })
             .WithFilter(new AppFilterDescriptor
             {
@@ -141,8 +141,32 @@ public class ReceivingIntegration(
                 ComparisonOperator = ComparisonOperatorEnum.Equals,
                 Value = "intercompanytransferorder"
             })
-            .WithDatagridIntent(intent);
-            
+            .WithFilter(new AppFilterDescriptor
+            {
+                Property = "t.status",
+                ComparisonOperator = ComparisonOperatorEnum.In,
+                Value = new string[] { "F", "E" }
+            })
+            //.WithDatagridIntent(intent)
+            .Build();
+
+        var q = """
+            SELECT
+            	t.id AS NetsuiteOrderInternalId,
+            	t.tranId as OrderNumber,
+            	t.recordtype as OrderType,
+            	t.status as OrderStatus,
+            	TO_CHAR(t.createdDate, 'YYYY-MM-DD"T"HH24:MI:SS') AS NetsuiteOrderCreatedDate
+
+            FROM
+            	transaction t
+
+            WHERE
+                t.recordtype = 'intercompanytransferorder'
+                AND t.status IN ('F', 'E')
+            """;
+        var response = await netsuiteService.ExecuteSuiteQLQuery<ReceivingInfoNSDTO>(query.Query, limit: query.Limit, offset: query.Offset);
+        return (response.items, response.totalResults);
     }
 
     public Task<IEnumerable<PurchaseTypeSAPDTO>> GetPurchaseTypesAsync()

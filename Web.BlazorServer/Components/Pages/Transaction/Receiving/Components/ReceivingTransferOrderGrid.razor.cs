@@ -11,13 +11,15 @@ using Web.BlazorServer.ViewModels.Transaction.Receiving;
 
 namespace Web.BlazorServer.Components.Pages.Transaction.Receiving.Components;
 
-public partial class PurchaseOrderGrid
+public partial class ReceivingTransferOrderGrid
 {
     [Inject] IReceivingHandler ReceivingHandler { get; set; } = default!;
     [Inject] IGridSettingsService GridSettingsService { get; set; } = default!;
 
-    AppDataGrid<PurchaseOrderDataGridVM> PurchaseOrderDataGrid { get; set; }
-    DataGridSettings PurchaseOrderDataGridSettings { get; set; }
+    [Parameter] public string? Source { get; set; } = "purchaseorder";
+
+    AppDataGrid<ReceivingTransferOrderDataGridVM> TransferOrderDataGrid { get; set; }
+    DataGridSettings DataGridSettings { get; set; }
 
     string ActionGetPurchaseOrders { get; } = EnumHelper.GetEnumDescription(AppActions.GetAllPurchaseOrders);
 
@@ -34,14 +36,14 @@ public partial class PurchaseOrderGrid
 
     async Task LoadGridSettings()
     {
-        await GridSettingsService.SetGridSettings(PurchaseOrderDataGrid.DataGrid, settings => PurchaseOrderDataGridSettings = settings ?? new());
+        await GridSettingsService.SetGridSettings(TransferOrderDataGrid.DataGrid, settings => DataGridSettings = settings ?? new());
         GridSettingsLoaded = true;
 
-        await PurchaseOrderDataGrid.DataGrid.ReloadSettings();
-        await PurchaseOrderDataGrid.DataGrid.Reload();
+        await TransferOrderDataGrid.DataGrid.ReloadSettings();
+        await TransferOrderDataGrid.DataGrid.Reload();
     }
 
-    async Task<DataGridResultVM<PurchaseOrderDataGridVM>> LoadDataAsync(DataGridIntent intent)
+    async Task<DataGridResultVM<ReceivingTransferOrderDataGridVM>> LoadDataAsync(DataGridIntent intent)
     {
         var action = await AppActionFactory.RunAsync(async () =>
         {
@@ -56,15 +58,14 @@ public partial class PurchaseOrderGrid
                 });
             }
 
-            var response = await ReceivingHandler.GetPurchaseOrderDataGridAsync(intent);
+            return await ReceivingHandler.GetTransferOrderDataGridAsync(intent);
 
-            return response;
-
+            throw new Exception("Invalid source for receiving grid");
         }, AppActionOptionPresets.Loading(ActionGetPurchaseOrders));
 
         AppBusyService.SetBusy(ActionGetPurchaseOrders, false);
-        return DataGridResultVM<PurchaseOrderDataGridVM>.New(action.Result.Data ?? [], action.Result.Count);
+        return DataGridResultVM<ReceivingTransferOrderDataGridVM>.New(action.Result.Data ?? [], action.Result.Count);
     }
 
-    void ViewPurchaseOrder(PurchaseOrderDataGridVM purchaseOrder) => NavManager.NavigateTo($"/transactions/purchasing/receiving/purchase-order/view?ref={purchaseOrder.Id}", true);
+    void ViewPurchaseOrder(ReceivingTransferOrderDataGridVM purchaseOrder) => NavManager.NavigateTo($"/transactions/purchasing/receiving/purchase-order/view?ref={purchaseOrder.Id}", true);
 }
