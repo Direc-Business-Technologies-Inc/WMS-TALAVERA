@@ -5,7 +5,6 @@ using Database.Libraries.Repositories;
 using Integration.NS.Entities;
 using Microsoft.AspNetCore.Http;
 using Microsoft.IdentityModel.Tokens;
-using Newtonsoft.Json;
 using System.ComponentModel;
 using System.IdentityModel.Tokens.Jwt;
 using System.Net.Http.Headers;
@@ -291,6 +290,6 @@ namespace Integration.NS.Services
             {
                 throw new Exception("An error occurred in saving item receipt");
             }
-
+        }
     }
 }
