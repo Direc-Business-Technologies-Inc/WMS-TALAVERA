@@ -1,0 +1,188 @@
+﻿@using Web.BlazorServer.Components.Shared.Skeletons
+@using Web.BlazorServer.Defaults
+@using Web.BlazorServer.Handlers.Repositories.Transaction.Receiving
+@using Web.BlazorServer.Services.Repositories
+@using Web.BlazorServer.ViewModels.Abstraction
+@using Web.BlazorServer.ViewModels.Transaction.Receiving
+@using global::Shared.Entities
+
+@inherits BaseComponent
+
+<AppFormSkeleton TItem="TransferOrderVM" Loading="@IsLoadingData" />
+
+<RadzenStack Gap="1rem" Visible="@ErrorState">
+    <p>@ErrorMessage</p>
+</RadzenStack>
+
+@if (!IsDataLoaded)
+{
+    <RadzenStack Visible="@(!IsDataLoaded)" JustifyContent="JustifyContent.Center" AlignItems="AlignItems.Center" class="rz-p-5">
+        <RadzenText TextStyle="TextStyle.Body1">Loading Data</RadzenText>
+        <RadzenProgressBar Value="100" ShowValue="false" Mode="ProgressBarMode.Indeterminate" class="rz-w-50" />
+    </RadzenStack>
+}
+else
+{
+    <RadzenStack Visible="@(IsDataLoaded && !ErrorState)"
+                 Orientation="Orientation.Horizontal"
+                 AlignItems="AlignItems.Center"
+                 JustifyContent="JustifyContent.End"
+                 Gap="32px"
+                 class="rz-mb-2">
+        <AppContentBadge Title="Doc" Content="@Model.ReferenceNumber" />
+        <AppContentBadge Title="Doc Date" Content="@Model.Date.ToString("MM-dd-yy")" ChildBadgeStyle="BadgeStyle.Secondary" ChildShade="Shade.Default" />
+        <AppContentBadge Title="Doc Due Date" Content="@Model.DeliveryDate.ToString("MM-dd-yy")" ChildBadgeStyle="BadgeStyle.Secondary" ChildShade="Shade.Default" />
+    </RadzenStack>
+
+    <RadzenStack Gap="1rem" Visible="@(IsDataLoaded && !ErrorState)">
+        <RadzenFieldset Text="Details">
+            <ChildContent>
+                <RadzenStack Gap="0.5rem">
+                    <RadzenRow Gap="1rem">
+                        <RadzenColumn Size="12" SizeMD="6">
+                            <RadzenFormField Text="Requestor" class="rz-w-100" AllowFloatingLabel="false">
+                                <ChildContent>
+                                    <RadzenTextBox ReadOnly Value="@Model.RequestorName" Placeholder="TOXXX" Name="po_card_code" Disabled="@IsBusy" class="rz-w-100" />
+                                </ChildContent>
+                            </RadzenFormField>
+                        </RadzenColumn>
+                        <RadzenColumn Size="12" SizeMD="6">
+                            <RadzenFormField Text="Status" class="rz-w-100" AllowFloatingLabel="false">
+                                <ChildContent>
+                                    <RadzenTextBox ReadOnly Value="@(string.IsNullOrEmpty(Model.Status) ? "N/A" : Model.StatusDescription)" Placeholder="..." Name="po_card_name" Disabled="@IsBusy" class="rz-w-100" />
+                                </ChildContent>
+                            </RadzenFormField>
+                        </RadzenColumn>
+                        <RadzenColumn Size="12" SizeMD="6">
+                            <RadzenFormField Text="From Location" class="rz-w-100" AllowFloatingLabel="false">
+                                <ChildContent>
+                                    <RadzenTextBox ReadOnly Value="@Model.SourceLocation" Placeholder="Location A" Name="po_status" Disabled="@IsBusy" class="rz-w-100" />
+                                </ChildContent>
+                            </RadzenFormField>
+                        </RadzenColumn>
+                        <RadzenColumn Size="12" SizeMD="6">
+                            <RadzenFormField Text="To Location" class="rz-w-100" AllowFloatingLabel="false">
+                                <ChildContent>
+                                    <RadzenTextBox ReadOnly Value="@Model.DestinationLocation" Placeholder="Location B" Name="po_contact_person" Disabled="@IsBusy" class="rz-w-100" />
+                                </ChildContent>
+                            </RadzenFormField>
+                        </RadzenColumn>
+                    </RadzenRow>
+                </RadzenStack>
+            </ChildContent>
+        </RadzenFieldset>
+        <RadzenFieldset Text="Lines">
+            <AppDataGrid @ref="@DataGrid" TItem="TransferOrderLineVM" DataGetter="@LoadDataAsync" GridSettings="@DataGridSettings" @bind-GridSettingsLoaded="@GridSettingsLoaded" ActionName="@ActionGetLines" DataGridSelectionMode="DataGridSelectionMode.Single">
+                <GridColumns>
+                    <RadzenDataGridColumn TItem="TransferOrderLineVM" Property="@nameof(TransferOrderLineVM.ItemCode)" Type="@typeof(string)" Title="Item Code" />
+                    <RadzenDataGridColumn TItem="TransferOrderLineVM" Property="@nameof(TransferOrderLineVM.ItemDescription)" Type="@typeof(string)" Title="Item Description" />
+                    <RadzenDataGridColumn TItem="TransferOrderLineVM"
+                                          Property="@nameof(TransferOrderLineVM.UoM)"
+                                          Type="@typeof(string)"
+                                          Title="UoM"
+                                          Width="125px" />
+                    <RadzenDataGridColumn TItem="TransferOrderLineVM"
+                                          Property="@nameof(TransferOrderLineVM.WeightReceived)"
+                                          Type="@typeof(string)"
+                                          Title="Received Weight"
+                                          Width="125px" />
+                    <RadzenDataGridColumn TItem="TransferOrderLineVM"
+                                          Property="@nameof(TransferOrderLineVM.WeightTotal)"
+                                          Type="@typeof(string)"
+                                          Title="Total Weight"
+                                          Width="125px" />
+                    <RadzenDataGridColumn TItem="TransferOrderLineVM"
+                                          Property="@nameof(TransferOrderLineVM.QuantityReceived)"
+                                          Type="@typeof(string)"
+                                          Title="Quantity Received"
+                                          Width="125px" />
+                    <RadzenDataGridColumn TItem="TransferOrderLineVM"
+                                          Property="@nameof(TransferOrderLineVM.QuantityBad)"
+                                          Type="@typeof(string)"
+                                          Title="Bad Quantity"
+                                          Width="125px" />
+                </GridColumns>
+            </AppDataGrid>
+        </RadzenFieldset>
+    </RadzenStack>
+}
+
+@code {
+    [Parameter][EditorRequired]
+    public int TransferOrderId { get; set; }
+
+    [Inject] IGridSettingsService GridSettingsService { get; set; } = default!;
+    [Inject] IReceivingHandler ReceivingHandler { get; set; } = default!;
+
+    bool IsLoadingData => AppBusyService.IsBusy(ActionGetInfo);
+    bool IsBusy => AppBusyService.IsBusy(ActionGetLines);
+    bool IsDataLoaded = false;
+    bool ErrorState = false;
+
+    readonly Guid guid = Guid.NewGuid();
+    string ActionGetLines => $"Get Transfer Order Lines({guid})";
+    string ActionGetInfo => $"Get Transfer Order Information({guid})";
+    string ErrorMessage = "Something went wrong while loading the transfer order details. Please try again.";
+
+    TransferOrderVM Model = new();
+    AppDataGrid<TransferOrderLineVM>? DataGrid { get; set; }
+    DataGridSettings DataGridSettings { get; set; }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+        if (firstRender)
+        {
+            await LoadHeader();
+        }
+    }
+
+    
+    async Task LoadGridSettings()
+    {
+        await GridSettingsService.SetGridSettings(DataGrid.DataGrid, settings => DataGridSettings = settings ?? new());
+        GridSettingsLoaded = true;
+
+        await DataGrid.DataGrid.ReloadSettings();
+        await DataGrid.DataGrid.Reload();
+    }
+
+    async Task LoadHeader()
+    {
+
+        var action = await AppActionFactory.RunAsync(async () =>
+        {
+            var result =  await ReceivingHandler.GetTransferOrderAsync(TransferOrderId);
+            if (result is null) throw new Exception("Transfer Order does not exist");
+            return result;
+        }, AppActionOptionPresets.Loading(ActionGetLines));
+
+        action.OnSuccess(async (result) =>
+        {
+            Model = result;
+            IsDataLoaded = true;
+            await InvokeAsync(StateHasChanged);
+            await LoadGridSettings();
+        });
+
+        action.OnFailure(async (ex) =>
+        {
+            ErrorState = true;
+            ErrorMessage = ex.Message;
+            await InvokeAsync(StateHasChanged);
+        });
+    }
+
+    async Task<DataGridResultVM<TransferOrderLineVM>> LoadDataAsync(DataGridIntent intent)
+    {
+        var action = await AppActionFactory.RunAsync(async () =>
+        {
+            return await ReceivingHandler.GetTransferOrderLinesDataGridAsync(TransferOrderId, intent);
+        }, AppActionOptionPresets.Loading(ActionGetLines));
+
+        AppBusyService.SetBusy(ActionGetLines, false);
+        await InvokeAsync(StateHasChanged);
+
+        return DataGridResultVM<TransferOrderLineVM>.New(action.Result.Data ?? [], action.Result.Count);
+    }
+}

@@ -92,4 +92,34 @@ public class ReceivingHandler(
 
         return response.Adapt<IEnumerable<PurchaseTypeVM>>();
     }
+
+    public async Task<(IEnumerable<TransferOrderLineVM> Data, int Count)> GetTransferOrderLinesDataGridAsync(int transferOrderId, DataGridIntent intent)
+    {
+        GetTransferOrderLinesQry qry = new(transferOrderId, intent);
+
+        var (rawData, count) = await Sender.Send(qry);
+
+        return (rawData.Adapt<IEnumerable<TransferOrderLineVM>>(), count);
+    }
+
+
+    public async Task<TransferOrderVM?> GetTransferOrderAsync(int transferOrderId)
+    {
+        GetTransferOrderInfoQry qry = new(transferOrderId);
+        var dto = await Sender.Send(qry);
+        if (dto is null) return null;
+
+        return new TransferOrderVM()
+        {
+            Id = dto.Id,
+            ReferenceNumber = dto.ReferenceNumber,
+            Date = dto.Date,
+            DeliveryDate = dto.DeliveryDate,
+            RequestorName = dto.RequestorName,
+            SourceLocation = dto.Location,
+            DestinationLocation = dto.TransferLocation,
+            Status = dto.Status,
+        };
+    }
+
 }

@@ -147,24 +147,9 @@ public class ReceivingIntegration(
                 ComparisonOperator = ComparisonOperatorEnum.In,
                 Value = new string[] { "F", "E" }
             })
-            //.WithDatagridIntent(intent)
+            .WithDatagridIntent(intent)
             .Build();
 
-        var q = """
-            SELECT
-            	t.id AS NetsuiteOrderInternalId,
-            	t.tranId as OrderNumber,
-            	t.recordtype as OrderType,
-            	t.status as OrderStatus,
-            	TO_CHAR(t.createdDate, 'YYYY-MM-DD"T"HH24:MI:SS') AS NetsuiteOrderCreatedDate
-
-            FROM
-            	transaction t
-
-            WHERE
-                t.recordtype = 'intercompanytransferorder'
-                AND t.status IN ('F', 'E')
-            """;
         var response = await netsuiteService.ExecuteSuiteQLQuery<ReceivingInfoNSDTO>(query.Query, limit: query.Limit, offset: query.Offset);
         return (response.items, response.totalResults);
     }
@@ -177,5 +162,74 @@ public class ReceivingIntegration(
     public Task<bool> PostGoodsReceiptPOAsync(PurchaseDeliveryNoteDTO data)
     {
         throw new NotImplementedException();
+    }
+
+    public async Task<ReceivingInfoNSDTO?> GetTransferOrderHeaderAsync(int docEntry)
+    { 
+        var query = builderFactory.Create()
+            .Select(
+                ("t.id", "Id"),
+                ("t.tranid", "ReferenceNumber"),
+                ("t.status", "Status"),
+                ("TO_CHAR(t.createdDate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", "Date"),
+                ("t.memo", "Memo"),
+                ("BUILTIN.DF(tl.location)", "Location"),
+                ("BUILTIN.DF(t.transferlocation)", "TransferLocation"))
+            .From("transaction t")
+            .Join("transactionline tl", on: "tl.transaction = t.id")
+            .WithFilter(new AppFilterDescriptor
+            {
+                Property = "tl.mainline",
+                ComparisonOperator = ComparisonOperatorEnum.Equals,
+                Value = "T"
+            })
+            .WithFilter(new AppFilterDescriptor
+            {
+                Property = "t.recordtype",
+                ComparisonOperator = ComparisonOperatorEnum.Equals,
+                Value = "intercompanytransferorder"
+            })
+            .WithFilter(new AppFilterDescriptor
+            {
+                Property = "t.status",
+                ComparisonOperator = ComparisonOperatorEnum.In,
+                Value = new string[] { "F", "E" }
+            })
+            .WithFilter(new AppFilterDescriptor
+            {
+                Property = "t.id",
+                ComparisonOperator = ComparisonOperatorEnum.Equals,
+                Value = docEntry
+            })
+            .Build();
+
+        var response = await netsuiteService.ExecuteSuiteQLQuery<ReceivingInfoNSDTO>(query.Query);
+        return response.items.FirstOrDefault();
+    }
+
+    public async Task<(IEnumerable<ReceivingLineNSDTO>, int)> GetTransferOrderLinesAsync(int Id, DataGridIntent intent)
+    {
+        var query = builderFactory.Create()
+            .Select(
+                ("item.itemId", "ItemCode"),
+                ("BUILTIN.DF(tl.units)", "UoM"),
+                ("BUILTIN.DF(tl.location)", "Warehouse"),
+                ("item.displayname", "ItemDescription"),
+                ("tl.quantity", "QuantityPlanned"),
+                ("tl.quantityshiprecv", "QuantityReceived"),
+                ("(tl.quantity - tl.quantityshiprecv)", "QuantityOpen"))
+            .From("transactionline tl")
+            .Join("item item", on: "item.id = tl.item")
+            .WithFilter(new AppFilterDescriptor
+            {
+                Property = "tl.transaction",
+                ComparisonOperator = ComparisonOperatorEnum.Equals,
+                Value = Id
+            })
+            .WithDatagridIntent(intent)
+            .Build();
+
+        var response = await netsuiteService.ExecuteSuiteQLQuery<ReceivingLineNSDTO>(query.Query, limit: query.Limit, offset: query.Offset);
+        return (response.items, response.totalResults);
     }
 }

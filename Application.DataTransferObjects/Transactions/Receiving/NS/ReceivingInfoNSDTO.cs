@@ -20,5 +20,6 @@ public class ReceivingInfoNSDTO
     public string TransferLocation { get; set; } = string.Empty;
     public string SourceSubsidiary { get; set; } = string.Empty;
     public string DestinationSubsidiary { get; set; } = string.Empty;
+    public string RequestorName { get; set; } = string.Empty;
     public string Type { get; set; } = string.Empty;
 }
