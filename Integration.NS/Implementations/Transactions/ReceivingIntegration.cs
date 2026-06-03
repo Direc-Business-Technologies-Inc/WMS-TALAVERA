@@ -91,38 +91,24 @@ public class ReceivingIntegration(
 
     public async Task<(IEnumerable<PurchaseOrderInfoNSDTO>, int)> GetPurchaseOrdersListAsync(DataGridIntent intent)
     {
-        var queryString = """
-            SELECT 
-                t.id AS Id,
-                t.tranid AS ReferenceNumber,
-                t.status AS Status,
-                TO_CHAR(t.createdDate, 'YYYY-MM-DD"T"HH24:MI:SS') AS Date,
-                entity.altname AS VendorName,
-                entity.entityid AS VendorCode,
-                t.memo as Memo
-            FROM 
-                transaction t
-            JOIN 
-                entity ON entity.id = t.entity
-            """;
-
-        Dictionary<string, string> propertyMap = new()
-        {
-            { "CardName", "entity.altname" },
-            { "DocNum", "t.id" },
-            { "DocStatus", "t.status" },
-            { "DocDate", "t.createdDate" },
-            { "Remarks", "t.memo"}
-        };
-
-        var builder = builderFactory.Create(queryString)
-            .ApplyDataGridIntent(intent, propertyMap)
-            .AddFilter(new AppFilterDescriptor
+        var builder = builderFactory.Create()
+            .Select(
+                ("t.id", "Id"),
+                ("t.tranid", "ReferenceNumber"),
+                ("t.status", "Status"),
+                ("TO_CHAR(t.createdDate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", "Date"),
+                ("entity.altname", "VendorName"),
+                ("entity.entityid", "VendorCode"),
+                ("t.memo", "Memo"))
+            .From("transaction t")
+            .Join("entity", "entity.id = t.entity")
+            .WithDatagridIntent(intent)
+            .WithFilter(new AppFilterDescriptor
             {
                 Property = "t.recordtype",
                 ComparisonOperator = ComparisonOperatorEnum.Equals,
                 Value = "purchaseorder"
-            }, propertyMap);
+            });
 
         SuiteQLQuery query = builder.Build();
 

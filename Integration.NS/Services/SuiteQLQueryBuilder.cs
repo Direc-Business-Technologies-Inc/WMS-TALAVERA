@@ -8,108 +8,139 @@ namespace Integration.NS.Services;
 
 public class SuiteQLQueryBuilderFactoryService
 {
-    public SuiteQLQueryBuilder Create(string baseQuery)
+    public SuiteQLQueryBuilder Create()
     {
-        return new SuiteQLQueryBuilder { BaseQuery = baseQuery };
+        return new SuiteQLQueryBuilder();
     }
 }
 
 public class SuiteQLQueryBuilder
 {
     const string DATETIME_FORMAT_STRING = "YYYY-MM-DDTHH:mm:ss";
-
-    public required string BaseQuery { get; set; }
     public int? Take { get; set; }
     public int? Skip { get; set; }
-    private string? SortQuery { get; set; }
-    private List<string> Filters { get; set; } = [];
+    public List<AppFilterDescriptor> Filters { get; set; } = [];
+    public List<AppSortDescriptor> Sorts { get; set; } = [];
+    public List<(string col, string? alias)> SelectColumns { get; set; } = [];
+    public Dictionary<string, string> PropertyMap { get; set; } = new();
 
-    public SuiteQLQueryBuilder ApplyDataGridIntent(DataGridIntent intent, Dictionary<string, string>? mapFields = null)
+    private string? _tableName;
+    private List<string> _joins = [];
+    private HashSet<string> _uniqueColumns = new();
+
+    public SuiteQLQueryBuilder WithDatagridIntent(DataGridIntent intent, Dictionary<string, string>? mapFields = null)
     {
-        ApplyDataGridFilters(intent, mapFields);
-        ApplyDataGridSorts(intent, mapFields);
+        WithDataGridFilters(intent, mapFields);
+        WithDataGridSorts(intent, mapFields);
         Take = intent.Take;
         Skip = intent.Skip;
         return this;
     }
-    public SuiteQLQueryBuilder ApplyDataGridFilters(DataGridIntent intent, Dictionary<string, string>? mapFields = null)
+    public SuiteQLQueryBuilder WithDataGridFilters(DataGridIntent intent, Dictionary<string, string>? mapFields = null)
     {
-        try
-        {
-            if (intent.Filters.Count > 0)
-                Filters.AddRange(intent.Filters.Select(f => _parseFilter(f, mapFields)));
-        }
-        catch (Exception ex) {
-            throw new Exception($"Caught {ex.GetType().Name} while applying datagrid filters: {ex.Message}");
-        }
+        Filters.AddRange(intent.Filters);
         return this;
     }
 
-    public SuiteQLQueryBuilder ApplyDataGridSorts(DataGridIntent intent, Dictionary<string, string>? mapFields = null)
+    public SuiteQLQueryBuilder WithDataGridSorts(DataGridIntent intent, Dictionary<string, string>? mapFields = null)
     {
+        Sorts.AddRange(intent.Sorts);
+        return this;
+    }
+
+    private string BuildFilters()
+    {
+        if (Filters.Count == 0) return string.Empty;
+
         try
         {
-            if (intent.Sorts.Count > 0)
-                SortQuery = " ORDER BY " + string.Join(", ", intent.Sorts.Select(s => _parseSort(s, mapFields)));
+            return " WHERE " + string.Join(" AND ", Filters.Select(f => _parseFilter(f)));
         }
-        catch (Exception ex) {
+        catch (Exception ex)
+        {
+            throw new Exception($"Caught {ex.GetType().Name} while building filters: {ex.Message}", ex);
+        }
+    }
+    private string BuildSorts()
+    {
+        if (Sorts.Count == 0) return string.Empty;
+
+        try
+        {
+            return " ORDER BY " + string.Join(", ", Sorts.Select(s => _parseSort(s)));
+        }
+        catch (Exception ex)
+        {
             throw new Exception($"Caught {ex.GetType().Name} while applying datagrid sorts: {ex.Message}", ex);
         }
-        return this;
+    }
+
+    private string BuildSelect()
+    {
+        if (SelectColumns.Count == 0) return "SELECT * ";
+        return "SELECT " + string.Join(", ", SelectColumns.Select(c => c.alias != null ? $"{c.col} AS {c.alias}" : c.col));
+    }
+
+    private string BuildFrom()
+    {
+        if (string.IsNullOrEmpty(_tableName)) throw new InvalidOperationException("Table must be set");
+        return $" FROM {_tableName} {string.Join(" ", _joins)}";
     }
 
     public SuiteQLQuery Build()
     {
-        var FilterQuery = Filters.Count > 0 ?
-            " WHERE " + string.Join(" AND ", Filters) : string.Empty;
 
         return new()
         {
-            Query = BaseQuery + FilterQuery + SortQuery,
+            Query = BuildSelect() + BuildFrom() + BuildFilters() + BuildSorts(),
             Limit = Take,
             Offset = Skip
         };
     }
 
-    private string _parseSort(AppSortDescriptor sort, Dictionary<string, string>? mapFields = null)
+    private string _parseSort(AppSortDescriptor sort, Dictionary<string, string>? propertyMap = null)
     {
+        propertyMap ??= PropertyMap;
+
         var sortDir = sort.Direction switch
         {
             SortDirectionEnum.Descending => "DESC",
             SortDirectionEnum.Ascending => "ASC",
             _ => throw new ArgumentException("Invalid sort direction")
         };
-        var property = mapFields != null && mapFields.ContainsKey(sort.Property) ? mapFields[sort.Property] : sort.Property;
+        var property = propertyMap != null && propertyMap.ContainsKey(sort.Property) ? propertyMap[sort.Property] : sort.Property;
         return $"{property} {sortDir}";
     }
 
-    private string _parseFilter(AppFilterDescriptor filter, Dictionary<string, string>? mapFields = null)
+    private string _parseFilter(AppFilterDescriptor filter, Dictionary<string, string>? propertyMap = null)
     {
+        propertyMap ??= PropertyMap;
+
         if (filter.Filters.Count > 0) return _parseFilterGroup(filter);
         if (filter.ComparisonOperator == null) throw new InvalidOperationException($"no comparison operator given");
         switch (filter.ComparisonOperator)
         {
             case ComparisonOperatorEnum.Equals:
-                return _binary(filter.Property, "=", filter.Value, mapFields);
+                return _binary(filter.Property, "=", filter.Value, propertyMap);
             case ComparisonOperatorEnum.NotEquals :
-                return _binary(filter.Property, "!=", filter.Value, mapFields);
+                return _binary(filter.Property, "!=", filter.Value, propertyMap);
             case ComparisonOperatorEnum.GreaterThan  :
-                return _binary(filter.Property, ">", filter.Value, mapFields);
+                return _binary(filter.Property, ">", filter.Value, propertyMap);
             case ComparisonOperatorEnum.GreaterThanOrEqual  :
-                return _binary(filter.Property, ">=", filter.Value, mapFields);
+                return _binary(filter.Property, ">=", filter.Value, propertyMap);
             case ComparisonOperatorEnum.LessThan :
-                return _binary(filter.Property, "<", filter.Value, mapFields);
+                return _binary(filter.Property, "<", filter.Value, propertyMap);
             case ComparisonOperatorEnum.LessThanOrEqual  :
-                return _binary(filter.Property, "<=", filter.Value, mapFields);
+                return _binary(filter.Property, "<=", filter.Value, propertyMap);
             case ComparisonOperatorEnum.Contains :
                 if (filter.Value is not string) throw new InvalidOperationException($"{filter.Property} is not a string and does not support the contains operation");
-                return _binary(filter.Property, "LIKE", $"%{filter.Value}%", mapFields);
+                return _binary(filter.Property, "LIKE", $"%{filter.Value}%", propertyMap);
             case ComparisonOperatorEnum.StartsWith:
                 if (filter.Value is not string) throw new InvalidOperationException($"{filter.Property} is not a string and does not support the starts with operation");
-                return _binary(filter.Property, "LIKE", $"{filter.Value}%", mapFields);
+                return _binary(filter.Property, "LIKE", $"{filter.Value}%", propertyMap);
             case ComparisonOperatorEnum.EndsWith:
                 if (filter.Value is not string) throw new InvalidOperationException($"{filter.Property} is not a string and does not support the ends with operation");
-                return _binary(filter.Property, "LIKE", $"%{filter.Value}", mapFields);
+                return _binary(filter.Property, "LIKE", $"%{filter.Value}", propertyMap);
             case ComparisonOperatorEnum.IsEmpty  :
             case ComparisonOperatorEnum.IsNotNull :
             case ComparisonOperatorEnum.IsNotEmpty:
@@ -122,13 +153,16 @@ public class SuiteQLQueryBuilder
         throw new NotImplementedException($"Error at {nameof(SuiteQLQueryBuilder)}: {filter.ComparisonOperator} is not implemented ");
     }
 
-    public SuiteQLQueryBuilder AddFilter(AppFilterDescriptor filter, Dictionary<string, string>? propertyMap = null)
+    public SuiteQLQueryBuilder WithFilter(AppFilterDescriptor filter, Dictionary<string, string>? propertyMap = null)
     {
-        Filters.Add(_parseFilter(filter, propertyMap));
+        propertyMap ??= PropertyMap;
+
+        Filters.Add(filter);
+
         return this;
     }
 
-    private string _binary(string prop, string op, object? value, Dictionary<string, string>? mapFields = null)
+    private string _binary(string prop, string op, object? value, Dictionary<string, string>? propertyMap = null)
     {
         if (value is null) throw new InvalidOperationException($"no value given for {prop}");
         if (value is DateTime) value = ((DateTime)value).ToString(DATETIME_FORMAT_STRING);
@@ -136,13 +170,12 @@ public class SuiteQLQueryBuilder
         if (value is string) value = $"'{value}'";
         else value = JsonSerializer.Serialize(value);
 
-        prop = mapFields != null && mapFields.ContainsKey(prop) ? mapFields[prop] : prop;
+        prop = propertyMap != null && propertyMap.ContainsKey(prop) ? propertyMap[prop] : prop;
 
         return $"{prop} {op} {value}";
-        //return new QueryFilter { Query = $"{prop} {op} ?", Parameters = [value] };
     }
 
-    private string _parseFilterGroup(AppFilterDescriptor filter, Dictionary<string, string>? mapFields = null)
+    private string _parseFilterGroup(AppFilterDescriptor filter, Dictionary<string, string>? propertyMap = null)
     {
         if (filter.LogicalOperator is null) throw new InvalidOperationException("Filter group given but no logical operator");
         string op = filter.LogicalOperator switch
@@ -152,27 +185,81 @@ public class SuiteQLQueryBuilder
             _ => " AND "
         };
 
-        return string.Join($" {op} ", filter.Filters.Select(x => _parseFilter(x, mapFields)));
-        //return new QueryFilterGroup
-        //{
-        //    LogicalOperator = op,
-        //    Filters = filter.Filters.Select(f => _parseFilter(f, mapFields)).ToList()
-        //};
+        return string.Join($" {op} ", filter.Filters.Select(x => _parseFilter(x, propertyMap)));
     }
 
-
-
-    private class QueryFilter
+    public SuiteQLQueryBuilder Select(params (string col, string? alias)[] columns)
     {
-        public virtual string Query { get; set; } = string.Empty;
-        public virtual object[] Parameters { get; set; } = [];
+        foreach (var (col, alias) in columns)
+        {
+            var colTrimmed = col.Trim();
+            var aliasTrimmed = alias?.Trim();
+            var column = aliasTrimmed ?? colTrimmed;
+
+            if (_uniqueColumns.Contains(column)) throw new InvalidOperationException($"Duplicate column selection: {column}");
+            _uniqueColumns.Add(column);
+
+            if (aliasTrimmed is not null) PropertyMap.TryAdd(aliasTrimmed, colTrimmed);
+
+            SelectColumns.Add((colTrimmed, aliasTrimmed));
+        }
+        return this;
     }
 
-    private class QueryFilterGroup : QueryFilter
+    public SuiteQLQueryBuilder From(string table)
     {
-        public string LogicalOperator { get; set; } = "AND";
-        public List<QueryFilter> Filters { get; set; } = [];
-        public override string Query => "(" + string.Join($" {LogicalOperator} ", Filters.Select(f => f.Query)) + ")";
-        public override object[] Parameters => Filters.SelectMany(f => f.Parameters).ToArray();
+        if (string.IsNullOrEmpty(table)) throw new ArgumentException("Table name cannot be null or empty", nameof(table));
+
+        table = table.Trim();
+        _tableName = table;
+        return this;
+    }
+
+    public SuiteQLQueryBuilder Join(string table, string on)
+    {
+        if (string.IsNullOrEmpty(table)) throw new ArgumentException("Table name cannot be null or empty", nameof(table));
+        if (string.IsNullOrEmpty(on)) throw new ArgumentException("Join condition cannot be null or empty", nameof(on));
+
+        table = table.Trim();
+        _joins.Add($"JOIN {table} ON {on}");
+        return this;
+    }
+
+    public SuiteQLQueryBuilder LeftJoin(string table, string on)
+    {
+        if (string.IsNullOrEmpty(table)) throw new ArgumentException("Table name cannot be null or empty", nameof(table));
+        if (string.IsNullOrEmpty(on)) throw new ArgumentException("Join condition cannot be null or empty", nameof(on));
+
+        table = table.Trim();
+        _joins.Add($"LEFT JOIN {table} ON {on}");
+        return this;
+    }
+
+    public SuiteQLQueryBuilder InnerJoin(string table, string on)
+    {
+        if (string.IsNullOrEmpty(table)) throw new ArgumentException("Table name cannot be null or empty", nameof(table));
+        if (string.IsNullOrEmpty(on)) throw new ArgumentException("Join condition cannot be null or empty", nameof(on));
+
+        table = table.Trim();
+        _joins.Add($"INNER JOIN {table} ON {on}");
+        return this;
+    }
+
+    public SuiteQLQueryBuilder WithPropertyMap(string prop, string map)
+    {
+        if (string.IsNullOrEmpty(prop)) throw new ArgumentException("Property name cannot be null or empty", nameof(prop));
+        if (string.IsNullOrEmpty(map)) throw new ArgumentException("Mapping name cannot be null or empty", nameof(map));
+
+        PropertyMap[prop] = map;
+        return this;
+    }
+
+    public SuiteQLQueryBuilder WithPropertyMap(params (string prop, string map)[] propMap)
+    {
+        foreach (var (prop, map) in propMap)
+        {
+            WithPropertyMap(prop, map);
+        }  
+        return this;
     }
 }

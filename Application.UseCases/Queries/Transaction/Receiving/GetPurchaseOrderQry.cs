@@ -1,9 +1,9 @@
 ﻿using Application.DataTransferObjects.Transactions.Receiving;
 using Application.DataTransferObjects.Transactions.Receiving.NS;
 using Application.UseCases.Repositories.Integration.Transaction.Receiving;
-using Integration.SAP.Entities.Transactional.Receiving;
 using Mapster;
 using MediatR;
+using PurchaseOrderLineDTO = Application.DataTransferObjects.Transactions.Receiving.PurchaseOrderLineDTO;
 
 namespace Application.UseCases.Queries.Transaction.Receiving;
 
