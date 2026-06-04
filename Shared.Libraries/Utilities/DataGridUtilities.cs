@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 namespace Shared.Libraries.Utilities;
 
 // build solely because i dont like having to do new AppFilterDescriptor() every time
+// this way i can just do `using static Shared.Libraries.Utilities.DataGridFilterUtilities`
 // i could have gone with a ComparisonOperatorEnum extension but i didn't really like it
 public static class DataGridFilterUtilities
 {
