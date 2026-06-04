@@ -11,9 +11,6 @@
             <RadzenButton Icon="sync" Size="ButtonSize.Small" Click="TransferOrderDataGrid.ReloadDataAsync" />
         </RadzenStack>
     </HeaderTemplate>
-    <Template Context="data">
-        <TransferOrderDetails TransferOrderId="@data.Id" />
-    </Template>
     <GridColumns>
         <RadzenDataGridColumn TItem="ReceivingTransferOrderDataGridVM"
                               Property="@nameof(ReceivingTransferOrderDataGridVM.ReferenceNumber)"
@@ -46,7 +43,7 @@
                               FrozenPosition="FrozenColumnPosition.Right"
                               Width="35px">
             <Template>
-                <RadzenButton Icon="arrow_right_alt" Size="ButtonSize.ExtraSmall" Click="() => ViewPurchaseOrder(context)" />
+                <RadzenButton Icon="arrow_right_alt" Size="ButtonSize.ExtraSmall" Click="() => ViewTransferOrder(context)" />
             </Template>
         </RadzenDataGridColumn>
     </GridColumns>

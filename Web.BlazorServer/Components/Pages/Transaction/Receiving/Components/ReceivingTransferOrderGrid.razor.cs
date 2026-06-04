@@ -67,5 +67,5 @@ public partial class ReceivingTransferOrderGrid
         return DataGridResultVM<ReceivingTransferOrderDataGridVM>.New(action.Result.Data ?? [], action.Result.Count);
     }
 
-    void ViewPurchaseOrder(ReceivingTransferOrderDataGridVM purchaseOrder) => NavManager.NavigateTo($"/transactions/purchasing/receiving/purchase-order/view?ref={purchaseOrder.Id}", true);
+    void ViewTransferOrder(ReceivingTransferOrderDataGridVM purchaseOrder) => NavManager.NavigateTo($"/transactions/purchasing/receiving/transfer-order/view?ref={purchaseOrder.Id}", true);
 }

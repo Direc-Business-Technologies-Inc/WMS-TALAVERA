@@ -1,0 +1,17 @@
+﻿@page "/transactions/purchasing/receiving/transfer-order/view"
+
+@layout ProtectedLayout
+
+@using Web.BlazorServer.Components.Pages.Transaction.Receiving.Components
+
+
+<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" class="rz-mb-4">
+    <AppBreadCrumbs ModuleCode="ORCV"  />
+</RadzenStack>
+<AppContent>
+    <TransferOrderDetails TransferOrderId="@Ref" />
+</AppContent>
+
+@code {
+    [SupplyParameterFromQuery] public int Ref { get; set; }
+}
