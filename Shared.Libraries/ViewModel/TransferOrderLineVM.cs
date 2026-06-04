@@ -31,4 +31,18 @@ public class TransferOrderLineVM
     public DateTime NetsuiteOrderCreatedDate { get; set; }
     public DateTime NetsuiteOrderDocumentDate { get; set; }
     public DateTime NetsuiteOrderUpdatedDate { get; set; }
+
+
+    // For Scanning
+    public int ScanCount { get; set; }
+
+    // Keep existing total scanned quantity for backward compat
+    public int ScannedQuantity { get; set; }
+    public int TotalQuantity => ScannedQuantity + LineQuantityReceived;
+
+    // New: classification flag - true = Bad, false = Good (default)
+    public bool IsBad { get; set; } = false;
+
+    public bool AlreadyFulfilled => ScannedQuantity == LineQuantity;
+    public bool OverScanned => ScannedQuantity > LineQuantity;
 }

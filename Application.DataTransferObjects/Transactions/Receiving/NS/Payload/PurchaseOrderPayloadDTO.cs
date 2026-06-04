@@ -13,49 +13,10 @@ public class PurchaseOrderPayloadDTO
     [JsonPropertyName("item")]
     public ItemContainer Item { get; set; } = new();
 
-    //public static PurchaseOrderPayloadDTO CreateForFulfillment(
-    //    int orderLine,
-    //    decimal quantity,
-    //    string inventoryStatusId,
-    //    string binNumberId)
-    //{
-    //    return new PurchaseOrderPayloadDTO
-    //    {
-    //        Item = new ItemContainer
-    //        {
-    //            Items = new List<OrderLineItem>
-    //            {
-    //                new()
-    //                {
-    //                    OrderLine = orderLine,
-    //                    InventoryDetail = new InventoryDetail
-    //                    {
-    //                        InventoryAssignment = new InventoryAssignment
-    //                        {
-    //                            Items = new List<InventoryAssignmentItem>
-    //                            {
-    //                                new()
-    //                                {
-    //                                    InventoryStatus = new ReferenceValue
-    //                                    {
-    //                                        Id = inventoryStatusId
-    //                                    },
-    //                                    BinNumber = new ReferenceValue
-    //                                    {
-    //                                        Id = binNumberId
-    //                                    },
-    //                                    Quantity = quantity
-    //                                }
-    //                            }
-    //                        }
-    //                    }
-    //                }
-    //            }
-    //        }
-    //    };
-    public static PurchaseOrderPayloadDTO CreateForFulfillment(
+    public static PurchaseOrderPayloadDTO CreateForItemReceipt(
         List<PurchaseOrderLineVM> lines)
     {
+        // Make it nullable if its not included in json
         return new PurchaseOrderPayloadDTO
         {
             Item = new ItemContainer
@@ -63,7 +24,14 @@ public class PurchaseOrderPayloadDTO
                 Items = lines.Select(line => new OrderLineItem
                 {
                     OrderLine = line.LineSequenceNumber,
-                    Quantity = line.ScannedQuantity / line.UoMRate,
+                    isReceived = line.ScannedQuantity == 0 ? false : null,
+                    Quantity = line.ScannedQuantity,
+                    RecordWeight = line.TotalWeight,
+                    ActualWeight = line.ScannedWeight,
+                    Rate = line.IsBad ? 0 : null,
+                    Location = line.IsBad ? line.NetsuiteSubsidiaryDefaultBOInternalId : 
+                                line.NetsuiteVendorInternalId != 0 ? line.NetsuiteVendorInternalId : 
+                                line.NetsuiteMaterialPrefferedBinId,
                     InventoryDetail = new InventoryDetail
                     {
                         InventoryAssignment = new InventoryAssignment
@@ -102,8 +70,23 @@ public class OrderLineItem
     [JsonPropertyName("orderLine")]
     public int OrderLine { get; set; }
 
+    [JsonPropertyName("itemreceive")]
+    public bool? isReceived { get; set; }
+
     [JsonPropertyName("quantity")]
     public int Quantity { get; set; }
+
+    [JsonPropertyName("location")]
+    public int Location { get; set; }
+
+    [JsonPropertyName("rate")]
+    public decimal? Rate { get; set; }
+
+    [JsonPropertyName("custcol_dbti_record_weight")]
+    public decimal RecordWeight { get; set; }
+
+    [JsonPropertyName("custcol_dbti_actual_weight")]
+    public decimal ActualWeight { get; set; }
 
     [JsonPropertyName("inventoryDetail")]
     public InventoryDetail InventoryDetail { get; set; } = new();
