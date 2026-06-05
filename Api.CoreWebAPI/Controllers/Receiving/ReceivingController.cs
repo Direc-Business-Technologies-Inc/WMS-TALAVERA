@@ -1,5 +1,6 @@
 ﻿using Application.DataTransferObjects.Transactions.Receiving.Request;
 using Application.UseCases.Commands.Transaction.Receiving.NS.PurchaseOrder;
+using Application.UseCases.Commands.Transaction.Receiving.NS.TransferOrder;
 using Application.UseCases.Queries.Transaction.Receiving.NS.PurchaseOrder;
 using Application.UseCases.Queries.Transaction.Receiving.NS.TransferOrder;
 using Mapster;
@@ -61,5 +62,13 @@ public class ReceivingController(ISender Sender) : ControllerBase
         List<TransferOrderLineVM> ret = result.Adapt<List<TransferOrderLineVM>>();
 
         return ApiResult<IEnumerable<TransferOrderLineVM>>.Succeeded(ret);
+    }
+
+    [HttpPost("PO/SaveScan")]
+    public async Task<ApiResult> TransferOrderSaveScan(List<TransferOrderLineVM> req)
+    {
+        await Sender.Send(new PostTransferOrderCmd(req));
+
+        return ApiResult.Succeeded();
     }
 }

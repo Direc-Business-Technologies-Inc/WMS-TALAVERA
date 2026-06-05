@@ -5,13 +5,14 @@ using Database.Libraries.Repositories;
 using Integration.NS.Entities;
 using Microsoft.AspNetCore.Http;
 using Microsoft.IdentityModel.Tokens;
-using Newtonsoft.Json;
+using Shared.Libraries.ViewModel;
 using System.ComponentModel;
 using System.IdentityModel.Tokens.Jwt;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 
 namespace Integration.NS.Services
@@ -286,22 +287,73 @@ namespace Integration.NS.Services
             return result.items;
         }
 
-        public async Task<bool> SaveItemReceipt(int orderId, PurchaseOrderPayloadDTO itemReceipt)
+        public async Task<bool> SavePOItemReceipt(List<PurchaseOrderLineVM> Data)
         {
             try
             {
+                var orderId = Data.Select(x => x.NetsuiteOrderInternalId).FirstOrDefault();
+
+                PurchaseOrderPayloadDTO payloadGood = PurchaseOrderPayloadDTO.CreateForItemReceipt(Data.Where(x => !x.IsBad).ToList(), 1);
+
                 //var jsonString = JsonConvert.SerializeObject(itemReceipt, new JsonSerializerSettings
                 //{
                 //    NullValueHandling = Newtonsoft.Json.NullValueHandling.Ignore
                 //});
-                var jsonString = System.Text.Json.JsonSerializer.Serialize(itemReceipt, new JsonSerializerOptions
+
+                var jsonStringGood = JsonSerializer.Serialize(payloadGood, new JsonSerializerOptions
                 {
                     PropertyNamingPolicy = null,
+                    DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
                     WriteIndented = true
                 });
 
                 string url = string.Format(ItemReceiptUrl, "purchaseOrder", orderId);
-                await MakeRequest<object>(url, jsonString);
+                
+                await MakeRequest<object>(url, jsonStringGood);
+
+                PurchaseOrderPayloadDTO payloadBad = new();
+                var badPO = Data.Where(x => x.IsBad).ToList();
+                if (badPO != null && badPO.Count != 0)
+                {
+                    payloadBad = PurchaseOrderPayloadDTO.CreateForItemReceipt(badPO, 2);
+
+                    var jsonStringBad = JsonSerializer.Serialize(payloadBad, new JsonSerializerOptions
+                    {
+                        PropertyNamingPolicy = null,
+                        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+                        WriteIndented = true
+                    });
+
+                    await MakeRequest<object>(url, jsonStringBad);
+                }
+
+                return true;
+
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("An error occurred in saving item receipt");
+            }
+        }
+
+        public async Task<bool> SaveTOItemReceipt(List<TransferOrderLineVM> Data)
+        {
+            try
+            {
+                var orderId = Data.Select(x => x.NetsuiteOrderInternalId).FirstOrDefault();
+
+                TransferOrderPayloadDTO payloadGood = TransferOrderPayloadDTO.CreateForItemReceipt(Data, 1);
+
+                var jsonStringGood = JsonSerializer.Serialize(payloadGood, new JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = null,
+                    DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+                    WriteIndented = true
+                });
+
+                string url = string.Format(ItemReceiptUrl, "transferOrder", orderId);
+
+                await MakeRequest<object>(url, jsonStringGood);
 
                 return true;
 

@@ -15,13 +15,7 @@ public class PostPurchaseOrderCmdHandler(INetSuiteApiClientService netSuiteApiCl
 {
     public async Task<bool> Handle(PostPurchaseOrderCmd request, CancellationToken cancellationToken)
     {
-        PurchaseOrderPayloadDTO data = request.Data.Adapt<PurchaseOrderPayloadDTO>();
-
-        var orderId = request.Data.Select(x => x.NetsuiteOrderInternalId).FirstOrDefault();
-
-        PurchaseOrderPayloadDTO payload = PurchaseOrderPayloadDTO.CreateForFulfillment(request.Data);
-
-        bool result = await netSuiteApiClientService.SaveItemReceipt(orderId, payload);
+        bool result = await netSuiteApiClientService.SavePOItemReceipt(request.Data);
 
         return result;
     }

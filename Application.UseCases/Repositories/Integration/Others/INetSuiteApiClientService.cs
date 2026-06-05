@@ -1,5 +1,6 @@
 ﻿using Application.DataTransferObjects.Others.NS;
 using Application.DataTransferObjects.Transactions.Receiving.NS.Payload;
+using Shared.Libraries.ViewModel;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -14,5 +15,6 @@ public interface INetSuiteApiClientService : INotifyPropertyChanged
 {
     //Task<IEnumerable<OrdersDTO?>> GetAllPOPendingReceipt([Optional] int limit, [Optional] int offset);
     Task<IEnumerable<T>?> NetsuiteQuery<T>(string queryName, Dictionary<string, string>? parameters = null, int limit = 0, int offset = 0);
-    Task<bool> SaveItemReceipt(int orderId, PurchaseOrderPayloadDTO itemReceipt);
+    Task<bool> SavePOItemReceipt(List<PurchaseOrderLineVM> Data);
+    Task<bool> SaveTOItemReceipt(List<TransferOrderLineVM> Data);
 }
