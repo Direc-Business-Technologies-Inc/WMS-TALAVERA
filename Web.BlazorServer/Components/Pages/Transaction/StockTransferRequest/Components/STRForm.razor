@@ -87,6 +87,10 @@
                 </Columns>
             </AppTable>
         </RadzenFieldset>
+        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween">
+            <RadzenButton Text="@ReturnLabel" ButtonStyle="ButtonStyle.Light" ButtonType="ButtonType.Button" Click="@Return"/>
+            <RadzenButton Text="@ActionLabel" ButtonStyle="ButtonStyle.Success" ButtonType="@(ReadOnly ? ButtonType.Button : ButtonType.Submit)" Click="@ActionClicked"/>
+        </RadzenStack>
     </RadzenStack>
 </RadzenTemplateForm>
 
@@ -99,6 +103,13 @@
     public EditContext? EditContext { get; set; }
     [Parameter]
     public bool ReadOnly { get; set; } = false;
+    [Parameter]
+    public string? ReturnURI { get; set; }
+    [Parameter]
+    public string? ActionURI { get; set; }
+    [Parameter]
+    public string ActionLabel { get; set; } = "Submit";
+    public string ReturnLabel { get; set; } = "Return";
 
     [Inject]
     IGridSettingsService GridSettingsService { get; set; } = default!;
@@ -123,7 +134,12 @@
 
     async Task HandleSubmit()
     {
-        if (OnSubmit is not null) await OnSubmit(Model);
+        bool success = true;
+        if (OnSubmit is not null) success = await OnSubmit(Model);
+        if (success && !string.IsNullOrEmpty(ActionURI))
+        {
+            NavManager.NavigateTo(ActionURI, true);
+        }
     }
     
     async Task OpenTableSettings()
@@ -132,9 +148,20 @@
             "Table Settings",
             ds => @<AppGridSettings TItem="StockTransferRequestLineVM"
                                     @bind-Grid=@LinesTable.DataGrid
-                                    @bind-GridSettings=@TableSettings />,
+                                    @bind-GridSettings=@TableSettings />
+    ,
         options: GridSettingsService.GetDialogOptions());
 
         await LinesTable.DataGrid.Reload();
+    }
+
+    void Return()
+    {
+        if (!string.IsNullOrEmpty(ReturnURI)) NavManager.NavigateTo(ReturnURI, true);
+    }
+
+    void ActionClicked()
+    {
+        if (ReadOnly && !string.IsNullOrEmpty(ActionURI)) NavManager.NavigateTo(ActionURI, true);
     }
 }

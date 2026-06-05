@@ -21,7 +21,7 @@
 <AppFormSkeleton TItem="StockTransferRequestInfoVM" Loading="@IsLoadingData" />
 @if (!IsLoadingData)
 {
-    <STRForm OnSubmit="@Create" Model="@FormData" EditContext="@EditContext"/>
+        <STRForm OnSubmit="@Create" Model="@FormData" EditContext="@EditContext" ReturnURI="@STRRoutes.Root" />
 }
 </AppContent>
 

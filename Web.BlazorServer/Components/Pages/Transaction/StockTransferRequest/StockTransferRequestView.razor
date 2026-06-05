@@ -18,10 +18,10 @@
 <PageTitle>Receiving</PageTitle>
 
 <AppContent>
-<AppFormSkeleton TItem="StockTransferRequestInfoVM" Loading="@IsLoadingData" />
+<AppFormSkeleton TItem="StockTransferRequestInfoVM" Loading="@IsLoadingData"/>
 @if (!IsLoadingData)
 {
-    <STRForm Model="@FormData" EditContext="@EditContext" ReadOnly/>
+    <STRForm Model="@FormData" EditContext="@EditContext" ReadOnly ActionURI="@(STRRoutes.Update + $"?ref={Ref}")" ActionLabel="Edit" ReturnURI="@STRRoutes.Root"/>
 }
 </AppContent>
 
