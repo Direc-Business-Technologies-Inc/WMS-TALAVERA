@@ -15,7 +15,7 @@ public class PostPurchaseOrderCmdHandler(INetSuiteApiClientService netSuiteApiCl
 {
     public async Task<bool> Handle(PostPurchaseOrderCmd request, CancellationToken cancellationToken)
     {
-        bool result = await netSuiteApiClientService.SaveItemReceipt(request.Data);
+        bool result = await netSuiteApiClientService.SavePOItemReceipt(request.Data);
 
         return result;
     }

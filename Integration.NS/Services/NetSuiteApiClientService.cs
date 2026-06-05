@@ -287,13 +287,13 @@ namespace Integration.NS.Services
             return result.items;
         }
 
-        public async Task<bool> SaveItemReceipt(List<PurchaseOrderLineVM> Data)
+        public async Task<bool> SavePOItemReceipt(List<PurchaseOrderLineVM> Data)
         {
             try
             {
                 var orderId = Data.Select(x => x.NetsuiteOrderInternalId).FirstOrDefault();
 
-                PurchaseOrderPayloadDTO payloadGood = PurchaseOrderPayloadDTO.CreateForItemReceipt(Data.Where(x => !x.IsBad && x.ScannedQuantity > 0).ToList());
+                PurchaseOrderPayloadDTO payloadGood = PurchaseOrderPayloadDTO.CreateForItemReceipt(Data.Where(x => !x.IsBad).ToList(), 1);
 
                 //var jsonString = JsonConvert.SerializeObject(itemReceipt, new JsonSerializerSettings
                 //{
@@ -313,9 +313,9 @@ namespace Integration.NS.Services
 
                 PurchaseOrderPayloadDTO payloadBad = new();
                 var badPO = Data.Where(x => x.IsBad).ToList();
-                if (badPO != null)
+                if (badPO != null && badPO.Count != 0)
                 {
-                    payloadBad = PurchaseOrderPayloadDTO.CreateForItemReceipt(badPO);
+                    payloadBad = PurchaseOrderPayloadDTO.CreateForItemReceipt(badPO, 2);
 
                     var jsonStringBad = JsonSerializer.Serialize(payloadBad, new JsonSerializerOptions
                     {
@@ -326,6 +326,34 @@ namespace Integration.NS.Services
 
                     await MakeRequest<object>(url, jsonStringBad);
                 }
+
+                return true;
+
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("An error occurred in saving item receipt");
+            }
+        }
+
+        public async Task<bool> SaveTOItemReceipt(List<TransferOrderLineVM> Data)
+        {
+            try
+            {
+                var orderId = Data.Select(x => x.NetsuiteOrderInternalId).FirstOrDefault();
+
+                TransferOrderPayloadDTO payloadGood = TransferOrderPayloadDTO.CreateForItemReceipt(Data, 1);
+
+                var jsonStringGood = JsonSerializer.Serialize(payloadGood, new JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = null,
+                    DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+                    WriteIndented = true
+                });
+
+                string url = string.Format(ItemReceiptUrl, "transferOrder", orderId);
+
+                await MakeRequest<object>(url, jsonStringGood);
 
                 return true;
 

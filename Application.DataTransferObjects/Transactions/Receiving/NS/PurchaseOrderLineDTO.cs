@@ -30,7 +30,7 @@ public class PurchaseOrderLineDTO
     public decimal LineQuantityReceived { get; set; }
     public int NetsuiteUoMInternalId { get; set; }
     public string UoMName { get; set; } = string.Empty;
-    public int UoMRate { get; set; }
+    public decimal UoMRate { get; set; }
 
     public DateTime NetsuiteOrderCreatedDate { get; set; }
     public DateTime NetsuiteOrderDocumentDate { get; set; }

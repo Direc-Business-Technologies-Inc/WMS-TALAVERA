@@ -10,54 +10,74 @@ namespace Application.DataTransferObjects.Transactions.Receiving.NS.Payload;
 
 public class PurchaseOrderPayloadDTO
 {
+    [JsonPropertyName("custbody_dbti_receiving_category")]
+    public int ReceivingCategory { get; set; }
     [JsonPropertyName("item")]
     public ItemContainer Item { get; set; } = new();
 
     public static PurchaseOrderPayloadDTO CreateForItemReceipt(
-        List<PurchaseOrderLineVM> lines)
+        List<PurchaseOrderLineVM> lines,
+        int receivingCategory)
     {
         // Make it nullable if its not included in json
         return new PurchaseOrderPayloadDTO
         {
+            ReceivingCategory = receivingCategory, // 1 is Good , 2 is Bad
             Item = new ItemContainer
             {
-                Items = lines.Select(line => new OrderLineItem
+                Items = lines.Select(line =>
                 {
-                    OrderLine = line.LineSequenceNumber,
-                    isReceived = line.ScannedQuantity == 0 ? false : null,
-                    Quantity = line.ScannedQuantity,
-                    RecordWeight = line.TotalWeight,
-                    ActualWeight = line.ScannedWeight,
-                    Rate = line.IsBad ? 0 : null,
-                    Location = line.IsBad ? line.NetsuiteSubsidiaryDefaultBOInternalId : 
-                                line.NetsuiteVendorInternalId != 0 ? line.NetsuiteVendorInternalId : 
-                                line.NetsuiteMaterialPrefferedBinId,
-                    InventoryDetail = new InventoryDetail
+                    if (line.ScannedQuantity == 0)
                     {
-                        InventoryAssignment = new InventoryAssignment
+                        return new OrderLineItem
                         {
-                            Items = new List<InventoryAssignmentItem>
+                            OrderLine = line.LineSequenceNumber,
+                            isReceived = false
+                        };
+                    }
+
+                    return new OrderLineItem
+                    {
+                        OrderLine = line.LineSequenceNumber,
+                        isReceived = true,
+                        Quantity = line.ScannedQuantity,
+                        RecordWeight = line.TotalWeight,
+                        ActualWeight = line.ScannedWeight,
+                        Rate = line.IsBad ? 0 : null,
+                        Location = line.IsBad ? line.NetsuiteSubsidiaryDefaultBOInternalId : null,
+                        InventoryDetail = new InventoryDetail
+                        {
+                            InventoryAssignment = new InventoryAssignment
                             {
-                                new()
+                                Items = new List<InventoryAssignmentItem>
                                 {
-                                    InventoryStatus = new ReferenceValue
+                                    new()
                                     {
-                                        Id = line.IsBad ? "2" : "1"
-                                    },
-                                    BinNumber = new ReferenceValue
-                                    {
-                                        Id = line.VendorBinAssignmentId.ToString()
-                                    },
-                                    Quantity = line.ScannedQuantity / line.UoMRate
+                                        InventoryStatus = new ReferenceValue
+                                        {
+                                            Id = line.IsBad ? "2" : "1"
+                                        },
+                                        BinNumber = new ReferenceValue
+                                        {
+                                            Id = line.IsLocationUsedBin
+                                                ? (line.IsBad
+                                                    ? "5"
+                                                    : line.VendorBinAssignmentId != 0
+                                                        ? line.VendorBinAssignmentId.ToString()
+                                                        : line.NetsuiteMaterialPrefferedBinId.ToString())
+                                                : null
+                                        },
+                                        Quantity = line.ScannedQuantity
+                                    }
                                 }
                             }
                         }
-                    }
+                    };
                 }).ToList()
             }
         };
     }
-    }
+}
 
 public class ItemContainer
 {
@@ -74,10 +94,10 @@ public class OrderLineItem
     public bool? isReceived { get; set; }
 
     [JsonPropertyName("quantity")]
-    public int Quantity { get; set; }
+    public decimal? Quantity { get; set; }
 
     [JsonPropertyName("location")]
-    public int Location { get; set; }
+    public int? Location { get; set; }
 
     [JsonPropertyName("rate")]
     public decimal? Rate { get; set; }
@@ -119,5 +139,5 @@ public class InventoryAssignmentItem
 public class ReferenceValue
 {
     [JsonPropertyName("id")]
-    public string Id { get; set; } = string.Empty;
+    public string? Id { get; set; } = string.Empty;
 }

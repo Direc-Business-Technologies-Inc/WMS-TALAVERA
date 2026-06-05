@@ -31,20 +31,19 @@ public class PurchaseOrderLineVM
     public decimal LineQuantityReceived { get; set; }
     public int NetsuiteUoMInternalId { get; set; }
     public string UoMName { get; set; } = string.Empty;
-    public int UoMRate { get; set; }
+    public decimal UoMRate { get; set; }
 
     public decimal TotalWeight => LineQuantity * MaterialWeight; // Record Weight
 
-    public decimal NSLineQuantity => LineQuantity / UoMRate;
-    public decimal NSLineQuantityReceived => LineQuantityReceived / UoMRate;
+    public decimal NSLineQuantity => (LineQuantity - LineQuantityReceived) / UoMRate;
+    //public decimal NSLineQuantityReceived => LineQuantityReceived / UoMRate;
 
     // For Scanning
     public int ScanCount { get; set; }
 
     // Keep existing total scanned quantity for backward compat
-    public int ScannedQuantity { get; set; }
+    public decimal ScannedQuantity { get; set; }
     public decimal ScannedWeight { get; set; }
-    public decimal TotalQuantity => ScannedQuantity + NSLineQuantityReceived;
 
     // New: classification flag - true = Bad, false = Good (default)
     public bool IsBad { get; set; } = false;

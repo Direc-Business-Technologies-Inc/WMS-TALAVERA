@@ -62,7 +62,7 @@
 
                                             <RadzenStack Style="flex-grow:1;width:45px;position:relative"
                                                          class="@($"{(row.AlreadyFulfilled ? "rz-background-color-success" : "rz-background-color-warning")}")">
-                                                <RadzenText Text="@(row.TotalQuantity.ToString())"
+                                                <RadzenText Text="@(row.ScannedQuantity.ToString())"
                                                             Style="font-size:1.25rem;font-weight:500;"
                                                             class="@($"absolute-center {(row.AlreadyFulfilled ? "rz-color-white" : "")}")" />
                                             </RadzenStack>
@@ -79,7 +79,7 @@
                         </RadzenTabsItem>
 
                         <RadzenTabsItem Text="Bad">
-                            <RadzenDataList TItem="PurchaseOrderLineVM" Data="BadPOItems" Style="margin-bottom:200px">
+                            <RadzenDataList TItem="PurchaseOrderLineVM" Data="BadPOItems.Where(x => x.ScannedQuantity != 0)" Style="margin-bottom:200px">
                                 <Template Context="row">
                                     <RadzenStack Style="position:relative;overflow:clip !important;" class="rz-p-2" Orientation="Orientation.Horizontal">
                                         <RadzenStack Gap="4px">
@@ -91,7 +91,7 @@
 
                                             <RadzenStack Style="flex-grow:1;width:45px;position:relative"
                                                          class="@($"{(row.AlreadyFulfilled ? "rz-background-color-success" : "rz-background-color-warning")}")">
-                                                <RadzenText Text="@(row.TotalQuantity.ToString())"
+                                                <RadzenText Text="@(row.ScannedQuantity.ToString())"
                                                             Style="font-size:1.25rem;font-weight:500;"
                                                             class="@($"absolute-center {(row.AlreadyFulfilled ? "rz-color-white" : "")}")" />
                                             </RadzenStack>
@@ -112,12 +112,15 @@
                     <RadzenStack Gap="16px" Orientation="Orientation.Horizontal">
                         @* <RadzenButton Click="AutofillScan" class="rz-border-radius-5" Icon="check" ButtonStyle="ButtonStyle.Success" /> *@
                         <RadzenButton Icon="@(NextScanIsBad ? "block" : "check")" ButtonStyle="@(NextScanIsBad? ButtonStyle.Danger: ButtonStyle.Success)"
-                                      Size="ButtonSize.Small" Click="@(args => ToggleQuality())" />
-                        <RadzenButton Click="@(async () => await SaveScan())" Disabled="@(SaveBtnDisabled)" class="rz-border-radius-5" ButtonStyle="ButtonStyle.Success" Icon="save" />
+                                      Size="ButtonSize.Small" Click="@(args => ToggleQuality())" Disabled="@ActionSaveScan.Busy" />
+                        <RadzenButton Click="@(async () => await SaveScan())" Disabled="@(SaveBtnDisabled || ActionSaveScan.Busy)" class="rz-border-radius-5" 
+                                    ButtonStyle="ButtonStyle.Success" Icon="@(ActionSaveScan.Busy ? "schedule" : "save")" />
                     </RadzenStack>
                 </RadzenCard>
             </RadzenStack>
         </ChildContent>
     </Loading>
+
+    <SavingLoading IsVisible="ActionSaveScan.Busy" Text="Saving scanned items..." />
 
 </RadzenStack>

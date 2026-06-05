@@ -1,4 +1,5 @@
 using Microsoft.JSInterop;
+using Mobile.MAUI.Components.Reusables;
 using Mobile.MAUI.Services;
 using Mobile.MAUI.ViewModel;
 using Shared.Libraries.ViewModel;
@@ -24,11 +25,17 @@ public partial class TransferOrderItemView
     List<ItemBarcodesPerUoMVM> ItemBarcodes = [];
     List<BarcodeRequestVM> ItemRequest = [];
 
+    List<TransferOrderLineVM> TOItems = [];
+
+
     //TransferOrderLineVM? LastScanned => TOItems.OrderByDescending(x => x.ScanCount).FirstOrDefault();
 
     int ScanCount { get; set; }
     bool SaveBtnDisabled => ScanCount == 0;
     bool NextScanIsBad = false;
+    decimal? DefaultWeight = null;
+    decimal? ChangeWeight = null;
+
     protected override async Task OnInitializedAsync()
     {
         ActionGetTOItems = new AppAction<List<TransferOrderLineVM>>
@@ -42,7 +49,63 @@ public partial class TransferOrderItemView
             },
             OnSuccess = async (result) =>
             {
-                GoodTOItems = result.Data ?? [];
+                GoodTOItems = result.Data.Select(line => new TransferOrderLineVM
+                {
+                    NetsuiteOrderInternalId = line.NetsuiteOrderInternalId,
+                    OrderNumber = line.OrderNumber,
+                    OrderType = line.OrderType,
+                    OrderStatus = line.OrderStatus,
+
+                    LocationName = line.LocationName,
+                    LocationUsedBin = line.LocationUsedBin,
+
+                    LineSequenceNumber = line.LineSequenceNumber,
+                    TransactionLineType = line.TransactionLineType,
+
+                    NetsuiteMaterialInternalId = line.NetsuiteMaterialInternalId,
+                    MaterialCode = line.MaterialCode,
+                    MaterialName = line.MaterialName,
+                    MaterialWeight = line.MaterialWeight,
+                    LineQuantity = line.LineQuantity,
+                    LineQuantityReceived = line.LineQuantityReceived,
+                    NetsuiteUoMInternalId = line.NetsuiteUoMInternalId,
+                    UoMName = line.UoMName,
+                    UoMRate = line.UoMRate,
+
+                    ScanCount = 0,
+                    ScannedQuantity = 0,
+                    ScannedWeight = 0,
+                    IsBad = false,
+                }).ToList() ?? [];
+
+                BadTOItems = result.Data.Select(line => new TransferOrderLineVM
+                {
+                    NetsuiteOrderInternalId = line.NetsuiteOrderInternalId,
+                    OrderNumber = line.OrderNumber,
+                    OrderType = line.OrderType,
+                    OrderStatus = line.OrderStatus,
+
+                    LocationName = line.LocationName,
+                    LocationUsedBin = line.LocationUsedBin,
+
+                    LineSequenceNumber = line.LineSequenceNumber,
+                    TransactionLineType = line.TransactionLineType,
+
+                    NetsuiteMaterialInternalId = line.NetsuiteMaterialInternalId,
+                    MaterialCode = line.MaterialCode,
+                    MaterialName = line.MaterialName,
+                    MaterialWeight = line.MaterialWeight,
+                    LineQuantity = line.LineQuantity,
+                    LineQuantityReceived = line.LineQuantityReceived,
+                    NetsuiteUoMInternalId = line.NetsuiteUoMInternalId,
+                    UoMName = line.UoMName,
+                    UoMRate = line.UoMRate,
+
+                    ScanCount = 0,
+                    ScannedQuantity = 0,
+                    ScannedWeight = 0,
+                    IsBad = true,
+                }).ToList() ?? [];
 
                 await InvokeAsync(StateHasChanged);
             },
@@ -71,7 +134,7 @@ public partial class TransferOrderItemView
             TaskAsync = async () =>
             {
                 await InvokeAsync(StateHasChanged);
-                var res = await Client.Post("/Receiving/PO/SaveScan/Good", GoodTOItems);
+                var res = await Client.Post("/Receiving/TO/SaveScan", TOItems);
                 return res;
             },
             OnSuccess = async (result) =>
@@ -98,7 +161,7 @@ public partial class TransferOrderItemView
             await ActionFactory.ExecuteAppActionAsync(ActionGetItemBarcodes);
         }
 
-        if (GoodTOItems.Count > 0 && JsObj is null)
+        if (TOItems.Count > 0 && JsObj is null)
         {
             JsObj = await Js.InvokeAsync<IJSObjectReference>("import", "./js/IntersectionObserver.js");
             await JsObj.InvokeVoidAsync("Observe");
@@ -124,76 +187,93 @@ public partial class TransferOrderItemView
                 return;
             }
 
-            if (NextScanIsBad)
+            if (!NextScanIsBad)
             {
-                var badLine = BadTOItems.FirstOrDefault(x =>
+                ChangeWeight = await Dialog.OpenAsync<WeightInputDialog>(
+                    "Weight Input",
+                    new Dictionary<string, object>
+                    {
+                        { "ItemName", barcode.MaterialName }
+                    },
+                    new DialogOptions()
+                );
+            }
+            else if (DefaultWeight is null)
+            {
+                DefaultWeight = await Dialog.OpenAsync<WeightInputDialog>(
+                    "Weight Input",
+                    new Dictionary<string, object>
+                    {
+                        { "ItemName", barcode.MaterialName }
+                    },
+                    new DialogOptions()
+                );
+            }
+            
+
+            if (!DefaultWeight.HasValue)
+            {
+                return;
+            }
+
+            if (DefaultWeight.Value == 0m)
+            {
+                await Toast.Warning("Scan cancelled - no weight entered");
+                return;
+            }
+
+            var goodLine = GoodTOItems.FirstOrDefault(x =>
                     x.NetsuiteMaterialInternalId == barcode.MaterialInternalId);
 
-                if (badLine is null)
-                {
-                    var sourceLine = GoodTOItems.FirstOrDefault(x =>
-                        x.NetsuiteMaterialInternalId == barcode.MaterialInternalId);
+            var badLine = BadTOItems.FirstOrDefault(x =>
+                x.NetsuiteMaterialInternalId == barcode.MaterialInternalId);
 
-                    if (sourceLine is null)
-                    {
-                        await Toast.Warning("Item not found in this PO.");
-                        return;
-                    }
+            if (goodLine is null)
+            {
+                await Toast.Warning("Item not found in this PO.");
+                return;
+            }
 
-                    badLine = new TransferOrderLineVM
-                    {
-                        NetsuiteOrderInternalId = sourceLine.NetsuiteOrderInternalId,
-                        OrderNumber = sourceLine.OrderNumber,
-                        OrderType = sourceLine.OrderType,
-                        OrderStatus = sourceLine.OrderStatus,
-                        LocationName = sourceLine.LocationName,
-                        LocationUsedBin = sourceLine.LocationUsedBin,
-                        LineSequenceNumber = sourceLine.LineSequenceNumber,
-                        TransactionLineType = sourceLine.TransactionLineType,
-                        NetsuiteMaterialInternalId = sourceLine.NetsuiteMaterialInternalId,
-                        MaterialCode = sourceLine.MaterialCode,
-                        MaterialName = sourceLine.MaterialName,
-                        LineQuantity = sourceLine.LineQuantity,
-                        NetsuiteUoMInternalId = sourceLine.NetsuiteUoMInternalId,
-                        UoMName = sourceLine.UoMName,
-                        UoMRate = sourceLine.UoMRate,
+            var badlineTotal = badLine.ScannedQuantity;
+            var goodLineTotal = goodLine.ScannedQuantity;
 
-                        // scanning fields: start fresh for badLine
-                        ScanCount = 0,
-                        ScannedQuantity = 0,
-                        IsBad = true
-                    };
+            var isOverScan = badlineTotal + goodLineTotal >= goodLine.NSLineQuantity;
 
-                    BadTOItems.Add(badLine);
-                }
+            if (isOverScan)
+            {
+                await Toast.Warning($"Over-scanning item: {goodLine.MaterialCode}.");
+                return;
+            }
 
-                badLine.ScannedQuantity += barcode.UoMRate;
+            var scanQty = barcode.UoMRate / goodLine.UoMRate;
+
+            var remainingQty = goodLine.NSLineQuantity - (goodLine.ScannedQuantity + (badLine?.ScannedQuantity ?? 0));
+
+            bool isExceed = scanQty > remainingQty;
+
+            if (isExceed)
+            {
+                await Toast.Warning($"Scan quantity exceeds remaining quantity for item: {goodLine.MaterialCode}.");
+                return;
+            }
+
+            var weight = ChangeWeight ?? DefaultWeight;
+
+            if (NextScanIsBad)
+            {
+                badLine.ScannedQuantity += barcode.UoMRate / badLine.UoMRate;
+                badLine.ScannedWeight += barcode.UoMRate * (weight ?? 0m);
                 badLine.ScanCount++;
             }
             else
             {
-                var goodLine = GoodTOItems.FirstOrDefault(x =>
-                    x.NetsuiteMaterialInternalId == barcode.MaterialInternalId);
-
-                if (goodLine is null)
-                {
-                    await Toast.Warning("Item not found in this PO.");
-                    return;
-                }
-
-                var isOverScan = goodLine.ScannedQuantity >= goodLine.LineQuantity;
-
-                if (isOverScan)
-                {
-                    await Toast.Warning($"Over-scanning item: {goodLine.MaterialCode}.");
-                    return;
-                }
-
-                goodLine.ScannedQuantity += barcode.UoMRate;
+                goodLine.ScannedQuantity += barcode.UoMRate / goodLine.UoMRate;
+                goodLine.ScannedWeight += barcode.UoMRate * (weight ?? 0m);
                 goodLine.ScanCount++;
             }
 
             ScanCount++;
+            ChangeWeight = null; // reset the ChangeWeight after each scan
 
             await InvokeAsync(StateHasChanged);
         }
@@ -205,9 +285,38 @@ public partial class TransferOrderItemView
 
     async Task SaveScan()
     {
+        TOItems = GoodTOItems
+            .Concat(BadTOItems)
+            .Select(x => new TransferOrderLineVM
+            {
+                NetsuiteOrderInternalId = x.NetsuiteOrderInternalId,
+                OrderNumber = x.OrderNumber,
+                OrderType = x.OrderType,
+                OrderStatus = x.OrderStatus,
+                LocationName = x.LocationName,
+                LocationUsedBin = x.LocationUsedBin,
+                LineSequenceNumber = x.LineSequenceNumber,
+                TransactionLineType = x.TransactionLineType,
+                NetsuiteMaterialInternalId = x.NetsuiteMaterialInternalId,
+                MaterialCode = x.MaterialCode,
+                MaterialName = x.MaterialName,
+                MaterialWeight = x.MaterialWeight,
+                LineQuantity = x.LineQuantity,
+                LineQuantityReceived = x.LineQuantityReceived,
+                NetsuiteUoMInternalId = x.NetsuiteUoMInternalId,
+                UoMName = x.UoMName,
+                UoMRate = x.UoMRate,
+
+                ScanCount = x.ScanCount,
+                IsBad = x.IsBad,
+                ScannedQuantity = x.ScannedQuantity,
+                ScannedWeight = x.ScannedWeight
+            })
+            .ToList();
+
         await ActionFactory.ExecuteAppActionAsync(ActionSaveScan, confirm: true, showToast: true);
 
-        StateHasChanged();
+        await InvokeAsync(StateHasChanged);
     }
 
     void ToggleQuality()
@@ -215,12 +324,16 @@ public partial class TransferOrderItemView
         NextScanIsBad = !NextScanIsBad;
         InvokeAsync(StateHasChanged);
     }
-
-    void ToggleQuality(PurchaseOrderLineVM row)
+    async void ToggleWeight()
     {
-        if (row is null) return;
-        row.IsBad = !row.IsBad;
-        InvokeAsync(StateHasChanged);
+        ChangeWeight = await Dialog.OpenAsync<WeightInputDialog>(
+                    "Weight Input",
+                    new Dictionary<string, object>
+                    {
+                        { "ItemName", "" }
+                    },
+                    new DialogOptions()
+                );
     }
 
     public async ValueTask DisposeAsync()
