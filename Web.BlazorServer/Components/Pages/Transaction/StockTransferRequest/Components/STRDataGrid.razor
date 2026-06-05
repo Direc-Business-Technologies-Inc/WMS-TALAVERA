@@ -1,0 +1,70 @@
+﻿@using Web.BlazorServer.Components.Security
+@using Web.BlazorServer.ViewModels.Administration.User
+@using Web.BlazorServer.ViewModels.Transaction.Receiving
+@using Web.BlazorServer.ViewModels.Transaction.StockTransferRequest
+
+@inherits BaseComponent
+
+<AppDataGrid @ref="@DataGrid" Id="purchase_order_grid" TItem="StockTransferRequestDataGridVM" DataGetter="@LoadDataAsync" GridSettings="@DataGridSettings" @bind-GridSettingsLoaded="@GridSettingsLoaded" ActionName="@ActionGetStockTransferRequests">
+    <HeaderTemplate>
+        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" AlignItems="AlignItems.Center" Gap="8px">
+            <RadzenButton Icon="settings" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@OpenTableSettings" />
+            <RadzenButton Icon="sync" Size="ButtonSize.Small" Click="DataGrid.ReloadDataAsync" />
+        </RadzenStack>
+    </HeaderTemplate>
+    <GridColumns>
+        <RadzenDataGridColumn TItem="StockTransferRequestDataGridVM"
+                              Property="@nameof(StockTransferRequestDataGridVM.ReferenceNumber)"
+                              Title="Reference Number" />
+        <RadzenDataGridColumn TItem="StockTransferRequestDataGridVM"
+                              Property="@nameof(StockTransferRequestDataGridVM.Date)"
+                              Type="@typeof(DateTime)"
+                              FormatString="{0:yyyy-MM-dd}"
+                              Title="Date" />
+        <RadzenDataGridColumn TItem="StockTransferRequestDataGridVM"
+                              Property="@nameof(StockTransferRequestDataGridVM.Status)"
+                              Title="Status" />
+        <RadzenDataGridColumn TItem="StockTransferRequestDataGridVM"
+                              Property="@nameof(StockTransferRequestDataGridVM.Requestor)"
+                              Type="@typeof(string)"
+                              Title="Requestor" />
+        <RadzenDataGridColumn TItem="StockTransferRequestDataGridVM"
+                              Property="@nameof(StockTransferRequestDataGridVM.SourceLocation)"
+                              Type="@typeof(string)"
+                              Title="From Location" />
+        <RadzenDataGridColumn TItem="StockTransferRequestDataGridVM"
+                              Property="@nameof(StockTransferRequestDataGridVM.DestinationLocation)"
+                              Type="@typeof(string)"
+                              Title="To Location" />
+        <RadzenDataGridColumn TItem="StockTransferRequestDataGridVM"
+                              Property="@nameof(StockTransferRequestDataGridVM.Subsidiary)"
+                              Type="@typeof(string)"
+                              Title="Subsidiary" />
+        <RadzenDataGridColumn TItem="StockTransferRequestDataGridVM"
+                              Property="@nameof(StockTransferRequestDataGridVM.Remarks)"
+                              Type="@typeof(string)"
+                              Title="Remarks" />
+        <RadzenDataGridColumn TItem="StockTransferRequestDataGridVM"
+                              Frozen
+                              FrozenPosition="FrozenColumnPosition.Right"
+                              Width="35px">
+            <Template>
+                <RadzenButton Icon="arrow_right_alt" Size="ButtonSize.ExtraSmall" Click="() => ViewSTR(context)" />
+            </Template>
+        </RadzenDataGridColumn>
+    </GridColumns>
+</AppDataGrid>
+
+@code {
+    async Task OpenTableSettings()
+    {
+        await DialogService.OpenAsync(
+            "Table Settings",
+            ds => @<AppGridSettings TItem="StockTransferRequestDataGridVM"
+                                    @bind-Grid=@DataGrid.DataGrid
+                                    @bind-GridSettings=@DataGridSettings />,
+        options: GridSettingsService.GetDialogOptions());
+
+        await DataGrid.DataGrid.Reload();
+    }
+}

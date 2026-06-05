@@ -2,7 +2,8 @@
 
 public class StockTransferRequestInfoVM
 {
-    public int Id { get; set; } 
+    public int Id { get; set; }
+    public string Status { get; set; } = string.Empty;
     public string ReferenceNumber { get; set; } = string.Empty;
     public string Requestor { get; set; } = string.Empty;
     public string SourceLocation { get; set; } = string.Empty;

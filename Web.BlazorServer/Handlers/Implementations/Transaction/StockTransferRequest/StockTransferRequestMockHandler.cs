@@ -3,13 +3,32 @@ using Shared.Entities;
 using Web.BlazorServer.Handlers.Repositories.Transaction.StockTransferRequest;
 using Web.BlazorServer.ViewModels.Transaction.StockTransferRequest;
 
+
 namespace Web.BlazorServer.Handlers.Implementations.Transaction.StockTransferRequest;
 
 public class StockTransferRequestMockHandler : IStockTransferRequestHandler
 {
-    public async Task<(IEnumerable<StockTransferRequestDataGridVM> data, int count)> GetStockTransferRequests(DataGridIntent intent)
+    public async Task<(IEnumerable<StockTransferRequestDataGridVM> data, int count)> GetStockTransferRequestsList(DataGridIntent intent)
     {
         return (STR_BANK.Skip(intent.Skip).Take(intent.Take).Adapt<IEnumerable<StockTransferRequestDataGridVM>>(), STR_BANK.Count);
+    }
+
+    public async Task<(IEnumerable<StockTransferRequestDataGridVM> data, int count)> GetTransferOrdersList(DataGridIntent intent)
+    {
+        var sublist = STR_BANK.Where(x => x.Status.Equals("Transfer Order"));
+        return (sublist.Skip(intent.Skip).Take(intent.Take).Adapt<IEnumerable<StockTransferRequestDataGridVM>>(), sublist.Count());
+    }
+
+    public async Task<(IEnumerable<StockTransferRequestDataGridVM> data, int count)> GetInterCompanyTransferOrdersList(DataGridIntent intent)
+    {
+        var sublist = STR_BANK.Where(x => x.Status.Equals("ICTO"));
+        return (sublist.Skip(intent.Skip).Take(intent.Take).Adapt<IEnumerable<StockTransferRequestDataGridVM>>(), sublist.Count());
+    }
+
+    public async Task<(IEnumerable<StockTransferRequestDataGridVM> data, int count)> GetReturnsList(DataGridIntent intent)
+    {
+        var sublist = STR_BANK.Where(x => x.Status.Equals("Returns"));
+        return (sublist.Skip(intent.Skip).Take(intent.Take).Adapt<IEnumerable<StockTransferRequestDataGridVM>>(), sublist.Count());
     }
 
     public async Task<(IEnumerable<StockTransferRequestLineVM> data, int count)> GetStockTransferRequestLines(string reference, DataGridIntent intent)
@@ -64,9 +83,10 @@ public class StockTransferRequestMockHandler : IStockTransferRequestHandler
             {
                 Id = i,
                 ReferenceNumber = $"STR{i:000}",
+                Status = Random.Shared.Next(3) switch { 0 => "Transfer Order", 1 => "ICTO", _ => "Returns"},
                 Requestor = $"Some Guy",
-                SourceLocation = $"Penisland",
-                DestinationLocation = $"Shitland",
+                SourceLocation = $"Penn State",
+                DestinationLocation = $"Nebraska",
                 Subsidiary = $"Some Other Guy",
                 Remarks = "this is not a real item",
                 Date = _randomDate()
@@ -105,6 +125,7 @@ public class StockTransferRequestMockHandler : IStockTransferRequestHandler
         // Add the random seconds to the start date
         return start.AddMinutes(randomSeconds);
     }
+
 
     private static List<(string code, string desc, int quantity)> ITEMS_BANK = [];
     private static List<StockTransferRequestInfoVM> STR_BANK = [];

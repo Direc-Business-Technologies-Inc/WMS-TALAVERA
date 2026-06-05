@@ -1,0 +1,53 @@
+﻿@using Web.BlazorServer.Components.Pages.Transaction.Receiving.Components
+@using Web.BlazorServer.Components.Pages.Transaction.StockTransferRequest.Components
+@using Web.BlazorServer.Components.Security
+@using Web.BlazorServer.Handlers.Repositories.Transaction.StockTransferRequest
+@using Web.BlazorServer.ViewModels.Administration.User
+@using Web.BlazorServer.ViewModels.Transaction.Receiving
+
+@inherits BaseComponent
+@layout ProtectedLayout
+@attribute [AppAuthorizationAttribute("VIEW", "ORCV")]
+@attribute [Route(STRRoutes.Root)]
+
+
+<PageTitle>Receiving</PageTitle>
+
+<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" class="rz-mb-4">
+    <AppBreadCrumbs ModuleCode="ORCV" />
+</RadzenStack>
+
+<AppContent>
+    <RadzenTabs @bind-SelectedIndex="@SelectedTab" @bind-SelectedIndex:after="@TabChanged">
+        <Tabs>
+            <RadzenTabsItem Text="Transfer Orders">
+                <STRDataGrid DataGetter="@(async (intent) => await strHandler.GetTransferOrdersList(intent))"/>
+            </RadzenTabsItem>
+            <RadzenTabsItem Text="Intercompany Transfer Orders">
+                <STRDataGrid DataGetter="@(async (intent) => await strHandler.GetInterCompanyTransferOrdersList(intent))" />
+            </RadzenTabsItem>
+            <RadzenTabsItem Text="Returns">
+                <STRDataGrid DataGetter="@(async (intent) => await strHandler.GetReturnsList(intent))" />
+            </RadzenTabsItem>
+        </Tabs>
+    </RadzenTabs>
+</AppContent>
+
+@code {
+    [SupplyParameterFromQuery] public string? Tab { get; set; }
+
+    [Inject] IStockTransferRequestHandler strHandler { get; set; } = default!;
+
+    int SelectedTab = 0;
+    readonly string[] tabs = { "transferorder", "intercompany", "returns" };
+
+    protected override void OnParametersSet()
+    {
+        SelectedTab = Array.IndexOf(tabs, Tab?.ToLowerInvariant() ?? null) switch { -1 => 0, var i => i };
+    }
+
+    void TabChanged()
+    {
+        NavManager.NavigateTo($"{STRRoutes.Root}?tab={tabs[SelectedTab]}");
+    }
+}

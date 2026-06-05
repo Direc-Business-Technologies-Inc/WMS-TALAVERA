@@ -7,5 +7,8 @@ public interface IStockTransferRequestHandler
 {
     Task<StockTransferRequestInfoVM?> GetStockTransferRequest(string reference, bool includeLines = false);
     Task<(IEnumerable<StockTransferRequestLineVM> data, int count)> GetStockTransferRequestLines(string reference, DataGridIntent intent);
-    Task<(IEnumerable<StockTransferRequestDataGridVM> data, int count)> GetStockTransferRequests(DataGridIntent intent);
+    Task<(IEnumerable<StockTransferRequestDataGridVM> data, int count)> GetStockTransferRequestsList(DataGridIntent intent);
+    Task<(IEnumerable<StockTransferRequestDataGridVM> data, int count)> GetTransferOrdersList(DataGridIntent intent);
+    Task<(IEnumerable<StockTransferRequestDataGridVM> data, int count)> GetInterCompanyTransferOrdersList(DataGridIntent intent);
+    Task<(IEnumerable<StockTransferRequestDataGridVM> data, int count)> GetReturnsList(DataGridIntent intent);
 }
