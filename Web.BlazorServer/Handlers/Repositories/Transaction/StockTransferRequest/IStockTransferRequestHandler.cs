@@ -5,7 +5,7 @@ namespace Web.BlazorServer.Handlers.Repositories.Transaction.StockTransferReques
 
 public interface IStockTransferRequestHandler
 {
-    Task<StockTransferRequestInfoVM?> GetStockTransferRequest(string reference, bool includeLines = false);
+    Task<StockTransferRequestInfoVM?> GetStockTransferRequest(string reference, bool includeLines = true);
     Task<(IEnumerable<StockTransferRequestLineVM> data, int count)> GetStockTransferRequestLines(string reference, DataGridIntent intent);
     Task<(IEnumerable<StockTransferRequestDataGridVM> data, int count)> GetStockTransferRequestsList(DataGridIntent intent);
     Task<(IEnumerable<StockTransferRequestDataGridVM> data, int count)> GetTransferOrdersList(DataGridIntent intent);

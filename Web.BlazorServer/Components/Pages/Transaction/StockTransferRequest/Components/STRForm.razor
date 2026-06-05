@@ -1,0 +1,140 @@
+﻿@using Web.BlazorServer.Services.Repositories
+@using Web.BlazorServer.ViewModels.Transaction.StockTransferRequest
+@inherits BaseComponent
+
+<RadzenTemplateForm @bind-Data=@Model TItem="StockTransferRequestInfoVM" Submit="@HandleSubmit" EditContext="@EditContext">
+    <RadzenStack Gap="0.5em">
+        <RadzenFieldset AllowCollapse Text="Details">
+            <RadzenRow>
+                <RadzenColumn SizeLG="4" SizeMD="6">
+                    <RadzenFormField AllowFloatingLabel="@(!ReadOnly)" Text="Stock Transfer Request Number" class="rz-w-100">
+                        <RadzenTextBox ReadOnly Value="@Model.ReferenceNumber" />
+                    </RadzenFormField>
+                </RadzenColumn>
+                <RadzenColumn SizeLG="4" SizeMD="6">
+                    <RadzenFormField AllowFloatingLabel="@(!ReadOnly)" Text="Document Date" class="rz-w-100">
+                        <RadzenDatePicker ReadOnly="@ReadOnly" @bind-Value="@Model.Date" />
+                    </RadzenFormField>
+                </RadzenColumn>
+                <RadzenColumn SizeLG="4" SizeMD="6">
+                    <RadzenFormField AllowFloatingLabel="@(!ReadOnly)" Text="Requestor" class="rz-w-100">
+                        <RadzenTextBox ReadOnly="@ReadOnly" @bind-Value="@Model.Requestor" />
+                    </RadzenFormField>
+                </RadzenColumn>
+                <RadzenColumn SizeLG="4" SizeMD="6">
+                    <RadzenFormField AllowFloatingLabel="@(!ReadOnly)" Text="Subsidiary" class="rz-w-100">
+                        <RadzenTextBox ReadOnly="@ReadOnly" @bind-Value="@Model.Subsidiary" />
+                    </RadzenFormField>
+                </RadzenColumn>
+                <RadzenColumn SizeLG="4" SizeMD="6">
+                    <RadzenFormField AllowFloatingLabel="@(!ReadOnly)" Text="Source Location" class="rz-w-100">
+                        <RadzenTextBox ReadOnly="@ReadOnly" @bind-Value="@Model.SourceLocation" />
+                    </RadzenFormField>
+                </RadzenColumn>
+                <RadzenColumn SizeLG="4" SizeMD="6">
+                    <RadzenFormField AllowFloatingLabel="@(!ReadOnly)" Text="Destination Location" class="rz-w-100">
+                        <RadzenTextBox ReadOnly="@ReadOnly" @bind-Value="@Model.DestinationLocation" />
+                    </RadzenFormField>
+                </RadzenColumn>
+                <RadzenColumn Size="12">
+                    <RadzenFormField AllowFloatingLabel="@(!ReadOnly)" Text="Destination Location" class="rz-w-100">
+                        <RadzenTextArea ReadOnly="@ReadOnly" @bind-Value="@Model.Remarks" />
+                    </RadzenFormField>
+                </RadzenColumn>
+            </RadzenRow>
+        </RadzenFieldset>
+        <RadzenFieldset AllowCollapse Text="Lines">
+            <AppTable @ref="@LinesTable"
+                      Id="str_form_lines"
+                      TItem="StockTransferRequestLineVM"
+                      GridSettingsLoaded
+                      Data="@Model.Lines">
+                <HeaderTemplate>
+                    <RadzenStack Orientation="Orientation.Horizontal"
+                                 JustifyContent="JustifyContent.End"
+                                 AlignItems="AlignItems.Center"
+                                 Gap="8px">
+                        <RadzenButton Icon="settings"
+                                      Size="ButtonSize.Small"
+                                      ButtonStyle="ButtonStyle.Light"
+                                      Click="@OpenTableSettings" />
+                    </RadzenStack>
+                </HeaderTemplate>
+                <Columns>
+                    <RadzenDataGridColumn TItem="StockTransferRequestLineVM"
+                                          Property="@nameof(StockTransferRequestLineVM.ItemCode)" 
+                                          Title="Item Code"/>
+                    <RadzenDataGridColumn TItem="StockTransferRequestLineVM"
+                                          Property="@nameof(StockTransferRequestLineVM.ItemDescription)"
+                                          Type="@typeof(string)"
+                                          Title="Item Description" />
+                    <RadzenDataGridColumn TItem="StockTransferRequestLineVM"
+                                          Property="@nameof(StockTransferRequestLineVM.UoM)"
+                                          Type="@typeof(string)"
+                                          Title="UoM" />
+                    <RadzenDataGridColumn TItem="StockTransferRequestLineVM"
+                                          Property="@nameof(StockTransferRequestLineVM.Warehouse)"
+                                          Type="@typeof(string)"
+                                          Title="Warehouse" Width="125px" />
+                    <RadzenDataGridColumn TItem="StockTransferRequestLineVM"
+                                          Property="@nameof(StockTransferRequestLineVM.QuantityOnHand)"
+                                          Type="@typeof(decimal)"
+                                          Title="On hand Quantity" />
+                    <RadzenDataGridColumn TItem="StockTransferRequestLineVM"
+                                          Property="@nameof(StockTransferRequestLineVM.QuantityAlloted)"
+                                          Type="@typeof(decimal)"
+                                          Title="Alloted Quantity" />
+                </Columns>
+            </AppTable>
+        </RadzenFieldset>
+    </RadzenStack>
+</RadzenTemplateForm>
+
+@code {
+    [Parameter][EditorRequired]
+    public StockTransferRequestInfoVM Model { get; set; }
+    [Parameter]
+    public Func<StockTransferRequestInfoVM, Task<bool>>? OnSubmit { get; set; }
+    [Parameter]
+    public EditContext? EditContext { get; set; }
+    [Parameter]
+    public bool ReadOnly { get; set; } = false;
+
+    [Inject]
+    IGridSettingsService GridSettingsService { get; set; } = default!;
+
+    AppTable<StockTransferRequestLineVM> LinesTable = default!;
+    DataGridSettings TableSettings { get; set; } = new();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+        if (firstRender) await LoadGridSettings();
+    }
+
+    async Task LoadGridSettings()
+    {
+        await GridSettingsService.SetGridSettings(LinesTable.DataGrid, settings => TableSettings = settings ?? new());
+        GridSettingsLoaded = true;
+
+        await LinesTable.DataGrid.ReloadSettings();
+        await LinesTable.DataGrid.Reload();
+    }
+
+    async Task HandleSubmit()
+    {
+        if (OnSubmit is not null) await OnSubmit(Model);
+    }
+    
+    async Task OpenTableSettings()
+    {
+        await DialogService.OpenAsync(
+            "Table Settings",
+            ds => @<AppGridSettings TItem="StockTransferRequestLineVM"
+                                    @bind-Grid=@LinesTable.DataGrid
+                                    @bind-GridSettings=@TableSettings />,
+        options: GridSettingsService.GetDialogOptions());
+
+        await LinesTable.DataGrid.Reload();
+    }
+}

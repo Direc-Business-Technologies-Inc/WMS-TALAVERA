@@ -38,7 +38,7 @@ public class StockTransferRequestMockHandler : IStockTransferRequestHandler
         return (str.Lines.Skip(intent.Skip).Take(intent.Take), 0);
     }
 
-    public async Task<StockTransferRequestInfoVM?> GetStockTransferRequest(string reference, bool includeLines = false)
+    public async Task<StockTransferRequestInfoVM?> GetStockTransferRequest(string reference, bool includeLines = true)
     {
         var str = STR_BANK.FirstOrDefault(x => x.ReferenceNumber.Equals(reference, StringComparison.OrdinalIgnoreCase));
         if (str == null) return null;

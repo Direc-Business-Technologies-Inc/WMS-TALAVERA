@@ -72,7 +72,7 @@ partial class STRDataGrid
 
     void ViewSTR(StockTransferRequestDataGridVM item)
     {
-
+        NavManager.NavigateTo(STRRoutes.View + $"?ref={item.ReferenceNumber}");
     }
 
     public delegate Task<(IEnumerable<StockTransferRequestDataGridVM> data, int count)> DataGetterDelegate(DataGridIntent intent);

@@ -1,0 +1,54 @@
+﻿@using Mapster
+@using Web.BlazorServer.Components.Pages.Transaction.Receiving.Components
+@using Web.BlazorServer.Components.Pages.Transaction.StockTransferRequest.Components
+@using Web.BlazorServer.Components.Security
+@using Web.BlazorServer.Components.Shared.Skeletons
+@using Web.BlazorServer.Defaults
+@using Web.BlazorServer.Handlers.Repositories.Transaction.StockTransferRequest
+@using Web.BlazorServer.ViewModels.Administration.User
+@using Web.BlazorServer.ViewModels.Transaction.Receiving
+@using Web.BlazorServer.ViewModels.Transaction.StockTransferRequest
+
+@inherits BaseForm<StockTransferRequestInfoVM>
+@layout ProtectedLayout
+@attribute [AppAuthorizationAttribute("VIEW", "ORCV")]
+@attribute [Route(STRRoutes.Create)]
+
+
+<PageTitle>Receiving</PageTitle>
+
+<AppContent>
+<AppFormSkeleton TItem="StockTransferRequestInfoVM" Loading="@IsLoadingData" />
+@if (!IsLoadingData)
+{
+    <STRForm OnSubmit="@Create" Model="@FormData" EditContext="@EditContext"/>
+}
+</AppContent>
+
+@code {
+    [Inject] IStockTransferRequestHandler handler { get; set; } = default!;
+
+    [SupplyParameterFromQuery]
+    public string? Ref { get; set; }
+
+    readonly string ActionGetStockTransferRequest = "Get Stock Transfer Request";
+
+    bool IsLoadingData => AppBusyService.IsBusy(ActionGetStockTransferRequest);
+
+
+    protected override void OnParametersSet()
+    {
+        base.OnParametersSet();
+        FormData = new();
+    }
+
+    async Task<bool> Create(StockTransferRequestInfoVM model)
+    {
+        // TODO Implementation
+        throw new NotImplementedException();
+    }
+
+    protected override Task InitializeEditing() => throw new NotImplementedException();
+    protected override Task CancelEditing() => throw new NotImplementedException();
+    protected override Task HandleSubmit() => throw new NotImplementedException();
+}
