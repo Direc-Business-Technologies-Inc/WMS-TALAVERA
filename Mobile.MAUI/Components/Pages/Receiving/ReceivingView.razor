@@ -1,5 +1,6 @@
 ﻿@page "/receiving"
 @using Mobile.MAUI.Components.Pages.Receiving.PurchaseOrder
+@using Mobile.MAUI.Components.Pages.Receiving.Returns
 @using Mobile.MAUI.Components.Pages.Receiving.TransferOrder
 <PageHeading Title="Receiving" BackPath="/" />
 
@@ -12,8 +13,8 @@
             <TransferOrderView />
         </RadzenTabsItem>
         <RadzenTabsItem Text="Returns">
-
+            <ReturnsView />
         </RadzenTabsItem>
-</Tabs>
+    </Tabs>
 </RadzenTabs>
 

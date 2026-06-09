@@ -32,6 +32,7 @@ public class PurchaseOrderLineVM
     public int NetsuiteUoMInternalId { get; set; }
     public string UoMName { get; set; } = string.Empty;
     public decimal UoMRate { get; set; }
+    public decimal? DefaultWeight;
 
     public decimal TotalWeight => LineQuantity * MaterialWeight; // Record Weight
 
@@ -48,6 +49,5 @@ public class PurchaseOrderLineVM
     // New: classification flag - true = Bad, false = Good (default)
     public bool IsBad { get; set; } = false;
 
-    public bool AlreadyFulfilled => ScannedQuantity == LineQuantity;
-    public bool OverScanned => ScannedQuantity > LineQuantity;
+    public bool AlreadyFulfilled => ScannedQuantity == NSLineQuantity;
 }

@@ -19,7 +19,7 @@ public partial class TransferOrderView
             TaskAsync = async () =>
             {
                 await InvokeAsync(StateHasChanged);
-                var res = await Client.Get<List<TransferOrderVM>>("/Receiving/TO/PendingReceipt");
+                var res = await Client.Get<List<TransferOrderVM>>("/TransferOrder/PendingReceipt");
                 return res;
             },
             OnSuccess = async (result) =>

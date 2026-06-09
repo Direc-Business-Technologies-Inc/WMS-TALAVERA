@@ -47,7 +47,7 @@
                 <RadzenTabs>
                     <Tabs>
                         <RadzenTabsItem Text="Good">
-                            <RadzenDataList TItem="TransferOrderLineVM" Data="GoodTOItems" Style="margin-bottom:200px">
+                            <RadzenDataList TItem="TransferOrderLineVM" Data="GoodTOItems.Where(x => x.NSLineQuantity != 0)" Style="margin-bottom:200px">
                                 <Template Context="row">
                                     <RadzenStack Style="position:relative;overflow:clip !important;" class="rz-p-2" Orientation="Orientation.Horizontal">
                                         <RadzenStack Gap="4px">

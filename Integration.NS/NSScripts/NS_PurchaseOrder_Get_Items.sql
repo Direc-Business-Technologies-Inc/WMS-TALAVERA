@@ -32,18 +32,24 @@ SELECT
 	
 	TO_CHAR(t.custbody_dbti_est_receipt_date, 'YYYY-MM-DD"T"HH24:MI:SS') AS NetsuiteOrderDocumentDate,
 	TO_CHAR(t.createdDate, 'YYYY-MM-DD"T"HH24:MI:SS') AS NetsuiteOrderCreatedDate
-FROM
-	item i
-	LEFT JOIN itembinquantity ibq ON i.id = ibq.item AND ibq.preferredbin = 'T'
-	LEFT JOIN bin b ON ibq.bin = b.id
-	JOIN transactionline tl ON i.id = tl.item
-	JOIN transaction t ON tl.transaction = t.id
+FROM item i
+    JOIN transactionline tl ON i.id = tl.item
+    JOIN transaction t ON tl.transaction = t.id
 	JOIN entity e ON t.entity = e.id
-	JOIN location loc ON tl.location = loc.id
-	JOIN customrecord_dbti_vendor_bin_assignment ba ON t.entity = ba.custrecord_dbti_vba_vendor
-	JOIN subsidiary s ON t.subsidiary = s.id
-	LEFT JOIN unitstypeuom uom ON tl.units = uom.internalid
-	
+    JOIN subsidiary s ON t.subsidiary = s.id
+    JOIN location loc ON tl.location = loc.id
+    LEFT JOIN (
+	   SELECT
+		   ibq.item,
+		   ibq.bin,
+		   b.location
+	   FROM itembinquantity ibq
+	   JOIN bin b
+		   ON b.id = ibq.bin
+	   WHERE ibq.preferredbin = 'T'
+   ) ibq ON ibq.item = i.id  AND ibq.location = tl.location
+	LEFT JOIN bin b ON b.id = ibq.bin
+    JOIN unitstypeuom uom ON tl.units = uom.internalid
 WHERE
 	t.recordtype = 'purchaseorder'
 	AND t.status IN ('B', 'E')			

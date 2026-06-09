@@ -8,6 +8,8 @@ public class OrdersDTO
     public string OrderNumber { get; set; } = string.Empty;
     public string OrderType { get; set; } = string.Empty;
     public string OrderStatus { get; set; } = string.Empty;
+    public int TransferCategory { get; set; }
+
 
     public int NetsuiteFromLocationInternalId { get; set; }
     public int NetsuiteToLocationInternalId { get; set; }

@@ -3,6 +3,7 @@ SELECT
     t.tranid AS OrderNumber,
     t.recordtype AS OrderType,
     t.status AS OrderStatus,
+	t.custbody_dbti_transfer_category as TransferCategory,
 
     tl.location AS NetsuiteFromLocationInternalId,
     t.transferlocation AS NetsuiteToLocationInternalId,

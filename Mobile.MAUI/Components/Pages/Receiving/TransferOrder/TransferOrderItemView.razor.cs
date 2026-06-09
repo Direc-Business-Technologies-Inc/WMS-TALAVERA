@@ -33,6 +33,7 @@ public partial class TransferOrderItemView
     int ScanCount { get; set; }
     bool SaveBtnDisabled => ScanCount == 0;
     bool NextScanIsBad = false;
+    bool IsWeightDialogOpen = false;
     decimal? DefaultWeight = null;
     decimal? ChangeWeight = null;
 
@@ -44,7 +45,7 @@ public partial class TransferOrderItemView
             TaskAsync = async () =>
             {
                 await InvokeAsync(StateHasChanged);
-                var res = await Client.Post<List<TransferOrderLineVM>>("/Receiving/TO/Items", new { OrderNumber = OrderNumber });
+                var res = await Client.Post<List<TransferOrderLineVM>>("/TransferOrder/Items", new { OrderNumber = OrderNumber });
                 return res;
             },
             OnSuccess = async (result) =>
@@ -55,6 +56,13 @@ public partial class TransferOrderItemView
                     OrderNumber = line.OrderNumber,
                     OrderType = line.OrderType,
                     OrderStatus = line.OrderStatus,
+
+                    NetsuiteFromLocationInternalId = line.NetsuiteFromLocationInternalId,
+                    NetsuiteToLocationInternalId = line.NetsuiteToLocationInternalId,
+
+                    NetsuiteFromSubsidiaryInternalId = line.NetsuiteFromSubsidiaryInternalId,
+                    NetsuiteSubsidiaryDefaultBOInternalId = line.NetsuiteSubsidiaryDefaultBOInternalId,
+                    NetsuiteToSubsidiaryInternalId = line.NetsuiteToSubsidiaryInternalId,
 
                     LocationName = line.LocationName,
                     LocationUsedBin = line.LocationUsedBin,
@@ -84,6 +92,13 @@ public partial class TransferOrderItemView
                     OrderNumber = line.OrderNumber,
                     OrderType = line.OrderType,
                     OrderStatus = line.OrderStatus,
+
+                    NetsuiteFromLocationInternalId = line.NetsuiteFromLocationInternalId,
+                    NetsuiteToLocationInternalId = line.NetsuiteToLocationInternalId,
+
+                    NetsuiteFromSubsidiaryInternalId = line.NetsuiteFromSubsidiaryInternalId,
+                    NetsuiteSubsidiaryDefaultBOInternalId = line.NetsuiteSubsidiaryDefaultBOInternalId,
+                    NetsuiteToSubsidiaryInternalId = line.NetsuiteToSubsidiaryInternalId,
 
                     LocationName = line.LocationName,
                     LocationUsedBin = line.LocationUsedBin,
@@ -134,7 +149,7 @@ public partial class TransferOrderItemView
             TaskAsync = async () =>
             {
                 await InvokeAsync(StateHasChanged);
-                var res = await Client.Post("/Receiving/TO/SaveScan", TOItems);
+                var res = await Client.Post("/TransferOrder/SaveScan", TOItems);
                 return res;
             },
             OnSuccess = async (result) =>
@@ -187,41 +202,6 @@ public partial class TransferOrderItemView
                 return;
             }
 
-            if (!NextScanIsBad)
-            {
-                ChangeWeight = await Dialog.OpenAsync<WeightInputDialog>(
-                    "Weight Input",
-                    new Dictionary<string, object>
-                    {
-                        { "ItemName", barcode.MaterialName }
-                    },
-                    new DialogOptions()
-                );
-            }
-            else if (DefaultWeight is null)
-            {
-                DefaultWeight = await Dialog.OpenAsync<WeightInputDialog>(
-                    "Weight Input",
-                    new Dictionary<string, object>
-                    {
-                        { "ItemName", barcode.MaterialName }
-                    },
-                    new DialogOptions()
-                );
-            }
-            
-
-            if (!DefaultWeight.HasValue)
-            {
-                return;
-            }
-
-            if (DefaultWeight.Value == 0m)
-            {
-                await Toast.Warning("Scan cancelled - no weight entered");
-                return;
-            }
-
             var goodLine = GoodTOItems.FirstOrDefault(x =>
                     x.NetsuiteMaterialInternalId == barcode.MaterialInternalId);
 
@@ -257,16 +237,72 @@ public partial class TransferOrderItemView
                 return;
             }
 
-            var weight = ChangeWeight ?? DefaultWeight;
+            if (IsWeightDialogOpen)
+            {
+                return;
+            }
 
             if (NextScanIsBad)
             {
+                IsWeightDialogOpen = true;
+
+                ChangeWeight = await Dialog.OpenAsync<WeightInputDialog>(
+                        "Weight Input",
+                        new Dictionary<string, object>
+                        {
+                        { "ItemName", barcode.MaterialName }
+                        },
+                        new DialogOptions()
+                    );
+
+                IsWeightDialogOpen = false;
+
+                if (ChangeWeight.Value == 0m || !ChangeWeight.HasValue)
+                {
+                    await Toast.Warning("Scan cancelled - no weight entered");
+                    return;
+                }
+
                 badLine.ScannedQuantity += barcode.UoMRate / badLine.UoMRate;
-                badLine.ScannedWeight += barcode.UoMRate * (weight ?? 0m);
+                badLine.ScannedWeight += barcode.UoMRate * (ChangeWeight ?? 0m);
                 badLine.ScanCount++;
             }
             else
             {
+                decimal? weight = null;
+
+                if (ChangeWeight.HasValue)
+                {
+                    weight = ChangeWeight;
+                }
+                else if (!goodLine.DefaultWeight.HasValue)
+                {
+                    IsWeightDialogOpen = true;
+
+                    weight = await Dialog.OpenAsync<WeightInputDialog>(
+                        "Weight Input",
+                        new Dictionary<string, object>
+                        {
+                            { "ItemName", barcode.MaterialName }
+                        },
+                        new DialogOptions()
+                    );
+
+                    IsWeightDialogOpen = false;
+
+                    if (!weight.HasValue || weight.Value == 0m)
+                    {
+                        await Toast.Warning("Scan cancelled - no weight entered");
+                        return;
+                    }
+
+                    goodLine.DefaultWeight = weight;
+                }
+                else
+                {
+                    weight = goodLine.DefaultWeight;
+                }
+
                 goodLine.ScannedQuantity += barcode.UoMRate / goodLine.UoMRate;
                 goodLine.ScannedWeight += barcode.UoMRate * (weight ?? 0m);
                 goodLine.ScanCount++;
@@ -285,18 +321,28 @@ public partial class TransferOrderItemView
 
     async Task SaveScan()
     {
-        TOItems = GoodTOItems
-            .Concat(BadTOItems)
+        TOItems = GoodTOItems.Where(x => x.ScannedQuantity != 0)
+            .Concat(BadTOItems.Where(x => x.ScannedQuantity != 0))
             .Select(x => new TransferOrderLineVM
             {
                 NetsuiteOrderInternalId = x.NetsuiteOrderInternalId,
                 OrderNumber = x.OrderNumber,
                 OrderType = x.OrderType,
                 OrderStatus = x.OrderStatus,
+
+                NetsuiteFromLocationInternalId = x.NetsuiteFromLocationInternalId,
+                NetsuiteToLocationInternalId = x.NetsuiteToLocationInternalId,
+
+                NetsuiteFromSubsidiaryInternalId = x.NetsuiteFromSubsidiaryInternalId,
+                NetsuiteSubsidiaryDefaultBOInternalId = x.NetsuiteSubsidiaryDefaultBOInternalId,
+                NetsuiteToSubsidiaryInternalId = x.NetsuiteToSubsidiaryInternalId,
+
                 LocationName = x.LocationName,
                 LocationUsedBin = x.LocationUsedBin,
+
                 LineSequenceNumber = x.LineSequenceNumber,
                 TransactionLineType = x.TransactionLineType,
+
                 NetsuiteMaterialInternalId = x.NetsuiteMaterialInternalId,
                 MaterialCode = x.MaterialCode,
                 MaterialName = x.MaterialName,
