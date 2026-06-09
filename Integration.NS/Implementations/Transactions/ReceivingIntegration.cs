@@ -285,7 +285,7 @@ public class ReceivingIntegration(
                 ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", "Date"),
                 ("BUILTIN.DF(t.subsidiary)", "Subsidiary"),
                 ("BUILTIN.DF(t.tosubsidiary)", "ToSubsidiary"),
-                ("t.custbody_dbti_return_to_vendor", "Vendor"),
+                ("CASE WHEN t.custbody_dbti_transfer_category IN (3,4) THEN BUILTIN.DF(t.custbody_dbti_return_to_vendor) ELSE BUILTIN.DF(t.entity) END", "Vendor"),
                 ("BUILTIN.DF(t.location)", "Location"),
                 ("BUILTIN.DF(t.transferlocation)", "TransferLocation"),
                 ("CASE WHEN t.custbody_dbti_transfer_category IN (3,4) THEN \'Returns\' ELSE t.type END", "Type"),
@@ -309,7 +309,8 @@ public class ReceivingIntegration(
                 ("BUILTIN.DF(tl.units)", "UoM"),
                 ("BUILTIN.DF(tl.location)", "Location"),
                 ("item.displayname", "ItemDescription"),
-                ("tl.quantity", "QuantityPlanned")
+                ("tl.quantity", "QuantityPlanned"),
+                ("tl.quantityshiprecv", "QuantityReceived")
             )
             .From("transactionline tl")
             .Join("item", on: "tl.item = item.id")
