@@ -16,7 +16,7 @@ public class PurchaseOrderPayloadDTO
     public ItemContainer Item { get; set; } = new();
 
     public static PurchaseOrderPayloadDTO CreateForItemReceipt(
-        List<PurchaseOrderLineVM> lines,
+        List<PostPurchaseOrderDTO> lines,
         int receivingCategory)
     {
         // Make it nullable if its not included in json
@@ -55,7 +55,7 @@ public class PurchaseOrderPayloadDTO
                                     {
                                         InventoryStatus = new ReferenceValue
                                         {
-                                            Id = line.IsBad ? "2" : "1"
+                                            Id = line.IsBad ? "3" : "1"
                                         },
                                         BinNumber = new ReferenceValue
                                         {

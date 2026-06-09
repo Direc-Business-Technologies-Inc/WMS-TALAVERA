@@ -1,0 +1,15 @@
+﻿@page "/itemfulfillment"
+@using Mobile.MAUI.Components.Pages.Receiving.PurchaseOrder
+@using Mobile.MAUI.Components.Pages.Receiving.Returns
+@using Mobile.MAUI.Components.Pages.Receiving.TransferOrder
+<PageHeading Title="ItemFulfillment" BackPath="/" />
+
+<RadzenTabs Change=@OnChange TabPosition="TabPosition.Top" RenderMode="TabRenderMode.Client">
+    <Tabs>
+        <RadzenTabsItem Text="Packing">
+        </RadzenTabsItem>
+        <RadzenTabsItem Text="Shipping">
+        </RadzenTabsItem>
+    </Tabs>
+</RadzenTabs>
+

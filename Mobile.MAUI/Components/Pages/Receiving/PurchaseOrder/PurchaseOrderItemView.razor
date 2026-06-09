@@ -49,7 +49,7 @@
                 <RadzenTabs>
                     <Tabs>
                         <RadzenTabsItem Text="Good">
-                            <RadzenDataList TItem="PurchaseOrderLineVM" Data="GoodPOItems" Style="margin-bottom:200px">
+                            <RadzenDataList TItem="PurchaseOrderLineVM" Data="GoodPOItems.Where(x => x.NSLineQuantity != 0)" Style="margin-bottom:200px">
                                 <Template Context="row">
                                     <RadzenStack Style="position:relative;overflow:clip !important;" class="rz-p-2" Orientation="Orientation.Horizontal">
                                         <RadzenStack Gap="4px">
@@ -111,10 +111,11 @@
                 <RadzenCard Style="position:fixed; bottom:50px; right:10px; z-index:1000;" class="rz-p-2 rz-border-radius-6 rz-w-fit-content">
                     <RadzenStack Gap="16px" Orientation="Orientation.Horizontal">
                         @* <RadzenButton Click="AutofillScan" class="rz-border-radius-5" Icon="check" ButtonStyle="ButtonStyle.Success" /> *@
-                        <RadzenButton Icon="@(NextScanIsBad ? "block" : "check")" ButtonStyle="@(NextScanIsBad? ButtonStyle.Danger: ButtonStyle.Success)"
+                        <RadzenButton class="rz-border-radius-5" Icon="@(NextScanIsBad ? "block" : "check")" ButtonStyle="@(NextScanIsBad? ButtonStyle.Danger: ButtonStyle.Success)"
                                       Size="ButtonSize.Small" Click="@(args => ToggleQuality())" Disabled="@ActionSaveScan.Busy" />
-                        <RadzenButton Click="@(async () => await SaveScan())" Disabled="@(SaveBtnDisabled || ActionSaveScan.Busy)" class="rz-border-radius-5" 
-                                    ButtonStyle="ButtonStyle.Success" Icon="@(ActionSaveScan.Busy ? "schedule" : "save")" />
+                        <RadzenButton class="rz-border-radius-5" Icon="weight" ButtonStyle="ButtonStyle.Base" Size="ButtonSize.Small" Click="@(args => ToggleWeight())" Disabled="@ActionSaveScan.Busy" />
+                        <RadzenButton class="rz-border-radius-5" Click="@(async () => await SaveScan())" Disabled="@(SaveBtnDisabled || ActionSaveScan.Busy)"
+                                      ButtonStyle="ButtonStyle.Success" Icon="@(ActionSaveScan.Busy ? "schedule" : "save")" />
                     </RadzenStack>
                 </RadzenCard>
             </RadzenStack>
