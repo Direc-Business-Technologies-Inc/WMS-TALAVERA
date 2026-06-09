@@ -1,5 +1,4 @@
 ﻿using Application.DataTransferObjects.Transactions.Receiving;
-using Application.DataTransferObjects.Transactions.Receiving.NS;
 using Application.UseCases.Repositories.Integration.Transaction.Receiving;
 using Mapster;
 using MediatR;
@@ -7,28 +6,21 @@ using ReceivingLineDTO = Application.DataTransferObjects.Transactions.Receiving.
 
 namespace Application.UseCases.Queries.Transaction.Receiving;
 
-public record GetPurchaseOrderQry(int DocEntry) : IRequest<ReceivingDTO?>;
+public record GetPurchaseOrderQry(string DocEntry) : IRequest<PurchaseOrderDTO?>;
 
 public class GetPurchaseOrderQryHandler(
     IReceivingIntegration receivingIntegration) 
-    : IRequestHandler<GetPurchaseOrderQry, ReceivingDTO?>
+    : IRequestHandler<GetPurchaseOrderQry, PurchaseOrderDTO?>
 {
-    public async Task<ReceivingDTO?> Handle(GetPurchaseOrderQry request, CancellationToken cancellationToken)
+    public async Task<PurchaseOrderDTO?> Handle(GetPurchaseOrderQry request, CancellationToken cancellationToken)
     {
-        ReceivingInfoNSDTO? headerResponse = await receivingIntegration.GetPurchaseOrderHeaderAsync(request.DocEntry);
+        PurchaseOrderDTO? headerResponse = await receivingIntegration.GetPurchaseOrderHeaderAsync(request.DocEntry);
         if (headerResponse is null) return null;
 
-        IEnumerable<ReceivingLineNSDTO> linesResponse = await receivingIntegration.GetPurchaseOrderLinesAsync(request.DocEntry);
+        IEnumerable<PurchaseOrderLineDTO> linesResponse = await receivingIntegration.GetPurchaseOrderLinesAsync(request.DocEntry);
 
-        ReceivingInfoDTO purchaseOrderDTO = headerResponse.Adapt<ReceivingInfoDTO>();
-        IEnumerable<ReceivingLineDTO> purchaseOrderLinesDTO = linesResponse.Adapt<IEnumerable<ReceivingLineDTO>>();
 
-        ReceivingDTO dto = new()
-        {
-            DocumentInfo = purchaseOrderDTO,
-            DocumentLines = [.. purchaseOrderLinesDTO]
-        };
-
-        return dto;
+        headerResponse.Lines = [.. linesResponse];
+        return headerResponse;
     }
 }

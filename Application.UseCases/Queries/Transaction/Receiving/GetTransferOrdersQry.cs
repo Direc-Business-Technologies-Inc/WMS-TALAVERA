@@ -12,17 +12,17 @@ using System.Threading.Tasks;
 
 namespace Application.UseCases.Queries.Transaction.Receiving;
 
-public record GetTransferOrdersQry(DataGridIntent Intent): IRequest<(IEnumerable<ReceivingDataGridDTO> Data, int Count)>;
+public record GetTransferOrdersQry(DataGridIntent Intent): IRequest<(IEnumerable<TransferOrderDataGridDTO> Data, int Count)>;
 
 public class GetTransferOrdersQryHandler(
     IReceivingIntegration receivingIntegration)
-    : IRequestHandler<GetTransferOrdersQry, (IEnumerable<ReceivingDataGridDTO> Data, int Count)>
+    : IRequestHandler<GetTransferOrdersQry, (IEnumerable<TransferOrderDataGridDTO> Data, int Count)>
 {
-    public async Task<(IEnumerable<ReceivingDataGridDTO> Data, int Count)> Handle(GetTransferOrdersQry request, CancellationToken cancellationToken)
+    public async Task<(IEnumerable<TransferOrderDataGridDTO> Data, int Count)> Handle(GetTransferOrdersQry request, CancellationToken cancellationToken)
     {
-        (IEnumerable<ReceivingInfoNSDTO> Data, int Count) = await receivingIntegration.GetTransferOrderListAsync(request.Intent);
+        (IEnumerable<TransferOrderDataGridDTO> Data, int Count) = await receivingIntegration.GetTransferOrderListAsync(request.Intent);
 
-        var x = Data.Adapt<IEnumerable<ReceivingDataGridDTO>>();
+        var x = Data.Adapt<IEnumerable<TransferOrderDataGridDTO>>();
 
         return (x, Count);
     }

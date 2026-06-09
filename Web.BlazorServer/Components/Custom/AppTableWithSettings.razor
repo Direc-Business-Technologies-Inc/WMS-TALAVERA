@@ -1,0 +1,77 @@
+﻿@using Web.BlazorServer.Services.Repositories
+@typeparam TItem where TItem : class
+
+<AppTable @ref="@Table" Id="@Id" TItem="@TItem" @bind-GridSettingsLoaded="@GridSettingsLoaded" Data="[..Data]">
+    <HeaderTemplate>
+        @if (HeaderTemplate is not null)
+        {
+            @HeaderTemplate
+        }
+    </HeaderTemplate>
+    <Template Context="Item">
+        @if (Template is not null)
+        {
+            @Template(Item)
+        }
+    </Template>
+    <Footer>
+        @if (Footer is not null)
+        {
+            @Footer
+        }
+    </Footer>
+    <Columns>
+        @if (Columns is not null)
+        {
+            @Columns
+        }
+    </Columns>
+    <LoadingTemplate>
+        @if (LoadingTemplate is not null)
+        {
+            @LoadingTemplate
+        }
+    </LoadingTemplate>
+    <EmptyTemplate>
+        @if (EmptyTemplate is not null)
+        {
+            @EmptyTemplate
+        }
+    </EmptyTemplate>
+</AppTable>
+
+@code {
+    [Parameter][EditorRequired] public required string Id { get; set; }
+    [Parameter] public List<TItem> Data { get; set; } = new List<TItem>();
+
+    [Parameter] public RenderFragment? HeaderTemplate { get; set; }
+    [Parameter] public RenderFragment<TItem>? Template { get; set; }
+    [Parameter] public RenderFragment? Footer { get; set; }
+    [Parameter] public RenderFragment? LoadingTemplate { get; set; }
+    [Parameter] public RenderFragment? EmptyTemplate { get; set; }
+    [Parameter] public RenderFragment? Columns { get; set; }
+
+    [Inject] IGridSettingsService GridSettingsService { get; set; } = default!;
+
+    public AppTable<TItem> Table { get; private set; } = default!;
+    public RadzenDataGrid<TItem> DataGrid => Table.DataGrid;
+
+    bool GridSettingsLoaded { get; set; } = false;
+
+    DataGridSettings TableSettings { get; set; } = new();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+
+        if (firstRender && !GridSettingsLoaded)
+        {
+            await GridSettingsService.SetGridSettings(Table.DataGrid, settings => TableSettings = settings ?? new());
+            GridSettingsLoaded = true;
+
+            await Table.DataGrid.ReloadSettings();
+            await Table.DataGrid.Reload();
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+}

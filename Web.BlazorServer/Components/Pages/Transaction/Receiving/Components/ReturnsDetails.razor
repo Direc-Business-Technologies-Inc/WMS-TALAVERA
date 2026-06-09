@@ -1,0 +1,74 @@
+﻿@using Web.BlazorServer.Components.Custom
+@using Web.BlazorServer.ViewModels.Transaction.Receiving
+
+@inject NavigationManager NavManager
+
+<RadzenStack Gap="0.5em">
+    <RadzenFieldset Text="Details">
+        <RadzenRow Gap="0.5em">
+            <RadzenColumn SizeMD="6">
+                <RadzenFormField AllowFloatingLabel="false" Text="Reference Number" class="rz-w-100">
+                    <RadzenTextBox Value="@Model.ReferenceNumber" />
+                </RadzenFormField>
+            </RadzenColumn>
+            <RadzenColumn SizeMD="6">
+                <RadzenFormField AllowFloatingLabel="false" Text="Date" class="rz-w-100">
+                    <RadzenTextBox Value="@Model.Date.ToString("yyyy-MM-dd")" />
+                </RadzenFormField>
+            </RadzenColumn>
+            <RadzenColumn SizeMD="6">
+                <RadzenFormField AllowFloatingLabel="false" Text="From Subsidiary" class="rz-w-100">
+                    <RadzenTextBox Value="@Model.FromSubsidiary" />
+                </RadzenFormField>
+            </RadzenColumn>
+            <RadzenColumn SizeMD="6">
+                <RadzenFormField AllowFloatingLabel="false" Text="Vendor" class="rz-w-100">
+                    <RadzenTextBox Value="@Model.Vendor" />
+                </RadzenFormField>
+            </RadzenColumn>
+            <RadzenColumn SizeMD="6">
+                <RadzenFormField AllowFloatingLabel="false" Text="From Warehouse" class="rz-w-100">
+                    <RadzenTextBox Value="@Model.FromWarehouse" />
+                </RadzenFormField>
+            </RadzenColumn>
+            <RadzenColumn SizeMD="6">
+                <RadzenFormField AllowFloatingLabel="false" Text="To Warehouse" class="rz-w-100">
+                    <RadzenTextBox Value="@Model.ToWarehouse" />
+                </RadzenFormField>
+            </RadzenColumn>
+            <RadzenColumn SizeMD="6">
+                <RadzenFormField AllowFloatingLabel="false" Text="Received By" class="rz-w-100">
+                    <RadzenTextBox Value="@Model.ReceivedBy" />
+                </RadzenFormField>
+            </RadzenColumn>
+            <RadzenColumn SizeMD="6">
+                <RadzenFormField AllowFloatingLabel="false" Text="Prepared By" class="rz-w-100">
+                    <RadzenTextBox Value="@Model.PreparedBy" />
+                </RadzenFormField>
+            </RadzenColumn>
+        </RadzenRow>
+    </RadzenFieldset>
+    <RadzenFieldset Text="Lines" AllowCollapse>
+        <AppTableWithSettings Data="@Model.Lines" Id="returns_lines">
+            <Columns>
+                <RadzenDataGridColumn TItem="ReturnsLineVM" Property="@nameof(ReturnsLineVM.ItemCode)" Title="Item Code" />
+                <RadzenDataGridColumn TItem="ReturnsLineVM" Property="@nameof(ReturnsLineVM.ItemDescription)" Title="Item Description" />
+                <RadzenDataGridColumn TItem="ReturnsLineVM" Property="@nameof(ReturnsLineVM.UoM)" Title="UoM" />
+                <RadzenDataGridColumn TItem="ReturnsLineVM" Property="@nameof(ReturnsLineVM.Location)" Title="Warehouse" />
+                <RadzenDataGridColumn TItem="ReturnsLineVM" Property="@nameof(ReturnsLineVM.QuantityPlanned)" Title="Planned Quantity" />
+            </Columns>
+        </AppTableWithSettings>
+    </RadzenFieldset>
+    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween">
+        <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5em">
+            <RadzenButton ButtonStyle="ButtonStyle.Light" ButtonType="ButtonType.Button" Text="Return" Click="@(_ => NavManager.NavigateTo("/transactions/purchasing/receiving?tab=returns"))" />
+        </RadzenStack>
+        <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5em">
+            <RadzenButton ButtonType="ButtonType.Button" ButtonStyle="ButtonStyle.Success" Text="Create Item Receipt" Click="@(_ => NavManager.NavigateTo($"/transactions/purchasing/receiving/create-item-receipt?ref={Model.ReferenceNumber}"))" />
+        </RadzenStack>
+    </RadzenStack>
+</RadzenStack>
+
+@code {
+    [Parameter][EditorRequired] public required ReturnsVM Model { get; set; } = new();
+}

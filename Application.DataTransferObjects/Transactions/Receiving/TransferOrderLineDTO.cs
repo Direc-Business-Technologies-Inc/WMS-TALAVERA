@@ -1,15 +1,17 @@
-﻿using System.Numerics;
-using static Integration.NS.Entities.NetSuiteFindIdsResponse;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Numerics;
+using System.Text;
+using System.Threading.Tasks;
 
-namespace Web.BlazorServer.ViewModels.Transaction.Receiving;
+namespace Application.DataTransferObjects.Transactions.Receiving;
 
-public class TransferOrderLineVM
+public class TransferOrderLineDTO
 {
     public string ItemCode { get; set; } = string.Empty;
     public string ItemDescription { get; set; } = string.Empty;
     public string UoM { get; set; } = string.Empty;
     public string Warehouse { get; set; } = string.Empty;
-
     public decimal QuantityPlanned { get; set; }
 }
-

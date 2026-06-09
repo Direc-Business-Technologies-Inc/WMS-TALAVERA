@@ -1,0 +1,69 @@
+﻿using Microsoft.AspNetCore.Components;
+using Web.BlazorServer.Defaults;
+using Web.BlazorServer.Handlers.Implementations.Transaction.Receiving;
+using Web.BlazorServer.Handlers.Repositories.Transaction.Receiving;
+
+namespace Web.BlazorServer.Components.Pages.Transaction.Receiving;
+
+partial class ItemReceiptCreatePage
+{
+    [SupplyParameterFromQuery] public string? Ref { get; set; }
+    [Inject] IReceivingHandler? receivingHandler { get; set; }
+
+    readonly string ActionGetItemReceiptSource = "Get Item Receipt Source";
+
+    bool IsLoadingData => AppBusyService.IsBusy(ActionGetItemReceiptSource);
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await base.OnParametersSetAsync();
+        await LoadDataAsync();
+    }
+
+    async Task LoadDataAsync()
+    {
+        AppBusyService.SetBusy(ActionGetItemReceiptSource, true);
+        await InvokeAsync(StateHasChanged);
+
+        var action = await AppActionFactory.RunAsync(async () =>
+        {
+            if (string.IsNullOrEmpty(Ref)) throw new InvalidOperationException("Please select a source for item receipt");
+            if (receivingHandler is null) throw new Exception("No handlers registered for item receipt");
+
+            var res = await receivingHandler.GetItemReceiptSourceAsync(Ref);
+
+            if (res is null) throw new Exception($"Couldn't find the source for item receipt: \"{Ref}\"");
+            return res;
+        }, AppActionOptionPresets.Loading(ActionGetItemReceiptSource));
+
+        action.OnFailure(ex =>
+        {
+            NavManager.NavigateTo("/transactions/purchasing/receiving");
+            return Task.CompletedTask;
+        });
+
+        action.OnSuccess(res =>
+        {
+            FormData = res;
+            return Task.CompletedTask;
+        });
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+
+    protected override Task CancelEditing()
+    {
+        throw new NotImplementedException();
+    }
+
+    protected override Task HandleSubmit()
+    {
+        throw new NotImplementedException();
+    }
+
+    protected override Task InitializeEditing()
+    {
+        throw new NotImplementedException();
+    }
+}

@@ -9,9 +9,9 @@
     <AppBreadCrumbs ModuleCode="ORCV"  />
 </RadzenStack>
 <AppContent>
-    <TransferOrderDetails TransferOrderId="@Ref" />
+    <TransferOrderDetails Ref="@Ref" />
 </AppContent>
 
 @code {
-    [SupplyParameterFromQuery] public int Ref { get; set; }
+    [SupplyParameterFromQuery] public string? Ref { get; set; }
 }

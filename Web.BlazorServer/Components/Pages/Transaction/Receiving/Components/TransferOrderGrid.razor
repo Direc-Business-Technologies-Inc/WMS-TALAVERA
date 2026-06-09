@@ -1,0 +1,63 @@
+﻿@using Web.BlazorServer.Components.Security
+@using Web.BlazorServer.ViewModels.Administration.User
+@using Web.BlazorServer.ViewModels.Transaction.Receiving
+
+@inherits BaseComponent
+
+<AppDataGrid @ref="@TransferOrderDataGrid" Id="transfer_order_grid" TItem="TransferOrderDataGridVM" DataGetter="@LoadDataAsync" GridSettings="@DataGridSettings" @bind-GridSettingsLoaded="@GridSettingsLoaded" ActionName="@ActionGetPurchaseOrders">
+    <HeaderTemplate>
+        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" AlignItems="AlignItems.Center" Gap="8px">
+            <RadzenButton Icon="settings" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@OpenTableSettings" />
+            <RadzenButton Icon="sync" Size="ButtonSize.Small" Click="TransferOrderDataGrid.ReloadDataAsync" />
+        </RadzenStack>
+    </HeaderTemplate>
+    <GridColumns>
+        <RadzenDataGridColumn TItem="TransferOrderDataGridVM"
+                              Property="@nameof(TransferOrderDataGridVM.ReferenceNumber)"
+                              Type="@typeof(int)"
+                              Title="Reference Number" />
+        <RadzenDataGridColumn TItem="TransferOrderDataGridVM"
+                              Property="@nameof(TransferOrderDataGridVM.Date)"
+                              Type="@typeof(DateTime)"
+                              FormatString="{0:yyyy-MM-dd}"
+                              Title="Transfer Order Date" />
+        <RadzenDataGridColumn TItem="TransferOrderDataGridVM"
+                              Property="@nameof(TransferOrderDataGridVM.FromSubsidiary)"
+                              Type="@typeof(string)"
+                              Title="From Subsidiary" />
+        <RadzenDataGridColumn TItem="TransferOrderDataGridVM"
+                              Property="@nameof(TransferOrderDataGridVM.FromSubsidiary)"
+                              Type="@typeof(string)"
+                              Title="To Subsidiary" />
+        <RadzenDataGridColumn TItem="TransferOrderDataGridVM"
+                              Property="@nameof(TransferOrderDataGridVM.SourceWarehouse)"
+                              Type="@typeof(string)"
+                              Title="Source Warehouse" />
+        <RadzenDataGridColumn TItem="TransferOrderDataGridVM"
+                              Property="@nameof(TransferOrderDataGridVM.TransferWarehouse)"
+                              Type="@typeof(string)"
+                              Title="Destination Warehouse" />
+        <RadzenDataGridColumn TItem="TransferOrderDataGridVM"
+                              Frozen
+                              FrozenPosition="FrozenColumnPosition.Right"
+                              Width="35px">
+            <Template>
+                <RadzenButton Icon="arrow_right_alt" Size="ButtonSize.ExtraSmall" Click="() => ViewTransferOrder(context)" />
+            </Template>
+        </RadzenDataGridColumn>
+    </GridColumns>
+</AppDataGrid>
+
+@code {
+    async Task OpenTableSettings()
+    {
+        await DialogService.OpenAsync(
+            "Table Settings",
+            ds => @<AppGridSettings TItem="TransferOrderDataGridVM"
+                                    @bind-Grid=@TransferOrderDataGrid.DataGrid
+                                    @bind-GridSettings=@DataGridSettings />,
+        options: GridSettingsService.GetDialogOptions());
+
+        await TransferOrderDataGrid.DataGrid.Reload();
+    }
+}

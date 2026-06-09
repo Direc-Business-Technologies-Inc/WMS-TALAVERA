@@ -13,87 +13,104 @@ public class ReceivingHandler(
     ISender Sender) 
     : IReceivingHandler
 {
-    public async Task<(IEnumerable<PurchaseDeliveryNoteDataGridVM> Data, int Count)> GetPurchaseDeliveryNoteDataGridAsync(DataGridIntent intent)
-    {
-        GetPurchaseDeliveryNotesQry qry = new(intent);
-        (IEnumerable<PurchaseDeliveryNoteDataGridDTO> Data, int Count) = await Sender.Send(qry);
-
-        return (Data.Adapt<IEnumerable<PurchaseDeliveryNoteDataGridVM>>(), Count);
-    }
-
-    public async Task<PurchaseDeliveryNoteVM?> GetPurchaseDeliveryNoteAsync(int docEntry)
-    {
-        GetPuchaseDeliveryNoteQry qry = new(docEntry);
-        PurchaseDeliveryNoteDTO? response = await Sender.Send(qry);
-
-        return response.Adapt<PurchaseDeliveryNoteVM?>();
-    }
-
-    public async Task<PurchaseOrderVM?> GetPurchaseOrderAsync(int docEntry)
+    public async Task<PurchaseOrderVM?> GetPurchaseOrderAsync(string docEntry)
     {
         GetPurchaseOrderQry qry = new(docEntry);
-        ReceivingDTO? response = await Sender.Send(qry);
+        PurchaseOrderDTO? response = await Sender.Send(qry);
         PurchaseOrderVM vm = new();
         if (response is not null)
         {
-            response.DocumentInfo.Adapt(vm);
-            vm.DocumentLines = [..response.DocumentLines.Adapt<IEnumerable<PurchaseOrderLineVM>>()];
+            response.Adapt(vm);
+            vm.DocumentLines = [..response.Lines.Adapt<IEnumerable<PurchaseOrderLineVM>>()];
         }
 
         return vm;
     }
 
-    public async Task<(IEnumerable<ReceivingPurchaseOrderDataGridVM> Data, int Count)> GetPurchaseOrderDataGridAsync(DataGridIntent intent)
+    public async Task<(IEnumerable<PurchaseOrderDataGridVM> Data, int Count)> GetPurchaseOrderDataGridAsync(DataGridIntent intent)
     {
         GetPurchaseOrdersQry qry = new(intent);
-        (IEnumerable<ReceivingDataGridDTO> Data, int Count) = await Sender.Send(qry);
+        (IEnumerable<PurchaseOrderDataGridDTO> Data, int Count) = await Sender.Send(qry);
 
-        var x = Data.Select(x => new ReceivingPurchaseOrderDataGridVM
+        var x = Data.Select(x => new PurchaseOrderDataGridVM
         {
             Id = x.Id,
             ReferenceNumber = x.ReferenceNumber,
             Date = x.Date,
-            Vendor = x.SourceSubsidiary,
+            DeliveryDate = x.DeliveryDate,
+            Vendor = x.VendorName,
             Remarks = x.Memo
         });
 
         return (x, Count);
     }
+    public async Task<(IEnumerable<ReturnsDataGridVM> Data, int Count)> GetReturnsDataGridAsync(DataGridIntent intent)
+    {
+        GetReturnsListQry qry = new (intent);
+        (var data, var count) = await Sender.Send(qry);
+        var x = data.Select(x => new ReturnsDataGridVM
+        {
+            ReferenceNumber = x.ReferenceNumber,
+            Date = x.Date,
+            FromSubsidiary = x.SourceSubsidiary,
+            ToSubsidiary = x.DestinationSubsidiary,
+            Vendor = x.VendorName,
+            SourceWarehouse = x.Location,
+            DestinationWarehouse = x.TransferLocation,
+            Remarks = x.Memo
+        });
 
-    public async Task<(IEnumerable<ReceivingTransferOrderDataGridVM> Data, int Count)> GetTransferOrderDataGridAsync(DataGridIntent intent)
+        return (x, count);
+    }
+
+
+    public async Task<(IEnumerable<TransferOrderDataGridVM> Data, int Count)> GetTransferOrderDataGridAsync(DataGridIntent intent)
     {
         GetTransferOrdersQry qry = new(intent);
-        (IEnumerable<ReceivingDataGridDTO> Data, int Count) = await Sender.Send(qry);
+        (IEnumerable<TransferOrderDataGridDTO> Data, int Count) = await Sender.Send(qry);
 
-        var x = Data.Select(x => new ReceivingTransferOrderDataGridVM
+        var x = Data.Select(x => new TransferOrderDataGridVM
         {
             Id = x.Id,
             ReferenceNumber = x.ReferenceNumber,
             Date = x.Date,
-            SourceLocation = x.Location,
-            TransferLocation = x.TransferLocation
+            SourceWarehouse = x.Location,
+            TransferWarehouse = x.TransferLocation,
+            FromSubsidiary = x.SourceSubsidiary,
+            ToSubsidiary = x.DestinationSubsidiary, 
         });
 
         return (x, Count);
     }
 
+    public async Task<ReturnsVM?> GetReturnsAsync(string docEntry)
+    {
+        GetReturnsQry query = new(docEntry);
+
+        var x = await Sender.Send(query);
+        if (x is null) return null;
+
+        return new ReturnsVM()
+        {
+            ReferenceNumber = x.ReferenceNumber,
+            FromSubsidiary = x.FromSubsidiary,
+            Vendor = x.Vendor,
+            FromWarehouse = x.FromWarehouse,
+            ToWarehouse = x.ToWarehouse,
+            PreparedBy = x.PreparedBy,
+            ReceivedBy = x.ReceivedBy,
+            Date = x.Date,
+            Lines = x.Lines.Adapt<List<ReturnsLineVM>>()
+        };
+    }
+
+
     public async Task<bool> PostGoodsReceiptPOAsync(PurchaseOrderVM data)
     {
-        PostGoodsReceiptPOCmd cmd = new(data.Adapt<ReceivingDTO>());
-        bool result = await Sender.Send(cmd);
-
-        return result;
+        throw new NotImplementedException();
     }
 
-    public async Task<IEnumerable<PurchaseTypeVM>> GetPurchaseTypesAsync()
-    {
-        GetPurchaseTypesQry qry = new();
-        IEnumerable<PurchaseTypeDTO> response = await Sender.Send(qry);
-
-        return response.Adapt<IEnumerable<PurchaseTypeVM>>();
-    }
-
-    public async Task<(IEnumerable<TransferOrderLineVM> Data, int Count)> GetTransferOrderLinesDataGridAsync(int transferOrderId, DataGridIntent intent)
+    public async Task<(IEnumerable<TransferOrderLineVM> Data, int Count)> GetTransferOrderLinesDataGridAsync(string transferOrderId, DataGridIntent intent)
     {
         GetTransferOrderLinesQry qry = new(transferOrderId, intent);
 
@@ -103,23 +120,43 @@ public class ReceivingHandler(
     }
 
 
-    public async Task<TransferOrderVM?> GetTransferOrderAsync(int transferOrderId)
+    public async Task<TransferOrderVM?> GetTransferOrderAsync(string transferOrderId)
     {
         GetTransferOrderInfoQry qry = new(transferOrderId);
-        var dto = await Sender.Send(qry);
+        TransferOrderDTO? dto = await Sender.Send(qry);
         if (dto is null) return null;
 
         return new TransferOrderVM()
         {
             Id = dto.Id,
-            ReferenceNumber = dto.ReferenceNumber,
             Date = dto.Date,
-            DeliveryDate = dto.DeliveryDate,
-            RequestorName = dto.RequestorName,
-            SourceLocation = dto.Location,
-            DestinationLocation = dto.TransferLocation,
-            Status = dto.Status,
+            ReferenceNumber = dto.ReferenceNumber,
+            FromSubsidiary = dto.FromSubsidiary,
+            ToSubsidiary = dto.ToSubsidiary,
+            SourceWarehouse = dto.Location,
+            DestinationWarehouse = dto.TransferLocation,
+            PreparedBy = dto.PreparedBy,
+            ReceivedBy = dto.ReceivedBy,
         };
     }
 
+    public async Task<ItemReceiptVM?> GetItemReceiptSourceAsync(string docEntry)
+    {
+        GetItemReceiptSourceQry query = new(docEntry);
+
+        var x = await Sender.Send(query);
+        if (x is null) return null;
+
+        var result = x.Adapt<ItemReceiptVM>();
+        result.SourceType = x.Type.ToLowerInvariant() switch
+        {
+            "trnfrord" => ItemReceiptVM.SourceTypes.TransferOrder,
+            "purchord" => ItemReceiptVM.SourceTypes.PurchaseOrder,
+            _ => ItemReceiptVM.SourceTypes.Returns
+        };
+
+        result.Date = DateTime.Now;
+
+        return result;
+    }
 }

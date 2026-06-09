@@ -8,15 +8,7 @@ using Domain.Entities.ValueObjects.Others;
 using Integration.NS.Services;
 using Integration.SAP.Entities.Transactional.Receiving;
 using Shared.Entities;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Runtime.Intrinsics.X86;
-using System.Text;
-using System.Text.Json;
-using System.Threading.Tasks;
-using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
-using static System.Runtime.InteropServices.JavaScript.JSType;
+using static Shared.Libraries.Utilities.DataGridFilterUtilities;
 
 namespace Integration.NS.Implementations.Transactions;
 
@@ -40,30 +32,29 @@ public class ReceivingIntegration(
         throw new NotImplementedException();
     }
 
-    public async Task<ReceivingInfoNSDTO?> GetPurchaseOrderHeaderAsync(int docEntry)
+    public async Task<PurchaseOrderDTO?> GetPurchaseOrderHeaderAsync(string docEntry)
     {
         var queryString = $"""
             SELECT 
                 t.id AS Id,
                 t.tranid AS ReferenceNumber,
-                t.status AS Status,
-                TO_CHAR(t.createdDate, 'YYYY-MM-DD"T"HH24:MI:SS') AS Date,
+                TO_CHAR(t.custbody_dbti_order_date, 'YYYY-MM-DD"T"HH24:MI:SS') AS Date,
+                TO_CHAR(t.custbody_dbti_est_receipt_date, 'YYYY-MM-DD"T"HH24:MI:SS') AS Date,
                 entity.altname AS VendorName,
-                entity.entityid AS VendorCode,
                 t.memo as Memo
             FROM 
                 transaction t
             JOIN 
                 entity ON entity.id = t.entity
             WHERE
-                t.id = {docEntry}
+                t.tranid = '{docEntry}'
             """;
 
-        var response = await netsuiteService.ExecuteSuiteQLQuery<ReceivingInfoNSDTO>(queryString);
+        var response = await netsuiteService.ExecuteSuiteQLQuery<PurchaseOrderDTO>(queryString);
         return response.items.FirstOrDefault();
     }
 
-    public async Task<IEnumerable<ReceivingLineNSDTO>> GetPurchaseOrderLinesAsync(int docEntry)
+    public async Task<IEnumerable<Application.DataTransferObjects.Transactions.Receiving.PurchaseOrderLineDTO>> GetPurchaseOrderLinesAsync(string docEntry)
     {
         var queryString = $"""
             SELECT
@@ -71,9 +62,7 @@ public class ReceivingIntegration(
                 BUILTIN.DF(tl.units) as UoM,
                 BUILTIN.DF(tl.location) as Location,
                 item.displayname AS ItemDescription,
-                tl.quantity AS QuantityPlanned,
-                tl.quantityshiprecv AS QuantityReceived,
-                (tl.quantity - tl.quantityshiprecv) AS QuantityOpen
+                tl.quantity AS QuantityPlanned
             FROM
                 transaction t
             JOIN 
@@ -81,86 +70,67 @@ public class ReceivingIntegration(
             JOIN
                 item ON item.id = tl.item
             WHERE
-                t.id = {docEntry} AND
+                t.tranid = '{docEntry}' AND
                 tl.mainline = 'F'
 
             """;
 
-        var response = await netsuiteService.ExecuteSuiteQLQuery<ReceivingLineNSDTO>(queryString);
+        var response = await netsuiteService.ExecuteSuiteQLQuery<Application.DataTransferObjects.Transactions.Receiving.PurchaseOrderLineDTO>(queryString);
 
         return response.items;
     }
 
-    public async Task<(IEnumerable<ReceivingInfoNSDTO>, int)> GetPurchaseOrdersListAsync(DataGridIntent intent)
+    public async Task<(IEnumerable<PurchaseOrderDataGridDTO>, int)> GetPurchaseOrdersListAsync(DataGridIntent intent)
     {
         var builder = builderFactory.Create()
             .Select(
                 ("t.id", "Id"),
                 ("t.tranid", "ReferenceNumber"),
                 ("t.status", "Status"),
-                ("TO_CHAR(t.createdDate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", "Date"),
-                ("entity.altname", "SourceSubsidiary"),
-                ("entity.entityid", "VendorCode"),
-                ("t.memo", "Memo"))
+                ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", "Date"),
+                ("t.location", "Location"),
+                ("TO_CHAR(t.custbody_dbti_order_date, 'YYYY-MM-DD\"T\"HH24:MI:SS')", "DeliveryDate"),
+                ("t.memo", "Memo"),
+                ("BUILTIN.DF(t.entity)", "VendorName"),
+                ("t.transferlocation", "TransferLocation"))
             .From("transaction t")
-            .Join("entity", "entity.id = t.entity")
             .WithDatagridIntent(intent)
             .WithFilters(
-                new AppFilterDescriptor
-                {
-                    Property = "t.recordtype",
-                    ComparisonOperator = ComparisonOperatorEnum.Equals,
-                    Value = "purchaseorder"
-                },
-                new AppFilterDescriptor
-                {
-                    Property = "t.status",
-                    ComparisonOperator = ComparisonOperatorEnum.In,
-                    Value = new string[] { "B", "E" }
-            });
+                Equal("t.recordtype", "purchaseorder"),
+                In("t.status", new string[] {"B", "E" })
+            );
 
         SuiteQLQuery query = builder.Build();
 
-        var response = await netsuiteService.ExecuteSuiteQLQuery<ReceivingInfoNSDTO>(query.Query, limit: query.Limit, offset: query.Offset);
+        var response = await netsuiteService.ExecuteSuiteQLQuery<PurchaseOrderDataGridDTO>(query.Query, limit: query.Limit, offset: query.Offset);
         return (response.items, response.totalResults);
     }
 
-    public async Task<(IEnumerable<ReceivingInfoNSDTO>, int count)> GetTransferOrderListAsync(DataGridIntent intent)
+    public async Task<(IEnumerable<TransferOrderDataGridDTO>, int count)> GetTransferOrderListAsync(DataGridIntent intent)
     {
         var query = builderFactory.Create()
             .Select(
                 ("t.id", "Id"),
                 ("t.tranid", "ReferenceNumber"),
                 ("t.status", "Status"),
-                ("TO_CHAR(t.createdDate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", "Date"),
-                ("t.memo", "Memo"),
+                ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", "Date"),
+                ("BUILTIN.DF(t.subsidiary)", "SourceSubsidiary"),
+                ("BUILTIN.DF(t.tosubsidiary)", "DestinationSubsidiary"),
                 ("BUILTIN.DF(tl.location)", "Location"),
-                ("BUILTIN.DF(t.transferlocation)", "TransferLocation"))
+                ("BUILTIN.DF(t.transferlocation)", "TransferLocation")
+                )
             .From("transaction t")
             .Join("transactionline tl", on:"tl.transaction = t.id")
             .WithFilters(
-                new AppFilterDescriptor
-                {
-                    Property = "tl.mainline",
-                    ComparisonOperator = ComparisonOperatorEnum.Equals,
-                    Value = "T"
-                },
-                new AppFilterDescriptor
-                {
-                    Property = "t.recordtype",
-                    ComparisonOperator = ComparisonOperatorEnum.Equals,
-                    Value = "intercompanytransferorder"
-                },
-                new AppFilterDescriptor
-                {
-                    Property = "t.status",
-                    ComparisonOperator = ComparisonOperatorEnum.In,
-                    Value = new string[] { "F", "E" }
-            })
+                Equal("tl.mainline", "T"),
+                In("t.recordtype", new string[] { "transferorder", "intercompanytransferorder" }),
+                NotEqual("t.custbody_dbti_transfer_category", 4), // returns - bad items
+                NotEqual("t.custbody_dbti_transfer_category", 3), // returns - good items
+                In("t.status", new string[] {"F", "E"}))
             .WithDatagridIntent(intent)
             .Build();
 
-        var response = await netsuiteService.ExecuteSuiteQLQuery<ReceivingInfoNSDTO>(query.Query, limit: query.Limit, offset: query.Offset);
+        var response = await netsuiteService.ExecuteSuiteQLQuery<TransferOrderDataGridDTO>(query.Query, limit: query.Limit, offset: query.Offset);
         return (response.items, response.totalResults);
     }
 
@@ -174,50 +144,36 @@ public class ReceivingIntegration(
         throw new NotImplementedException();
     }
 
-    public async Task<ReceivingInfoNSDTO?> GetTransferOrderHeaderAsync(int docEntry)
+    public async Task<TransferOrderDTO?> GetTransferOrderHeaderAsync(string docEntry)
     { 
         var query = builderFactory.Create()
             .Select(
                 ("t.id", "Id"),
                 ("t.tranid", "ReferenceNumber"),
                 ("t.status", "Status"),
-                ("TO_CHAR(t.createdDate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", "Date"),
-                ("t.memo", "Memo"),
+                ("TO_CHAR(t.custbody_dbti_order_date, 'YYYY-MM-DD\"T\"HH24:MI:SS')", "Date"),
+                ("BUILTIN.DF(t.subsidiary)", "FromSubsidiary"),
+                ("BUILTIN.DF(t.tosubsidiary)", "ToSubsidiary"),
                 ("BUILTIN.DF(tl.location)", "Location"),
-                ("BUILTIN.DF(t.transferlocation)", "TransferLocation"))
+                ("BUILTIN.DF(t.transferlocation)", "TransferLocation"),
+                ("t.custbody_dbti_prepared_by", "PreparedBy")
+            )
             .From("transaction t")
             .Join("transactionline tl", on: "tl.transaction = t.id")
-            .WithFilter(new AppFilterDescriptor
-            {
-                Property = "tl.mainline",
-                ComparisonOperator = ComparisonOperatorEnum.Equals,
-                Value = "T"
-            })
-            .WithFilter(new AppFilterDescriptor
-            {
-                Property = "t.recordtype",
-                ComparisonOperator = ComparisonOperatorEnum.Equals,
-                Value = "intercompanytransferorder"
-            })
-            .WithFilter(new AppFilterDescriptor
-            {
-                Property = "t.status",
-                ComparisonOperator = ComparisonOperatorEnum.In,
-                Value = new string[] { "F", "E" }
-            })
-            .WithFilter(new AppFilterDescriptor
-            {
-                Property = "t.id",
-                ComparisonOperator = ComparisonOperatorEnum.Equals,
-                Value = docEntry
-            })
-            .Build();
+            .WithFilters(
+                In("t.recordtype", new string[] { "transferorder", "intercompanytransferorder" }),
+                Equal("tl.mainline", "T"),
+                Equal("t.tranid", docEntry),
+                NotEqual("t.custbody_dbti_transfer_category", 3),
+                NotEqual("t.custbody_dbti_transfer_category", 4),
+                In("t.status", new string[] {"F", "E"})
+            ).Build();
 
-        var response = await netsuiteService.ExecuteSuiteQLQuery<ReceivingInfoNSDTO>(query.Query);
+        var response = await netsuiteService.ExecuteSuiteQLQuery<TransferOrderDTO>(query.Query);
         return response.items.FirstOrDefault();
     }
 
-    public async Task<(IEnumerable<ReceivingLineNSDTO>, int)> GetTransferOrderLinesAsync(int Id, DataGridIntent intent)
+    public async Task<(IEnumerable<ReceivingLineNSDTO>, int)> GetTransferOrderLinesAsync(string Id, DataGridIntent intent)
     {
         var query = builderFactory.Create()
             .Select(
@@ -230,16 +186,147 @@ public class ReceivingIntegration(
                 ("(tl.quantity - tl.quantityshiprecv)", "QuantityOpen"))
             .From("transactionline tl")
             .Join("item item", on: "item.id = tl.item")
-            .WithFilter(new AppFilterDescriptor
-            {
-                Property = "tl.transaction",
-                ComparisonOperator = ComparisonOperatorEnum.Equals,
-                Value = Id
-            })
+            .Join("transaction t", on: "t.id = tl.transaction")
+            .WithFilters(
+                NotEqual("t.custbody_dbti_transfer_category", 3),
+                NotEqual("t.custbody_dbti_transfer_category", 4),
+                Equal("t.tranid", Id),
+                Equal("tl.transactionlinetype", "RECEIVING")
+            )
             .WithDatagridIntent(intent)
             .Build();
 
         var response = await netsuiteService.ExecuteSuiteQLQuery<ReceivingLineNSDTO>(query.Query, limit: query.Limit, offset: query.Offset);
         return (response.items, response.totalResults);
+    }
+
+    public async Task<(IEnumerable<ReturnsDataGridDTO>, int count)> GetReturnsListAsync(DataGridIntent intent)
+    {
+        var query = builderFactory.Create()
+            .Select(
+                ("t.id", "Id"),
+                ("t.tranid", "ReferenceNumber"),
+                ("TO_CHAR(t.custbody_dbti_order_date, 'YYYY-MM-DD\"T\"HH24:MI:SS')", "Date"),
+                ("BUILTIN.DF(t.subsidiary)", "SourceSubsidiary"),
+                ("BUILTIN.DF(t.tosubsidiary)", "DestinationSubsidiary"),
+                ("t.custbody_dbti_return_to_vendor", "VendorName"),
+                ("BUILTIN.DF(t.location)", "Location"),
+                ("BUILTIN.DF(t.transferlocation)", "TransferLocation"),
+                ("t.memo", "Memo")
+            )
+            .From("transaction t")
+            .WithDatagridIntent(intent)
+            .WithFilters(
+                Equal("t.recordtype", "intercompanytransferorder"),
+                In("t.status", new string[] { "F", "E" }),
+                Any(
+                    Equal("t.custbody_dbti_transfer_category", 3),
+                    Equal("t.custbody_dbti_transfer_category", 4))
+            ).Build();
+
+        var response = await netsuiteService.ExecuteSuiteQLQuery<ReturnsDataGridDTO>(query.Query, limit: query.Limit, offset: query.Offset);
+        return (response.items, response.totalResults);
+    }
+
+    public async Task<ReturnsDTO?> GetReturnsHeaderAsync(string docEntry)
+    {
+        var query = builderFactory.Create()
+            .Select(
+                ("t.tranid", "ReferenceNumber"),
+                ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", "Date"),
+                ("BUILTIN.DF(t.subsidiary)", "FromSubsidiary"),
+                ("t.custbody_dbti_return_to_vendor", "Vendor"),
+                ("BUILTIN.DF(t.location)", "FromWarehouse"),
+                ("BUILTIN.DF(t.transferlocation)", "ToWarehouse"),
+                ("t.custbody_dbti_prepared_by", "PreparedBy")
+            )
+            .From("transaction t")
+            .WithFilters(
+                Equal("t.recordtype", "intercompanytransferorder"),
+                Any(
+                    Equal("t.custbody_dbti_transfer_category", 3),
+                    Equal("t.custbody_dbti_transfer_category", 4)),
+                Equal("t.tranid", docEntry)
+            ).Build();
+
+        var response = await netsuiteService.ExecuteSuiteQLQuery<ReturnsDTO>(query.Query);
+        return response.items.FirstOrDefault();
+    }
+
+    public async Task<IEnumerable<ReturnsLineDTO>> GetReturnsLinesAsync(string docEntry)
+    {
+        var query = builderFactory.Create()
+            .Select(
+                ("item.itemid", "ItemCode"),
+                ("BUILTIN.DF(tl.units)", "UoM"),
+                ("BUILTIN.DF(tl.location)", "Location"),
+                ("item.displayname", "ItemDescription"),
+                ("tl.quantity", "QuantityPlanned")
+            )
+            .From("transactionline tl")
+            .Join("transaction t", on: "tl.transaction = t.id")
+            .Join("item", on: "tl.item = item.id")
+            .WithFilters(
+                Equal("tl.transactionlinetype", "RECEIVING"),
+                Equal("t.tranid", docEntry),
+                Equal("tl.mainline", "F")
+            ).Build();
+
+        var response = await netsuiteService.ExecuteSuiteQLQuery<ReturnsLineDTO>(query.Query);
+        return [.. response.items];
+    }
+
+    public async Task<ItemReceiptDTO?> GetItemReceiptHeaderAsync(string docEntry)
+    {
+        var query = builderFactory.Create()
+            .Select(
+                ("t.tranid", "CreatedFrom"),
+                ("t.custbody_dbti_receiving_category", "ReceivingCategory"),
+                ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", "Date"),
+                ("BUILTIN.DF(t.subsidiary)", "Subsidiary"),
+                ("BUILTIN.DF(t.tosubsidiary)", "ToSubsidiary"),
+                ("t.custbody_dbti_return_to_vendor", "Vendor"),
+                ("BUILTIN.DF(t.location)", "Location"),
+                ("BUILTIN.DF(t.transferlocation)", "TransferLocation"),
+                ("CASE WHEN t.custbody_dbti_transfer_category IN (3,4) THEN \'Returns\' ELSE t.type END", "Type"),
+                ("t.custbody_dbti_prepared_by", "PreparedBy")
+            )
+            .From("transaction t")
+            .WithFilters(
+                In("t.type", new string[] {"TrnfrOrd", "PurchOrd" }),
+                Equal("t.tranid", docEntry)
+            ).Build();
+
+        var response = await netsuiteService.ExecuteSuiteQLQuery<ItemReceiptDTO>(query.Query);
+        return response.items.FirstOrDefault();
+    }
+
+    public async Task<IEnumerable<ItemReceiptLineDTO>> GetItemReceiptLinesAsync(string docEntry, bool transferorder = false)
+    {
+        var builder = builderFactory.Create()
+            .Select(
+                ("item.itemid", "ItemCode"),
+                ("BUILTIN.DF(tl.units)", "UoM"),
+                ("BUILTIN.DF(tl.location)", "Location"),
+                ("item.displayname", "ItemDescription"),
+                ("tl.quantity", "QuantityPlanned")
+            )
+            .From("transactionline tl")
+            .Join("item", on: "tl.item = item.id")
+            .Join("transaction t", on: "tl.transaction = t.id")
+            .WithFilters(
+                Equal("t.tranid", docEntry),
+                NotEqual("tl.mainline", "T")
+            );
+
+        if (transferorder)
+        {
+            builder = builder.WithFilters(Equal("tl.transactionlinetype", "RECEIVING"));
+        }
+
+        var query = builder.Build();
+
+        var response = await netsuiteService.ExecuteSuiteQLQuery<ItemReceiptLineDTO>(query.Query);
+        return [.. response.items];
     }
 }

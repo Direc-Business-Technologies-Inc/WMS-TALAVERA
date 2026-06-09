@@ -219,7 +219,7 @@ public class SuiteQLQueryBuilder
             _ => " AND "
         };
 
-        return string.Join($" {op} ", filter.Filters.Select(x => _parseFilter(x, propertyMap)));
+        return "(" + string.Join($" {op} ", filter.Filters.Select(x => _parseFilter(x, propertyMap))) + ")";
     }
 
     public SuiteQLQueryBuilder Select(params (string col, string? alias)[] columns)

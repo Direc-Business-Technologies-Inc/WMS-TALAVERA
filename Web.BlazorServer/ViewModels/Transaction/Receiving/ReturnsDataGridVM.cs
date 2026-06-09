@@ -1,17 +1,16 @@
-﻿using Domain.Entities.Enums.Transaction.Commons;
-using Shared.Kernel;
+﻿using System.Numerics;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace Web.BlazorServer.ViewModels.Transaction.Receiving;
-public class TransferOrderVM
+
+public class ReturnsDataGridVM
 {
-    public int Id { get; set; }
     public string ReferenceNumber { get; set; } = string.Empty;
-    public DateTime Date { get; set; }
     public string FromSubsidiary { get; set; } = string.Empty;
     public string ToSubsidiary { get; set; } = string.Empty;
+    public string Vendor { get; set; } = string.Empty;
     public string SourceWarehouse { get; set; } = string.Empty;
     public string DestinationWarehouse { get; set; } = string.Empty;
-    public string PreparedBy { get; set; } = string.Empty;
-    public string ReceivedBy { get; set; } = string.Empty;
-    public List<TransferOrderLineVM> Lines { get; set; } = [];
+    public string Remarks { get; set; } = string.Empty;
+    public DateTime Date { get; set; }
 }

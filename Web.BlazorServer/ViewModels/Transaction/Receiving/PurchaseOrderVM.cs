@@ -12,8 +12,7 @@ public class PurchaseOrderVM
     public DateTime DeliveryDate { get; set; }
     public string VendorCode { get; set; } = string.Empty;
     public string VendorName { get; set; } = string.Empty;
-    public string Memo { get; set; } = string.Empty;
-    public string Status { get; set; } = string.Empty;
+    public string ReceivedBy { get; set; } = string.Empty;
+    public string Remarks { get; set; } = string.Empty;
     public List<PurchaseOrderLineVM> DocumentLines { get; set; } = [];
-    public string StatusDescription => EnumHelper.GetEnumDescription(EnumHelper.ParseStringToEnum<DocumentStatus>(Status));
 }
