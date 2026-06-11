@@ -7,10 +7,12 @@ using Application.UseCases.Repositories.Integration.Transaction.Receiving;
 using Integration.NS.Services;
 using Integration.SAP.Entities.Transactional.Receiving;
 using Shared.Entities;
+using Shared.Libraries.ViewModel;
 using System.Numerics;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using static Shared.Libraries.Utilities.DataGridFilterUtilities;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace Integration.NS.Implementations.Transactions;
 
@@ -297,12 +299,14 @@ public class ReceivingIntegration(
                 ("t.custbody_dbti_prepared_by", "PreparedBy")
             )
             .From("transaction t")
-            .Join("customrecord_dbti_vendor_bin_assignment vba", on: "t.entity = vba.custrecord_dbti_vba_vendor")
+            .LeftJoin("customrecord_dbti_vendor_bin_assignment vba", on: "t.entity = vba.custrecord_dbti_vba_vendor")
             .Join("subsidiary s", on:"t.subsidiary = s.id")
             .WithFilters(
-                In("t.type", new string[] {"TrnfrOrd", "PurchOrd" }),
+                In("t.recordtype", new string[] {"transferorder", "purchaseorder" }),
                 Equal("t.tranid", docEntry)
             ).Build();
+
+
 
         var response = await netsuiteService.ExecuteSuiteQLQuery<ItemReceiptDTO>(query.Query);
         return response.items.FirstOrDefault();
@@ -348,12 +352,55 @@ public class ReceivingIntegration(
     public async Task<bool> PostItemReceipt(ItemReceiptDTO dto)
     {
         var payload = ItemReceiptTransformPayload.Create(dto);
-        var uri = $"{netsuiteService.GetRestAPIURI()}/record/v1/purchaseOrder/{dto.SourceInternalId}/!transform/itemReceipt";
+        var uri = dto.SourceType switch
+        {
+            ItemReceiptDTO.SourceTypes.PurchaseOrder => $"{netsuiteService.GetRestAPIURI}/record/v1/purchaseOrder/{dto.SourceInternalId}/!transform/itemReceipt",
+            _ => $"{netsuiteService.GetRestletURI}?script=1853&deploy=1"
+        };
+            
+        var payloadString = dto.SourceType switch
+        {
+            ItemReceiptDTO.SourceTypes.PurchaseOrder => CreatePOJson(dto),
+            ItemReceiptDTO.SourceTypes.TransferOrder => CreateTOJson(dto),
+            _ => CreateReturnsJson(dto)
+        };
 
-        var payloadString = CreatePOJson(dto);
-        var x = await netsuiteService.MakeRequest<string>(uri, payloadString, HttpMethod.Post);
+        var x = dto.SourceType.Equals(ItemReceiptDTO.SourceTypes.TransferOrder) ?
+            await netsuiteService.MakeRequestOAuth1<object>(uri, payloadString) :
+            await netsuiteService.MakeRequest<object>(uri, payloadString, HttpMethod.Post);
+
         return true;
     }
+
+    private string CreateTOJson(ItemReceiptDTO dto)
+    {
+        bool isGood = dto.Category.Equals(ItemReceiptDTO.ReceivingCategory.Good);
+        var obj = new
+        {
+            transferOrderId = dto.SourceInternalId,
+            transferCategory = isGood ? 1 : 2,
+            lines = dto.Lines.Where(x => x.Quantity > 0).Select(line =>
+            {
+                return new
+                {
+                    orderLine = line.LineNumber,
+                    quantity = line.Quantity,
+                    //rate = isGood ? (decimal?) null : 0,
+                    inventoryDetail = new[]
+                    {
+                        new
+                        {
+                            inventoryStatus = isGood ? 1 : 3,
+                            quantity = line.Quantity
+                        }
+                    }
+                };
+            })
+        };
+        return JsonSerializer.Serialize(obj, JSON_OPTS);
+    }
+
+    private string CreateReturnsJson(ItemReceiptDTO dto) => CreateTOJson(dto);
 
     private string CreatePOJson(ItemReceiptDTO dto)
     {

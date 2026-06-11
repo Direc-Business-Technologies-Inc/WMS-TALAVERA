@@ -214,7 +214,7 @@ namespace Integration.NS.Services
             return await MakeRequest<T>(url, reqBody, HttpMethod.Post);
         }
         
-        async Task<T> MakeRequestOAuth1<T>(string url, string? reqBody)
+        public async Task<T> MakeRequestOAuth1<T>(string url, string? reqBody)
         {
             string consumerKey = Environment.GetEnvironmentVariable("OAUTH1_CONSUMER_KEY") ?? "";
             string consumerSecret = Environment.GetEnvironmentVariable("OAUTH1_CONSUMER_SECRET") ?? "";
@@ -317,6 +317,7 @@ namespace Integration.NS.Services
                 return System.Text.Json.JsonSerializer.Deserialize<T>(responseJson);
             }
 
+            var errorMessage = await  httpResponse.Content.ReadAsStringAsync();
             throw new Exception($"Request failed with status code: {httpResponse.StatusCode}");
         }
 
@@ -482,6 +483,7 @@ namespace Integration.NS.Services
             }
         }
 
-        public string GetRestAPIURI() => RestApiRoot;
+        public string GetRestAPIURI => RestApiRoot;
+        public string GetRestletURI => $"https://{AccountId}.restlets.api.netsuite.com/app/site/hosting/restlet.nl";
     }
 }
