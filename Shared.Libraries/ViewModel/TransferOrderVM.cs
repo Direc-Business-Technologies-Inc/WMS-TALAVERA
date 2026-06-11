@@ -15,14 +15,14 @@ public class TransferOrderVM
 
     public string GetName(string status) => status switch
     {
-        "B" => "Pending Receipt",
+        "F" => "Pending Receipt",
         "E" => "Partially Receipt/Pending Bill",
         _ => "Unknown"
     };
 
     public string GetShortName(string status) => status switch
     {
-        "B" => "PR",
+        "F" => "PR",
         "E" => "PR/PB",
         _ => "-"
     };

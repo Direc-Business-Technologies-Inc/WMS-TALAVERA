@@ -262,10 +262,15 @@ div.rz-datalist-content ul.rz-datalist-data > li {
         font-weight: 700;
     }
 
-.trans-status-badge {
+.trans-badges {
     position: absolute;
     top: 12px;
     right: 16px;
+    display: flex;
+    gap: 6px;
+}
+
+.trans-status-badge {
     background-color: white !important;
     color: #2e9e45 !important;
     border: 1px solid #8fd19e !important;

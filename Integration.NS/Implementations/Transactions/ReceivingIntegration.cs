@@ -1,10 +1,8 @@
 ﻿using Application.DataTransferObjects.Others.NS;
 using Application.DataTransferObjects.Transactions.Receiving;
-using Application.DataTransferObjects.Transactions.Receiving.NS;
 using Application.DataTransferObjects.Transactions.Receiving.SAP;
 using Application.UseCases.Repositories.Integration.Others;
 using Application.UseCases.Repositories.Integration.Transaction.Receiving;
-using Domain.Entities.ValueObjects.Others;
 using Integration.NS.Services;
 using Integration.SAP.Entities.Transactional.Receiving;
 using Shared.Entities;
@@ -175,7 +173,7 @@ public class ReceivingIntegration(
         return response.items.FirstOrDefault();
     }
 
-    public async Task<(IEnumerable<ReceivingLineNSDTO>, int)> GetTransferOrderLinesAsync(string Id, DataGridIntent intent)
+    public async Task<(IEnumerable<Application.DataTransferObjects.Transactions.Receiving.NS.ReceivingLineNSDTO>, int)> GetTransferOrderLinesAsync(string Id, DataGridIntent intent)
     {
         var query = builderFactory.Create()
             .Select(
@@ -198,7 +196,7 @@ public class ReceivingIntegration(
             .WithDatagridIntent(intent)
             .Build();
 
-        var response = await netsuiteService.ExecuteSuiteQLQuery<ReceivingLineNSDTO>(query.Query, limit: query.Limit, offset: query.Offset);
+        var response = await netsuiteService.ExecuteSuiteQLQuery<Application.DataTransferObjects.Transactions.Receiving.NS.ReceivingLineNSDTO>(query.Query, limit: query.Limit, offset: query.Offset);
         return (response.items, response.totalResults);
     }
 
@@ -289,8 +287,8 @@ public class ReceivingIntegration(
                 ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", "Date"),
                 ("s.name", "Subsidiary"),
                 ("BUILTIN.DF(t.tosubsidiary)", "ToSubsidiary"),
-                ("t.custbody_dbti_return_to_vendor", "Vendor"),
                 ("vba.custrecord_dbti_vba_assigned_bin", "VendorPrefferedBin"),
+                ("CASE WHEN t.custbody_dbti_transfer_category IN (3,4) THEN BUILTIN.DF(t.custbody_dbti_return_to_vendor) ELSE BUILTIN.DF(t.entity) END", "Vendor"),
                 ("BUILTIN.DF(t.location)", "Location"),
                 ("BUILTIN.DF(t.transferlocation)", "TransferLocation"),
                 ("CASE WHEN t.custbody_dbti_transfer_category IN (3,4) THEN \'Returns\' ELSE t.type END", "Type"),
