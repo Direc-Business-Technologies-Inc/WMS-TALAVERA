@@ -1,11 +1,13 @@
 ﻿using Application.DataTransferObjects.Others.NS;
 using Application.DataTransferObjects.Transactions.Receiving;
+using Application.DataTransferObjects.Transactions.Receiving.NS.Payload;
 using Application.DataTransferObjects.Transactions.Receiving.SAP;
 using Application.UseCases.Repositories.Integration.Others;
 using Application.UseCases.Repositories.Integration.Transaction.Receiving;
 using Integration.NS.Services;
 using Integration.SAP.Entities.Transactional.Receiving;
 using Shared.Entities;
+using System.Numerics;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using static Shared.Libraries.Utilities.DataGridFilterUtilities;
@@ -348,13 +350,59 @@ public class ReceivingIntegration(
         var payload = ItemReceiptTransformPayload.Create(dto);
         var uri = $"{netsuiteService.GetRestAPIURI()}/record/v1/purchaseOrder/{dto.SourceInternalId}/!transform/itemReceipt";
 
-        var payloadString = JsonSerializer.Serialize(payload, new JsonSerializerOptions
-        {
-            PropertyNamingPolicy = null,
-            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-            WriteIndented = true
-        });
+        var payloadString = CreatePOJson(dto);
         var x = await netsuiteService.MakeRequest<string>(uri, payloadString, HttpMethod.Post);
         return true;
     }
+
+    private string CreatePOJson(ItemReceiptDTO dto)
+    {
+        bool isGood = dto.Category.Equals(ItemReceiptDTO.ReceivingCategory.Good);
+        var obj = new
+        {
+            custbody_dbti_receiving_category = isGood ? 1 : 2,
+            item = new
+            {
+                items = dto.Lines.Select(line =>
+                {
+                    bool isItemReceived = line.IsReceived && line.Quantity > 0;
+                    string? preferredBin = line.IsLocationBinUsed ? (isGood ? (dto.VendorPrefferedBin != 0 ? $"{dto.VendorPrefferedBin}" : $"{line.PrefferedBinAssignmentId}") : "5") : null;
+                    return new
+                    {
+                        itemreceive = isItemReceived,
+                        orderLine = line.LineNumber,
+                        quantity = isItemReceived ? line.Quantity : (decimal?)null,
+                        custcol_dbti_actual_weight = isItemReceived ? line.WeightReceived : (decimal?)null,
+                        rate = isGood ? (decimal?) null : 0,
+                        inventoryDetail = isItemReceived ? new
+                        {
+                            inventoryAssignment = new
+                            {
+                                items = new[]
+                                {
+                                    new
+                                    {
+                                        inventoryStatus = isGood ? "1" : "3",
+                                        binNumber = isGood ? preferredBin : "5",
+                                        quantity = line.Quantity
+                                    }
+                                }
+                            }
+                        } : null,
+                        location = isGood ? (int?)null : dto.DefaultBO
+                    };
+                })
+            },
+            memo = "Created via WMS"
+        };
+
+        return JsonSerializer.Serialize(obj, JSON_OPTS);
+    }
+
+    readonly JsonSerializerOptions JSON_OPTS = new JsonSerializerOptions()
+    {
+        PropertyNamingPolicy = null,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        WriteIndented = true
+    };
 }

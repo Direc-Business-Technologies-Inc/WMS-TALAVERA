@@ -12,120 +12,22 @@ namespace Application.DataTransferObjects.Transactions.Receiving;
 public class ItemReceiptTransformPayload
 {
     [JsonPropertyName("custbody_dbti_receiving_category")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public int? ReceivingCategory { get; internal set; }
 
     [JsonPropertyName("item")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public ItemContainer? Item  { get; internal set; }
+    public ItemContainer? Item { get; internal set; }
 
     [JsonPropertyName("memo")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Memo { get; internal set; } = "Item receipt create via WMS";
 
-    [JsonPropertyName("transferOrderId")] 
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    [JsonPropertyName("transferOrderId")]
     public int? TransferOrderId { get; set; }
 
     [JsonPropertyName("transferCategory")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public int? TransferCategory { get; set; }
 
-    public class LinesContainer
-    {
-        [JsonPropertyName("orderLine")]
-        public int OrderLine { get; set; }
-
-        [JsonPropertyName("quantity")]
-        public decimal? Quantity { get; set; }
-
-        [JsonPropertyName("rate")]
-        public decimal? Rate { get; set; }
-    }
-
     [JsonPropertyName("lines")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public List<LinesContainer>? Lines { get; set; }
-
-    public class ItemContainer
-    {
-        [JsonPropertyName("items")]
-        public List<ItemContainerItems> Items { get; internal set; } = [];
-
-        public void Add(ItemContainerItems item)
-        {
-            Items.Add(item);
-        }
-    }
-
-    public class ItemContainerItems(int? lineNumber = null)
-    {
-
-        [JsonPropertyName("location")]
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public int? Location { get; internal set; }
-
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        [JsonPropertyName("itemreceive")]
-        public bool? isReceived { get; internal set; }
-
-        [JsonPropertyName("orderLine")]
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public int? LineNumber { get; internal set; } = lineNumber;
-
-        [JsonPropertyName("custcol_dbti_actual_weight")]
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public decimal? ActualWeight { get; set; }
-
-        [JsonPropertyName("quantity")]
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public decimal? Quantity { get; internal set; }
-
-        [JsonPropertyName("rate")]
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public decimal? Rate { get; internal set; }
-
-        [JsonPropertyName("inventoryDetail")]
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public InventoryDetail? InventoryDetail { get; set; }
-    }
-
-    public class InventoryAssignmentItem
-    {
-        [JsonPropertyName("inventoryStatus")]
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public IdReference? InventoryStatus { get; internal set; }
-
-        [JsonPropertyName("binNumber")]
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public IdReference? BinNumber { get; internal set; } 
-
-        [JsonPropertyName("quantity")]
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public decimal? Quantity { get; internal set; }
-    }
-
-    public class IdReference(string? id = null)
-    {
-        [JsonPropertyName("id")]
-        public string? Id { get; internal set; } = id;
-    }
-
-    public class InventoryAssignment
-    {
-        [JsonPropertyName("items")]
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public List<InventoryAssignmentItem> Items { get; set; } = [];
-    }
-
-    public class InventoryDetail
-    {
-
-        [JsonPropertyName("inventoryAssignment")]
-        public InventoryAssignment InventoryAssignment { get; set; } = new();
-
-        public void AddAssignmentItem(InventoryAssignmentItem item) => InventoryAssignment.Items.Add(item);
-    }
 
     public static ItemReceiptTransformPayload Create(ItemReceiptDTO dto)
     {
@@ -184,3 +86,86 @@ public class ItemReceiptTransformPayload
         return item;
     }
 }
+
+
+public class LinesContainer
+{
+    [JsonPropertyName("orderLine")]
+    public int OrderLine { get; set; }
+
+    [JsonPropertyName("quantity")]
+    public decimal? Quantity { get; set; }
+
+    [JsonPropertyName("rate")]
+    public decimal? Rate { get; set; }
+}
+
+public class ItemContainer
+{
+    [JsonPropertyName("items")]
+    public List<ItemContainerItems> Items { get; internal set; } = [];
+
+    public void Add(ItemContainerItems item)
+    {
+        Items.Add(item);
+    }
+}
+
+public class ItemContainerItems(int? lineNumber = null)
+{
+
+    [JsonPropertyName("location")]
+    public int? Location { get; internal set; }
+
+    [JsonPropertyName("itemreceive")]
+    public bool? isReceived { get; internal set; }
+
+    [JsonPropertyName("orderLine")]
+    public int? LineNumber { get; internal set; } = lineNumber;
+
+    [JsonPropertyName("custcol_dbti_actual_weight")]
+    public decimal? ActualWeight { get; set; }
+
+    [JsonPropertyName("quantity")]
+    public decimal? Quantity { get; internal set; }
+
+    [JsonPropertyName("rate")]
+    public decimal? Rate { get; internal set; }
+
+    [JsonPropertyName("inventoryDetail")]
+    public InventoryDetail? InventoryDetail { get; set; }
+}
+
+public class InventoryAssignmentItem
+{
+    [JsonPropertyName("inventoryStatus")]
+    public IdReference? InventoryStatus { get; internal set; }
+
+    [JsonPropertyName("binNumber")]
+    public IdReference? BinNumber { get; internal set; }
+
+    [JsonPropertyName("quantity")]
+    public decimal? Quantity { get; internal set; }
+}
+
+public class IdReference(string? id = null)
+{
+    [JsonPropertyName("id")]
+    public string? Id { get; internal set; } = id;
+}
+
+public class InventoryAssignment
+{
+    [JsonPropertyName("items")]
+    public List<InventoryAssignmentItem> Items { get; set; } = [];
+}
+
+public class InventoryDetail
+{
+
+    [JsonPropertyName("inventoryAssignment")]
+    public InventoryAssignment InventoryAssignment { get; set; } = new();
+
+    public void AddAssignmentItem(InventoryAssignmentItem item) => InventoryAssignment.Items.Add(item);
+}
+
