@@ -75,10 +75,10 @@ public class ReceivingHandler(
             Id = x.Id,
             ReferenceNumber = x.ReferenceNumber,
             Date = x.Date,
-            SourceWarehouse = x.Location,
-            TransferWarehouse = x.TransferLocation,
-            FromSubsidiary = x.SourceSubsidiary,
-            ToSubsidiary = x.DestinationSubsidiary, 
+            Location = x.Location,
+            TransferLocation = x.TransferLocation,
+            SourceSubsidiary = x.SourceSubsidiary,
+            DesctinationSubsidiary = x.DestinationSubsidiary, 
         });
 
         return (x, Count);
