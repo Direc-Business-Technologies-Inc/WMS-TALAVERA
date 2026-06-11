@@ -23,6 +23,6 @@
 
     @if (!IsLoadingData)
     {
-        <ItemReceiptForm Data="@FormData" EditContext="EditContext"/>
+        <ItemReceiptForm Data="@FormData" EditContext="EditContext" OnValidSubmit="@OnValidSubmit"/>
     }
 </AppContent>

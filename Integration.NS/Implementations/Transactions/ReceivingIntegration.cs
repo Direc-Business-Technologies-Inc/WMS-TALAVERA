@@ -8,6 +8,8 @@ using Domain.Entities.ValueObjects.Others;
 using Integration.NS.Services;
 using Integration.SAP.Entities.Transactional.Receiving;
 using Shared.Entities;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using static Shared.Libraries.Utilities.DataGridFilterUtilities;
 
 namespace Integration.NS.Implementations.Transactions;
@@ -280,18 +282,23 @@ public class ReceivingIntegration(
     {
         var query = builderFactory.Create()
             .Select(
+                ("t.id", "SourceInternalId"),
                 ("t.tranid", "CreatedFrom"),
+                ("s.custrecord_dbti_default_bo_location", "DefaultBO"),
                 ("t.custbody_dbti_receiving_category", "ReceivingCategory"),
                 ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", "Date"),
-                ("BUILTIN.DF(t.subsidiary)", "Subsidiary"),
+                ("s.name", "Subsidiary"),
                 ("BUILTIN.DF(t.tosubsidiary)", "ToSubsidiary"),
                 ("t.custbody_dbti_return_to_vendor", "Vendor"),
+                ("vba.custrecord_dbti_vba_assigned_bin", "VendorPrefferedBin"),
                 ("BUILTIN.DF(t.location)", "Location"),
                 ("BUILTIN.DF(t.transferlocation)", "TransferLocation"),
                 ("CASE WHEN t.custbody_dbti_transfer_category IN (3,4) THEN \'Returns\' ELSE t.type END", "Type"),
                 ("t.custbody_dbti_prepared_by", "PreparedBy")
             )
             .From("transaction t")
+            .Join("customrecord_dbti_vendor_bin_assignment vba", on: "t.entity = vba.custrecord_dbti_vba_vendor")
+            .Join("subsidiary s", on:"t.subsidiary = s.id")
             .WithFilters(
                 In("t.type", new string[] {"TrnfrOrd", "PurchOrd" }),
                 Equal("t.tranid", docEntry)
@@ -306,17 +313,25 @@ public class ReceivingIntegration(
         var builder = builderFactory.Create()
             .Select(
                 ("item.itemid", "ItemCode"),
-                ("BUILTIN.DF(tl.units)", "UoM"),
-                ("BUILTIN.DF(tl.location)", "Location"),
+                ("tl.id", "LineNumber"),
+                ("uom.unitname", "UoM"),
+                ("loc.name", "Location"),
+                ("loc.usebins", "LocationUsesBins"),
                 ("item.displayname", "ItemDescription"),
-                ("tl.quantity", "QuantityPlanned")
+                ("pb.bin", "PrefferedBinAssignmentId"),
+                ("(tl.quantity / uom.conversionrate)", "QuantityPlanned"),
+                ("(tl.quantity - tl.quantityshiprecv)", "QuantityOpen"),
+                ("(tl.quantityshiprecv / uom.conversionrate)", "QuantityReceived")
             )
             .From("transactionline tl")
             .Join("item", on: "tl.item = item.id")
             .Join("transaction t", on: "tl.transaction = t.id")
+            .Join("location loc", on: "tl.location = loc.id")
+            .Join("unitstypeuom uom", on: "tl.units = uom.internalid") 
+            .LeftJoin("(SELECT ibq.bin, ibq.item, b.location FROM itembinquantity ibq JOIN bin b ON ibq.bin = b.id WHERE preferredbin = \'T\') pb", on: "pb.item = item.id AND pb.location = tl.location")
             .WithFilters(
                 Equal("t.tranid", docEntry),
-                NotEqual("tl.mainline", "T")
+                Equal("tl.mainline", "F")
             );
 
         if (transferorder)
@@ -328,5 +343,20 @@ public class ReceivingIntegration(
 
         var response = await netsuiteService.ExecuteSuiteQLQuery<ItemReceiptLineDTO>(query.Query);
         return [.. response.items];
+    }
+
+    public async Task<bool> PostItemReceipt(ItemReceiptDTO dto)
+    {
+        var payload = ItemReceiptTransformPayload.Create(dto);
+        var uri = $"{netsuiteService.GetRestAPIURI()}/record/v1/purchaseOrder/{dto.SourceInternalId}/!transform/itemReceipt";
+
+        var payloadString = JsonSerializer.Serialize(payload, new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = null,
+            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+            WriteIndented = true
+        });
+        var x = await netsuiteService.MakeRequest<string>(uri, payloadString, HttpMethod.Post);
+        return true;
     }
 }

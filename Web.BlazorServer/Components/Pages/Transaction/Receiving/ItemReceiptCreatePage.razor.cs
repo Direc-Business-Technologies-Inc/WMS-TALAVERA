@@ -2,6 +2,7 @@
 using Web.BlazorServer.Defaults;
 using Web.BlazorServer.Handlers.Implementations.Transaction.Receiving;
 using Web.BlazorServer.Handlers.Repositories.Transaction.Receiving;
+using Web.BlazorServer.ViewModels.Transaction.Receiving;
 
 namespace Web.BlazorServer.Components.Pages.Transaction.Receiving;
 
@@ -11,6 +12,7 @@ partial class ItemReceiptCreatePage
     [Inject] IReceivingHandler? receivingHandler { get; set; }
 
     readonly string ActionGetItemReceiptSource = "Get Item Receipt Source";
+    readonly string ActionCreateItemReceipt = "Create Item Receipt";
 
     bool IsLoadingData => AppBusyService.IsBusy(ActionGetItemReceiptSource);
 
@@ -51,6 +53,19 @@ partial class ItemReceiptCreatePage
         await InvokeAsync(StateHasChanged);
     }
 
+    async Task OnValidSubmit(ItemReceiptVM model)
+    {
+
+        AppBusyService.SetBusy(ActionGetItemReceiptSource, true);
+        await InvokeAsync(StateHasChanged);
+
+        var action = await AppActionFactory.RunAsync(async () =>
+        {
+            if (receivingHandler is null) throw new Exception("No handlers registered for item receipt");
+            await receivingHandler.PostItemReceipt(model);
+
+        }, AppActionOptionPresets.Loading(ActionGetItemReceiptSource));
+    }
 
     protected override Task CancelEditing()
     {

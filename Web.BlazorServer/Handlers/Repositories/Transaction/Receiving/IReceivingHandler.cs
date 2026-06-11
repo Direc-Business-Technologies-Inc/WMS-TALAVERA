@@ -13,5 +13,6 @@ public interface IReceivingHandler
     Task<ItemReceiptVM?> GetItemReceiptSourceAsync(string docEntry);
     Task<ReturnsVM?> GetReturnsAsync(string docEntry);
     Task<(IEnumerable<TransferOrderLineVM> Data, int Count)> GetTransferOrderLinesDataGridAsync(string transferOrderId, DataGridIntent intent);
+    Task<bool> PostItemReceipt(ItemReceiptVM Data);
     Task<bool> PostGoodsReceiptPOAsync(PurchaseOrderVM data);
 }

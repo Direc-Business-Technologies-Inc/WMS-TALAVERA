@@ -3,6 +3,7 @@ using Application.UseCases.Commands.Transaction.Receiving;
 using Application.UseCases.Queries.Transaction.Receiving;
 using Mapster;
 using MediatR;
+using Microsoft.EntityFrameworkCore.Scaffolding.Metadata;
 using Shared.Entities;
 using Web.BlazorServer.Handlers.Repositories.Transaction.Receiving;
 using Web.BlazorServer.ViewModels.Transaction.Receiving;
@@ -158,5 +159,23 @@ public class ReceivingHandler(
         result.Date = DateTime.Now;
 
         return result;
+    }
+
+    public async Task<bool> PostItemReceipt(ItemReceiptVM data)
+    {
+        var dto = new ItemReceiptDTO();
+
+        data.Adapt(dto);
+        dto.SourceType = data.SourceType switch
+        {
+            ItemReceiptVM.SourceTypes.PurchaseOrder => ItemReceiptDTO.SourceTypes.PurchaseOrder,
+            ItemReceiptVM.SourceTypes.Returns => ItemReceiptDTO.SourceTypes.Returns,
+            ItemReceiptVM.SourceTypes.TransferOrder => ItemReceiptDTO.SourceTypes.TransferOrder,
+            _ => throw new NotImplementedException(),
+        };
+        dto.Category = data.IsBad ? ItemReceiptDTO.ReceivingCategory.Confiscated : ItemReceiptDTO.ReceivingCategory.Good;
+
+        var cmd = new CreateItemReceiptCmd(dto);
+        return await Sender.Send(cmd);
     }
 }

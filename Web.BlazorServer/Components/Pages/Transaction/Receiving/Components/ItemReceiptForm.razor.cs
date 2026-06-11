@@ -10,14 +10,20 @@ partial class ItemReceiptForm
 {
     [Parameter] public ItemReceiptVM Data { get; set; } = new();
     [Parameter] public EditContext? EditContext { get; set; } = null;
-    [Parameter] public EventCallback<ItemReceiptVM>? OnValidSubmit { get; set; }
+    [Parameter] public EventCallback<ItemReceiptVM> OnValidSubmit { get; set; }
     [Inject] NavigationManager NavManager { get; set; } = default!;
+
+    readonly List<DropDownItem> Categories = new List<DropDownItem>()
+    {
+        new() {Name = "Good", Value = false},
+        new() {Name = "Confiscated", Value = true},
+    };
 
     public void Submit()
     {
-        if (EditContext is not null && EditContext.Validate())
+        if (OnValidSubmit.HasDelegate && EditContext is not null && EditContext.Validate())
         {
-            OnValidSubmit?.InvokeAsync(Data);
+            OnValidSubmit.InvokeAsync(Data);
         }
     }
 
@@ -37,5 +43,10 @@ partial class ItemReceiptForm
         }
     }
 
+    private class DropDownItem()
+    {
+        public string Name { get; set; } = string.Empty;
+        public bool Value { get; set; } = false;
+    }
 }
 

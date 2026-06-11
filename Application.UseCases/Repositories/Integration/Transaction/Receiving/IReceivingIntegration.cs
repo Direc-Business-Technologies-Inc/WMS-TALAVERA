@@ -18,4 +18,5 @@ public interface IReceivingIntegration
     public Task<IEnumerable<ReturnsLineDTO>> GetReturnsLinesAsync(string docEntry);
     public Task<IEnumerable<ItemReceiptLineDTO>> GetItemReceiptLinesAsync(string docEntry, bool isTransferOrder = false);
     public Task<(IEnumerable<PurchaseDeliveryNoteSAPDTO>, int)> GetPurchaseDeliveryNotesListAsync(DataGridIntent intent);
+    public Task<bool> PostItemReceipt(ItemReceiptDTO itemReceiptDTO);
 }

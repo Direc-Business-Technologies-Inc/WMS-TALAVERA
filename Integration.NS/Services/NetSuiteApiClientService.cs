@@ -171,7 +171,7 @@ namespace Integration.NS.Services
             return Regex.Replace(query, @"\s+", " ").Trim();
         }
 
-        async Task<T> MakeRequest<T>(string url, string? reqBody, HttpMethod method)
+        public async Task<T> MakeRequest<T>(string url, string? reqBody, HttpMethod method)
         {
             if (_accessToken == null || DateTime.Now >= _tokenExpiryTime)
                 _accessToken = await GetAccessToken();
@@ -201,8 +201,8 @@ namespace Integration.NS.Services
                 if (response == null) throw new Exception("Bad response from NetSuite API");
                 return response;
             }
-
-            throw new Exception($"Request failed with status code: {httpResponse.StatusCode}");
+            var errorBody = await httpResponse.Content.ReadAsStringAsync();
+            throw new Exception($"Request failed with status code: {httpResponse.StatusCode}\n Error Message: {errorBody}");
         }
         async Task<T> MakeRequest<T>(string url, string? reqBody = null)
         {
@@ -291,5 +291,7 @@ namespace Integration.NS.Services
                 throw new Exception("An error occurred in saving item receipt");
             }
         }
+
+        public string GetRestAPIURI() => RestApiRoot;
     }
 }
