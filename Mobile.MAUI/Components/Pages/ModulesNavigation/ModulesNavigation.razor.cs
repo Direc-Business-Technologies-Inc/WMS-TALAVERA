@@ -23,6 +23,9 @@ public partial class ModulesNavigation
             case ModuleNavigation.Receiving:
                 NavManager.NavigateTo("/receiving", true, true);
                 break;
+            case ModuleNavigation.ItemFulfillment:
+                NavManager.NavigateTo("/itemfulfillment", true, true);
+                break;
         }
     }
 }

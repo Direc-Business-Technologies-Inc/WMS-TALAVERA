@@ -1,4 +1,4 @@
-﻿using Application.DataTransferObjects.Transactions.Receiving.Request;
+﻿using Application.DataTransferObjects.Transactions.Receiving.NS.Request;
 using Application.UseCases.Queries.Others;
 using Mapster;
 using MediatR;

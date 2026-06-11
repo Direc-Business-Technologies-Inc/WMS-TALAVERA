@@ -1,14 +1,15 @@
-using Mapster;
 using Microsoft.JSInterop;
+using Mobile.MAUI.Components.Reusables;
 using Mobile.MAUI.Services;
 using Mobile.MAUI.ViewModel;
 using Shared.Libraries.ViewModel;
 using static Mobile.MAUI.MauiProgram;
 using AppAction = Mobile.MAUI.Services.AppAction;
+using Radzen.Blazor;
 
 namespace Mobile.MAUI.Components.Pages.Receiving.PurchaseOrder;
 
-public partial class PurchaseOrderItemView
+public partial class PurchaseOrderItemView : IAsyncDisposable
 {
     [Parameter]
     public string OrderNumber { get; set; }
@@ -25,11 +26,16 @@ public partial class PurchaseOrderItemView
     List<ItemBarcodesPerUoMVM> ItemBarcodes = [];
     List<BarcodeRequestVM> ItemRequest = [];
 
+    List<PurchaseOrderLineVM> POItems = [];
+
     //PurchaseOrderLineVM? LastScanned => POItems.OrderByDescending(x => x.ScanCount).FirstOrDefault();
 
     int ScanCount { get; set; }
     bool SaveBtnDisabled => ScanCount == 0;
     bool NextScanIsBad = false;
+    bool IsWeightDialogOpen = false;
+
+    decimal? ChangeWeight = null;
     protected override async Task OnInitializedAsync()
     {
         ActionGetPOItems = new AppAction<List<PurchaseOrderLineVM>>
@@ -38,12 +44,84 @@ public partial class PurchaseOrderItemView
             TaskAsync = async () =>
             {
                 await InvokeAsync(StateHasChanged);
-                var res = await Client.Post<List<PurchaseOrderLineVM>>("/Receiving/PO/Items", new { OrderNumber = OrderNumber });
+                var res = await Client.Post<List<PurchaseOrderLineVM>>("/PurchaseOrder/Items", new { OrderNumber = OrderNumber });
                 return res;
             },
             OnSuccess = async (result) =>
             {
-                GoodPOItems = result.Data ?? [];
+                GoodPOItems = result.Data.Select(line => new PurchaseOrderLineVM
+                {
+                    NetsuiteOrderInternalId = line.NetsuiteOrderInternalId,
+                    OrderNumber = line.OrderNumber,
+                    OrderType = line.OrderType,
+                    OrderStatus = line.OrderStatus,
+
+                    NetsuiteSubsidiaryInternalId = line.NetsuiteSubsidiaryInternalId,
+                    NetsuiteSubsidiaryDefaultBOInternalId = line.NetsuiteSubsidiaryDefaultBOInternalId,
+
+                    NetsuiteLocationInternalId = line.NetsuiteLocationInternalId,
+                    LocationName = line.LocationName,
+                    LocationUsedBin = line.LocationUsedBin,
+
+                    LineSequenceNumber = line.LineSequenceNumber,
+                    TransactionLineType = line.TransactionLineType,
+
+                    NetsuiteVendorInternalId = line.NetsuiteVendorInternalId,
+                    VendorName = line.VendorName,
+                    VendorBinAssignmentId = line.VendorBinAssignmentId,
+
+                    NetsuiteMaterialInternalId = line.NetsuiteMaterialInternalId,
+                    MaterialCode = line.MaterialCode,
+                    MaterialName = line.MaterialName,
+                    MaterialWeight = line.MaterialWeight,
+                    LineQuantity = line.LineQuantity,
+                    LineQuantityReceived = line.LineQuantityReceived,
+                    NetsuiteUoMInternalId = line.NetsuiteUoMInternalId,
+                    UoMName = line.UoMName,
+                    UoMRate = line.UoMRate,
+
+                    ScanCount = 0,
+                    ScannedQuantity = 0,
+                    ScannedWeight = 0,
+                    IsBad = false,
+                }).ToList() ?? [];
+
+                BadPOItems = result.Data.Select(line => new PurchaseOrderLineVM
+                {
+                    NetsuiteOrderInternalId = line.NetsuiteOrderInternalId,
+                    OrderNumber = line.OrderNumber,
+                    OrderType = line.OrderType,
+                    OrderStatus = line.OrderStatus,
+
+                    NetsuiteSubsidiaryInternalId = line.NetsuiteSubsidiaryInternalId,
+                    NetsuiteSubsidiaryDefaultBOInternalId = line.NetsuiteSubsidiaryDefaultBOInternalId,
+
+                    NetsuiteLocationInternalId = line.NetsuiteLocationInternalId,
+                    LocationName = line.LocationName,
+                    LocationUsedBin = line.LocationUsedBin,
+
+                    LineSequenceNumber = line.LineSequenceNumber,
+                    TransactionLineType = line.TransactionLineType,
+
+                    NetsuiteVendorInternalId = line.NetsuiteVendorInternalId,
+                    VendorName = line.VendorName,
+                    VendorBinAssignmentId = line.VendorBinAssignmentId,
+
+                    NetsuiteMaterialInternalId = line.NetsuiteMaterialInternalId,
+                    MaterialCode = line.MaterialCode,
+                    MaterialName = line.MaterialName,
+                    MaterialWeight = line.MaterialWeight,
+                    LineQuantity = line.LineQuantity,
+                    LineQuantityReceived = line.LineQuantityReceived,
+                    NetsuiteUoMInternalId = line.NetsuiteUoMInternalId,
+                    UoMName = line.UoMName,
+                    UoMRate = line.UoMRate,
+
+                    ScanCount = 0,
+                    ScannedQuantity = 0,
+                    ScannedWeight = 0,
+                    IsBad = true,
+                }).ToList() ?? [];
 
                 await InvokeAsync(StateHasChanged);
             },
@@ -72,7 +150,7 @@ public partial class PurchaseOrderItemView
             TaskAsync = async () =>
             {
                 await InvokeAsync(StateHasChanged);
-                var res = await Client.Post("/Receiving/PO/SaveScan/Good", GoodPOItems);
+                var res = await Client.Post("/PurchaseOrder/SaveScan", POItems);
                 return res;
             },
             OnSuccess = async (result) =>
@@ -125,80 +203,114 @@ public partial class PurchaseOrderItemView
                 return;
             }
 
-            if (NextScanIsBad)
-            {
-                var badLine = BadPOItems.FirstOrDefault(x =>
+            var goodLine = GoodPOItems.FirstOrDefault(x =>
                     x.NetsuiteMaterialInternalId == barcode.MaterialInternalId);
 
-                if (badLine is null)
+            var badLine = BadPOItems.FirstOrDefault(x =>
+                x.NetsuiteMaterialInternalId == barcode.MaterialInternalId);
+
+            if (goodLine is null)
+            {
+                await Toast.Warning("Item not found in this PO.");
+                return;
+            }
+
+            var badlineTotal = badLine.ScannedQuantity;
+            var goodLineTotal = goodLine.ScannedQuantity;
+
+            var isOverScan = badlineTotal + goodLineTotal >= goodLine.NSLineQuantity;
+
+            if (isOverScan)
+            {
+                await Toast.Warning($"Over-scanning item: {goodLine.MaterialCode}.");
+                return;
+            }
+
+            var scanQty = barcode.UoMRate / goodLine.UoMRate;
+
+            var remainingQty = goodLine.NSLineQuantity - (goodLine.ScannedQuantity + (badLine?.ScannedQuantity ?? 0));
+
+            bool isExceed = scanQty > remainingQty;
+
+            if (isExceed)
+            {
+                await Toast.Warning($"Scan quantity exceeds remaining quantity for item: {goodLine.MaterialCode}.");
+                return;
+            }
+
+            if (IsWeightDialogOpen)
+            {
+                return;
+            }
+
+            if (NextScanIsBad)
+            {
+                IsWeightDialogOpen = true;
+
+                ChangeWeight = await Dialog.OpenAsync<WeightInputDialog>(
+                        "Weight Input",
+                        new Dictionary<string, object>
+                        {
+                        { "ItemName", barcode.MaterialName }
+                        },
+                        new DialogOptions()
+                    );
+
+                IsWeightDialogOpen = false;
+
+                if (ChangeWeight.Value == 0m || !ChangeWeight.HasValue)
                 {
-                    var sourceLine = GoodPOItems.FirstOrDefault(x =>
-                        x.NetsuiteMaterialInternalId == barcode.MaterialInternalId);
-
-                    if (sourceLine is null)
-                    {
-                        await Toast.Warning("Item not found in this PO.");
-                        return;
-                    }
-
-                    badLine = new PurchaseOrderLineVM
-                    {
-                        NetsuiteOrderInternalId = sourceLine.NetsuiteOrderInternalId,
-                        OrderNumber = sourceLine.OrderNumber,
-                        OrderType = sourceLine.OrderType,
-                        OrderStatus = sourceLine.OrderStatus,
-                        NetsuiteLocationInternalId = sourceLine.NetsuiteLocationInternalId,
-                        LocationName = sourceLine.LocationName,
-                        LocationUsedBin = sourceLine.LocationUsedBin,
-                        LineSequenceNumber = sourceLine.LineSequenceNumber,
-                        TransactionLineType = sourceLine.TransactionLineType,
-                        NetsuiteVendorInternalId = sourceLine.NetsuiteVendorInternalId,
-                        VendorName = sourceLine.VendorName,
-                        VendorBinAssignmentId = sourceLine.VendorBinAssignmentId,
-                        NetsuiteMaterialInternalId = sourceLine.NetsuiteMaterialInternalId,
-                        MaterialCode = sourceLine.MaterialCode,
-                        MaterialName = sourceLine.MaterialName,
-                        LineQuantity = sourceLine.LineQuantity,
-                        NetsuiteUoMInternalId = sourceLine.NetsuiteUoMInternalId,
-                        UoMName = sourceLine.UoMName,
-                        UoMRate = sourceLine.UoMRate,
-
-                        // scanning fields: start fresh for badLine
-                        ScanCount = 0,
-                        ScannedQuantity = 0,
-                        IsBad = true
-                    };
-
-                    BadPOItems.Add(badLine);
+                    await Toast.Warning("Scan cancelled - no weight entered");
+                    return;
                 }
 
-                badLine.ScannedQuantity += barcode.UoMRate;
+                badLine.ScannedQuantity += barcode.UoMRate / badLine.UoMRate;
+                badLine.ScannedWeight += barcode.UoMRate * (ChangeWeight ?? 0m);
                 badLine.ScanCount++;
             }
             else
             {
-                var goodLine = GoodPOItems.FirstOrDefault(x =>
-                    x.NetsuiteMaterialInternalId == barcode.MaterialInternalId);
+                decimal? weight = null;
 
-                if (goodLine is null)
+                if(ChangeWeight.HasValue)
                 {
-                    await Toast.Warning("Item not found in this PO.");
-                    return;
+                    weight = ChangeWeight;
+                }
+                else if (!goodLine.DefaultWeight.HasValue)
+                {
+                    IsWeightDialogOpen = true;
+
+                    weight = await Dialog.OpenAsync<WeightInputDialog>(
+                        "Weight Input",
+                        new Dictionary<string, object>
+                        {
+                            { "ItemName", barcode.MaterialName }
+                        },
+                        new DialogOptions()
+                    );
+
+                    IsWeightDialogOpen = false;
+
+                    if (!weight.HasValue || weight.Value == 0m)
+                    {
+                        await Toast.Warning("Scan cancelled - no weight entered");
+                        return;
+                    }
+
+                    goodLine.DefaultWeight = weight;
+                }
+                else
+                {
+                    weight = goodLine.DefaultWeight;
                 }
 
-                var isOverScan = goodLine.ScannedQuantity >= goodLine.LineQuantity;
-
-                if(isOverScan)
-                {
-                    await Toast.Warning($"Over-scanning item: {goodLine.MaterialCode}.");
-                    return;
-                }
-
-                goodLine.ScannedQuantity += barcode.UoMRate;
+                goodLine.ScannedQuantity += barcode.UoMRate / goodLine.UoMRate;
+                goodLine.ScannedWeight += barcode.UoMRate * (weight ?? 0m);
                 goodLine.ScanCount++;
             }
 
             ScanCount++;
+            ChangeWeight = null; // reset the ChangeWeight after each scan
 
             await InvokeAsync(StateHasChanged);
         }
@@ -210,9 +322,50 @@ public partial class PurchaseOrderItemView
 
     async Task SaveScan()
     {
+        POItems = GoodPOItems.Where(x => x.ScannedQuantity != 0)
+            .Concat(BadPOItems.Where(x => x.ScannedQuantity != 0))
+            .Select(x => new PurchaseOrderLineVM
+            {
+                NetsuiteOrderInternalId = x.NetsuiteOrderInternalId,
+                OrderNumber = x.OrderNumber,
+                OrderType = x.OrderType,
+                OrderStatus = x.OrderStatus,
+
+                NetsuiteSubsidiaryInternalId = x.NetsuiteSubsidiaryInternalId,
+                NetsuiteSubsidiaryDefaultBOInternalId = x.NetsuiteSubsidiaryDefaultBOInternalId,
+
+                NetsuiteLocationInternalId = x.NetsuiteLocationInternalId,
+                LocationName = x.LocationName,
+                LocationUsedBin = x.LocationUsedBin,
+
+                LineSequenceNumber = x.LineSequenceNumber,
+                TransactionLineType = x.TransactionLineType,
+
+                NetsuiteVendorInternalId = x.NetsuiteVendorInternalId,
+                VendorName = x.VendorName,
+                VendorBinAssignmentId = x.VendorBinAssignmentId,
+
+                NetsuiteMaterialInternalId = x.NetsuiteMaterialInternalId,
+                MaterialCode = x.MaterialCode,
+                MaterialName = x.MaterialName,
+                MaterialWeight = x.MaterialWeight,
+                LineQuantity = x.LineQuantity,
+                LineQuantityReceived = x.LineQuantityReceived,
+                NetsuiteUoMInternalId = x.NetsuiteUoMInternalId,
+                UoMName = x.UoMName,
+                UoMRate = x.UoMRate,
+
+                ScanCount = x.ScanCount,
+                IsBad = x.IsBad,
+                ScannedQuantity = x.ScannedQuantity,
+                ScannedWeight = x.ScannedWeight
+            })
+            .ToList();
+
+
         await ActionFactory.ExecuteAppActionAsync(ActionSaveScan, confirm: true, showToast: true);
 
-        StateHasChanged();
+        await InvokeAsync(StateHasChanged);
     }
 
     void ToggleQuality()
@@ -221,11 +374,16 @@ public partial class PurchaseOrderItemView
         InvokeAsync(StateHasChanged);
     }
 
-    void ToggleQuality(PurchaseOrderLineVM row)
+    async void ToggleWeight()
     {
-        if (row is null) return;
-        row.IsBad = !row.IsBad;
-        InvokeAsync(StateHasChanged);
+        ChangeWeight = await Dialog.OpenAsync<WeightInputDialog>(
+                    "Weight Input",
+                    new Dictionary<string, object>
+                    {
+                        { "ItemName", "" }
+                    },
+                    new DialogOptions()
+                );
     }
 
     public async ValueTask DisposeAsync()

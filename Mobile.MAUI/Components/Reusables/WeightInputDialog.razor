@@ -1,0 +1,37 @@
+﻿<RadzenStack Gap="16px" Style="padding: 20px;">
+    <RadzenStack Gap="8px">
+        <RadzenLabel Text="Item:" />
+        <RadzenText TextStyle="TextStyle.Body2" Text="@ItemName" />
+    </RadzenStack>
+
+    <RadzenStack Gap="8px">
+        <RadzenLabel Text="Weight (kg)" />
+        <RadzenNumeric @bind-Value="@Weight" Placeholder="Enter weight" Style="width: 100%;" />
+    </RadzenStack>
+
+    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="8px">
+        <RadzenButton Text="Cancel" Click="OnCancel" ButtonStyle="ButtonStyle.Warning" />
+        <RadzenButton Text="Confirm" Click="OnConfirm" ButtonStyle="ButtonStyle.Success" />
+    </RadzenStack>
+</RadzenStack>
+
+@code
+{
+    [Inject]
+    DialogService DialogService { get; set; }
+
+    [Parameter]
+    public string ItemName { get; set; }
+
+    public decimal Weight { get; set; } = 0;
+
+    private async Task OnConfirm()
+    {
+        DialogService.Close(Weight);
+    }
+
+    private async Task OnCancel()
+    {
+        DialogService.Close(0m);
+    }
+}

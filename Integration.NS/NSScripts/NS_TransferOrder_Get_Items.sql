@@ -6,7 +6,11 @@ SELECT
 
     tl.location AS NetsuiteFromLocationInternalId,
     t.transferlocation AS NetsuiteToLocationInternalId,
+	
     t.subsidiary AS NetsuiteFromSubsidiaryInternalId,
+	s.name AS FromSubsidiaryName,
+
+	s.custrecord_dbti_default_bo_location AS NetsuiteSubsidiaryDefaultBOInternalId,
     t.tosubsidiary AS NetsuiteToSubsidiaryInternalId,
 
     loc.name AS LocationName,
@@ -18,6 +22,8 @@ SELECT
     tl.item AS NetsuiteMaterialInternalId,
     i.itemid AS MaterialCode,
     i.displayname AS MaterialName,
+    b.id AS NetsuiteMaterialPrefferedBinId,
+	i.weight AS MaterialWeight,
 
     tl.quantity AS LineQuantity,
 	tl.quantityshiprecv AS LineQuantityReceived,
@@ -32,17 +38,27 @@ SELECT
     ) AS NetsuiteOrderCreatedDate
 
 FROM item i
-INNER JOIN transactionline tl
-    ON i.id = tl.item
-INNER JOIN transaction t
-    ON tl.transaction = t.id
-INNER JOIN location loc
-    ON tl.location = loc.id
-INNER JOIN unitstypeuom uom
-    ON tl.units = uom.internalid
+    JOIN transactionline tl ON i.id = tl.item
+    JOIN transaction t ON tl.transaction = t.id
+    JOIN subsidiary s ON t.subsidiary = s.id
+    JOIN location loc ON tl.location = loc.id
+    LEFT JOIN (
+	   SELECT
+		   ibq.item,
+		   ibq.bin,
+		   b.location
+	   FROM itembinquantity ibq
+	   JOIN bin b
+		   ON b.id = ibq.bin
+	   WHERE ibq.preferredbin = 'T'
+   ) ibq ON ibq.item = i.id  AND ibq.location = tl.location
+
+	LEFT JOIN bin b ON b.id = ibq.bin
+    JOIN unitstypeuom uom ON tl.units = uom.internalid
 
 WHERE
-    t.recordtype = 'intercompanytransferorder'
+    t.recordtype IN ('intercompanytransferorder', 'transferorder')
+    AND t.custbody_dbti_transfer_category IN ('1', '2')
     AND t.status IN ('F', 'E')
 	AND tl.transactionlinetype = 'RECEIVING'
 	AND t.tranid = @tranid

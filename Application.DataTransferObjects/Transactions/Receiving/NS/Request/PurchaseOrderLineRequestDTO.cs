@@ -1,4 +1,4 @@
-﻿namespace Application.DataTransferObjects.Transactions.Receiving.Request;
+﻿namespace Application.DataTransferObjects.Transactions.Receiving.NS.Request;
 
 public class PurchaseOrderLineRequestDTO
 {
