@@ -1,10 +1,8 @@
 ﻿using Application.DataTransferObjects.Others.NS;
 using Application.DataTransferObjects.Transactions.Receiving;
-using Application.DataTransferObjects.Transactions.Receiving.NS;
 using Application.DataTransferObjects.Transactions.Receiving.SAP;
 using Application.UseCases.Repositories.Integration.Others;
 using Application.UseCases.Repositories.Integration.Transaction.Receiving;
-using Domain.Entities.ValueObjects.Others;
 using Integration.NS.Services;
 using Integration.SAP.Entities.Transactional.Receiving;
 using Shared.Entities;
@@ -173,7 +171,7 @@ public class ReceivingIntegration(
         return response.items.FirstOrDefault();
     }
 
-    public async Task<(IEnumerable<ReceivingLineNSDTO>, int)> GetTransferOrderLinesAsync(string Id, DataGridIntent intent)
+    public async Task<(IEnumerable<Application.DataTransferObjects.Transactions.Receiving.NS.ReceivingLineNSDTO>, int)> GetTransferOrderLinesAsync(string Id, DataGridIntent intent)
     {
         var query = builderFactory.Create()
             .Select(
@@ -196,7 +194,7 @@ public class ReceivingIntegration(
             .WithDatagridIntent(intent)
             .Build();
 
-        var response = await netsuiteService.ExecuteSuiteQLQuery<ReceivingLineNSDTO>(query.Query, limit: query.Limit, offset: query.Offset);
+        var response = await netsuiteService.ExecuteSuiteQLQuery<Application.DataTransferObjects.Transactions.Receiving.NS.ReceivingLineNSDTO>(query.Query, limit: query.Limit, offset: query.Offset);
         return (response.items, response.totalResults);
     }
 
