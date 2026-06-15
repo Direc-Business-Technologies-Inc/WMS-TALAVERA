@@ -1,6 +1,12 @@
-﻿namespace Web.BlazorServer.ViewModels.Transaction.StockTransferRequest;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
 
-public class StockTransferRequestInfoVM
+namespace Application.DataTransferObjects.Transactions.StockTransferRequest;
+
+public class StockTransferRequestInfoDTO
 {
     public string Status { get; set; } = string.Empty;
     public int Id { get; set; }
@@ -12,14 +18,7 @@ public class StockTransferRequestInfoVM
     public string ToSubsidiary { get; set; } = string.Empty;
     public string PreparedBy { get; set; } = string.Empty;
     public string Remarks { get; set; } = string.Empty;
-    public Types Type { get; set; } = Types.TransferOrder;
-    public DateTime Date { get; set; }
-    public List<StockTransferRequestLineVM> Lines { get; set; } = [];
-
-    public enum Types
-    {
-        TransferOrder,
-        IntercompanyTransferOrder,
-        Returns
-    } 
+    public string Type { get; set;} = string.Empty;
+    public DateTime Date { get; set;}
+    public List<StockTransferRequestLineDTO> Lines { get; set; } = [];
 }

@@ -46,7 +46,7 @@ public class StockTransferRequestMockHandler : IStockTransferRequestHandler
         {
             Id = str.Id,
             ReferenceNumber = str.ReferenceNumber,
-            Requestor = str.Requestor,
+            Vendor = str.Vendor,
             SourceLocation = str.SourceLocation,
             DestinationLocation = str.DestinationLocation,
             Subsidiary = str.Subsidiary,
@@ -84,7 +84,7 @@ public class StockTransferRequestMockHandler : IStockTransferRequestHandler
                 Id = i,
                 ReferenceNumber = $"STR{i:000}",
                 Status = Random.Shared.Next(3) switch { 0 => "Transfer Order", 1 => "ICTO", _ => "Returns"},
-                Requestor = $"Some Guy",
+                Vendor = $"Some Guy",
                 SourceLocation = $"Penn State",
                 DestinationLocation = $"Nebraska",
                 Subsidiary = $"Some Other Guy",

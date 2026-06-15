@@ -28,9 +28,20 @@ public class StockTransferRequestHandler(ISender sender) : IStockTransferRequest
         return (data.Adapt<IEnumerable<StockTransferRequestDataGridVM>>(), count);
     }
 
-    public Task<StockTransferRequestInfoVM?> GetStockTransferRequest(string reference, bool includeLines = true)
+    public async Task<StockTransferRequestInfoVM?> GetStockTransferRequest(string reference, bool includeLines = true)
     {
-        throw new NotImplementedException();
+        GetStockTransferRequestQry query = new(reference);
+        var dto = await sender.Send(query);
+        var vm = dto.Adapt<StockTransferRequestInfoVM>();
+
+        vm.Type = dto.Type.ToLowerInvariant() switch
+        {
+            "returns" => StockTransferRequestInfoVM.Types.Returns,
+            "intercompanytransferorder" => StockTransferRequestInfoVM.Types.IntercompanyTransferOrder,
+            _ => StockTransferRequestInfoVM.Types.TransferOrder
+        };
+
+        return vm;
     }
 
     public Task<(IEnumerable<StockTransferRequestLineVM> data, int count)> GetStockTransferRequestLines(string reference, DataGridIntent intent)

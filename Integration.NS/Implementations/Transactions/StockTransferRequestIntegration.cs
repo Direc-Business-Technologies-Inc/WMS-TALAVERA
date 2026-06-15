@@ -99,4 +99,59 @@ internal class StockTransferRequestIntegration(
 
         return (response.items, response.totalResults);
     }
+
+
+
+    public async Task<StockTransferRequestInfoDTO?> GetStockTransferRequest(string id)
+    {
+        var query = builderFactory.Create()
+                .Select(
+                    ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(StockTransferRequestInfoDTO.Date)),
+                    ("t.tranid", nameof(StockTransferRequestInfoDTO.ReferenceNumber)),
+                    ("BUILTIN.DF(t.custbody_dbti_prepared_by)", nameof(StockTransferRequestInfoDTO.PreparedBy)),
+                    ("BUILTIN.DF(t.subsidiary)", nameof(StockTransferRequestInfoDTO.Subsidiary)),
+                    ("BUILTIN.DF(t.tosubsidiary)", nameof(StockTransferRequestInfoDTO.ToSubsidiary)),
+                    ("BUILTIN.DF(t.transferlocation)", nameof(StockTransferRequestInfoDTO.DestinationLocation)),
+                    ("BUILTIN.DF(tl.location)", nameof(StockTransferRequestInfoDTO.SourceLocation)),
+                    ("CASE " + 
+                        "WHEN t.custbody_dbti_transfer_category IN (3, 4) THEN 'Returns' " +
+                        "WHEN t.recordtype = 'intercompanytransferorder' THEN 'IntercompanyTransferOrder' " + 
+                        "ELSE 'TransferOrder' END",
+                        nameof(StockTransferRequestInfoDTO.Type))
+                )
+                .From("transaction t")
+                .Join("transactionline tl", on: "tl.transaction = t.id")
+                .WithFilters(
+                    DataGridFilterUtilities.Equal("t.tranid", id),
+                    DataGridFilterUtilities.Equal("tl.mainline", "T"),
+                    DataGridFilterUtilities.In("t.recordtype", new string[] { "transferorder", "intercompanytransferorder" })
+                )
+                .Build();
+
+        var response = await netsuiteService.ExecuteSuiteQLQuery<StockTransferRequestInfoDTO>(query.Query, query.Limit, query.Offset);
+        return response.items.FirstOrDefault();
+    }
+
+    public async Task<IEnumerable<StockTransferRequestLineDTO>?> GetStockTransferRequestLines(string id)
+    {
+
+        var query = builderFactory.Create()
+            .Select(
+                ("item.itemid", nameof(StockTransferRequestLineDTO.ItemCode)),
+                ("BUILTIN.DF(tl.units)", nameof(StockTransferRequestLineDTO.UoM)),
+                ("BUILTIN.DF(tl.location)", nameof(StockTransferRequestLineDTO.Warehouse)),
+                ("item.displayname", nameof(StockTransferRequestLineDTO.ItemDescription)),
+                ("tl.quantity", nameof(StockTransferRequestLineDTO.QuantityOnHand))
+            )
+            .From("transactionline tl")
+            .Join("transaction t", on: "tl.transaction = t.id")
+            .Join("item", on: "tl.item = item.id")
+            .WithFilters(
+                DataGridFilterUtilities.Equal("t.tranid", id),
+                DataGridFilterUtilities.Equal("tl.mainline", "F")
+            ).Build();
+
+        var response = await netsuiteService.ExecuteSuiteQLQuery<StockTransferRequestLineDTO>(query.Query, query.Limit, query.Offset);
+        return [..response.items];
+    }
 }
