@@ -13,7 +13,7 @@ using System.Threading.Tasks;
 namespace Application.UseCases.Queries.Transaction.Receiving;
 
 
-public record GetTransferOrderLinesQry(int DocEntry, DataGridIntent Intent) : IRequest<(IEnumerable<ReceivingLineDTO> data, int count)>;
+public record GetTransferOrderLinesQry(string DocEntry, DataGridIntent Intent) : IRequest<(IEnumerable<ReceivingLineDTO> data, int count)>;
 
 public class GetTransferOrderLinesQryHandler(
     IReceivingIntegration receivingIntegration)

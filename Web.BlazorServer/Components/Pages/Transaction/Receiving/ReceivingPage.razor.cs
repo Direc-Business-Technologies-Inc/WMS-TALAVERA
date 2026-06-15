@@ -6,7 +6,7 @@ public partial class ReceivingPage
 {
     #region Parameters
     [SupplyParameterFromQuery]
-    [Parameter] public string T { get; set; } = "po";
+    [Parameter] public string Tab { get; set; } = "purchaseorder";
     #endregion Parameters
 
     #region Primitives
@@ -18,8 +18,8 @@ public partial class ReceivingPage
     protected override void OnParametersSet()
     {
         base.OnParametersSet();
-        if (T is not null)
-            SelectedTab = T.ToLower() == "to" ? 1 : 0;
+        if (Tab is not null)
+            SelectedTab = Tab.ToLowerInvariant() switch { "transferorder" => 1, "returns" => 2, _ => 0 };
     }
 
     #endregion Overrides
@@ -27,8 +27,8 @@ public partial class ReceivingPage
     #region Custom Functions
     void TabChanged()
     {
-        T = SelectedTab == 0 ? "po" : "to";
-        NavManager.NavigateTo($"/transactions/purchasing/receiving?T={T}");
+        Tab = SelectedTab switch { 1 => "transferorder", 2 => "returns", _ => "purchaseorder" };
+        NavManager.NavigateTo($"/transactions/purchasing/receiving?tab={Tab}");
     }
     #endregion Custom Functions
 }

@@ -14,4 +14,5 @@ public class ReceivingDataGridDTO
     public string TransferLocation { get; set; } = string.Empty;
     public string SourceSubsidiary { get; set; } = string.Empty;
     public string DestinationSubsidiary { get; set; } = string.Empty;
+    public string VendorName { get; set; } = string.Empty;
 }

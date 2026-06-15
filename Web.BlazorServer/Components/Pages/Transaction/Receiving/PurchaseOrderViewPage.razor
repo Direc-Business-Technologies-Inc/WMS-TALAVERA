@@ -1,0 +1,25 @@
+﻿@page "/transactions/purchasing/receiving/purchase-order/view"
+@using Web.BlazorServer.Components.Pages.Transaction.Receiving.Components
+@using Web.BlazorServer.Components.Security
+@using Web.BlazorServer.Components.Shared.Skeletons
+@using Web.BlazorServer.ViewModels.Transaction.Receiving
+
+@inherits BaseComponent
+@layout ProtectedLayout
+@attribute [AppAuthorizationAttribute("VIEW", "ORCV")]
+
+
+<PageTitle>Purchase Order: @Ref</PageTitle>
+
+<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" class="rz-mb-4">
+    <AppBreadCrumbs ModuleCode="ORCV" />
+</RadzenStack>
+
+<AppContent>
+    <AppFormSkeleton TItem="PurchaseOrderVM" Loading="@IsLoadingData" />
+
+    @if (!IsLoadingData)
+    {
+        <PurchaseOrderDetails Model="@Model" />
+    }
+</AppContent>

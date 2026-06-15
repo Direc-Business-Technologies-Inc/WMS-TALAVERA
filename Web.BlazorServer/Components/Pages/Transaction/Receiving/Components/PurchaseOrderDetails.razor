@@ -1,0 +1,63 @@
+﻿@using Web.BlazorServer.Components.Custom
+@using Web.BlazorServer.ViewModels.Transaction.Receiving
+@inject NavigationManager NavManager
+
+<RadzenStack Orientation="Orientation.Horizontal"
+             AlignItems="AlignItems.Center"
+             JustifyContent="JustifyContent.End"
+             Gap="32px"
+             class="rz-mb-0 rz-mt-2">
+    <AppContentBadge Title="Doc" Content="@Model.ReferenceNumber" />
+    <AppContentBadge Title="Doc Date" Content="@Model.Date.ToString("MM-dd-yy")" ChildBadgeStyle="BadgeStyle.Secondary" ChildShade="Shade.Default" />
+</RadzenStack>
+
+<RadzenStack Gap="0.5em">
+    <RadzenFieldset Text="Details" AllowCollapse>
+        <RadzenRow Gap="0.5em">
+            <RadzenColumn SizeMD="6">
+                <RadzenFormField Text="Reference Number" AllowFloatingLabel="false" class="rz-w-100">
+                    <RadzenTextBox Value="@Model.ReferenceNumber" />
+                </RadzenFormField>
+            </RadzenColumn>
+            <RadzenColumn SizeMD="3">
+                <RadzenFormField Text="Date" AllowFloatingLabel="false" class="rz-w-100">
+                    <RadzenDatePicker TValue="DateTime" Value="@Model.Date" />
+                </RadzenFormField>
+            </RadzenColumn>
+            <RadzenColumn SizeMD="3">
+                <RadzenFormField Text="Delivery Date" AllowFloatingLabel="false" class="rz-w-100">
+                    <RadzenDatePicker TValue="DateTime" Value="@Model.DeliveryDate" />
+                </RadzenFormField>
+            </RadzenColumn>
+            <RadzenColumn SizeMD="6">
+                <RadzenFormField Text="Vendor" AllowFloatingLabel="false" class="rz-w-100">
+                    <RadzenTextBox Value="@Model.VendorName" />
+                </RadzenFormField>
+            </RadzenColumn>
+            <RadzenColumn SizeMD="6">
+                <RadzenFormField Text="Received By" AllowFloatingLabel="false" class="rz-w-100">
+                    <RadzenTextBox Value="@Model.ReceivedBy" />
+                </RadzenFormField>
+            </RadzenColumn>
+        </RadzenRow>
+    </RadzenFieldset>
+    <RadzenFieldset Text="Lines" AllowCollapse>
+        <AppTableWithSettings Data="@Model.DocumentLines" Id="purchase_order_lines">
+            <Columns>
+                <RadzenDataGridColumn TItem="PurchaseOrderLineVM" Property="@nameof(PurchaseOrderLineVM.ItemCode)" Title="Item Code" />
+                <RadzenDataGridColumn TItem="PurchaseOrderLineVM" Property="@nameof(PurchaseOrderLineVM.ItemDescription)" Title="Item Description" />
+                <RadzenDataGridColumn TItem="PurchaseOrderLineVM" Property="@nameof(PurchaseOrderLineVM.UoM)" Title="UoM" />
+                <RadzenDataGridColumn TItem="PurchaseOrderLineVM" Property="@nameof(PurchaseOrderLineVM.Location)" Title="Warehouse" />
+                <RadzenDataGridColumn TItem="PurchaseOrderLineVM" Property="@nameof(PurchaseOrderLineVM.QuantityPlanned)" Title="Planned Quantity" />
+            </Columns>
+        </AppTableWithSettings>
+    </RadzenFieldset>
+    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween">
+        <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5em">
+            <RadzenButton ButtonStyle="ButtonStyle.Light" ButtonType="ButtonType.Button" Text="Return" Click="@(_ => NavManager.NavigateTo("/transactions/purchasing/receiving"))" />
+        </RadzenStack>
+        <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5em">
+            <RadzenButton ButtonStyle="ButtonStyle.Success" ButtonType="ButtonType.Button" Text="Create Item Receipt" Click="@(_ => NavManager.NavigateTo($"/transactions/purchasing/receiving/create-item-receipt?ref={Model.ReferenceNumber}"))" />
+        </RadzenStack>
+    </RadzenStack>
+</RadzenStack>

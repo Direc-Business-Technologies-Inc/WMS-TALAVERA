@@ -1,0 +1,143 @@
+﻿@using Web.BlazorServer.Components.Custom
+@using Web.BlazorServer.ViewModels.Transaction.Receiving
+
+<RadzenTemplateForm TItem="ItemReceiptVM" EditContext="@EditContext" Submit="@Submit">
+    <RadzenStack Gap="0.5em">
+        <RadzenFieldset Text="Details" AllowCollapse>
+            <RadzenRow Gap="0.5em">
+                <RadzenColumn SizeMD="4">
+                    <RadzenFormField AllowFloatingLabel="false" Text="Created From" class="rz-w-100">
+                        <RadzenTextBox Value="@Data.CreatedFrom" ReadOnly />
+                    </RadzenFormField>
+                </RadzenColumn>
+                <RadzenColumn SizeMD="4">
+                    <RadzenFormField AllowFloatingLabel="false" Text="Receiving Category" class="rz-w-100">
+                        <RadzenDropDown @bind-Value="@Data.IsBad" Data="@Categories" ValueProperty="@nameof(DropDownItem.Value)" TextProperty="@nameof(DropDownItem.Name)" @bind-Value:after="@(() => InvokeAsync(StateHasChanged))"/>
+                    </RadzenFormField>
+                </RadzenColumn>
+                <RadzenColumn SizeMD="4">
+                    <RadzenFormField AllowFloatingLabel="false" Text="Date" class="rz-w-100">
+                        <RadzenDatePicker @bind-Value="@Data.Date" ReadOnly />
+                    </RadzenFormField>
+                </RadzenColumn>
+                <RadzenColumn SizeMD="4">
+                    <RadzenFormField AllowFloatingLabel="false" Text="Department" class="rz-w-100">
+                        <RadzenTextBox Value="@Data.Department" ReadOnly/>
+                    </RadzenFormField>
+                </RadzenColumn>
+                <RadzenColumn SizeMD="4">
+                    <RadzenFormField AllowFloatingLabel="false" Text="Vendor" class="rz-w-100">
+                        <RadzenTextBox Value="@Data.Vendor" />
+                    </RadzenFormField>
+                </RadzenColumn>
+                @if (Data.SourceType == ItemReceiptVM.SourceTypes.PurchaseOrder)
+                {
+                    <RadzenColumn SizeMD="4">
+                        <RadzenFormField AllowFloatingLabel="false" Text="Warehouse" class="rz-w-100">
+                            <RadzenTextBox @bind-Value="@Data.Location" />
+                        </RadzenFormField>
+                    </RadzenColumn>
+                    <RadzenColumn OffsetMD="8" SizeMD="4">
+                        <RadzenFormField AllowFloatingLabel="false" Text="Received By" class="rz-w-100">
+                            <RadzenTextBox @bind-Value="@Data.ReceivedBy" />
+                        </RadzenFormField>
+                    </RadzenColumn>
+                } 
+                else if (Data.SourceType == ItemReceiptVM.SourceTypes.TransferOrder)
+                {
+                    <RadzenColumn SizeMD="4">
+                        <RadzenFormField AllowFloatingLabel="false" Text="Received By" class="rz-w-100">
+                            <RadzenTextBox @bind-Value="@Data.ReceivedBy" />
+                        </RadzenFormField>
+                    </RadzenColumn>
+                    <RadzenColumn SizeMD="6">
+                        <RadzenFormField AllowFloatingLabel="false" Text="From Subsidiary" class="rz-w-100">
+                            <RadzenTextBox Value="@Data.Subsidiary" ReadOnly/>
+                        </RadzenFormField>
+                    </RadzenColumn>
+                    <RadzenColumn SizeMD="6">
+                        <RadzenFormField AllowFloatingLabel="false" Text="To Subsidiary" class="rz-w-100">
+                            <RadzenTextBox Value="@Data.ToSubsidiary" ReadOnly />
+                        </RadzenFormField>
+                    </RadzenColumn>
+                    <RadzenColumn SizeMD="6">
+                        <RadzenFormField AllowFloatingLabel="false" Text="From Warehouse" class="rz-w-100">
+                            <RadzenTextBox Value="@Data.Location" ReadOnly />
+                        </RadzenFormField>
+                    </RadzenColumn>
+                    <RadzenColumn SizeMD="6">
+                        <RadzenFormField AllowFloatingLabel="false" Text="To Warehouse" class="rz-w-100">
+                            <RadzenTextBox Value="@Data.TransferLocation" ReadOnly />
+                        </RadzenFormField>
+                    </RadzenColumn>
+                }
+                else if (Data.SourceType == ItemReceiptVM.SourceTypes.Returns)
+                {
+                    <RadzenColumn SizeMD="4">
+                        <RadzenFormField AllowFloatingLabel="false" Text="Received By" class="rz-w-100">
+                            <RadzenTextBox @bind-Value="@Data.ReceivedBy" />
+                        </RadzenFormField>
+                    </RadzenColumn>
+                    <RadzenColumn SizeMD="4">
+                        <RadzenFormField AllowFloatingLabel="false" Text="Subsidiary" class="rz-w-100">
+                            <RadzenTextBox Value="@Data.Subsidiary" ReadOnly />
+                        </RadzenFormField>
+                    </RadzenColumn>
+                    <RadzenColumn SizeMD="4">
+                        <RadzenFormField AllowFloatingLabel="false" Text="From Warehouse" class="rz-w-100">
+                            <RadzenTextBox Value="@Data.Location" ReadOnly />
+                        </RadzenFormField>
+                    </RadzenColumn>
+                    <RadzenColumn SizeMD="4">
+                        <RadzenFormField AllowFloatingLabel="false" Text="To Warehouse" class="rz-w-100">
+                            <RadzenTextBox Value="@Data.TransferLocation" ReadOnly />
+                        </RadzenFormField>
+                    </RadzenColumn>
+                }
+            </RadzenRow>
+        </RadzenFieldset>
+        <RadzenFieldset AllowCollapse Text="Lines">
+            <AppTableWithSettings Data="@Data.Lines" Id="item_receipt_lines">
+                <Columns>
+                    <RadzenDataGridColumn TItem="ItemReceiptLineVM" Width="30px">
+                        <Template Context="data">
+                            <RadzenCheckBox @bind-Value="data.IsReceived" Disabled="data.IsComplete" />
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="ItemReceiptLineVM" Property="@nameof(ItemReceiptLineVM.ItemCode)" Title="Item Code" />
+                    <RadzenDataGridColumn TItem="ItemReceiptLineVM" Property="@nameof(ItemReceiptLineVM.ItemDescription)" Title="Item Description" />
+                    <RadzenDataGridColumn TItem="ItemReceiptLineVM" Property="@nameof(ItemReceiptLineVM.UoM)" Title="UoM" />
+                    <RadzenDataGridColumn TItem="ItemReceiptLineVM" Property="@nameof(ItemReceiptLineVM.Department)" Title="Department" />
+                    <RadzenDataGridColumn TItem="ItemReceiptLineVM" Property="@nameof(ItemReceiptLineVM.Location)" Title="Warehouse" />
+                    <RadzenDataGridColumn TItem="ItemReceiptLineVM" Property="@nameof(ItemReceiptLineVM.WeightReceived)" Title="Received Weight" >
+                        <Template Context="data">
+                            <RadzenNumeric Min="0" @bind-Value="data.WeightReceived" ShowUpDown="false" Disabled="@(!data.IsReceived)"/>
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="ItemReceiptLineVM" Property="@nameof(ItemReceiptLineVM.WeightTotal)" Title="Total Weight" />
+                    <RadzenDataGridColumn TItem="ItemReceiptLineVM" Property="@nameof(ItemReceiptLineVM.QuantityPlanned)" Title="Planned Quantity" />
+                    <RadzenDataGridColumn TItem="ItemReceiptLineVM" Property="@nameof(ItemReceiptLineVM.QuantityReceived)" Title="Received Quantity" />
+                    <RadzenDataGridColumn TItem="ItemReceiptLineVM" Property="@nameof(ItemReceiptLineVM.QuantityBad)" Title="Quantity" >
+                        <Template Context="data">
+                            <RadzenFormField Text="@(Data.IsBad ? "Bad Quantity" : "Good Quantity")">
+                                <ChildContent>
+                                    <RadzenNumeric @bind-Value="@data.Quantity" Disabled="@(!data.IsReceived)" />
+                                </ChildContent>
+                                <End>
+                                    <RadzenButton Size="ButtonSize.Small" Variant="Variant.Text" Click="@(_ => data.Quantity = data.QuantityOpen)" >
+                                        <RadzenIcon Icon="keyboard_double_arrow_up" IconStyle="@(Data.IsBad ? IconStyle.Danger : IconStyle.Success)" />
+                                    </RadzenButton>
+                                </End>
+                            </RadzenFormField> 
+                        </Template>
+                    </RadzenDataGridColumn>
+                </Columns>
+            </AppTableWithSettings>
+        </RadzenFieldset>
+        <RadzenStack JustifyContent="JustifyContent.SpaceBetween" Orientation="Orientation.Horizontal">
+            <RadzenButton ButtonStyle="ButtonStyle.Light" ButtonType="ButtonType.Button" Click="@Return" Text="Return" />
+            <RadzenButton ButtonStyle="ButtonStyle.Success" ButtonType="ButtonType.Submit" Text="Submit" />
+        </RadzenStack>
+    </RadzenStack>
+</RadzenTemplateForm>
+
