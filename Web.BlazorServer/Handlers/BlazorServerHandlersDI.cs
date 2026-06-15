@@ -59,7 +59,7 @@ public static class BlazorServerHandlersDI
 
         if (environment.IsDevelopment())
         {
-            services.TryAddTransient<IStockTransferRequestHandler, StockTransferRequestMockHandler>();
+            services.TryAddTransient<IStockTransferRequestHandler, StockTransferRequestHandler>();
         }
 
         return services;
