@@ -78,7 +78,7 @@ public partial class STRForm
         {
             await Task.WhenAll(
                 LoadGridSettings(),
-                LoadLocations(new()),
+                LoadVendors(new()),
                 LoadSubsidiaries(new()));
         }
     }
@@ -104,9 +104,10 @@ public partial class STRForm
         }
     }
 
-    async Task LoadLocations(LoadDataArgs args)
+    async Task LoadLocations(LoadDataArgs args, int? subsidiaryId)
     {
-        if (IsLoadingLocations) return;
+        if (subsidiaryId is null) return;
+
         var action = await AppActionFactory.RunAsync(async () =>
         {
 
@@ -125,7 +126,7 @@ public partial class STRForm
                     ComparisonOperator = ComparisonOperatorEnum.Contains
                 });
 
-            var response = await LocationHandler.GetLocationsAsync(DatagridAdapter.QueryIntent);
+            var response = await LocationHandler.GetLocationsBySubsidiaryAsync(DatagridAdapter.QueryIntent, (int)subsidiaryId);
 
             Locations = [.. response.Data];
             LocationsCount = response.Count;

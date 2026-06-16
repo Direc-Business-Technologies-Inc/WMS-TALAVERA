@@ -59,6 +59,7 @@
                                         Count="@SubsidiariesCount"
                                         LoadData="@LoadSubsidiaries"
                                         TextProperty="@nameof(SubsidiaryVM.Name)"
+                                        @bind-Value:after="() => Model.SourceLocation = null"
                                         AllowClear AllowVirtualization AllowFiltering>
                                         <FooterTemplate>
                             <RadzenStack AlignItems="AlignItems.Center">
@@ -79,6 +80,7 @@
                                         @bind-Value="@Model.ToSubsidiary"
                                         Data="@Subsidiaries"
                                         Count="@SubsidiariesCount"
+                                        @bind-Value:after="() => Model.DestinationLocation = null"
                                         LoadData="@LoadSubsidiaries"
                                         TextProperty="@nameof(SubsidiaryVM.Name)"
                                         AllowClear AllowVirtualization AllowFiltering>
@@ -97,12 +99,13 @@
                     <RadzenFormField AllowFloatingLabel="@(!ReadOnly)" Text="Source Location" class="rz-w-100">
                         <RadzenTextBox Visible="@ReadOnly" ReadOnly Value="@(Model.SourceLocation?.Name ?? null)" />
                         <RadzenDropDown Visible=@(!ReadOnly)
+                                        Disabled="@(Model.Subsidiary is null)"
                                         class="rz-w-100"
                                         TValue="LocationVM"
                                         @bind-Value="@Model.SourceLocation"
                                         Data="@Locations"
                                         Count="@LocationsCount"
-                                        LoadData="@LoadLocations"
+                                        LoadData="@(args => LoadLocations(args, Model.Subsidiary?.Id ?? null))"
                                         Name="str_from_location"
                                         TextProperty="@nameof(LocationVM.Name)"
                                         AllowClear AllowVirtualization AllowFiltering>
@@ -123,10 +126,11 @@
                         <RadzenDropDown Visible=@(!ReadOnly)
                                         class="rz-w-100"
                                         TValue="LocationVM"
+                                        Disabled="@(Model.ToSubsidiary is null)"
                                         @bind-Value="@Model.DestinationLocation"
                                         Data="@Locations"
                                         Count="@LocationsCount"
-                                        LoadData="@LoadLocations"
+                                        LoadData="@(args => LoadLocations(args, Model.ToSubsidiary?.Id ?? null))"
                                         Name="str_to_location"
                                         TextProperty="@nameof(LocationVM.Name)"
                                         PopupStyle="width: 100%; height: 200px; overflow-y: auto"

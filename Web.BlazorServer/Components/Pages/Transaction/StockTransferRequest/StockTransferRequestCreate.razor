@@ -43,7 +43,7 @@
         {
             FormData.Type = Type.ToLowerInvariant() switch
             {
-                "intercompany" => StockTransferRequestInfoVM.Types.IntercompanyTransferOrder,
+                "intercompanytransferorder" => StockTransferRequestInfoVM.Types.IntercompanyTransferOrder,
                 "returns" => StockTransferRequestInfoVM.Types.Returns,
                 _ => StockTransferRequestInfoVM.Types.TransferOrder
             };
