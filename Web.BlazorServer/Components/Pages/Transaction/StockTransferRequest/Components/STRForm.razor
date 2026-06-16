@@ -1,4 +1,5 @@
-﻿@using Web.BlazorServer.Services.Repositories
+﻿@using Web.BlazorServer.Components.Custom
+@using Web.BlazorServer.Services.Repositories
 @using Web.BlazorServer.ViewModels.Others
 @using Web.BlazorServer.ViewModels.Transaction.StockTransferRequest
 @inherits BaseComponent
@@ -159,10 +160,8 @@
                                  JustifyContent="JustifyContent.End"
                                  AlignItems="AlignItems.Center"
                                  Gap="8px">
-                        <RadzenButton Icon="settings"
-                                      Size="ButtonSize.Small"
-                                      ButtonStyle="ButtonStyle.Light"
-                                      Click="@OpenTableSettings" />
+                        <RadzenButton Icon="settings" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@OpenTableSettings" />
+                        <RadzenButton Visible="@(!ReadOnly)" Disabled="@(Model.SourceLocation is null)" Icon="add" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Success" Click="@OpenItemDialog" />
                     </RadzenStack>
                 </HeaderTemplate>
                 <Columns>
@@ -212,5 +211,15 @@
         options: GridSettingsService.GetDialogOptions());
 
         await LinesTable.DataGrid.Reload();
+    }
+
+    async Task OpenItemDialog()
+    {
+        List<ItemsVM> items = await DialogService.OpenAsync(
+            "Select Items",
+            ds => @<ItemSelectionDialog Location="@(Model.SourceLocation?.Id ?? null)"/>,
+            options: GridSettingsService.GetDialogOptions());
+
+        if (items is not null) await AddItems(items);
     }
 }

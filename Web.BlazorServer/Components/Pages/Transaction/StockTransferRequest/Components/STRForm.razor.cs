@@ -195,6 +195,24 @@ public partial class STRForm
         }, AppActionOptionPresets.Loading(ActionGetVendors));
     }
 
+    async Task AddItems(List<ItemsVM> items)
+    {
+        foreach (var item in items)
+        {
+            Model.Lines.Add(new()
+            {
+                ItemCode = item.ItemNumber,
+                ItemDescription = item.Name,
+                Warehouse = Model.SourceLocation?.Name ?? string.Empty,
+                UoM = item.StockUnit,
+                QuantityOnHand = item.QuantityOnHand,
+                QuantityAlloted = 0
+            });
+        }
+        await LinesTable.DataGrid.Reload();
+        await InvokeAsync(StateHasChanged);
+    }
+
     void Return()
     {
         if (!string.IsNullOrEmpty(ReturnURI)) NavManager.NavigateTo(ReturnURI, true);
