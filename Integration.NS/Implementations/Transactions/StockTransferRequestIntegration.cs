@@ -1,8 +1,10 @@
 ﻿using Application.DataTransferObjects.Transactions.StockTransferRequest;
 using Application.UseCases.Repositories.Integration.Others;
 using Application.UseCases.Repositories.Integration.Transaction.StockTransferRequest;
+using Integration.NS.DataTransferObjects;
 using Integration.NS.Helpers;
 using Integration.NS.Services;
+using Mapster;
 using Shared.Entities;
 using Shared.Libraries.Utilities;
 using System;
@@ -105,13 +107,19 @@ internal class StockTransferRequestIntegration(
     {
         var query = builderFactory.Create()
                 .Select(
-                    ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(StockTransferRequestInfoDTO.Date)),
-                    ("t.tranid", nameof(StockTransferRequestInfoDTO.ReferenceNumber)),
-                    ("BUILTIN.DF(t.custbody_dbti_prepared_by)", nameof(StockTransferRequestInfoDTO.PreparedBy)),
-                    ("BUILTIN.DF(t.subsidiary)", nameof(StockTransferRequestInfoDTO.Subsidiary)),
-                    ("BUILTIN.DF(t.tosubsidiary)", nameof(StockTransferRequestInfoDTO.ToSubsidiary)),
-                    ("BUILTIN.DF(t.transferlocation)", nameof(StockTransferRequestInfoDTO.DestinationLocation)),
-                    ("BUILTIN.DF(tl.location)", nameof(StockTransferRequestInfoDTO.SourceLocation)),
+                    ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(StockTransferRequestHeaderNSDTO.Date)),
+                    ("t.tranid", nameof(StockTransferRequestHeaderNSDTO.ReferenceNumber)),
+                    ("BUILTIN.DF(t.custbody_dbti_prepared_by)", nameof(StockTransferRequestHeaderNSDTO.PreparedBy)),
+                    ("BUILTIN.DF(t.custbody_dbti_return_to_vendor)", nameof(StockTransferRequestHeaderNSDTO.VendorName)),
+                    ("BUILTIN.DF(t.subsidiary)", nameof(StockTransferRequestHeaderNSDTO.SubsidiaryName)),
+                    ("BUILTIN.DF(t.tosubsidiary)", nameof(StockTransferRequestHeaderNSDTO.ToSubsidiaryName)),
+                    ("BUILTIN.DF(t.transferlocation)", nameof(StockTransferRequestHeaderNSDTO.DestinationLocationName)),
+                    ("BUILTIN.DF(tl.location)", nameof(StockTransferRequestHeaderNSDTO.SourceLocationName)),
+                    ("t.custbody_dbti_return_to_vendor", nameof(StockTransferRequestHeaderNSDTO.VendorId)),
+                    ("t.subsidiary", nameof(StockTransferRequestHeaderNSDTO.SubsidiaryId)),
+                    ("t.tosubsidiary", nameof(StockTransferRequestHeaderNSDTO.ToSubsidiaryId)),
+                    ("t.transferlocation", nameof(StockTransferRequestHeaderNSDTO.DestinationLocationId)),
+                    ("tl.location", nameof(StockTransferRequestHeaderNSDTO.SourceLocationId)),
                     ("CASE " + 
                         "WHEN t.custbody_dbti_transfer_category IN (3, 4) THEN 'Returns' " +
                         "WHEN t.recordtype = 'intercompanytransferorder' THEN 'IntercompanyTransferOrder' " + 
@@ -127,8 +135,20 @@ internal class StockTransferRequestIntegration(
                 )
                 .Build();
 
-        var response = await netsuiteService.ExecuteSuiteQLQuery<StockTransferRequestInfoDTO>(query.Query, query.Limit, query.Offset);
-        return response.items.FirstOrDefault();
+        var response = await netsuiteService.ExecuteSuiteQLQuery<StockTransferRequestHeaderNSDTO>(query.Query, query.Limit, query.Offset);
+        var nsdto = response.items.FirstOrDefault();
+        if (nsdto is null) return null;
+
+        var dto = nsdto.Adapt<StockTransferRequestInfoDTO>();
+
+        dto.Vendor = new() { Name = nsdto.VendorName, Id = nsdto.VendorId };
+        dto.SourceLocation = new() { Name = nsdto.SourceLocationName, Id = nsdto.SourceLocationId };
+        dto.SourceLocation = new() { Name = nsdto.SourceLocationName, Id = nsdto.SourceLocationId };
+        dto.DestinationLocation = new() { Name = nsdto.DestinationLocationName, Id = nsdto.DestinationLocationId };
+        dto.Subsidiary = new() { Name = nsdto.SubsidiaryName, Id = nsdto.SubsidiaryId };
+        dto.ToSubsidiary = new() { Name = nsdto.ToSubsidiaryName, Id = nsdto.ToSubsidiaryId };
+
+        return dto;
     }
 
     public async Task<IEnumerable<StockTransferRequestLineDTO>?> GetStockTransferRequestLines(string id)
