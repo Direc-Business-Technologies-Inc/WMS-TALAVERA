@@ -11,5 +11,6 @@ namespace Application.UseCases.Repositories.Integration.Others;
 public interface IItemsIntegration
 {
     Task<(IEnumerable<ItemsDTO> Data, int Count)> GetItemsDataGridAsync(DataGridIntent intent);
+    Task<(IEnumerable<ItemsDTO> Data, int Count)> GetItemsByLocationDataGridAsync(DataGridIntent intent, int locationId);
     Task<ItemsDTO?> GetItem(string  id);
 }

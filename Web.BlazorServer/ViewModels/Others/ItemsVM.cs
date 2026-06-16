@@ -15,4 +15,6 @@ public class ItemsVM
 
     public string SaleUnit { get; set; } = string.Empty;
     public int SaleUnitId { get; set; }
+
+    public decimal QuantityOnHand { get; set; }
 }
