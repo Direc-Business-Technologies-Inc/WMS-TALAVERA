@@ -22,8 +22,7 @@ public class SubsidiaryIntegration(
                 ("id", nameof(SubsidiaryDTO.Id)),
                 ("externalid", nameof(SubsidiaryDTO.SubsidiaryNumber)),
                 ("BUILTIN.DF(mainaddress)", nameof(SubsidiaryDTO.Address)),
-                ("name", nameof(SubsidiaryDTO.Name)),
-                ("email", nameof(SubsidiaryDTO.Email))
+                ("name", nameof(SubsidiaryDTO.Name))
             )
             .From("location")
             .WithDatagridIntent(intent)
