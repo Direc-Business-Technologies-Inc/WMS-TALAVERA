@@ -55,7 +55,7 @@
     {
         var action = await AppActionFactory.RunAsync(async () =>
         {
-            return await handler.UpdateStockTransferRequest(model);
+            return await handler.CreateStockTransferRequest(model);
         }, AppActionOptionPresets.Confirmed(ActionCreateStockTransferRequest));
 
         action.OnSuccess(res =>
