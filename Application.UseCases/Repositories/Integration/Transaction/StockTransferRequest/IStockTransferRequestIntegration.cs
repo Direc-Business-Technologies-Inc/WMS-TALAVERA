@@ -15,4 +15,8 @@ public interface IStockTransferRequestIntegration
     Task<(IEnumerable<StockTransferRequestDataGridDTO> Data, int Count)> GetReturnsList(DataGridIntent intent);
     Task<StockTransferRequestInfoDTO?> GetStockTransferRequest(string id);
     Task<IEnumerable<StockTransferRequestLineDTO>?> GetStockTransferRequestLines(string id);
+    Task<bool> CreateStockTransferRequest(StockTransferRequestInfoDTO dto);
+    Task<bool> UpdateStockTransferRequest(StockTransferRequestInfoDTO dto);
+
+
 }

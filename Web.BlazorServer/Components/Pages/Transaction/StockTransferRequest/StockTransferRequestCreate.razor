@@ -31,6 +31,7 @@
     public string? Type { get; set; }
 
     readonly string ActionGetStockTransferRequest = "Get Stock Transfer Request";
+    readonly string ActionCreateStockTransferRequest = "Create Stock Transfer Request";
 
     bool IsLoadingData => AppBusyService.IsBusy(ActionGetStockTransferRequest);
 
@@ -52,8 +53,24 @@
 
     async Task<bool> Create(StockTransferRequestInfoVM model)
     {
-        // TODO Implementation
-        throw new NotImplementedException();
+        var action = await AppActionFactory.RunAsync(async () =>
+        {
+            return await handler.UpdateStockTransferRequest(model);
+        }, AppActionOptionPresets.Confirmed(ActionCreateStockTransferRequest));
+
+        action.OnSuccess(res =>
+        {
+            NavManager.NavigateTo(STRRoutes.Root);
+            return Task.CompletedTask;
+        });
+
+        action.OnFailure(ex =>
+        {
+            ToastService.Error(ex.Message);
+            return Task.CompletedTask;
+        });
+
+        return true;
     }
 
     protected override Task InitializeEditing() => throw new NotImplementedException();

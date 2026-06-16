@@ -1,4 +1,6 @@
-﻿using Application.UseCases.Queries.Transaction.StockTransferRequest;
+﻿using Application.DataTransferObjects.Transactions.StockTransferRequest;
+using Application.UseCases.Commands.Transaction.StockTransferRequest;
+using Application.UseCases.Queries.Transaction.StockTransferRequest;
 using Mapster;
 using MediatR;
 using Shared.Entities;
@@ -61,5 +63,33 @@ public class StockTransferRequestHandler(ISender sender) : IStockTransferRequest
         (var data, int count) = await sender.Send(query);
 
         return (data.Adapt<IEnumerable<StockTransferRequestDataGridVM>>(), count);
+    }
+
+    public async Task<bool> CreateStockTransferRequest(StockTransferRequestInfoVM data)
+    {
+        var dto = data.Adapt<StockTransferRequestInfoDTO>();
+        dto.Type = data.Type switch {
+            StockTransferRequestInfoVM.Types.IntercompanyTransferOrder => "intercompanytransferorder",
+            StockTransferRequestInfoVM.Types.Returns => "returns",
+            _ => "transferorder"
+        };
+        CreateStockTransferRequestCmd cmd = new(dto);
+
+        await sender.Send(cmd);
+        return true;
+    }
+
+    public async Task<bool> UpdateStockTransferRequest(StockTransferRequestInfoVM data)
+    {
+        var dto = data.Adapt<StockTransferRequestInfoDTO>();
+        dto.Type = data.Type switch {
+            StockTransferRequestInfoVM.Types.IntercompanyTransferOrder => "intercompanytransferorder",
+            StockTransferRequestInfoVM.Types.Returns => "returns",
+            _ => "transferorder"
+        };
+        UpdateStockTransferRequestCmd cmd = new(dto);
+
+        await sender.Send(cmd);
+        return true;
     }
 }

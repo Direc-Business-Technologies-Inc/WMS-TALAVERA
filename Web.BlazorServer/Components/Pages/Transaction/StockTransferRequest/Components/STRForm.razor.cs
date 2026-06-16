@@ -201,6 +201,7 @@ public partial class STRForm
         {
             Model.Lines.Add(new()
             {
+                ItemId = item.Id,
                 ItemCode = item.ItemNumber,
                 ItemDescription = item.Name,
                 Warehouse = Model.SourceLocation?.Name ?? string.Empty,

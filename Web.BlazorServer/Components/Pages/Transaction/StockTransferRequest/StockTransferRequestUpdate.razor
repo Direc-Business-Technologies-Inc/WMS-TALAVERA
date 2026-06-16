@@ -24,15 +24,17 @@
     <STRForm OnSubmit="@Update" Model="@FormData" EditContext="@EditContext" ReturnURI="@(STRRoutes.View + $"?ref={Ref}")"/>
 }
 </AppContent>
-@code {
+    @code {
     [Inject] IStockTransferRequestHandler handler { get; set; } = default!;
 
     [SupplyParameterFromQuery]
     public string? Ref { get; set; }
 
     bool IsLoadingData => AppBusyService.IsBusy(ActionGetStockTransferRequest);
+    bool IsUploadingData => AppBusyService.IsBusy(ActionUpdateStockTransferRequest);
 
     readonly string ActionGetStockTransferRequest = "Get Stock Transfer Request";
+    readonly string ActionUpdateStockTransferRequest = "Update Stock Transfer Request";
 
     protected override void OnParametersSet()
     {
@@ -78,8 +80,24 @@
 
     async Task<bool> Update(StockTransferRequestInfoVM model)
     {
-        // TODO Implementation
-        throw new NotImplementedException();
+        var action = await AppActionFactory.RunAsync(async () =>
+        {
+            return await handler.UpdateStockTransferRequest(model);
+        }, AppActionOptionPresets.Confirmed(ActionUpdateStockTransferRequest));
+
+        action.OnSuccess(res =>
+        {
+            NavManager.NavigateTo(STRRoutes.Root);
+            return Task.CompletedTask;
+        });
+
+        action.OnFailure(ex =>
+        {
+            ToastService.Error(ex.Message);
+            return Task.CompletedTask;
+        });
+
+        return true;
     }
 
     void NavError(string message)

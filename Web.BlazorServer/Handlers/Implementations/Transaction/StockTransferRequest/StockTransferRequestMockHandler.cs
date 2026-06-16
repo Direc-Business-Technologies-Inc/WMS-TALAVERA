@@ -126,6 +126,16 @@ public class StockTransferRequestMockHandler : IStockTransferRequestHandler
         return start.AddMinutes(randomSeconds);
     }
 
+    public Task<bool> CreateStockTransferRequest(StockTransferRequestInfoVM data)
+    {
+        throw new NotImplementedException();
+    }
+
+    public Task<bool> UpdateStockTransferRequest(StockTransferRequestInfoVM data)
+    {
+        throw new NotImplementedException();
+    }
+
     private static List<(string code, string desc, int quantity)> ITEMS_BANK = [];
     private static List<StockTransferRequestInfoVM> STR_BANK = [];
 

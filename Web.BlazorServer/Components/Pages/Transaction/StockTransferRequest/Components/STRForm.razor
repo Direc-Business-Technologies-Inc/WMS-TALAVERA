@@ -185,9 +185,12 @@
                                           Type="@typeof(decimal)"
                                           Title="On hand Quantity" />
                     <RadzenDataGridColumn TItem="StockTransferRequestLineVM"
-                                          Property="@nameof(StockTransferRequestLineVM.QuantityAlloted)"
                                           Type="@typeof(decimal)"
-                                          Title="Alloted Quantity" />
+                                          Title="Alloted Quantity">
+                        <Template Context="data">
+                            <RadzenNumeric Max="@data.QuantityOnHand" Min="0" @bind-Value="@data.QuantityAlloted" ReadOnly="@ReadOnly" />
+                        </Template>
+                    </RadzenDataGridColumn>
                 </Columns>
             </AppTable>
         </RadzenFieldset>

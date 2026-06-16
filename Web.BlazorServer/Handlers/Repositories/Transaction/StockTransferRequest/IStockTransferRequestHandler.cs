@@ -11,4 +11,7 @@ public interface IStockTransferRequestHandler
     Task<(IEnumerable<StockTransferRequestDataGridVM> data, int count)> GetTransferOrdersList(DataGridIntent intent);
     Task<(IEnumerable<StockTransferRequestDataGridVM> data, int count)> GetInterCompanyTransferOrdersList(DataGridIntent intent);
     Task<(IEnumerable<StockTransferRequestDataGridVM> data, int count)> GetReturnsList(DataGridIntent intent);
+
+    Task<bool> CreateStockTransferRequest(StockTransferRequestInfoVM data);
+    Task<bool> UpdateStockTransferRequest(StockTransferRequestInfoVM data);
 }

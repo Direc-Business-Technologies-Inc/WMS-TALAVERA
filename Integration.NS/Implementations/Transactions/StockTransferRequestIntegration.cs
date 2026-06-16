@@ -1,4 +1,5 @@
-﻿using Application.DataTransferObjects.Transactions.StockTransferRequest;
+﻿using Application.DataTransferObjects.Transactions.Receiving;
+using Application.DataTransferObjects.Transactions.StockTransferRequest;
 using Application.UseCases.Repositories.Integration.Others;
 using Application.UseCases.Repositories.Integration.Transaction.StockTransferRequest;
 using Integration.NS.DataTransferObjects;
@@ -10,7 +11,9 @@ using Shared.Libraries.Utilities;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 namespace Integration.NS.Implementations.Transactions;
@@ -156,6 +159,7 @@ internal class StockTransferRequestIntegration(
 
         var query = builderFactory.Create()
             .Select(
+                ("item.id", nameof(StockTransferRequestLineDTO.ItemId)),
                 ("item.itemid", nameof(StockTransferRequestLineDTO.ItemCode)),
                 ("BUILTIN.DF(tl.units)", nameof(StockTransferRequestLineDTO.UoM)),
                 ("BUILTIN.DF(tl.location)", nameof(StockTransferRequestLineDTO.Warehouse)),
@@ -172,5 +176,78 @@ internal class StockTransferRequestIntegration(
 
         var response = await netsuiteService.ExecuteSuiteQLQuery<StockTransferRequestLineDTO>(query.Query, query.Limit, query.Offset);
         return [..response.items];
+    }
+
+    public async Task<bool> CreateStockTransferRequest(StockTransferRequestInfoDTO dto)
+    {
+        string payloadString = CreateSTRPayload(dto);
+        var url = dto.Type.ToLowerInvariant() switch
+        {
+            "intercompanytransferorder" => $"{netsuiteService.GetRestAPIURI}/record/v1/interCompanyTransferOrder",
+            _ => $"{netsuiteService.GetRestAPIURI}/record/v1/transferOrder",
+        };
+
+        _ = await netsuiteService.MakeRequest<object>(url, payloadString, HttpMethod.Post);
+        return true;
+    }
+
+    public async Task<bool> UpdateStockTransferRequest(StockTransferRequestInfoDTO dto)
+    {
+        string payloadString = CreateSTRPayload(dto);
+        var url = dto.Type.ToLowerInvariant() switch
+        {
+            "intercompanytransferorder" => $"{netsuiteService.GetRestAPIURI}/record/v1/interCompanyTransferOrder/{dto.Id}",
+            _ => $"{netsuiteService.GetRestAPIURI}/record/v1/transferOrder/{dto.Id}",
+        };
+
+        _ = await netsuiteService.MakeRequest<object>(url, payloadString, HttpMethod.Patch);
+        return true;
+    }
+
+    private readonly JsonSerializerOptions jsonSerializerOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
+    };
+
+    private string CreateSTRPayload(StockTransferRequestInfoDTO dto)
+    {
+        var anon = new
+        {
+            subsidiary = dto.Subsidiary != null ? new
+            {
+                id = dto.Subsidiary.Id.ToString()
+            } : null,
+            tosubsidiary = dto.ToSubsidiary != null && dto.Type.ToLowerInvariant().Equals("intercompanytransferorder") ? new
+            {
+                id = dto.ToSubsidiary.Id.ToString()
+            } : null,
+            location = dto.SourceLocation != null ? new
+            {
+                id = dto.SourceLocation.Id.ToString()
+            } : null,
+            transferLocation = dto.DestinationLocation !=  null ? new
+            {
+                id = dto.DestinationLocation.Id.ToString()
+            } : null,
+            custbody_dbti_transfer_category = new { id = dto.Type.ToLowerInvariant() switch { "intercompanytransferorder" => "2", "returns" => "3", _ => "1"} },
+            Department = new { id = "4" },
+            Class = new { id = "1" },
+            Memo = dto.Remarks,
+            item = new
+            {
+                items = dto.Lines.Select(line =>
+                {
+                    return new
+                    {
+                        item = new { id = line.ItemId },
+                        quantity = line.QuantityAlloted,
+                        department = new {id = "4"}
+                    };
+                })
+            }
+        };
+
+        return JsonSerializer.Serialize(anon, jsonSerializerOptions);
     }
 }
