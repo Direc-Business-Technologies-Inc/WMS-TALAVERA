@@ -1,5 +1,6 @@
 ﻿using Application.DataTransferObjects.Others;
 using Application.UseCases.Repositories.Integration.Others;
+using Integration.NS.Helpers;
 using Integration.NS.Services;
 using Shared.Entities;
 using System;
@@ -23,11 +24,11 @@ public class VendorIntegration(
                 ("companyname", nameof(VendorDTO.CompanyName)),
                 ("fullname", nameof(VendorDTO.Name))
             )
-            .From("location")
+            .From("vendor")
             .WithDatagridIntent(intent)
             .Build();
 
-        var result = await netsuiteService.ExecuteSuiteQLQuery<VendorDTO>(query.Query, query.Limit, query.Offset);
+        var result = await query.ExecuteWithPaging<VendorDTO>(netsuiteService);
         return (result.items, result.totalResults);
     }
 }

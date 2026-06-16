@@ -15,7 +15,7 @@ public static class SuiteQLQueryExtensions
         int? origLimit = null;
         int? origOffset = null;
         int? limit = query.Limit;
-        int? offset = query.Limit;
+        int? offset = query.Offset;
         if (offset != null && limit != null)
         {
             if (query.Offset < 0) throw new InvalidOperationException("Cannot offset by a negative number");

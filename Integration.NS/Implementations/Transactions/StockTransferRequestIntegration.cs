@@ -1,6 +1,7 @@
 ﻿using Application.DataTransferObjects.Transactions.StockTransferRequest;
 using Application.UseCases.Repositories.Integration.Others;
 using Application.UseCases.Repositories.Integration.Transaction.StockTransferRequest;
+using Integration.NS.Helpers;
 using Integration.NS.Services;
 using Shared.Entities;
 using Shared.Libraries.Utilities;
@@ -39,8 +40,7 @@ internal class StockTransferRequestIntegration(
                 .WithDatagridIntent(intent)
                 .Build();
 
-        var response = await netsuiteService.ExecuteSuiteQLQuery<StockTransferRequestDataGridDTO>(query.Query, query.Limit, query.Offset);
-
+        var response = await query.ExecuteWithPaging<StockTransferRequestDataGridDTO>(netsuiteService);
         return (response.items, response.totalResults);
     }
 
@@ -68,7 +68,6 @@ internal class StockTransferRequestIntegration(
                 .WithDatagridIntent(intent)
                 .Build();
         var response = await netsuiteService.ExecuteSuiteQLQuery<StockTransferRequestDataGridDTO>(query.Query, query.Limit, query.Offset);
-
         return (response.items, response.totalResults);
     }
 

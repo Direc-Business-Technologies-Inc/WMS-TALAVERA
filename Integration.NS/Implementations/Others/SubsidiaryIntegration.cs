@@ -1,5 +1,6 @@
 ﻿using Application.DataTransferObjects.Others;
 using Application.UseCases.Repositories.Integration.Others;
+using Integration.NS.Helpers;
 using Integration.NS.Services;
 using Shared.Entities;
 using System;
@@ -28,7 +29,7 @@ public class SubsidiaryIntegration(
             .WithDatagridIntent(intent)
             .Build();
 
-        var result = await netsuiteService.ExecuteSuiteQLQuery<SubsidiaryDTO>(query.Query, query.Limit, query.Offset);
+        var result = await query.ExecuteWithPaging<SubsidiaryDTO>(netsuiteService);
         return (result.items, result.totalResults);
     }
 }

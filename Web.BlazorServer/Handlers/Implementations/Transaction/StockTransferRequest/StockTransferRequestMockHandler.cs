@@ -84,10 +84,10 @@ public class StockTransferRequestMockHandler : IStockTransferRequestHandler
                 Id = i,
                 ReferenceNumber = $"STR{i:000}",
                 Status = Random.Shared.Next(3) switch { 0 => "Transfer Order", 1 => "ICTO", _ => "Returns"},
-                Vendor = $"Some Guy",
-                SourceLocation = $"Penn State",
-                DestinationLocation = $"Nebraska",
-                Subsidiary = $"Some Other Guy",
+                //Vendor = $"Some Guy",
+                //SourceLocation = $"Penn State",
+                //DestinationLocation = $"Nebraska",
+                //Subsidiary = $"Some Other Guy",
                 Remarks = "this is not a real item",
                 Date = _randomDate()
             };
@@ -125,7 +125,6 @@ public class StockTransferRequestMockHandler : IStockTransferRequestHandler
         // Add the random seconds to the start date
         return start.AddMinutes(randomSeconds);
     }
-
 
     private static List<(string code, string desc, int quantity)> ITEMS_BANK = [];
     private static List<StockTransferRequestInfoVM> STR_BANK = [];

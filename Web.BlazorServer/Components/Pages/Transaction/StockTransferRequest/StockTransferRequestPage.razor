@@ -21,13 +21,13 @@
     <RadzenTabs @bind-SelectedIndex="@SelectedTab" @bind-SelectedIndex:after="@TabChanged">
         <Tabs>
             <RadzenTabsItem Text="Transfer Orders">
-                <STRDataGrid DataGetter="@(async (intent) => await strHandler.GetTransferOrdersList(intent))"/>
+                <STRDataGrid DataGetter="@(async (intent) => await strHandler.GetTransferOrdersList(intent))" OnAddClicked="CreateTO"/>
             </RadzenTabsItem>
             <RadzenTabsItem Text="Intercompany Transfer Orders">
-                <STRDataGrid DataGetter="@(async (intent) => await strHandler.GetInterCompanyTransferOrdersList(intent))" />
+                <STRDataGrid DataGetter="@(async (intent) => await strHandler.GetInterCompanyTransferOrdersList(intent))" OnAddClicked="CreateICTO" />
             </RadzenTabsItem>
             <RadzenTabsItem Text="Returns">
-                <STRDataGrid DataGetter="@(async (intent) => await strHandler.GetReturnsList(intent))" />
+                <STRDataGrid DataGetter="@(async (intent) => await strHandler.GetReturnsList(intent))" OnAddClicked="CreateReturns" />
             </RadzenTabsItem>
         </Tabs>
     </RadzenTabs>
@@ -49,5 +49,23 @@
     void TabChanged()
     {
         NavManager.NavigateTo($"{STRRoutes.Root}?tab={tabs[SelectedTab]}");
+    }
+
+    Task CreateTO()
+    {
+        NavManager.NavigateTo($"{STRRoutes.Create}?type=transferorder");
+        return Task.CompletedTask;
+    }
+
+    Task CreateICTO()
+    {
+        NavManager.NavigateTo($"{STRRoutes.Create}?type=intercompanytransferorder");
+        return Task.CompletedTask;
+    }
+
+    Task CreateReturns()
+    {
+        NavManager.NavigateTo($"{STRRoutes.Create}?type=returns");
+        return Task.CompletedTask;
     }
 }

@@ -15,14 +15,10 @@
 @attribute [Route(STRRoutes.Create)]
 
 
-<PageTitle>Receiving</PageTitle>
+<PageTitle>Creating Stock Transfer Request</PageTitle>
 
 <AppContent>
-<AppFormSkeleton TItem="StockTransferRequestInfoVM" Loading="@IsLoadingData" />
-@if (!IsLoadingData)
-{
-        <STRForm OnSubmit="@Create" Model="@FormData" EditContext="@EditContext" ReturnURI="@STRRoutes.Root" />
-}
+<STRForm OnSubmit="@Create" Model="@FormData" EditContext="@EditContext" ReturnURI="@STRRoutes.Root" />
 </AppContent>
 
 @code {
@@ -30,6 +26,9 @@
 
     [SupplyParameterFromQuery]
     public string? Ref { get; set; }
+
+    [SupplyParameterFromQuery]
+    public string? Type { get; set; }
 
     readonly string ActionGetStockTransferRequest = "Get Stock Transfer Request";
 
@@ -39,7 +38,16 @@
     protected override void OnParametersSet()
     {
         base.OnParametersSet();
-        FormData = new();
+        if (Type is not null)
+        {
+            FormData.Type = Type.ToLowerInvariant() switch
+            {
+                "intercompany" => StockTransferRequestInfoVM.Types.IntercompanyTransferOrder,
+                "returns" => StockTransferRequestInfoVM.Types.Returns,
+                _ => StockTransferRequestInfoVM.Types.TransferOrder
+            };
+        }
+        FormData.Date = DateTime.Now;
     }
 
     async Task<bool> Create(StockTransferRequestInfoVM model)

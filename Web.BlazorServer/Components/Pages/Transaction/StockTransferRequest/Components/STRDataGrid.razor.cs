@@ -20,6 +20,9 @@ partial class STRDataGrid
     [Parameter][EditorRequired]
     public required DataGetterDelegate DataGetter { get; init; }
 
+    [Parameter]
+    public EventCallback OnAddClicked { get; set; }
+
     AppDataGrid<StockTransferRequestDataGridVM> DataGrid { get; set; }
     DataGridSettings DataGridSettings { get; set; }
 
@@ -73,6 +76,11 @@ partial class STRDataGrid
     void ViewSTR(StockTransferRequestDataGridVM item)
     {
         NavManager.NavigateTo(STRRoutes.View + $"?ref={item.ReferenceNumber}");
+    }
+
+    async Task AddButtonPressed()
+    {
+        if (OnAddClicked.HasDelegate) await OnAddClicked.InvokeAsync();
     }
 
     public delegate Task<(IEnumerable<StockTransferRequestDataGridVM> data, int count)> DataGetterDelegate(DataGridIntent intent);

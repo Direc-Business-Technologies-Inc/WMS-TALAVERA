@@ -37,6 +37,7 @@ public static class NSImplementationDI
         services.TryAddTransient<IStockTransferRequestIntegration, StockTransferRequestIntegration>();
         services.TryAddTransient<ILocationIntegration, LocationIntegration>();
         services.TryAddTransient<ISubsidiaryIntegration, SubsidiaryIntegration>();
+        services.TryAddTransient<IVendorIntegration, VendorIntegration>();
 
         services.TryAddTransient<INetSuiteApiClientService, NetSuiteApiClientService>();
 
