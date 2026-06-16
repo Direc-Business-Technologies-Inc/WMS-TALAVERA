@@ -37,6 +37,7 @@ internal class StockTransferRequestIntegration(
                 .From("transaction t")
                 .Join("transactionline tl", on: "tl.transaction = t.id")
                 .WithFilters(
+                    DataGridFilterUtilities.Equal("tl.mainline", "T"),
                     DataGridFilterUtilities.Equal("t.recordtype", "intercompanytransferorder"),
                     DataGridFilterUtilities.Equal("t.status", "A"),
                     DataGridFilterUtilities.NotEqual("t.custbody_dbti_transfer_category", 3),
@@ -64,6 +65,7 @@ internal class StockTransferRequestIntegration(
                 .From("transaction t")
                 .Join("transactionline tl", on: "tl.transaction = t.id")
                 .WithFilters(
+                    DataGridFilterUtilities.Equal("tl.mainline", "T"),
                     DataGridFilterUtilities.In("t.recordtype", new string[] {"intercompanytransferorder", "transferorder" }),
                     DataGridFilterUtilities.Equal("t.status", "A"),
                     DataGridFilterUtilities.Any(
@@ -91,6 +93,7 @@ internal class StockTransferRequestIntegration(
                 .From("transaction t")
                 .Join("transactionline tl", on:"tl.transaction = t.id")
                 .WithFilters(
+                    DataGridFilterUtilities.Equal("tl.mainline", "T"),
                     DataGridFilterUtilities.Equal("t.recordtype", "transferorder"),
                     DataGridFilterUtilities.Equal("t.status", "A"),
                     DataGridFilterUtilities.NotEqual("t.custbody_dbti_transfer_category", 3),
