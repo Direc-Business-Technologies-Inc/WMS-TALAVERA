@@ -48,6 +48,7 @@
         if (firstRender)
         {
             AppBusyService.SetBusy(ActionGetStockTransferRequest, true);
+            await InvokeAsync(StateHasChanged);
             await LoadDataAsync();
         }
     }
