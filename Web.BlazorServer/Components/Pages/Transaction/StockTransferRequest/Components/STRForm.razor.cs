@@ -96,6 +96,12 @@ public partial class STRForm
 
     async Task HandleSubmit()
     {
+        if (Model.Lines.Count == 0)
+        {
+            await DialogService.Alert("Please add at least one item", "Error");
+            return;
+        }
+
         bool success = true;
         if (OnSubmit is not null) success = await OnSubmit(Model);
         if (success && !string.IsNullOrEmpty(ActionURI))
