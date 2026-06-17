@@ -153,6 +153,12 @@ internal class StockTransferRequestIntegration(
         dto.DestinationLocation = new() { Name = nsdto.DestinationLocationName, Id = nsdto.DestinationLocationId };
         dto.Subsidiary = new() { Name = nsdto.SubsidiaryName, Id = nsdto.SubsidiaryId };
         dto.ToSubsidiary = new() { Name = nsdto.ToSubsidiaryName, Id = nsdto.ToSubsidiaryId };
+        dto.Type = nsdto.Type switch
+        {
+            "Returns" => StockTransferRequestInfoDTO.Types.Return,
+            "IntercompanyTransferOrder" => StockTransferRequestInfoDTO.Types.Intercompany,
+            _ => StockTransferRequestInfoDTO.Types.TransferOrder
+        };
 
         return dto;
     }
@@ -184,9 +190,9 @@ internal class StockTransferRequestIntegration(
     public async Task<bool> CreateStockTransferRequest(StockTransferRequestInfoDTO dto)
     {
         string payloadString = CreateSTRPayload(dto);
-        var url = dto.Type.ToLowerInvariant() switch
+        var url = dto.Type switch
         {
-            "intercompanytransferorder" => $"{netsuiteService.GetRestAPIURI}/record/v1/interCompanyTransferOrder",
+            StockTransferRequestInfoDTO.Types.Intercompany => $"{netsuiteService.GetRestAPIURI}/record/v1/interCompanyTransferOrder",
             _ => $"{netsuiteService.GetRestAPIURI}/record/v1/transferOrder",
         };
 
@@ -197,10 +203,10 @@ internal class StockTransferRequestIntegration(
     public async Task<bool> UpdateStockTransferRequest(StockTransferRequestInfoDTO dto)
     {
         string payloadString = CreateSTRPayload(dto);
-        var url = dto.Type.ToLowerInvariant() switch
+        var url = dto.Type switch
         {
-            "intercompanytransferorder" => $"{netsuiteService.GetRestAPIURI}/record/v1/interCompanyTransferOrder/{dto.Id}",
-            _ => $"{netsuiteService.GetRestAPIURI}/record/v1/transferOrder/{dto.Id}",
+            StockTransferRequestInfoDTO.Types.Intercompany => $"{netsuiteService.GetRestAPIURI}/record/v1/interCompanyTransferOrder",
+            _ => $"{netsuiteService.GetRestAPIURI}/record/v1/transferOrder",
         };
 
         _ = await netsuiteService.MakeRequest<object>(url, payloadString, HttpMethod.Patch);
@@ -210,6 +216,7 @@ internal class StockTransferRequestIntegration(
     private readonly JsonSerializerOptions jsonSerializerOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        WriteIndented = true,
         DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
     };
 
@@ -221,7 +228,7 @@ internal class StockTransferRequestIntegration(
             {
                 id = dto.Subsidiary.Id.ToString()
             } : null,
-            tosubsidiary = dto.ToSubsidiary != null && dto.Type.ToLowerInvariant().Equals("intercompanytransferorder") ? new
+            tosubsidiary = dto.ToSubsidiary != null && dto.Type == StockTransferRequestInfoDTO.Types.Intercompany ? new
             {
                 id = dto.ToSubsidiary.Id.ToString()
             } : null,
@@ -233,7 +240,7 @@ internal class StockTransferRequestIntegration(
             {
                 id = dto.DestinationLocation.Id.ToString()
             } : null,
-            custbody_dbti_transfer_category = new { id = dto.Type.ToLowerInvariant() switch { "intercompanytransferorder" => "2", "returns" => "3", _ => "1"} },
+            custbody_dbti_transfer_category = new { id = dto.Type switch { StockTransferRequestInfoDTO.Types.Intercompany => "2", StockTransferRequestInfoDTO.Types.Return => "3", _ => "1"} },
             Department = new { id = "4" },
             Class = new { id = "1" },
             Memo = dto.Remarks,

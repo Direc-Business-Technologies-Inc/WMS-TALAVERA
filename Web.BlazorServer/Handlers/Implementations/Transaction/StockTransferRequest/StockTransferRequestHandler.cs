@@ -36,11 +36,11 @@ public class StockTransferRequestHandler(ISender sender) : IStockTransferRequest
         var dto = await sender.Send(query);
         var vm = dto.Adapt<StockTransferRequestInfoVM>();
 
-        vm.Type = dto.Type.ToLowerInvariant() switch
+        vm.Type = dto.Type switch
         {
-            "returns" => StockTransferRequestInfoVM.Types.Returns,
-            "intercompanytransferorder" => StockTransferRequestInfoVM.Types.IntercompanyTransferOrder,
-            _ => StockTransferRequestInfoVM.Types.TransferOrder
+            StockTransferRequestInfoDTO.Types.Intercompany => StockTransferRequestInfoVM.Types.IntercompanyTransferOrder,
+            StockTransferRequestInfoDTO.Types.Return => StockTransferRequestInfoVM.Types.Returns,
+            _ => StockTransferRequestInfoVM.Types.TransferOrder,
         };
 
         return vm;
@@ -69,9 +69,9 @@ public class StockTransferRequestHandler(ISender sender) : IStockTransferRequest
     {
         var dto = data.Adapt<StockTransferRequestInfoDTO>();
         dto.Type = data.Type switch {
-            StockTransferRequestInfoVM.Types.IntercompanyTransferOrder => "intercompanytransferorder",
-            StockTransferRequestInfoVM.Types.Returns => "returns",
-            _ => "transferorder"
+            StockTransferRequestInfoVM.Types.IntercompanyTransferOrder => StockTransferRequestInfoDTO.Types.Intercompany,
+            StockTransferRequestInfoVM.Types.Returns => StockTransferRequestInfoDTO.Types.Return,
+            _ => StockTransferRequestInfoDTO.Types.TransferOrder
         };
         CreateStockTransferRequestCmd cmd = new(dto);
 
@@ -82,10 +82,11 @@ public class StockTransferRequestHandler(ISender sender) : IStockTransferRequest
     public async Task<bool> UpdateStockTransferRequest(StockTransferRequestInfoVM data)
     {
         var dto = data.Adapt<StockTransferRequestInfoDTO>();
-        dto.Type = data.Type switch {
-            StockTransferRequestInfoVM.Types.IntercompanyTransferOrder => "intercompanytransferorder",
-            StockTransferRequestInfoVM.Types.Returns => "returns",
-            _ => "transferorder"
+        dto.Type = data.Type switch
+        {
+            StockTransferRequestInfoVM.Types.IntercompanyTransferOrder => StockTransferRequestInfoDTO.Types.Intercompany,
+            StockTransferRequestInfoVM.Types.Returns => StockTransferRequestInfoDTO.Types.Return,
+            _ => StockTransferRequestInfoDTO.Types.TransferOrder
         };
         UpdateStockTransferRequestCmd cmd = new(dto);
 

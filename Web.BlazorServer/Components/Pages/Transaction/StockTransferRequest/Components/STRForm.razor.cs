@@ -47,6 +47,7 @@ public partial class STRForm
     AppTable<StockTransferRequestLineVM> LinesTable = default!;
     DataGridSettings TableSettings { get; set; } = new();
     bool IsReturn => Model.Type == StockTransferRequestInfoVM.Types.Returns;
+    bool IsIntercompany => Model.Type == StockTransferRequestInfoVM.Types.IntercompanyTransferOrder;
 
     readonly string ActionGetLocations = "Get Locations";
     readonly string ActionGetSubsidiaries = "Get Subsidiaries";

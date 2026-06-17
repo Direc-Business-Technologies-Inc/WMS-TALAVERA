@@ -19,7 +19,13 @@ public class StockTransferRequestInfoDTO
     public SubsidiaryDTO? ToSubsidiary { get; set; } = null;
     public string PreparedBy { get; set; } = string.Empty;
     public string Remarks { get; set; } = string.Empty;
-    public string Type { get; set;} = string.Empty;
+    public Types Type { get; set; } = Types.TransferOrder;
     public DateTime Date { get; set;}
     public List<StockTransferRequestLineDTO> Lines { get; set; } = [];
+    public enum Types
+    {
+        Intercompany,
+        TransferOrder,
+        Return
+    }
 }
