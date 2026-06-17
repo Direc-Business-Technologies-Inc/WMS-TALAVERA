@@ -196,7 +196,14 @@ internal class StockTransferRequestIntegration(
             _ => $"{netsuiteService.GetRestAPIURI}/record/v1/transferOrder",
         };
 
-        _ = await netsuiteService.MakeRequest<object>(url, payloadString, HttpMethod.Post);
+        try
+        {
+            _ = await netsuiteService.MakeRequest<object>(url, payloadString, HttpMethod.Post);
+        }
+        catch (Exception ex) when (ex.Message.Equals("Empty response from NetSuite API", StringComparison.OrdinalIgnoreCase))
+        {
+            // Empty response is but http response is a success status code
+        }
         return true;
     }
 
@@ -209,7 +216,14 @@ internal class StockTransferRequestIntegration(
             _ => $"{netsuiteService.GetRestAPIURI}/record/v1/transferOrder",
         };
 
-        _ = await netsuiteService.MakeRequest<object>(url, payloadString, HttpMethod.Patch);
+        try
+        {
+            _ = await netsuiteService.MakeRequest<object>(url, payloadString, HttpMethod.Patch);
+        }
+        catch (Exception ex) when (ex.Message.Equals("Empty response from NetSuite API", StringComparison.OrdinalIgnoreCase))
+        {
+            // Empty response is but http response is a success status code
+        }
         return true;
     }
 
