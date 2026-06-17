@@ -49,7 +49,7 @@
                         </RadzenFormField>
                     </RadzenColumn>
                 }
-                <RadzenColumn SizeLG="3" SizeMD="6">
+                <RadzenColumn SizeLG="@(IsIntercompany ? 3 : 4)" SizeMD="@(IsIntercompany ? 6 : 4)">
                     <RadzenFormField AllowFloatingLabel="@(!ReadOnly)" Text="Subsidiary" class="rz-w-100">
                         <ChildContent>
                             <RadzenTextBox Visible="@ReadOnly" ReadOnly Value="@(Model.Subsidiary?.Name ?? null)" />
@@ -78,7 +78,7 @@
                         </Helper>
                     </RadzenFormField>
                 </RadzenColumn>
-                <RadzenColumn SizeLG="3" SizeMD="6">
+                <RadzenColumn Visible="@IsIntercompany" SizeLG="3" SizeMD="6">
                     <RadzenFormField AllowFloatingLabel="@(!ReadOnly)" Text="To Subsidiary" class="rz-w-100">
                         <ChildContent>
                             <RadzenTextBox Visible="@ReadOnly" ReadOnly Value="@(Model.ToSubsidiary?.Name ?? null)" />
@@ -107,7 +107,7 @@
                         </Helper>
                     </RadzenFormField>
                 </RadzenColumn>
-                <RadzenColumn SizeLG="3" SizeMD="6">
+                <RadzenColumn SizeLG="@(IsIntercompany ? 3 : 4)" SizeMD="@(IsIntercompany ? 6 : 4)">
                     <RadzenFormField AllowFloatingLabel="@(!ReadOnly)" Text="Source Location" class="rz-w-100">
                         <ChildContent>
                         <RadzenTextBox Visible="@ReadOnly" ReadOnly Value="@(Model.SourceLocation?.Name ?? null)" />
@@ -138,7 +138,7 @@
                         </Helper>
                     </RadzenFormField>
                 </RadzenColumn>
-                <RadzenColumn SizeLG="3" SizeMD="6">
+                <RadzenColumn SizeLG="@(IsIntercompany ? 3 : 4)" SizeMD="@(IsIntercompany ? 6 : 4)">
                     <RadzenFormField Text="Destination Location" class="rz-w-100">
                         <ChildContent>
                             <RadzenTextBox Visible="@ReadOnly" ReadOnly Value="@(Model.DestinationLocation?.Name ?? null)" />

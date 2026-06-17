@@ -47,7 +47,7 @@ public partial class STRForm
     AppTable<StockTransferRequestLineVM> LinesTable = default!;
     DataGridSettings TableSettings { get; set; } = new();
     bool IsReturn => Model.Type == StockTransferRequestInfoVM.Types.Returns;
-    bool IsIntercompany => Model.Type == StockTransferRequestInfoVM.Types.IntercompanyTransferOrder;
+    bool IsIntercompany => Model.Type == StockTransferRequestInfoVM.Types.IntercompanyTransferOrder || IsReturn;
 
     readonly string ActionGetLocations = "Get Locations";
     readonly string ActionGetSubsidiaries = "Get Subsidiaries";
@@ -224,22 +224,26 @@ public partial class STRForm
 
     async Task OnSubsidiaryChanged(SubsidiaryVM? value)
     {
+
         if (Model.Lines.Any())
         {
             var confirm = await DialogService.Confirm(message: "Changing subsidiaries will clear added items") ?? false;
-            if (confirm)
-            {
-                Model.Subsidiary = value;
-                Model.SourceLocation = null;
-                Model.Lines.Clear();
-            }
+            if (!confirm) return;
         }
-        else
+        if (value != Model.Subsidiary)
         {
+            Model.Lines.Clear();
             Model.Subsidiary = value;
+            Model.SourceLocation = null;
+            if (!IsIntercompany)
+            {
+                Model.ToSubsidiary = value;
+                Model.DestinationLocation = null;
+            }
+            await InvokeAsync(StateHasChanged);
         }
-        await InvokeAsync(StateHasChanged);
     }
+
 
     async Task OnLocationChanged(LocationVM? value)
     {
