@@ -56,9 +56,9 @@ public partial class STRForm
     private List<LocationVM> Locations { get; set; } = [];
     private List<SubsidiaryVM> Subsidiaries { get; set; } = [];
 
-    private int VendorsCount { get; set; } = 0;
-    private int LocationsCount { get; set; } = 0;
-    private int SubsidiariesCount { get; set; } = 0;
+    private int VendorsCount { get; set; } = 1;
+    private int LocationsCount { get; set; } = 1; // set counts to one to automatically trigger LoadData
+    private int SubsidiariesCount { get; set; } = 1;
 
     private bool IsLoadingLocations => AppBusyService.IsBusy(ActionGetLocations);
     private bool IsLoadingSubsidiaries => AppBusyService.IsBusy(ActionGetSubsidiaries);
@@ -213,6 +213,50 @@ public partial class STRForm
         }
         await LinesTable.DataGrid.Reload();
         await InvokeAsync(StateHasChanged);
+    }
+
+    async Task OnSubsidiaryChanged(SubsidiaryVM? value)
+    {
+        if (Model.Lines.Any())
+        {
+            var confirm = await DialogService.Confirm(message: "Changing subsidiaries will clear added items") ?? false;
+            if (confirm)
+            {
+                Model.Subsidiary = value;
+                Model.SourceLocation = null;
+                Model.Lines.Clear();
+            }
+        }
+        else
+        {
+            Model.Subsidiary = value;
+        }
+        await InvokeAsync(StateHasChanged);
+    }
+
+    async Task OnLocationChanged(LocationVM? value)
+    {
+        if (Model.Lines.Any())
+        {
+            var confirm = await DialogService.Confirm(message: "Changing source warehouse will clear added items") ?? false;
+            if (confirm)
+            {
+                Model.SourceLocation = value;
+                Model.Lines.Clear();
+            }
+        }
+        else
+        {
+            Model.SourceLocation = value;
+        }
+        await InvokeAsync(StateHasChanged);
+    }
+
+    async Task OnToSubsidiaryChanged(SubsidiaryVM? value)
+    {
+        LocationsCount = 1;
+        Model.ToSubsidiary = value;
+        Model.DestinationLocation = null;
     }
 
     void Return()

@@ -54,12 +54,12 @@
                         <RadzenTextBox Visible="@ReadOnly" ReadOnly Value="@(Model.Subsidiary?.Name ?? null)" />
                         <RadzenDropDown Visible=@(!ReadOnly)
                                         class="rz-w-100"
-                                        @bind-Value="@Model.Subsidiary"
+                                        @bind-Value:get="@Model.Subsidiary"
+                                        @bind-Value:set="@OnSubsidiaryChanged"
                                         Data="@Subsidiaries"
                                         Count="@SubsidiariesCount"
                                         LoadData="@LoadSubsidiaries"
                                         TextProperty="@nameof(SubsidiaryVM.Name)"
-                                        @bind-Value:after="() => Model.SourceLocation = null"
                                         AllowClear AllowVirtualization AllowFiltering>
                                         <FooterTemplate>
                             <RadzenStack AlignItems="AlignItems.Center">
@@ -77,10 +77,10 @@
                         <RadzenTextBox Visible="@ReadOnly" ReadOnly Value="@(Model.ToSubsidiary?.Name ?? null)" />
                         <RadzenDropDown Visible=@(!ReadOnly)
                                         class="rz-w-100"
-                                        @bind-Value="@Model.ToSubsidiary"
+                                        @bind-Value:get="@Model.ToSubsidiary"
+                                        @bind-Value:set="@OnToSubsidiaryChanged"
                                         Data="@Subsidiaries"
                                         Count="@SubsidiariesCount"
-                                        @bind-Value:after="() => Model.DestinationLocation = null"
                                         LoadData="@LoadSubsidiaries"
                                         TextProperty="@nameof(SubsidiaryVM.Name)"
                                         AllowClear AllowVirtualization AllowFiltering>
@@ -102,7 +102,8 @@
                                         Disabled="@(Model.Subsidiary is null)"
                                         class="rz-w-100"
                                         TValue="LocationVM"
-                                        @bind-Value="@Model.SourceLocation"
+                                        @bind-Value:get="@Model.SourceLocation"
+                                        @bind-Value:set="@OnLocationChanged"
                                         Data="@Locations"
                                         Count="@LocationsCount"
                                         LoadData="@(args => LoadLocations(args, Model.Subsidiary?.Id ?? null))"
@@ -112,7 +113,7 @@
                                         <FooterTemplate>
                             <RadzenStack AlignItems="AlignItems.Center">
                                 @if (IsLoadingLocations)
-                                    {
+                                {
                                         <RadzenProgressBar Mode="ProgressBarMode.Indeterminate" class="rz-w-100" Style="height: 6px" ShowValue="false" Value="100" />
                                 }
                             </RadzenStack>
@@ -121,7 +122,7 @@
                     </RadzenFormField>
                 </RadzenColumn>
                 <RadzenColumn SizeLG="3" SizeMD="6">
-                    <RadzenFormField AllowFloatingLabel="false" Text="Destination Location" class="rz-w-100">
+                    <RadzenFormField Text="Destination Location" class="rz-w-100">
                         <RadzenTextBox Visible="@ReadOnly" ReadOnly Value="@(Model.DestinationLocation?.Name ?? null)" />
                         <RadzenDropDown Visible=@(!ReadOnly)
                                         class="rz-w-100"
