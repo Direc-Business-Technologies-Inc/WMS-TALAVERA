@@ -33,6 +33,6 @@ public class ItemReceiptLineVM
     public decimal QuantityOpen { get; set; }
     public decimal QuantityReceived { get; set; }
     public decimal QuantityBad { get; set; }
-    public decimal Quantity { get; set; }
+    public decimal QuantityGood { get; set; }
 
 }
