@@ -7,6 +7,7 @@ using Application.UseCases.Repositories.Integration.Transaction.Receiving;
 using Integration.NS.Services;
 using Integration.SAP.Entities.Transactional.Receiving;
 using Shared.Entities;
+using Shared.Libraries.Utilities;
 using Shared.Libraries.ViewModel;
 using System.Numerics;
 using System.Text.Json;
@@ -60,26 +61,24 @@ public class ReceivingIntegration(
 
     public async Task<IEnumerable<Application.DataTransferObjects.Transactions.Receiving.PurchaseOrderLineDTO>> GetPurchaseOrderLinesAsync(string docEntry)
     {
-        var queryString = $"""
-            SELECT
-                item.itemId AS ItemCode,
-                BUILTIN.DF(tl.units) as UoM,
-                BUILTIN.DF(tl.location) as Location,
-                item.displayname AS ItemDescription,
-                tl.quantity AS QuantityPlanned
-            FROM
-                transaction t
-            JOIN 
-                transactionline tl ON tl.transaction = t.id
-            JOIN
-                item ON item.id = tl.item
-            WHERE
-                t.tranid = '{docEntry}' AND
-                tl.mainline = 'F'
+        var query = builderFactory.Create()
+            .Select(
+                ("tl.id", nameof(PurchaseOrderLineDTO.LineNumber)),
+                ("BUILTIN.DF(tl.units)", nameof(PurchaseOrderLineDTO.UoM)),
+                ("BUILTIN.DF(tl.location)", nameof(PurchaseOrderLineDTO.Location)),
+                ("item.displayname", nameof(PurchaseOrderLineDTO.ItemDescription)),
+                ("item.itemid", nameof(PurchaseOrderLineDTO.ItemCode)),
+                ("tl.quantity", nameof(PurchaseOrderLineDTO.QuantityPlanned))
+            )
+            .From("transaction t")
+            .Join("transactionline tl", on: "tl.transaction = t.id")
+            .Join("item", on: "item.id = tl.item")
+            .WithFilters(
+                Equal("t.tranid", docEntry),
+                Equal("tl.mainline", "F")
+            ).Build();
 
-            """;
-
-        var response = await netsuiteService.ExecuteSuiteQLQuery<Application.DataTransferObjects.Transactions.Receiving.PurchaseOrderLineDTO>(queryString);
+        var response = await netsuiteService.ExecuteSuiteQLQuery<Application.DataTransferObjects.Transactions.Receiving.PurchaseOrderLineDTO>(query.Query);
 
         return response.items;
     }
@@ -410,7 +409,7 @@ public class ReceivingIntegration(
             custbody_dbti_receiving_category = isGood ? 1 : 2,
             item = new
             {
-                items = dto.Lines.Select(line =>
+                items = dto.Lines.Where(line => line.QuantityPlanned != line.QuantityReceived).Select(line =>
                 {
                     bool isItemReceived = line.IsReceived && line.Quantity > 0;
                     string? preferredBin = line.IsLocationBinUsed ? (isGood ? (dto.VendorPrefferedBin != 0 ? $"{dto.VendorPrefferedBin}" : $"{line.PrefferedBinAssignmentId}") : "5") : null;
