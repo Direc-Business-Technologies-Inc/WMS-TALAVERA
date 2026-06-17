@@ -19,10 +19,7 @@ public class ItemReceiptVM
     public string TransferLocation { get; set; } = string.Empty;
     public string Subsidiary { get; set; } = string.Empty;
     public string ToSubsidiary { get; set; } = string.Empty;
-
     public DateTime Date { get; set; }
-    public bool IsBad { get; set; } = false;
-
     public int SourceInternalId { get; set; }
     public int DefaultBO { get; set; }
     public int VendorPrefferedBin { get; set; }
