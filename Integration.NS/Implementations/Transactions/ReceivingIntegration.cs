@@ -373,7 +373,8 @@ public class ReceivingIntegration(
         }
         catch (Exception ex)
         {
-            exceptions.Add(new Exception("Error posting good items: " + ex.Message));
+            if (!ex.Message.Equals("Empty response from NetSuite API", StringComparison.OrdinalIgnoreCase))
+                exceptions.Add(new Exception("Error posting good items: " + ex.Message));
         }
 
         try
@@ -384,7 +385,8 @@ public class ReceivingIntegration(
         }
         catch (Exception ex)
         {
-            exceptions.Add(new Exception("Error posting bad items: " + ex.Message));
+            if (!ex.Message.Equals("Empty response from NetSuite API", StringComparison.OrdinalIgnoreCase))
+                exceptions.Add(new Exception("Error posting bad items: " + ex.Message));
         }
 
 
