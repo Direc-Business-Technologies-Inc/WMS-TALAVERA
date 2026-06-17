@@ -218,6 +218,15 @@
                             <RadzenNumeric Max="@data.QuantityOnHand" Min="0" @bind-Value="@data.QuantityAlloted" ReadOnly="@ReadOnly" />
                         </Template>
                     </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="StockTransferRequestLineVM"
+                                          Frozen
+                                          FrozenPosition="FrozenColumnPosition.Right"
+                                          Width="35px"
+                                          Filterable="false" Sortable="false" Pickable="false" >
+                        <Template Context="data">
+                            <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Danger" Size="ButtonSize.ExtraSmall" Click="_ => DeleteLine(data)" />
+                        </Template>
+                    </RadzenDataGridColumn>
                 </Columns>
             </AppTable>
         </RadzenFieldset>

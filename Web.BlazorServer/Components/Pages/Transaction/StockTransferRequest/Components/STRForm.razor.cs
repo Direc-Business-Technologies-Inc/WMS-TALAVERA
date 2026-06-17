@@ -270,6 +270,12 @@ public partial class STRForm
         Model.DestinationLocation = null;
     }
 
+    async Task DeleteLine(StockTransferRequestLineVM line)
+    {
+        Model.Lines.Remove(line);
+        await LinesTable.DataGrid.Reload();
+    }
+
     void Return()
     {
         if (!string.IsNullOrEmpty(ReturnURI)) NavManager.NavigateTo(ReturnURI, true);
