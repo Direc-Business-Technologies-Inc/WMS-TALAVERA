@@ -7,6 +7,7 @@ using Application.UseCases.Repositories.Integration.Transaction.InventoryCountin
 using Application.UseCases.Repositories.Integration.Transaction.InventoryTransfer;
 using Application.UseCases.Repositories.Integration.Transaction.Receiving;
 using Application.UseCases.Repositories.Integration.Transaction.SalesReturn;
+using Application.UseCases.Repositories.Integration.Transaction.StockTransferRequest;
 using Integration.NS.Implementations.Others;
 using Integration.NS.Implementations.Transactions;
 using Integration.NS.Implementations.Vestigial;
@@ -32,6 +33,11 @@ public static class NSImplementationDI
         services.TryAddTransient<IDeliveryIntegration, DeliveryIntegration>();
         services.TryAddTransient<ISalesReturnIntegration, SalesReturnIntegration>();
         services.TryAddTransient<IInventoryCountingIntegration, InventoryCountingIntegration>();
+        services.TryAddTransient<IItemsIntegration, ItemsIntegration>();
+        services.TryAddTransient<IStockTransferRequestIntegration, StockTransferRequestIntegration>();
+        services.TryAddTransient<ILocationIntegration, LocationIntegration>();
+        services.TryAddTransient<ISubsidiaryIntegration, SubsidiaryIntegration>();
+        services.TryAddTransient<IVendorIntegration, VendorIntegration>();
 
         services.TryAddTransient<INetSuiteApiClientService, NetSuiteApiClientService>();
 

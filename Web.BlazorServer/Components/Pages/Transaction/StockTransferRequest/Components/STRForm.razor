@@ -1,0 +1,264 @@
+﻿@using Web.BlazorServer.Components.Custom
+@using Web.BlazorServer.Services.Repositories
+@using Web.BlazorServer.ViewModels.Others
+@using Web.BlazorServer.ViewModels.Transaction.StockTransferRequest
+@inherits BaseComponent
+
+<RadzenTemplateForm TItem="StockTransferRequestInfoVM" Submit="@HandleSubmit" EditContext="@EditContext">
+    <RadzenStack Gap="0.5em">
+        <RadzenFieldset AllowCollapse Text="Details">
+            <RadzenRow>
+                <RadzenColumn SizeLG="@(IsReturn ? 3 : 4)" SizeMD="@(IsReturn ? 6 : 4)">
+                    <RadzenFormField AllowFloatingLabel="false" Text="Stock Transfer Request Number" class="rz-w-100">
+                        <RadzenTextBox ReadOnly Value="@Model.ReferenceNumber" />
+                    </RadzenFormField>
+                </RadzenColumn>
+                <RadzenColumn SizeLG="@(IsReturn ? 3 : 4)" SizeMD="@(IsReturn ? 6 : 4)">
+                    <RadzenFormField AllowFloatingLabel="@(!ReadOnly)" Text="Document Date" class="rz-w-100">
+                        <RadzenDatePicker ReadOnly="@ReadOnly" @bind-Value="@Model.Date" />
+                    </RadzenFormField>
+                </RadzenColumn>
+                <RadzenColumn SizeLG="@(IsReturn ? 3 : 4)" SizeMD="@(IsReturn ? 6 : 4)">
+                    <RadzenFormField AllowFloatingLabel="@(!ReadOnly)" Text="Prepared By" class="rz-w-100">
+                        <RadzenTextBox ReadOnly="@ReadOnly" @bind-Value="@Model.PreparedBy" />
+                    </RadzenFormField>
+                </RadzenColumn>
+                @if (IsReturn)
+                {
+                    <RadzenColumn SizeLG="3" SizeMD="6">
+                        <RadzenFormField AllowFloatingLabel="@(!ReadOnly)" Text="Vendor" class="rz-w-100">
+                            <RadzenTextBox Visible="@ReadOnly" ReadOnly Value="@(Model.Vendor?.Name ?? null)" />
+                            <RadzenDropDown Visible=@(!ReadOnly)
+                                            TValue="VendorVM"
+                                            @bind-Value="@Model.Vendor"
+                                            Data="@Vendors"
+                                            Count="@VendorsCount"
+                                            LoadData="@LoadVendors"
+                                            Name="str_to_location"
+                                            TextProperty="@nameof(VendorVM.Name)"
+                                            AllowClear AllowVirtualization AllowFiltering>
+                                <FooterTemplate>
+                                    <RadzenStack AlignItems="AlignItems.Center">
+                                        @if (IsLoadingVendors)
+                                        {
+                                            <RadzenProgressBar Mode="ProgressBarMode.Indeterminate" class="rz-w-100" Style="height: 6px" ShowValue="false" Value="100" />
+                                        }
+                                    </RadzenStack>
+                                </FooterTemplate>
+                            </RadzenDropDown>
+                        </RadzenFormField>
+                    </RadzenColumn>
+                }
+                <RadzenColumn SizeLG="@(IsIntercompany ? 3 : 4)" SizeMD="@(IsIntercompany ? 6 : 4)">
+                    <RadzenFormField AllowFloatingLabel="@(!ReadOnly)" Text="Subsidiary" class="rz-w-100">
+                        <ChildContent>
+                            <RadzenTextBox Visible="@ReadOnly" ReadOnly Value="@(Model.Subsidiary?.Name ?? null)" />
+                            <RadzenDropDown Visible=@(!ReadOnly)
+                                            class="rz-w-100"
+                                            @bind-Value:get="@Model.Subsidiary"
+                                            @bind-Value:set="@OnSubsidiaryChanged"
+                                            Data="@Subsidiaries"
+                                            Count="@SubsidiariesCount"
+                                            Name="str_source_subsidiary"
+                                            LoadData="@LoadSubsidiaries"
+                                            TextProperty="@nameof(SubsidiaryVM.Name)"
+                                            AllowClear AllowVirtualization AllowFiltering>
+                                <FooterTemplate>
+                                    <RadzenStack AlignItems="AlignItems.Center">
+                                        @if (IsLoadingSubsidiaries)
+                                        {
+                                            <RadzenProgressBar Mode="ProgressBarMode.Indeterminate" class="rz-w-100" Style="height: 6px" ShowValue="false" Value="100" />
+                                        }
+                                    </RadzenStack>
+                                </FooterTemplate>
+                            </RadzenDropDown>
+                        </ChildContent>
+                        <Helper>
+                            <RadzenRequiredValidator Visible="@(!ReadOnly)" Component="str_source_subsidiary" />
+                        </Helper>
+                    </RadzenFormField>
+                </RadzenColumn>
+                <RadzenColumn Visible="@IsIntercompany" SizeLG="3" SizeMD="6">
+                    <RadzenFormField AllowFloatingLabel="@(!ReadOnly)" Text="To Subsidiary" class="rz-w-100">
+                        <ChildContent>
+                            <RadzenTextBox Visible="@ReadOnly" ReadOnly Value="@(Model.ToSubsidiary?.Name ?? null)" />
+                            <RadzenDropDown Visible=@(!ReadOnly)
+                                            class="rz-w-100"
+                                            @bind-Value:get="@Model.ToSubsidiary"
+                                            @bind-Value:set="@OnToSubsidiaryChanged"
+                                            Data="@Subsidiaries"
+                                            Count="@SubsidiariesCount"
+                                            LoadData="@LoadSubsidiaries"
+                                            Name="str_to_subsidiary"
+                                            TextProperty="@nameof(SubsidiaryVM.Name)"
+                                            AllowClear AllowVirtualization AllowFiltering>
+                                <FooterTemplate>
+                                    <RadzenStack AlignItems="AlignItems.Center">
+                                        @if (IsLoadingSubsidiaries)
+                                        {
+                                            <RadzenProgressBar Mode="ProgressBarMode.Indeterminate" class="rz-w-100" Style="height: 6px" ShowValue="false" Value="100" />
+                                        }
+                                    </RadzenStack>
+                                </FooterTemplate>
+                            </RadzenDropDown>
+                        </ChildContent>
+                        <Helper>
+                            <RadzenRequiredValidator Visible="@(!ReadOnly)" Component="str_to_subsidiary" />
+                        </Helper>
+                    </RadzenFormField>
+                </RadzenColumn>
+                <RadzenColumn SizeLG="@(IsIntercompany ? 3 : 4)" SizeMD="@(IsIntercompany ? 6 : 4)">
+                    <RadzenFormField AllowFloatingLabel="@(!ReadOnly)" Text="Source Location" class="rz-w-100">
+                        <ChildContent>
+                        <RadzenTextBox Visible="@ReadOnly" ReadOnly Value="@(Model.SourceLocation?.Name ?? null)" />
+                        <RadzenDropDown Visible=@(!ReadOnly)
+                                        Disabled="@(Model.Subsidiary is null)"
+                                        class="rz-w-100"
+                                        TValue="LocationVM"
+                                        @bind-Value:get="@Model.SourceLocation"
+                                        @bind-Value:set="@OnLocationChanged"
+                                        Data="@Locations"
+                                        Count="@LocationsCount"
+                                        LoadData="@(args => LoadLocations(args, Model.Subsidiary?.Id ?? null))"
+                                        Name="str_from_location"
+                                        TextProperty="@nameof(LocationVM.Name)"
+                                        AllowClear AllowVirtualization AllowFiltering>
+                            <FooterTemplate>
+                                <RadzenStack AlignItems="AlignItems.Center">
+                                    @if (IsLoadingLocations)
+                                    {
+                                        <RadzenProgressBar Mode="ProgressBarMode.Indeterminate" class="rz-w-100" Style="height: 6px" ShowValue="false" Value="100" />
+                                    }
+                                </RadzenStack>
+                            </FooterTemplate>
+                        </RadzenDropDown>
+                        </ChildContent>
+                        <Helper>
+                            <RadzenRequiredValidator Visible="@(!ReadOnly)" Component="str_to_location" />
+                        </Helper>
+                    </RadzenFormField>
+                </RadzenColumn>
+                <RadzenColumn SizeLG="@(IsIntercompany ? 3 : 4)" SizeMD="@(IsIntercompany ? 6 : 4)">
+                    <RadzenFormField Text="Destination Location" class="rz-w-100">
+                        <ChildContent>
+                            <RadzenTextBox Visible="@ReadOnly" ReadOnly Value="@(Model.DestinationLocation?.Name ?? null)" />
+                            <RadzenDropDown Visible=@(!ReadOnly)
+                                            class="rz-w-100"
+                                            TValue="LocationVM"
+                                            Disabled="@(Model.ToSubsidiary is null)"
+                                            @bind-Value="@Model.DestinationLocation"
+                                            Data="@Locations"
+                                            Count="@LocationsCount"
+                                            LoadData="@(args => LoadLocations(args, Model.ToSubsidiary?.Id ?? null))"
+                                            Name="str_to_location"
+                                            TextProperty="@nameof(LocationVM.Name)"
+                                            PopupStyle="width: 100%; height: 200px; overflow-y: auto"
+                                            AllowClear AllowVirtualization AllowFiltering>
+                                <FooterTemplate>
+                                    <RadzenStack AlignItems="AlignItems.Center">
+                                        @if (IsLoadingLocations)
+                                        {
+                                            <RadzenProgressBar Mode="ProgressBarMode.Indeterminate" class="rz-w-100" Style="height: 6px" ShowValue="false" Value="100" />
+                                        }
+                                    </RadzenStack>
+                                </FooterTemplate>
+                            </RadzenDropDown>
+                        </ChildContent>
+                        <Helper>
+                            <RadzenRequiredValidator Visible="@(!ReadOnly)" Component="str_to_location" />
+                        </Helper>
+                    </RadzenFormField>
+                </RadzenColumn>
+                <RadzenColumn Size="12">
+                    <RadzenFormField AllowFloatingLabel="@(!ReadOnly)" Text="Remarks" class="rz-w-100">
+                        <RadzenTextArea ReadOnly="@ReadOnly" @bind-Value="@Model.Remarks" />
+                    </RadzenFormField>
+                </RadzenColumn>
+            </RadzenRow>
+        </RadzenFieldset>
+        <RadzenFieldset AllowCollapse Text="Lines">
+            <AppTable @ref="@LinesTable"
+                      Id="str_form_lines"
+                      TItem="StockTransferRequestLineVM"
+                      GridSettingsLoaded
+                      Data="@Model.Lines">
+                <HeaderTemplate>
+                    <RadzenStack Orientation="Orientation.Horizontal"
+                                 JustifyContent="JustifyContent.End"
+                                 AlignItems="AlignItems.Center"
+                                 Gap="8px">
+                        <RadzenButton Icon="settings" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@OpenTableSettings" />
+                        <RadzenButton Visible="@(!ReadOnly)" Disabled="@(Model.SourceLocation is null)" Icon="add" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Success" Click="@OpenItemDialog" />
+                    </RadzenStack>
+                </HeaderTemplate>
+                <Columns>
+                    <RadzenDataGridColumn TItem="StockTransferRequestLineVM"
+                                          Property="@nameof(StockTransferRequestLineVM.ItemCode)"
+                                          Title="Item Code" />
+                    <RadzenDataGridColumn TItem="StockTransferRequestLineVM"
+                                          Property="@nameof(StockTransferRequestLineVM.ItemDescription)"
+                                          Type="@typeof(string)"
+                                          Title="Item Description" />
+                    <RadzenDataGridColumn TItem="StockTransferRequestLineVM"
+                                          Property="@nameof(StockTransferRequestLineVM.UoM)"
+                                          Type="@typeof(string)"
+                                          Title="UoM" />
+                    <RadzenDataGridColumn TItem="StockTransferRequestLineVM"
+                                          Property="@nameof(StockTransferRequestLineVM.Warehouse)"
+                                          Type="@typeof(string)"
+                                          Title="Warehouse" Width="125px" />
+                    <RadzenDataGridColumn TItem="StockTransferRequestLineVM"
+                                          Property="@nameof(StockTransferRequestLineVM.QuantityOnHand)"
+                                          Type="@typeof(decimal)"
+                                          Title="On hand Quantity" />
+                    <RadzenDataGridColumn TItem="StockTransferRequestLineVM"
+                                          Type="@typeof(decimal)"
+                                          Title="Alloted Quantity">
+                        <Template Context="data">
+                            <RadzenNumeric Max="@data.QuantityOnHand" Min="0" @bind-Value="@data.QuantityAlloted" ReadOnly="@ReadOnly" />
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="StockTransferRequestLineVM"
+                                          Frozen
+                                          FrozenPosition="FrozenColumnPosition.Right"
+                                          Width="35px"
+                                          Filterable="false" Sortable="false" Pickable="false" >
+                        <Template Context="data">
+                            <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Danger" Size="ButtonSize.ExtraSmall" Click="_ => DeleteLine(data)" />
+                        </Template>
+                    </RadzenDataGridColumn>
+                </Columns>
+            </AppTable>
+        </RadzenFieldset>
+        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween">
+            <RadzenButton Text="@ReturnLabel" ButtonStyle="ButtonStyle.Light" ButtonType="ButtonType.Button" Click="@Return" />
+            <RadzenButton Text="@ActionLabel" ButtonStyle="ButtonStyle.Success" ButtonType="@(ReadOnly ? ButtonType.Button : ButtonType.Submit)" Click="@ActionClicked" />
+        </RadzenStack>
+    </RadzenStack>
+</RadzenTemplateForm>
+
+@code {
+
+    async Task OpenTableSettings()
+    {
+        await DialogService.OpenAsync(
+            "Table Settings",
+            ds => @<AppGridSettings TItem="StockTransferRequestLineVM"
+                                    @bind-Grid=@LinesTable.DataGrid
+                                    @bind-GridSettings=@TableSettings />
+    ,
+        options: GridSettingsService.GetDialogOptions());
+
+        await LinesTable.DataGrid.Reload();
+    }
+
+    async Task OpenItemDialog()
+    {
+        List<ItemsVM> items = await DialogService.OpenAsync(
+            "Select Items",
+            ds => @<ItemSelectionDialog Location="@(Model.SourceLocation?.Id ?? null)" />,
+    options: GridSettingsService.GetDialogOptions());
+
+        if (items is not null) await AddItems(items);
+    }
+}
