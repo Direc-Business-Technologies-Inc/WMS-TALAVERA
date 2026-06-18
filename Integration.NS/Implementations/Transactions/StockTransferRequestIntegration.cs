@@ -178,6 +178,7 @@ internal class StockTransferRequestIntegration(
             .Join("transaction t", on: "tl.transaction = t.id")
             .Join("item", on: "tl.item = item.id")
             .WithFilters(
+                DataGridFilterUtilities.Equal("tl.transactionlinetype", "RECEIVING"),
                 DataGridFilterUtilities.Equal("t.tranid", id),
                 DataGridFilterUtilities.Equal("tl.mainline", "F")
             ).Build();
