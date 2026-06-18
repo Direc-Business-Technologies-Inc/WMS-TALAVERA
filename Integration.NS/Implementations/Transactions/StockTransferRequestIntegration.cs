@@ -126,11 +126,8 @@ internal class StockTransferRequestIntegration(
                     ("t.tosubsidiary", nameof(StockTransferRequestHeaderNSDTO.ToSubsidiaryId)),
                     ("t.transferlocation", nameof(StockTransferRequestHeaderNSDTO.DestinationLocationId)),
                     ("tl.location", nameof(StockTransferRequestHeaderNSDTO.SourceLocationId)),
-                    ("CASE " + 
-                        "WHEN t.custbody_dbti_transfer_category IN (3, 4) THEN 'Returns' " +
-                        "WHEN t.recordtype = 'intercompanytransferorder' THEN 'IntercompanyTransferOrder' " + 
-                        "ELSE 'TransferOrder' END",
-                        nameof(StockTransferRequestInfoDTO.Type))
+                    ("t.custbody_dbti_transfer_category",nameof(StockTransferRequestHeaderNSDTO.TransferCategoryId)),
+                    ("BUILTIN.DF(t.custbody_dbti_transfer_category)",nameof(StockTransferRequestHeaderNSDTO.TransferCategoryName))
                 )
                 .From("transaction t")
                 .Join("transactionline tl", on: "tl.transaction = t.id")
@@ -153,11 +150,13 @@ internal class StockTransferRequestIntegration(
         dto.DestinationLocation = new() { Name = nsdto.DestinationLocationName, Id = nsdto.DestinationLocationId };
         dto.Subsidiary = new() { Name = nsdto.SubsidiaryName, Id = nsdto.SubsidiaryId };
         dto.ToSubsidiary = new() { Name = nsdto.ToSubsidiaryName, Id = nsdto.ToSubsidiaryId };
-        dto.Type = nsdto.Type switch
+        dto.TransferCategory = nsdto.TransferCategoryId switch
         {
-            "Returns" => StockTransferRequestInfoDTO.Types.Return,
-            "IntercompanyTransferOrder" => StockTransferRequestInfoDTO.Types.Intercompany,
-            _ => StockTransferRequestInfoDTO.Types.TransferOrder
+            1 => TransferCategory.Transfer,
+            2 => TransferCategory.IntercompanyTransfer,
+            3 => TransferCategory.ReturnsGood,
+            4 => TransferCategory.ReturnsBad,
+            _ => throw new NotImplementedException($"Current WMS version does not support transfer category: {nsdto.TransferCategoryName}")
         };
 
         return dto;
@@ -190,11 +189,10 @@ internal class StockTransferRequestIntegration(
     public async Task<bool> CreateStockTransferRequest(StockTransferRequestInfoDTO dto)
     {
         string payloadString = CreateSTRPayload(dto);
-        var url = dto.Type switch
-        {
-            StockTransferRequestInfoDTO.Types.Intercompany => $"{netsuiteService.GetRestAPIURI}/record/v1/interCompanyTransferOrder",
-            _ => $"{netsuiteService.GetRestAPIURI}/record/v1/transferOrder",
-        };
+
+        var url = dto.TransferCategory.IsInterCompany ?
+            $"{netsuiteService.GetRestAPIURI}/record/v1/interCompanyTransferOrder" :
+            $"{netsuiteService.GetRestAPIURI}/record/v1/transferOrder";
 
         try
         {
@@ -210,11 +208,9 @@ internal class StockTransferRequestIntegration(
     public async Task<bool> UpdateStockTransferRequest(StockTransferRequestInfoDTO dto)
     {
         string payloadString = CreateSTRPayload(dto);
-        var url = dto.Type switch
-        {
-            StockTransferRequestInfoDTO.Types.Intercompany => $"{netsuiteService.GetRestAPIURI}/record/v1/interCompanyTransferOrder",
-            _ => $"{netsuiteService.GetRestAPIURI}/record/v1/transferOrder",
-        };
+        var url = dto.TransferCategory.IsInterCompany ?
+            $"{netsuiteService.GetRestAPIURI}/record/v1/interCompanyTransferOrder" :
+            $"{netsuiteService.GetRestAPIURI}/record/v1/transferOrder";
 
         try
         {
@@ -242,7 +238,7 @@ internal class StockTransferRequestIntegration(
             {
                 id = dto.Subsidiary.Id.ToString()
             } : null,
-            tosubsidiary = dto.ToSubsidiary != null && dto.Type == StockTransferRequestInfoDTO.Types.Intercompany ? new
+            tosubsidiary = dto.ToSubsidiary != null && dto.TransferCategory.IsInterCompany ? new
             {
                 id = dto.ToSubsidiary.Id.ToString()
             } : null,
@@ -254,7 +250,7 @@ internal class StockTransferRequestIntegration(
             {
                 id = dto.DestinationLocation.Id.ToString()
             } : null,
-            custbody_dbti_transfer_category = new { id = dto.Type switch { StockTransferRequestInfoDTO.Types.Intercompany => "2", StockTransferRequestInfoDTO.Types.Return => "3", _ => "1"} },
+            custbody_dbti_transfer_category = new { id = dto.TransferCategory.Id },
             Department = new { id = "4" },
             Class = new { id = "1" },
             Memo = dto.Remarks,

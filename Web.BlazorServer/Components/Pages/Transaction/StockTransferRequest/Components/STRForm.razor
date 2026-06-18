@@ -1,4 +1,5 @@
-﻿@using Web.BlazorServer.Components.Custom
+﻿@using Application.DataTransferObjects.Transactions.StockTransferRequest
+@using Web.BlazorServer.Components.Custom
 @using Web.BlazorServer.Services.Repositories
 @using Web.BlazorServer.ViewModels.Others
 @using Web.BlazorServer.ViewModels.Transaction.StockTransferRequest
@@ -8,48 +9,51 @@
     <RadzenStack Gap="0.5em">
         <RadzenFieldset AllowCollapse Text="Details">
             <RadzenRow>
-                <RadzenColumn SizeLG="@(IsReturn ? 3 : 4)" SizeMD="@(IsReturn ? 6 : 4)">
+                <RadzenColumn SizeLG="3" SizeMD="6">
                     <RadzenFormField AllowFloatingLabel="false" Text="Stock Transfer Request Number" class="rz-w-100">
                         <RadzenTextBox ReadOnly Value="@Model.ReferenceNumber" />
                     </RadzenFormField>
                 </RadzenColumn>
-                <RadzenColumn SizeLG="@(IsReturn ? 3 : 4)" SizeMD="@(IsReturn ? 6 : 4)">
+                <RadzenColumn SizeLG="3" SizeMD="6">
                     <RadzenFormField AllowFloatingLabel="@(!ReadOnly)" Text="Document Date" class="rz-w-100">
                         <RadzenDatePicker ReadOnly="@ReadOnly" @bind-Value="@Model.Date" />
                     </RadzenFormField>
                 </RadzenColumn>
-                <RadzenColumn SizeLG="@(IsReturn ? 3 : 4)" SizeMD="@(IsReturn ? 6 : 4)">
-                    <RadzenFormField AllowFloatingLabel="@(!ReadOnly)" Text="Prepared By" class="rz-w-100">
-                        <RadzenTextBox ReadOnly="@ReadOnly" @bind-Value="@Model.PreparedBy" />
+                <RadzenColumn SizeLG="@(Model.IsReturn ? 3 : 6)" SizeMD="@(Model.IsReturn ? 6 : 12)">
+                    <RadzenFormField Visible="@(!Model.IsReturn)" AllowFloatingLabel="false" Text="Transfer Category" class="rz-w-100">
+                        <RadzenTextBox ReadOnly Value="@Model.Category.Name" />
+                    </RadzenFormField>
+                    <RadzenFormField Visible="@(Model.IsReturn)" AllowFloatingLabel="@(!ReadOnly)" Text="Transfer Category" class="rz-w-100">
+                        <RadzenDropDown Visible=@(!ReadOnly && Model.IsReturn)
+                                        TValue="TransferCategory"
+                                        Data="@TransferCategory.ReturnCategories"
+                                        TextProperty="@nameof(TransferCategory.Name)" />
                     </RadzenFormField>
                 </RadzenColumn>
-                @if (IsReturn)
-                {
-                    <RadzenColumn SizeLG="3" SizeMD="6">
-                        <RadzenFormField AllowFloatingLabel="@(!ReadOnly)" Text="Vendor" class="rz-w-100">
-                            <RadzenTextBox Visible="@ReadOnly" ReadOnly Value="@(Model.Vendor?.Name ?? null)" />
-                            <RadzenDropDown Visible=@(!ReadOnly)
-                                            TValue="VendorVM"
-                                            @bind-Value="@Model.Vendor"
-                                            Data="@Vendors"
-                                            Count="@VendorsCount"
-                                            LoadData="@LoadVendors"
-                                            Name="str_to_location"
-                                            TextProperty="@nameof(VendorVM.Name)"
-                                            AllowClear AllowVirtualization AllowFiltering>
-                                <FooterTemplate>
-                                    <RadzenStack AlignItems="AlignItems.Center">
-                                        @if (IsLoadingVendors)
-                                        {
-                                            <RadzenProgressBar Mode="ProgressBarMode.Indeterminate" class="rz-w-100" Style="height: 6px" ShowValue="false" Value="100" />
-                                        }
-                                    </RadzenStack>
-                                </FooterTemplate>
-                            </RadzenDropDown>
-                        </RadzenFormField>
-                    </RadzenColumn>
-                }
-                <RadzenColumn SizeLG="@(IsIntercompany ? 3 : 4)" SizeMD="@(IsIntercompany ? 6 : 4)">
+                <RadzenColumn Visible="@Model.IsReturn" SizeLG="3" SizeMD="6">
+                    <RadzenFormField AllowFloatingLabel="@(!ReadOnly)" Text="Vendor" class="rz-w-100">
+                        <RadzenTextBox Visible="@ReadOnly" ReadOnly Value="@(Model.Vendor?.Name ?? null)" />
+                        <RadzenDropDown Visible=@(!ReadOnly)
+                                        TValue="VendorVM"
+                                        @bind-Value="@Model.Vendor"
+                                        Data="@Vendors"
+                                        Count="@VendorsCount"
+                                        LoadData="@LoadVendors"
+                                        Name="str_to_location"
+                                        TextProperty="@nameof(VendorVM.Name)"
+                                        AllowClear AllowVirtualization AllowFiltering>
+                            <FooterTemplate>
+                                <RadzenStack AlignItems="AlignItems.Center">
+                                    @if (IsLoadingVendors)
+                                    {
+                                        <RadzenProgressBar Mode="ProgressBarMode.Indeterminate" class="rz-w-100" Style="height: 6px" ShowValue="false" Value="100" />
+                                    }
+                                </RadzenStack>
+                            </FooterTemplate>
+                        </RadzenDropDown>
+                    </RadzenFormField>
+                </RadzenColumn>
+                <RadzenColumn SizeLG="@(Model.IsIntercompany ? 3 : 6)" SizeMD="@(Model.IsIntercompany ? 6 : 12)">
                     <RadzenFormField AllowFloatingLabel="@(!ReadOnly)" Text="Subsidiary" class="rz-w-100">
                         <ChildContent>
                             <RadzenTextBox Visible="@ReadOnly" ReadOnly Value="@(Model.Subsidiary?.Name ?? null)" />
@@ -78,7 +82,7 @@
                         </Helper>
                     </RadzenFormField>
                 </RadzenColumn>
-                <RadzenColumn Visible="@IsIntercompany" SizeLG="3" SizeMD="6">
+                <RadzenColumn Visible="@Model.IsIntercompany" SizeLG="3" SizeMD="6">
                     <RadzenFormField AllowFloatingLabel="@(!ReadOnly)" Text="To Subsidiary" class="rz-w-100">
                         <ChildContent>
                             <RadzenTextBox Visible="@ReadOnly" ReadOnly Value="@(Model.ToSubsidiary?.Name ?? null)" />
@@ -107,38 +111,38 @@
                         </Helper>
                     </RadzenFormField>
                 </RadzenColumn>
-                <RadzenColumn SizeLG="@(IsIntercompany ? 3 : 4)" SizeMD="@(IsIntercompany ? 6 : 4)">
+                <RadzenColumn SizeLG="3" SizeMD="6">
                     <RadzenFormField AllowFloatingLabel="@(!ReadOnly)" Text="Source Location" class="rz-w-100">
                         <ChildContent>
-                        <RadzenTextBox Visible="@ReadOnly" ReadOnly Value="@(Model.SourceLocation?.Name ?? null)" />
-                        <RadzenDropDown Visible=@(!ReadOnly)
-                                        Disabled="@(Model.Subsidiary is null)"
-                                        class="rz-w-100"
-                                        TValue="LocationVM"
-                                        @bind-Value:get="@Model.SourceLocation"
-                                        @bind-Value:set="@OnLocationChanged"
-                                        Data="@Locations"
-                                        Count="@LocationsCount"
-                                        LoadData="@(args => LoadLocations(args, Model.Subsidiary?.Id ?? null))"
-                                        Name="str_from_location"
-                                        TextProperty="@nameof(LocationVM.Name)"
-                                        AllowClear AllowVirtualization AllowFiltering>
-                            <FooterTemplate>
-                                <RadzenStack AlignItems="AlignItems.Center">
-                                    @if (IsLoadingLocations)
-                                    {
-                                        <RadzenProgressBar Mode="ProgressBarMode.Indeterminate" class="rz-w-100" Style="height: 6px" ShowValue="false" Value="100" />
-                                    }
-                                </RadzenStack>
-                            </FooterTemplate>
-                        </RadzenDropDown>
+                            <RadzenTextBox Visible="@ReadOnly" ReadOnly Value="@(Model.SourceLocation?.Name ?? null)" />
+                            <RadzenDropDown Visible=@(!ReadOnly)
+                                            Disabled="@(Model.Subsidiary is null)"
+                                            class="rz-w-100"
+                                            TValue="LocationVM"
+                                            @bind-Value:get="@Model.SourceLocation"
+                                            @bind-Value:set="@OnLocationChanged"
+                                            Data="@Locations"
+                                            Count="@LocationsCount"
+                                            LoadData="@(args => LoadLocations(args, Model.Subsidiary?.Id ?? null))"
+                                            Name="str_from_location"
+                                            TextProperty="@nameof(LocationVM.Name)"
+                                            AllowClear AllowVirtualization AllowFiltering>
+                                <FooterTemplate>
+                                    <RadzenStack AlignItems="AlignItems.Center">
+                                        @if (IsLoadingLocations)
+                                        {
+                                            <RadzenProgressBar Mode="ProgressBarMode.Indeterminate" class="rz-w-100" Style="height: 6px" ShowValue="false" Value="100" />
+                                        }
+                                    </RadzenStack>
+                                </FooterTemplate>
+                            </RadzenDropDown>
                         </ChildContent>
                         <Helper>
                             <RadzenRequiredValidator Visible="@(!ReadOnly)" Component="str_to_location" />
                         </Helper>
                     </RadzenFormField>
                 </RadzenColumn>
-                <RadzenColumn SizeLG="@(IsIntercompany ? 3 : 4)" SizeMD="@(IsIntercompany ? 6 : 4)">
+                <RadzenColumn SizeLG="3" SizeMD="6">
                     <RadzenFormField Text="Destination Location" class="rz-w-100">
                         <ChildContent>
                             <RadzenTextBox Visible="@ReadOnly" ReadOnly Value="@(Model.DestinationLocation?.Name ?? null)" />
@@ -167,11 +171,6 @@
                         <Helper>
                             <RadzenRequiredValidator Visible="@(!ReadOnly)" Component="str_to_location" />
                         </Helper>
-                    </RadzenFormField>
-                </RadzenColumn>
-                <RadzenColumn Size="12">
-                    <RadzenFormField AllowFloatingLabel="@(!ReadOnly)" Text="Remarks" class="rz-w-100">
-                        <RadzenTextArea ReadOnly="@ReadOnly" @bind-Value="@Model.Remarks" />
                     </RadzenFormField>
                 </RadzenColumn>
             </RadzenRow>
@@ -215,20 +214,37 @@
                                           Type="@typeof(decimal)"
                                           Title="Alloted Quantity">
                         <Template Context="data">
-                            <RadzenNumeric Max="@data.QuantityOnHand" Min="0" @bind-Value="@data.QuantityAlloted" ReadOnly="@ReadOnly" />
+                            <RadzenNumeric Max="@data.QuantityOnHand" Min="0" @bind-Value="@data.QuantityAlloted" ReadOnly="@ReadOnly" class="rz-w-100" ShowUpDown="@(!ReadOnly)" />
                         </Template>
                     </RadzenDataGridColumn>
-                    <RadzenDataGridColumn TItem="StockTransferRequestLineVM"
-                                          Frozen
-                                          FrozenPosition="FrozenColumnPosition.Right"
-                                          Width="35px"
-                                          Filterable="false" Sortable="false" Pickable="false" >
-                        <Template Context="data">
-                            <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Danger" Size="ButtonSize.ExtraSmall" Click="_ => DeleteLine(data)" />
-                        </Template>
-                    </RadzenDataGridColumn>
+                    @if (!ReadOnly)
+                    {
+                        <RadzenDataGridColumn TItem="StockTransferRequestLineVM"
+                                              Frozen
+                                              FrozenPosition="FrozenColumnPosition.Right"
+                                              Width="35px"
+                                              Filterable="false" Sortable="false" Pickable="false">
+                            <Template Context="data">
+                                <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Danger" Size="ButtonSize.ExtraSmall" Click="_ => DeleteLine(data)" />
+                            </Template>
+                        </RadzenDataGridColumn>
+                    }
                 </Columns>
             </AppTable>
+        </RadzenFieldset>
+        <RadzenFieldset Text="Additional Details">
+            <RadzenRow>
+                <RadzenColumn SizeMD="4">
+                    <RadzenFormField AllowFloatingLabel="@(!ReadOnly)" Text="Remarks" class="rz-w-100">
+                        <RadzenTextArea ReadOnly="@ReadOnly" @bind-Value="@Model.Remarks" />
+                    </RadzenFormField>
+                </RadzenColumn>
+                <RadzenColumn SizeMD="4" OffsetMD="4">
+                    <RadzenFormField AllowFloatingLabel="@(!ReadOnly)" Text="Prepared By" class="rz-w-100">
+                        <RadzenTextBox ReadOnly="@ReadOnly" @bind-Value="@Model.PreparedBy" />
+                    </RadzenFormField>
+                </RadzenColumn>
+            </RadzenRow>
         </RadzenFieldset>
         <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween">
             <RadzenButton Text="@ReturnLabel" ButtonStyle="ButtonStyle.Light" ButtonType="ButtonType.Button" Click="@Return" />

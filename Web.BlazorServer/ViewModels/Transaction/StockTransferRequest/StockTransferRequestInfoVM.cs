@@ -1,4 +1,5 @@
-﻿using Web.BlazorServer.ViewModels.Others;
+﻿using Application.DataTransferObjects.Transactions.StockTransferRequest;
+using Web.BlazorServer.ViewModels.Others;
 
 namespace Web.BlazorServer.ViewModels.Transaction.StockTransferRequest;
 
@@ -14,14 +15,9 @@ public class StockTransferRequestInfoVM
     public SubsidiaryVM? ToSubsidiary { get; set; } = null;
     public string PreparedBy { get; set; } = string.Empty;
     public string Remarks { get; set; } = string.Empty;
-    public Types Type { get; set; } = Types.TransferOrder;
     public DateTime Date { get; set; }
     public List<StockTransferRequestLineVM> Lines { get; set; } = [];
-
-    public enum Types
-    {
-        TransferOrder,
-        IntercompanyTransferOrder,
-        Returns
-    } 
+    public TransferCategory Category { get; set; } = TransferCategory.Transfer;
+    public bool IsReturn => Category.IsReturn;
+    public bool IsIntercompany => Category.IsInterCompany;
 }

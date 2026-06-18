@@ -22,9 +22,10 @@ public class StockTransferRequestHeaderNSDTO
     public int SubsidiaryId { get; set; }
     public string ToSubsidiaryName { get; set; } = string.Empty;
     public int ToSubsidiaryId { get; set; }
+    public int TransferCategoryId { get; set; }
+    public string TransferCategoryName { get; set; } = string.Empty;
     public string PreparedBy { get; set; } = string.Empty;
     public string Remarks { get; set; } = string.Empty;
-    public string Type { get; set; } = string.Empty;
     public DateTime Date { get; set; }
     public List<StockTransferRequestLineDTO> Lines { get; set; } = [];
 }

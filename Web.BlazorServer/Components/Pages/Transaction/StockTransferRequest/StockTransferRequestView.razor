@@ -68,6 +68,7 @@
         action.OnSuccess(async res =>
         {
             res.Adapt(FormData);
+            FormData.Category = res.Category;
             await InvokeAsync(StateHasChanged);
         });
 

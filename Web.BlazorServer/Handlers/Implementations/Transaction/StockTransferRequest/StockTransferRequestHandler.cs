@@ -36,13 +36,7 @@ public class StockTransferRequestHandler(ISender sender) : IStockTransferRequest
         var dto = await sender.Send(query);
         var vm = dto.Adapt<StockTransferRequestInfoVM>();
 
-        vm.Type = dto.Type switch
-        {
-            StockTransferRequestInfoDTO.Types.Intercompany => StockTransferRequestInfoVM.Types.IntercompanyTransferOrder,
-            StockTransferRequestInfoDTO.Types.Return => StockTransferRequestInfoVM.Types.Returns,
-            _ => StockTransferRequestInfoVM.Types.TransferOrder,
-        };
-
+        vm.Category = dto.TransferCategory;
         return vm;
     }
 
@@ -68,11 +62,7 @@ public class StockTransferRequestHandler(ISender sender) : IStockTransferRequest
     public async Task<bool> CreateStockTransferRequest(StockTransferRequestInfoVM data)
     {
         var dto = data.Adapt<StockTransferRequestInfoDTO>();
-        dto.Type = data.Type switch {
-            StockTransferRequestInfoVM.Types.IntercompanyTransferOrder => StockTransferRequestInfoDTO.Types.Intercompany,
-            StockTransferRequestInfoVM.Types.Returns => StockTransferRequestInfoDTO.Types.Return,
-            _ => StockTransferRequestInfoDTO.Types.TransferOrder
-        };
+        dto.TransferCategory = data.Category;
         CreateStockTransferRequestCmd cmd = new(dto);
 
         await sender.Send(cmd);
@@ -82,12 +72,7 @@ public class StockTransferRequestHandler(ISender sender) : IStockTransferRequest
     public async Task<bool> UpdateStockTransferRequest(StockTransferRequestInfoVM data)
     {
         var dto = data.Adapt<StockTransferRequestInfoDTO>();
-        dto.Type = data.Type switch
-        {
-            StockTransferRequestInfoVM.Types.IntercompanyTransferOrder => StockTransferRequestInfoDTO.Types.Intercompany,
-            StockTransferRequestInfoVM.Types.Returns => StockTransferRequestInfoDTO.Types.Return,
-            _ => StockTransferRequestInfoDTO.Types.TransferOrder
-        };
+        dto.TransferCategory = data.Category;
         UpdateStockTransferRequestCmd cmd = new(dto);
 
         await sender.Send(cmd);
