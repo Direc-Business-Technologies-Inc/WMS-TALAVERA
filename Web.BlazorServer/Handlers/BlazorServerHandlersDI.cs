@@ -64,6 +64,7 @@ public static class BlazorServerHandlersDI
         {
             services.TryAddTransient<IStockTransferRequestHandler, StockTransferRequestHandler>();
         }
+        services.TryAddTransient<IBusinessAccountHandler, BusinessAccountHandler>();
 
         return services;
     }

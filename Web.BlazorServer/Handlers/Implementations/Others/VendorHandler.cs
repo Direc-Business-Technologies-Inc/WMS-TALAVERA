@@ -15,4 +15,10 @@ public class VendorHandler(ISender sender) : IVendorHandler
         (var data, int count)  = await sender.Send(query);
         return (data.Adapt<IEnumerable<VendorVM>>(), count);
     }
+    public async Task<(IEnumerable<VendorVM> Data, int Count)> GetVendorsListBySubsidiaryAsync(DataGridIntent intent, int subsidiaryId)
+    {
+        GetVendorsListBySubsidiaryQry query = new(intent, subsidiaryId);
+        (var data, int count)  = await sender.Send(query);
+        return (data.Adapt<IEnumerable<VendorVM>>(), count);
+    }
 }

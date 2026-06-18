@@ -174,6 +174,8 @@ public partial class STRForm
 
     async Task LoadVendors(LoadDataArgs args)
     {
+        if (Model.ToSubsidiary is null) return;
+        var sudsidiaryId = Model.ToSubsidiary.Id;
         var action = await AppActionFactory.RunAsync(async () =>
         {
             AppBusyService.SetBusy(ActionGetVendors, true);
@@ -191,7 +193,8 @@ public partial class STRForm
                     ComparisonOperator = ComparisonOperatorEnum.Contains
                 });
 
-            var response = await VendorHandler.GetVendorsListAsync(DatagridAdapter.QueryIntent);
+
+            var response = await VendorHandler.GetVendorsListBySubsidiaryAsync(DatagridAdapter.QueryIntent, sudsidiaryId);
 
             Vendors = [.. response.Data];
             VendorsCount = response.Count;
@@ -267,6 +270,7 @@ public partial class STRForm
         LocationsCount = 1;
         Model.ToSubsidiary = value;
         Model.DestinationLocation = null;
+        Model.Vendor = null;
     }
 
     async Task DeleteLine(StockTransferRequestLineVM line)
