@@ -4,11 +4,8 @@ using Shared.Entities;
 using Web.BlazorServer.Components.Base;
 using Web.BlazorServer.Components.Shared.Abstraction;
 using Web.BlazorServer.Defaults;
-using Web.BlazorServer.Handlers.Implementations.Transaction.Receiving;
-using Web.BlazorServer.Services.Implementation;
 using Web.BlazorServer.Services.Repositories;
 using Web.BlazorServer.ViewModels.Abstraction;
-using Web.BlazorServer.ViewModels.Transaction.Receiving;
 
 namespace Web.BlazorServer.Components.Custom;
 

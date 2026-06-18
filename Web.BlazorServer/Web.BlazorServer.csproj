@@ -24,6 +24,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
+	  <Folder Include="Components\Pages\Transaction\InventoryAdjustment\Components\" />
 	  <Folder Include="Services\" />
 	</ItemGroup>
 

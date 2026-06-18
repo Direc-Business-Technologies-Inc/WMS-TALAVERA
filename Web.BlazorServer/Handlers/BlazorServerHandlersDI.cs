@@ -8,6 +8,7 @@ using Web.BlazorServer.Handlers.Implementations.Transaction.Delivery;
 using Web.BlazorServer.Handlers.Implementations.Transaction.GoodsIssue;
 using Web.BlazorServer.Handlers.Implementations.Transaction.GoodsReceipt;
 using Web.BlazorServer.Handlers.Implementations.Transaction.GoodsReturn;
+using Web.BlazorServer.Handlers.Implementations.Transaction.InventoryAdjustment;
 using Web.BlazorServer.Handlers.Implementations.Transaction.InventoryCounting;
 using Web.BlazorServer.Handlers.Implementations.Transaction.InventoryTransfer;
 using Web.BlazorServer.Handlers.Implementations.Transaction.Receiving;
@@ -21,6 +22,7 @@ using Web.BlazorServer.Handlers.Repositories.Transaction.Delivery;
 using Web.BlazorServer.Handlers.Repositories.Transaction.GoodsIssue;
 using Web.BlazorServer.Handlers.Repositories.Transaction.GoodsReceipt;
 using Web.BlazorServer.Handlers.Repositories.Transaction.GoodsReturn;
+using Web.BlazorServer.Handlers.Repositories.Transaction.InventoryAdjustment;
 using Web.BlazorServer.Handlers.Repositories.Transaction.InventoryCounting;
 using Web.BlazorServer.Handlers.Repositories.Transaction.InventoryTransfer;
 using Web.BlazorServer.Handlers.Repositories.Transaction.Receiving;
@@ -57,6 +59,7 @@ public static class BlazorServerHandlersDI
         services.TryAddTransient<ILocationHandler, LocationHandler>();
         services.TryAddTransient<ISubsidiaryHandler, SubsidiaryHandler>();
         services.TryAddTransient<IBusinessAccountHandler, BusinessAccountHandler>();
+        services.TryAddTransient<IInventoryAdjustmentHandler, InventoryAdjustmentHandler>();
 
         return services;
     }
