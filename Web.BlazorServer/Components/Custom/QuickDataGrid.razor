@@ -34,6 +34,19 @@
                 <RadzenDataGridColumn TItem="TItem" Property="@prop.Name" Title="@title" Type="@prop.GetType()" FormatString="{0:d}"/>
             }
         }
+        
+        @if (RowActions is not null)
+        {
+            <RadzenDataGridColumn TItem="TItem"
+                                  Frozen
+                                  Width="1%"
+                                  style="white-space: nowrap"
+                                  FrozenPosition="FrozenColumnPosition.Right" >
+                <Template>
+                    @RowActions(context)
+                </Template>
+            </RadzenDataGridColumn>
+        }
     </GridColumns>
 </AppDataGrid>
 

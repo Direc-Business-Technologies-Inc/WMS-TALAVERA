@@ -23,6 +23,7 @@ public partial class QuickDataGrid<TItem> : BaseComponent where TItem : class
     [Parameter] public RenderFragment? Columns { get; set; } = null;
     [Parameter] public RenderFragment? HeaderStart { get; set; } = null;
     [Parameter] public RenderFragment? HeaderEnd { get; set; } = null;
+    [Parameter] public RenderFragment<TItem>? RowActions { get; set; } = null;
     [Parameter][EditorRequired] public required DataDelegate DataGetter { get; set; }
 
     public const string GENERIC_ACTION_NAME = "Generic Action";
