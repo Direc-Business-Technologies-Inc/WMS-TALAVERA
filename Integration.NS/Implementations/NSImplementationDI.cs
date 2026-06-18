@@ -33,6 +33,7 @@ public static class NSImplementationDI
         services.TryAddTransient<ISalesReturnIntegration, SalesReturnIntegration>();
         services.TryAddTransient<IInventoryCountingIntegration, InventoryCountingIntegration>();
         services.TryAddTransient<IItemsIntegration, ItemsIntegration>();
+        services.TryAddTransient<IBusinessAccountIntegration, BusinessAccountIntegration>();
 
         services.TryAddTransient<INetSuiteApiClientService, NetSuiteApiClientService>();
 

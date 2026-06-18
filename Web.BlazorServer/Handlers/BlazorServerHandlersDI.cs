@@ -56,6 +56,7 @@ public static class BlazorServerHandlersDI
         services.TryAddTransient<IItemsHandler, ItemsHandler>();
         services.TryAddTransient<ILocationHandler, LocationHandler>();
         services.TryAddTransient<ISubsidiaryHandler, SubsidiaryHandler>();
+        services.TryAddTransient<IBusinessAccountHandler, BusinessAccountHandler>();
 
         return services;
     }
