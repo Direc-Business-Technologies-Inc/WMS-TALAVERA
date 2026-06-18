@@ -24,7 +24,8 @@
                         <RadzenTextBox ReadOnly Value="@Model.Category.Name" />
                     </RadzenFormField>
                     <RadzenFormField Visible="@(Model.IsReturn)" AllowFloatingLabel="@(!ReadOnly)" Text="Transfer Category" class="rz-w-100">
-                        <RadzenDropDown Visible=@(!ReadOnly && Model.IsReturn)
+                        <RadzenDropDown ReadOnly="@ReadOnly"
+                                        @bind-Value="@Model.Category"
                                         TValue="TransferCategory"
                                         Data="@TransferCategory.ReturnCategories"
                                         TextProperty="@nameof(TransferCategory.Name)" />
