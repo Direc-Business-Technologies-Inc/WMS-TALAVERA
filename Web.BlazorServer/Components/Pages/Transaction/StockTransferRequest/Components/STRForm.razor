@@ -35,6 +35,7 @@
                     <RadzenFormField AllowFloatingLabel="@(!ReadOnly)" Text="Vendor" class="rz-w-100">
                         <RadzenTextBox Visible="@ReadOnly" ReadOnly Value="@(Model.Vendor?.Name ?? null)" />
                         <RadzenDropDown Visible=@(!ReadOnly)
+                                        Disabled="@(Model.ToSubsidiary is null)"
                                         TValue="VendorVM"
                                         @bind-Value="@Model.Vendor"
                                         Data="@Vendors"
