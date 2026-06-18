@@ -252,6 +252,7 @@ internal class StockTransferRequestIntegration(
                 id = dto.DestinationLocation.Id.ToString()
             } : null,
             custbody_dbti_transfer_category = new { id = dto.TransferCategory.Id },
+            custbody_dbti_return_to_vendor = dto.TransferCategory.IsReturn && dto.Vendor != null ? new { id = dto.Vendor.Id.ToString() } : null,
             Department = new { id = "4" },
             Class = new { id = "1" },
             Memo = dto.Remarks,
