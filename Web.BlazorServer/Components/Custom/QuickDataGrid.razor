@@ -27,6 +27,13 @@
         {
             @Columns
         }
+        else 
+        {
+            foreach (var (prop, title) in PropertyTitles)
+            {
+                <RadzenDataGridColumn TItem="TItem" Property="@prop.Name" Title="@title" Type="@prop.GetType()" FormatString="{0:d}"/>
+            }
+        }
     </GridColumns>
 </AppDataGrid>
 
