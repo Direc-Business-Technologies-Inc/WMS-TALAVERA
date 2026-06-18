@@ -1,3 +1,4 @@
+using Application.DataTransferObjects.Transactions.StockTransferRequest;
 using Mapster;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
@@ -46,8 +47,6 @@ public partial class STRForm
 
     AppTable<StockTransferRequestLineVM> LinesTable = default!;
     DataGridSettings TableSettings { get; set; } = new();
-    bool IsReturn => Model.Type == StockTransferRequestInfoVM.Types.Returns;
-    bool IsIntercompany => Model.Type == StockTransferRequestInfoVM.Types.IntercompanyTransferOrder || IsReturn;
 
     readonly string ActionGetLocations = "Get Locations";
     readonly string ActionGetSubsidiaries = "Get Subsidiaries";
@@ -65,7 +64,7 @@ public partial class STRForm
     private bool IsLoadingSubsidiaries => AppBusyService.IsBusy(ActionGetSubsidiaries);
     private bool IsLoadingVendors => AppBusyService.IsBusy(ActionGetVendors);
     public StockTransferRequestInfoVM _Model { get; set; } = new();
-
+    private List<TransferCategory> ReturnCategories = [.. TransferCategory.ReturnCategories];
 
 
     protected override void OnParametersSet()
@@ -235,7 +234,7 @@ public partial class STRForm
             Model.Lines.Clear();
             Model.Subsidiary = value;
             Model.SourceLocation = null;
-            if (!IsIntercompany)
+            if (!Model.IsIntercompany)
             {
                 Model.ToSubsidiary = value;
                 Model.DestinationLocation = null;
