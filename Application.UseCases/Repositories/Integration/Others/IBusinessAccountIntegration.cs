@@ -8,8 +8,7 @@ using System.Threading.Tasks;
 
 namespace Application.UseCases.Repositories.Integration.Others;
 
-public interface IVendorIntegration
+public interface IBusinessAccountIntegration
 {
-    Task<(IEnumerable<VendorDTO> Data, int Count)> GetVendorsListAsync(DataGridIntent intent);
-    Task<(IEnumerable<VendorDTO> Data, int Count)> GetVendorsBySubsidiaryListAsync(DataGridIntent intent, int subsidiary);
+    Task<(IEnumerable<BusinessAccountDTO> data, int count)> GetBusinessAccountsAsync(DataGridIntent intent, int? subsidiary = null);
 }
