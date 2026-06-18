@@ -19,20 +19,8 @@
 
 <AppContent>
     <QuickDataGrid DataGetter="@LoadDataAsync" ActionName="@ActionGetInventoryAdjustment" Id="inventory_adjustment_datagrid" >
-        <Columns>
-            <RadzenDataGridColumn TItem="InventoryAdjustmentDataGridVM" Property="@nameof(InventoryAdjustmentDataGridVM.ReferenceNumber)" Title="Transaction Number" />
-            <RadzenDataGridColumn TItem="InventoryAdjustmentDataGridVM" Property="@nameof(InventoryAdjustmentDataGridVM.Subsidiary)" Title="Subsidiary" />
-            <RadzenDataGridColumn TItem="InventoryAdjustmentDataGridVM" Property="@nameof(InventoryAdjustmentDataGridVM.Location)" Title="Location" />
-            <RadzenDataGridColumn TItem="InventoryAdjustmentDataGridVM" Property="@nameof(InventoryAdjustmentDataGridVM.Account)" Title="Adjustment Account" />
-            <RadzenDataGridColumn TItem="InventoryAdjustmentDataGridVM" Property="@nameof(InventoryAdjustmentDataGridVM.Memo)" Title="Remarks" />
-            <RadzenDataGridColumn TItem="InventoryAdjustmentDataGridVM"
-                                  Frozen
-                                  FrozenPosition="FrozenColumnPosition.Right"
-                                  Width="35px">
-                <Template>
-                    <RadzenButton Icon="arrow_right_alt" Size="ButtonSize.ExtraSmall" Click="() => ViewInventoryAdjustment(context)" />
-                </Template>
-            </RadzenDataGridColumn>
-        </Columns>
+        <RowActions >
+            <RadzenButton Icon="arrow_right_alt" Size="ButtonSize.ExtraSmall" Click="() => ViewInventoryAdjustment(context)" />
+        </RowActions>
     </QuickDataGrid>
 </AppContent>
