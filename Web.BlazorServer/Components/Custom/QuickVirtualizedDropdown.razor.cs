@@ -24,10 +24,12 @@ public partial class QuickVirtualizedDropdown<TItem> : BaseComponent where TItem
     [Parameter] public bool AllowClear { get; set; } = true;
     [Parameter] public bool AllowFiltering { get; set; } = true;
     [Parameter] public bool ShowLoadingIndicator { get; set; } = true;
+    [Parameter] public bool ShowEmptyTemplate { get; set; } = true;
     [Parameter] public bool Visible { get; set; } = true;
     [Parameter] public bool Disabled { get; set; } = false;
     [Parameter] public bool ReadOnly { get; set; } = false;
     [Parameter] public RenderFragment? LoadingIndicator { get; set; } = null;
+    [Parameter] public RenderFragment? EmptyTemplate { get; set; } = null;
 
     const int DEFAULT_TAKE_AMOUNT = 5;
     private int DataCount = 0;
