@@ -5,8 +5,14 @@
                 Value="@Value" 
                 LoadData="@LoadDataAsync" 
                 Count="DataCount" 
+                Name="@Name"
+                Disabled="@Disabled"
+                Visible="@Visible"
+                ReadOnly="@ReadOnly"
                 AllowVirtualization 
-                AllowClear="@AllowClear" 
+                AllowClear="@AllowClear"
+                TextProperty="@TextProperty"
+                ValueProperty="@ValueProperty"
                 AllowFiltering="@AllowFiltering" >
     <HeaderTemplate>
         @if (ShowLoadingIndicator && IsBusy)
@@ -17,7 +23,7 @@
             }
             else
             {
-                <RadzenProgressBar Mode="ProgressBarMode.Indeterminate" Value="100" ShowValue="false" class="rz-w-100" Style="height: 8px" />
+                <RadzenProgressBar Mode="ProgressBarMode.Indeterminate" Value="100" ShowValue="false" class="rz-w-100" Style="height: 6px" />
             }
         }
     </HeaderTemplate>
