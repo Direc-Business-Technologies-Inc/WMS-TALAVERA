@@ -1,0 +1,24 @@
+﻿@typeparam TItem
+@inherits BaseComponent
+<RadzenDropDown @ref="Dropdown" 
+                Data="@Data" 
+                Value="@Value" 
+                LoadData="@LoadDataAsync" 
+                Count="DataCount" 
+                AllowVirtualization 
+                AllowClear="@AllowClear" 
+                AllowFiltering="@AllowFiltering" >
+    <HeaderTemplate>
+        @if (ShowLoadingIndicator && IsBusy)
+        {
+            if (LoadingIndicator is not null)
+            {
+                @LoadingIndicator
+            }
+            else
+            {
+                <RadzenProgressBar Mode="ProgressBarMode.Indeterminate" Value="100" ShowValue="false" class="rz-w-100" Style="height: 8px" />
+            }
+        }
+    </HeaderTemplate>
+</RadzenDropDown>
