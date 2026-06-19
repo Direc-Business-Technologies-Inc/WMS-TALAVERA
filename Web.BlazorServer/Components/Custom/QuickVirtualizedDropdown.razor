@@ -2,7 +2,8 @@
 @inherits BaseComponent
 <RadzenDropDown @ref="Dropdown" 
                 Data="@Data" 
-                Value="@Value" 
+                @bind-Value:get="@Value"
+                @bind-Value:set="@(value => ValueChanged.InvokeAsync(value))"
                 LoadData="@LoadDataAsync" 
                 Count="DataCount" 
                 Name="@Name"
