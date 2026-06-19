@@ -24,4 +24,5 @@ public class ItemsNSDTO
     public decimal PurchaseUnitRate { get; set; }
     public decimal StockUnitRate { get; set; }
     public decimal SaleUnitRate { get; set; }
+    public decimal QuantityOnHand { get; set; }
 }

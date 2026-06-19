@@ -21,7 +21,7 @@ public class ItemsIntegration(
     {
         var query = builderFactory.Create()
             .Select(
-                ("(SELECT SUM(quantityonhand) FROM aggregateitemlocation WHERE item = item.id)", nameof(ItemsDTO.QuantityOnHand)),
+                ("(SELECT SUM(quantityonhand) FROM aggregateitemlocation WHERE item = item.id)", nameof(ItemsNSDTO.QuantityOnHand)),
                 ("itemid", nameof(ItemsNSDTO.ItemNumber)),
                 ("id", nameof(ItemsNSDTO.Id)),
                 ("displayname", nameof(ItemsNSDTO.Name)),
@@ -53,16 +53,19 @@ public class ItemsIntegration(
     {
         var query = builderFactory.Create()
             .Select(
-                ("i.itemid", nameof(ItemsDTO.ItemNumber)),
-                ("i.id", nameof(ItemsDTO.Id)),
-                ("i.displayname", nameof(ItemsDTO.Name)),
-                ("i.description", nameof(ItemsDTO.Description)),
-                ("i.purchaseunit", nameof(ItemsDTO.PurchaseUnitId)),
-                ("i.saleunit", nameof(ItemsDTO.SaleUnitId)),
-                ("i.stockunit", nameof(ItemsDTO.StockUnitId)),
-                ("BUILTIN.DF(i.purchaseunit)", nameof(ItemsDTO.PurchaseUnit)),
-                ("BUILTIN.DF(i.saleunit)", nameof(ItemsDTO.SaleUnit)),
-                ("BUILTIN.DF(i.stockunit)", nameof(ItemsDTO.StockUnit)),
+                ("itemid", nameof(ItemsNSDTO.ItemNumber)),
+                ("id", nameof(ItemsNSDTO.Id)),
+                ("displayname", nameof(ItemsNSDTO.Name)),
+                ("description", nameof(ItemsNSDTO.Description)),
+                ("purchaseunit", nameof(ItemsNSDTO.PurchaseUnitId)),
+                ("saleunit", nameof(ItemsNSDTO.SaleUnitId)),
+                ("stockunit", nameof(ItemsNSDTO.StockUnitId)),
+                ("BUILTIN.DF(purchaseunit)", nameof(ItemsNSDTO.PurchaseUnit)),
+                ("BUILTIN.DF(saleunit)", nameof(ItemsNSDTO.SaleUnit)),
+                ("BUILTIN.DF(stockunit)", nameof(ItemsNSDTO.StockUnit)),
+                ("(SELECT u1.conversionrate FROM unitsTypeUom u1 WHERE u1.id = saleunit)", nameof(ItemsNSDTO.SaleUnitRate)),
+                ("(SELECT u2.conversionrate FROM unitsTypeUom u2 WHERE u2.id = stockunit)", nameof(ItemsNSDTO.StockUnitRate)),
+                ("(SELECT u3.conversionrate FROM unitsTypeUom u3 WHERE u3.id = purchaseunit)", nameof(ItemsNSDTO.PurchaseUnitRate)),
                 ("ail.quantityonhand", nameof(ItemsDTO.QuantityOnHand))
             )
             .From("item i")
@@ -72,15 +75,15 @@ public class ItemsIntegration(
             .WithDatagridIntent(intent)
             .Build();
 
-        var result = await netsuiteService.ExecuteSuiteQLQuery<ItemsDTO>(query.Query, query.Limit, query.Offset);
-        return (result.items, result.count);
+        var result = await netsuiteService.ExecuteSuiteQLQuery<ItemsNSDTO>(query.Query, query.Limit, query.Offset);
+        return (result.items.Select(ConvertItemNSDTO), result.count);
     }
 
     public async Task<(IEnumerable<ItemsDTO> Data, int Count)> GetItemsDataGridAsync(DataGridIntent intent)
     {
         var query = builderFactory.Create()
             .Select(
-                ("(SELECT SUM(quantityonhand) FROM aggregateitemlocation WHERE item = item.id)", nameof(ItemsDTO.QuantityOnHand)),
+                ("(SELECT SUM(quantityonhand) FROM aggregateitemlocation WHERE item = item.id)", nameof(ItemsNSDTO.QuantityOnHand)),
                 ("itemid", nameof(ItemsNSDTO.ItemNumber)),
                 ("id", nameof(ItemsNSDTO.Id)),
                 ("displayname", nameof(ItemsNSDTO.Name)),
