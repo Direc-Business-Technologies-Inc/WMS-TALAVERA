@@ -6,4 +6,6 @@ namespace Application.UseCases.Repositories.Integration.Others;
 public interface ILocationIntegration
 {
     Task<(IEnumerable<LocationDTO> data, int count)> GetLocationsAsync(DataGridIntent intent);
+    Task<(IEnumerable<LocationBinDTO> data, int count)> GetLocationBinsAsync(int locationId, DataGridIntent intent);
+
 }
