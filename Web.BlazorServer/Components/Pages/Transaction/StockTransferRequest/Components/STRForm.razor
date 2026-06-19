@@ -94,7 +94,8 @@
                                                       TItem="LocationVM"
                                                       ActionName="@ActionGetLocations"
                                                       DataGetter="@SourceLocationProvider"
-                                                      @bind-Value="Model.SourceLocation"
+                                                      @bind-Value:get="Model.SourceLocation"
+                                                      @bind-Value:set="@OnLocationChanged"
                                                       TextProperty="@nameof(LocationVM.Name)"
                                                       Name="str_to_location"
                                                       AllowClear
