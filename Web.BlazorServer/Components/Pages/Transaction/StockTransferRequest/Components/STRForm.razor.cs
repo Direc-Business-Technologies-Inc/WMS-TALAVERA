@@ -45,6 +45,8 @@ public partial class STRForm
     ISubsidiaryHandler SubsidiaryHandler { get; set; } = default!;
     [Inject]
     IVendorHandler VendorHandler { get; set; } = default!;
+    [Inject]
+    IItemsHandler ItemsHandler { get; set; } = default!;
 
     AppTable<StockTransferRequestLineVM> LinesTable = default!;
     DataGridSettings TableSettings { get; set; } = new();
@@ -52,6 +54,7 @@ public partial class STRForm
     readonly string ActionGetLocations = "Get Locations";
     readonly string ActionGetSubsidiaries = "Get Subsidiaries";
     readonly string ActionGetVendors = "Get Vendors";
+    readonly string ActionGetItemUnits = "Get Item Units";
 
     private QuickVirtualizedDropdown<LocationVM> SourceLocationDropdown { get; set; } = default!;
     private QuickVirtualizedDropdown<LocationVM> DestinationLocationDropdown { get; set; } = default!;
@@ -138,6 +141,11 @@ public partial class STRForm
     async Task<(IEnumerable<SubsidiaryVM>, int)> SubsidiaryProvider(DataGridIntent intent)
     {
         return await SubsidiaryHandler.GetSubsidiariesAsync(intent);
+    }
+
+    async Task<(IEnumerable<ItemUnitVM>, int)> ItemUnitProvider(int itemId, DataGridIntent intent)
+    {
+        return await ItemsHandler.GetItemUnits(itemId, intent);
     }
 
     async Task OnSubsidiaryChanged(SubsidiaryVM? value)

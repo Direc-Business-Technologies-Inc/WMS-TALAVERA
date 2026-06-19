@@ -152,9 +152,12 @@
                                           Type="@typeof(string)"
                                           Title="Item Description" />
                     <RadzenDataGridColumn TItem="StockTransferRequestLineVM"
-                                          Property="@nameof(StockTransferRequestLineVM.UoM)"
-                                          Type="@typeof(string)"
-                                          Title="UoM" />
+                                          Title="UoM">
+                        <Template Context="data">
+                            <RadzenTextBox ReadOnly Visible="@ReadOnly" Value="@(data.UoM?.Name)" />
+                            <QuickVirtualizedDropdown Visible="@(!ReadOnly)" TItem="ItemUnitVM" DataGetter="@(x => ItemUnitProvider(data.ItemId, x))" ActionName="@ActionGetItemUnits" @bind-Value="@data.UoM" TextProperty="@nameof(ItemUnitVM.Name)" />
+                        </Template>
+                    </RadzenDataGridColumn>
                     <RadzenDataGridColumn TItem="StockTransferRequestLineVM"
                                           Property="@nameof(StockTransferRequestLineVM.Warehouse)"
                                           Type="@typeof(string)"
@@ -167,7 +170,7 @@
                                           Type="@typeof(decimal)"
                                           Title="Alloted Quantity">
                         <Template Context="data">
-                            <RadzenNumeric Max="@data.QuantityOnHand" Min="0" @bind-Value="@data.QuantityAlloted" ReadOnly="@ReadOnly" class="rz-w-100" ShowUpDown="@(!ReadOnly)" />
+                            <RadzenNumeric Max="@(data.QuantityOnHand / (data.UoM?.ConversionRate ?? 1))" Min="0" @bind-Value="@data.QuantityAlloted" ReadOnly="@ReadOnly" class="rz-w-100" ShowUpDown="@(!ReadOnly)" />
                         </Template>
                     </RadzenDataGridColumn>
                     @if (!ReadOnly)

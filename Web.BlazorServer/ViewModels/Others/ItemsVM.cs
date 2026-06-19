@@ -8,6 +8,7 @@ public class ItemsVM
     public string Description { get; set; } = string.Empty;
     public string UnitTypeName { get; set; } = string.Empty;
     public int UnitTypeId { get; set; }
+    public decimal QuantityOnHand { get; set; }
     public ItemUnitVM PurchaseUnit { get; set; } = new();
     public ItemUnitVM StockUnit { get; set; } = new(); 
     public ItemUnitVM SaleUnit { get; set; } = new();
