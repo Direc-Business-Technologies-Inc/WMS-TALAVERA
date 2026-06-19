@@ -7,4 +7,5 @@ public interface IItemsHandler
 {
     Task<(IEnumerable<ItemsVM> Data, int Count)> GetItemsDataGridAsync(DataGridIntent intent);
     Task<ItemsVM> GetItemsAsync(string id);
+    Task<(IEnumerable<ItemUnitVM> Data, int Count)> GetItemUnits(int itemId, DataGridIntent intent);
 }

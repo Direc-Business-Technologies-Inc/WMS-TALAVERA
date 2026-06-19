@@ -5,16 +5,18 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Application.DataTransferObjects.Transactions.InventoryAdjustment;
+namespace Integration.NS.DataTransferObjects.InventoryAdjustment;
 
-public class InventoryAdjustmentLineDTO
+public class InventoryAdjustmentLineNSDTO
 {
     public int ItemId { get; set; }
     public string ItemCode { get; set; } = string.Empty;
     public string ItemDescription { get; set; } = string.Empty;
     public decimal QuantityOnHand { get; set; }
     public decimal QuantityAlloted { get; set; }
-    public ItemUnitDTO UoM { get; set; } = new();
-    public LocationDTO Location { get; set; } = new();
-    public List<InventoryDetailDTO> InventoryDetails { get; set; } = [];
+    public string UoMName { get; set; } = string.Empty;
+    public decimal UoMRate { get; set; }
+    public int UoMId { get; set; }
+    public string LocationName { get; set; } = string.Empty;
+    public int LocationId { get; set; }
 }

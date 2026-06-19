@@ -2,7 +2,7 @@
 using Application.DataTransferObjects.Transactions.InventoryAdjustment;
 using Application.UseCases.Repositories.Integration.Others;
 using Application.UseCases.Repositories.Integration.Transaction.InventoryAdjustment;
-using Integration.NS.DataTransferObjects;
+using Integration.NS.DataTransferObjects.InventoryAdjustment;
 using Integration.NS.Services;
 using Mapster;
 using Shared.Entities;
@@ -27,11 +27,11 @@ public class InventoryAdjustmentIntegration(
                 ("t.tranid", nameof(InventoryAdjustmentNSDTO.ReferenceNumber)),
                 ("t.memo", nameof(InventoryAdjustmentNSDTO.Memo)),
                 ("t.custbody_dbti_prepared_by", nameof(InventoryAdjustmentNSDTO.PreparedBy)),
-                ("BUILTIN.DF(tl.location)", nameof(InventoryAdjustmentNSDTO.Location)),
+                ("BUILTIN.DF(tl.location)", nameof(InventoryAdjustmentNSDTO.LocationName)),
                 ("tl.location", nameof(InventoryAdjustmentNSDTO.LocationId)),
-                ("BUILTIN.DF(t.account)", nameof(InventoryAdjustmentNSDTO.Account)),
+                ("BUILTIN.DF(t.account)", nameof(InventoryAdjustmentNSDTO.AccountName)),
                 ("t.account", nameof(InventoryAdjustmentNSDTO.AccountId)),
-                ("BUILTIN.DF(t.subsidiary)", nameof(InventoryAdjustmentNSDTO.Subsidiary)),
+                ("BUILTIN.DF(t.subsidiary)", nameof(InventoryAdjustmentNSDTO.SubsidiaryName)),
                 ("t.subsidiary", nameof(InventoryAdjustmentNSDTO.SubsidiaryId))
             )
             .From("transaction t")
@@ -50,9 +50,9 @@ public class InventoryAdjustmentIntegration(
 
         var result = nsdto.Adapt<InventoryAdjustmentDTO>();
 
-        result.Subsidiary = new SubsidiaryDTO { Id = nsdto.SubsidiaryId, Name = nsdto.Subsidiary };
-        result.Location = new LocationDTO { Id = nsdto.LocationId, Name = nsdto.Location };
-        result.Account = new BusinessAccountDTO { Id = nsdto.AccountId, Name = nsdto.Account };
+        result.Subsidiary = new SubsidiaryDTO { Id = nsdto.SubsidiaryId, Name = nsdto.SubsidiaryName };
+        result.Location = new LocationDTO { Id = nsdto.LocationId, Name = nsdto.LocationName };
+        result.Account = new BusinessAccountDTO { Id = nsdto.AccountId, Name = nsdto.AccountName };
 
         return result;
     }
@@ -61,23 +61,29 @@ public class InventoryAdjustmentIntegration(
     {
         var query = builderFactory.Create()
             .Select(
-                ("item.itemId", nameof(InventoryAdjustmentLineDTO.ItemCode)),
-                ("item.displayname", nameof(InventoryAdjustmentLineDTO.ItemDescription)),
-                ("BUILTIN.DF(tl.units)", nameof(InventoryAdjustmentLineDTO.UoM)),
-                ("BUILTIN.DF(tl.location)", nameof(InventoryAdjustmentLineDTO.Location)),
-                ("tl.quantity", nameof(InventoryAdjustmentLineDTO.QuantityOnHand))
+                ("item.itemId", nameof(InventoryAdjustmentLineNSDTO.ItemCode)),
+                ("item.displayname", nameof(InventoryAdjustmentLineNSDTO.ItemDescription)),
+                ("BUILTIN.DF(tl.units)", nameof(InventoryAdjustmentLineNSDTO.UoMName)),
+                ("BUILTIN.DF(tl.location)", nameof(InventoryAdjustmentLineNSDTO.LocationName)),
+                ("tl.units", nameof(InventoryAdjustmentLineNSDTO.UoMId)),
+                ("uom.conversionrate", nameof(InventoryAdjustmentLineNSDTO.UoMRate)),
+                ("tl.location", nameof(InventoryAdjustmentLineNSDTO.LocationId)),
+                ("iil.quantityonhand", nameof(InventoryAdjustmentLineNSDTO.QuantityOnHand))
             )
             .From("transactionline tl")
             .Join("item item", on: "item.id = tl.item")
             .Join("transaction t", on: "t.id = tl.transaction")
+            .Join("transactionline ml", on: "ml.transaction = t.id AND ml.mainline = 'T'")
+            .LeftJoin("unitstypeuom uom", on: "tl.units = uom.internalid")
+            .LeftJoin("inventoryitemlocations iil", on: "tl.item = iil.item AND ml.location = iil.location")
             .WithFilters(
                 DataGridFilterUtilities.Equal("t.tranid", id),
                 DataGridFilterUtilities.Equal("tl.mainline", "F")
             )
             .Build();
 
-        var response = await netsuiteService.ExecuteSuiteQLQuery<InventoryAdjustmentLineDTO>(query.Query);
-        return response.items;
+        var response = await netsuiteService.ExecuteSuiteQLQuery<InventoryAdjustmentLineNSDTO>(query.Query);
+        return response.items.Select(ConvertLine);
     }
 
     public async Task<(IEnumerable<InventoryAdjustmentDataGridDTO> Data, int Count)> GetInventoryAdjustmentsAsync(DataGridIntent intent)
@@ -103,5 +109,23 @@ public class InventoryAdjustmentIntegration(
 
         var response = await netsuiteService.ExecuteSuiteQLQuery<InventoryAdjustmentDataGridDTO>(query.Query, query.Limit, query.Offset);
         return (response.items, response.totalResults);
+    }
+
+    private InventoryAdjustmentLineDTO ConvertLine(InventoryAdjustmentLineNSDTO nsdto)
+    {
+        var dto = nsdto.Adapt<InventoryAdjustmentLineDTO>();
+
+        dto.Location = new LocationDTO
+        {
+            Name = nsdto.LocationName,
+            Id = nsdto.LocationId
+        };
+        dto.UoM = new ItemUnitDTO
+        {
+            Name = nsdto.UoMName,
+            Id = nsdto.UoMId,
+            ConversionRate = nsdto.UoMRate
+        };
+        return dto;
     }
 }

@@ -1,12 +1,20 @@
 ﻿@using Web.BlazorServer.Services.Repositories
+@inherits BaseComponent
 @typeparam TItem where TItem : class
 
 <AppTable @ref="@Table" Id="@Id" TItem="@TItem" @bind-GridSettingsLoaded="@GridSettingsLoaded" Data="[..Data]">
     <HeaderTemplate>
-        @if (HeaderTemplate is not null)
-        {
-            @HeaderTemplate
-        }
+
+        <RadzenStack Orientation="Orientation.Horizontal"
+                     JustifyContent="JustifyContent.End"
+                     AlignItems="AlignItems.Center"
+                     Gap="8px">
+            @if (HeaderTemplate is not null)
+            {
+                @HeaderTemplate
+            }
+            <RadzenButton Icon="settings" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@OpenTableSettings" />
+        </RadzenStack>
     </HeaderTemplate>
     <Template Context="Item">
         @if (Template is not null)
@@ -73,5 +81,19 @@
             await Table.DataGrid.Reload();
             await InvokeAsync(StateHasChanged);
         }
+    }
+
+    
+    async Task OpenTableSettings()
+    {
+        await DialogService.OpenAsync(
+            "Table Settings",
+            ds => @<AppGridSettings TItem="TItem"
+                                    @bind-Grid=@Table.DataGrid
+                                    @bind-GridSettings=@TableSettings />
+    ,
+        options: GridSettingsService.GetDialogOptions());
+
+        await Table.DataGrid.Reload();
     }
 }
