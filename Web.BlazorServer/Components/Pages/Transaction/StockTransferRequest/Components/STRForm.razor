@@ -16,7 +16,7 @@
                 </RadzenColumn>
                 <RadzenColumn SizeLG="3" SizeMD="6">
                     <RadzenFormField AllowFloatingLabel="@(!ReadOnly)" Text="Document Date" class="rz-w-100">
-                        <RadzenDatePicker ReadOnly="@ReadOnly" @bind-Value="@Model.Date" />
+                        <RadzenDatePicker ReadOnly @bind-Value="@Model.Date" />
                     </RadzenFormField>
                 </RadzenColumn>
                 <RadzenColumn SizeLG="@(Model.IsReturn ? 3 : 6)" SizeMD="@(Model.IsReturn ? 6 : 12)">
