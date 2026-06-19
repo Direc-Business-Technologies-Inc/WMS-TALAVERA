@@ -95,14 +95,8 @@
 </RadzenTemplateForm>
 
 @code {
-    
+
     async Task OpenItemDialog()
     {
-        List<ItemsVM> items = await DialogService.OpenAsync(
-            "Select Items",
-            ds => @<ItemSelectionDialog Location="@(Model.Location?.Id ?? null)" />,
-            options: GridSettingsService.GetDialogOptions());
-
-        if (items is not null) await AddItems(items);
     }
 }

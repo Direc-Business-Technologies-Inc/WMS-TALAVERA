@@ -20,6 +20,7 @@ public class LocationHandler(ISender sender) : ILocationHandler
         GetLocationsBySubsidiaryQry query = new(intent, subsidiaryId);
         (var data, int count) = await sender.Send(query);
         return (data.Adapt<IEnumerable<LocationVM>>(), count);
+    }
 
     public async Task<(IEnumerable<LocationBinVM> Data, int Count)> GetLocationBinsAsync(int locationId, DataGridIntent intent)
     {
