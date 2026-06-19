@@ -1,5 +1,6 @@
 ﻿using Application.DataTransferObjects.Others;
 using Application.UseCases.Repositories.Integration.Others;
+using Integration.NS.DataTransferObjects.Others;
 using Integration.NS.Services;
 using Shared.Entities;
 using Shared.Libraries.Utilities;
@@ -19,16 +20,16 @@ public class ItemsIntegration(
     {
         var query = builderFactory.Create()
             .Select(
-                ("itemid", nameof(ItemsDTO.ItemNumber)),
-                ("id", nameof(ItemsDTO.Id)),
-                ("displayname", nameof(ItemsDTO.Name)),
-                ("description", nameof(ItemsDTO.Description)),
-                ("purchaseunit", nameof(ItemsDTO.PurchaseUnitId)),
-                ("saleunit", nameof(ItemsDTO.SaleUnitId)),
-                ("stockunit", nameof(ItemsDTO.StockUnitId)),
-                ("BUILTIN.DF(purchaseunit)", nameof(ItemsDTO.PurchaseUnit)),
-                ("BUILTIN.DF(saleunit)", nameof(ItemsDTO.SaleUnit)),
-                ("BUILTIN.DF(stockunit)", nameof(ItemsDTO.StockUnit))
+                ("itemid", nameof(ItemsNSDTO.ItemNumber)),
+                ("id", nameof(ItemsNSDTO.Id)),
+                ("displayname", nameof(ItemsNSDTO.Name)),
+                ("description", nameof(ItemsNSDTO.Description)),
+                ("purchaseunit", nameof(ItemsNSDTO.PurchaseUnitId)),
+                ("saleunit", nameof(ItemsNSDTO.SaleUnitId)),
+                ("stockunit", nameof(ItemsNSDTO.StockUnitId)),
+                ("BUILTIN.DF(purchaseunit)", nameof(ItemsNSDTO.PurchaseUnit)),
+                ("BUILTIN.DF(saleunit)", nameof(ItemsNSDTO.SaleUnit)),
+                ("BUILTIN.DF(stockunit)", nameof(ItemsNSDTO.StockUnit))
             )
             .From("item")
             .WithFilters(
@@ -44,22 +45,46 @@ public class ItemsIntegration(
     {
         var query = builderFactory.Create()
             .Select(
-                ("itemid", nameof(ItemsDTO.ItemNumber)),
-                ("id", nameof(ItemsDTO.Id)),
-                ("displayname", nameof(ItemsDTO.Name)),
-                ("description", nameof(ItemsDTO.Description)),
-                ("purchaseunit", nameof(ItemsDTO.PurchaseUnitId)),
-                ("saleunit", nameof(ItemsDTO.SaleUnitId)),
-                ("stockunit", nameof(ItemsDTO.StockUnitId)),
-                ("BUILTIN.DF(purchaseunit)", nameof(ItemsDTO.PurchaseUnit)),
-                ("BUILTIN.DF(saleunit)", nameof(ItemsDTO.SaleUnit)),
-                ("BUILTIN.DF(stockunit)", nameof(ItemsDTO.StockUnit))
+                ("itemid", nameof(ItemsNSDTO.ItemNumber)),
+                ("id", nameof(ItemsNSDTO.Id)),
+                ("displayname", nameof(ItemsNSDTO.Name)),
+                ("description", nameof(ItemsNSDTO.Description)),
+                ("purchaseunit", nameof(ItemsNSDTO.PurchaseUnitId)),
+                ("saleunit", nameof(ItemsNSDTO.SaleUnitId)),
+                ("stockunit", nameof(ItemsNSDTO.StockUnitId)),
+                ("BUILTIN.DF(purchaseunit)", nameof(ItemsNSDTO.PurchaseUnit)),
+                ("BUILTIN.DF(saleunit)", nameof(ItemsNSDTO.SaleUnit)),
+                ("BUILTIN.DF(stockunit)", nameof(ItemsNSDTO.StockUnit))
             )
             .From("item")
             .WithDatagridIntent(intent)
             .Build();
 
         var result = await netsuiteService.ExecuteSuiteQLQuery<ItemsDTO>(query.Query, query.Limit, query.Offset);
+        return (result.items, result.count);
+    }
+
+    public async Task<(IEnumerable<ItemUnitDTO> Data, int Count)> GetItemUnits(ItemsDTO item, DataGridIntent intent)
+    {
+        return await GetItemUnits(item.Id, intent);
+    }
+
+    public async Task<(IEnumerable<ItemUnitDTO> Data, int Count)> GetItemUnits(int itemId, DataGridIntent intent)
+    {
+        var query = builderFactory.Create()
+            .Select(
+                ("uom.id", nameof(ItemUnitDTO.Id)),
+                ("uom.unitname", nameof(ItemUnitDTO.Name)),
+                ("uom.abbreviation", nameof(ItemUnitDTO.Abbreviation)),
+                ("uom.conversionrate", nameof(ItemUnitDTO.ConversionRate))
+            )
+            .From("unitsTypeUom uom")
+            .Join("item i", "i.unitstype = uom.unitstype")
+            .WithDatagridIntent(intent)
+            .WithFilter(DataGridFilterUtilities.Equal("i.id", itemId))
+            .Build();
+
+        var result = await netsuiteService.ExecuteSuiteQLQuery<ItemUnitDTO>(query.Query, query.Limit, query.Offset);
         return (result.items, result.count);
     }
 }

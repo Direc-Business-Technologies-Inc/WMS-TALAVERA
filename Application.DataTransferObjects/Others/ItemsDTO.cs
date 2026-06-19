@@ -12,13 +12,9 @@ public class ItemsDTO
     public string ItemNumber { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
-
-    public string PurchaseUnit { get; set;  } = string.Empty;
-    public int PurchaseUnitId { get; set; }
-
-    public string StockUnit { get; set;  } = string.Empty;
-    public int StockUnitId { get; set; }
-
-    public string SaleUnit { get; set;  } = string.Empty;
-    public int SaleUnitId { get; set; }
+    public string UnitTypeName { get; set; } = string.Empty;
+    public int UnitTypeId { get; set; }
+    public ItemUnitDTO PurchaseUnit { get; set; } = new(); 
+    public ItemUnitDTO StockUnit { get; set; } = new(); 
+    public ItemUnitDTO SaleUnit { get; set; } = new(); 
 }
