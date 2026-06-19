@@ -29,4 +29,12 @@ public class ItemsHandler(ISender sender) : IItemsHandler
 
         return (data.Adapt<IEnumerable<ItemsVM>>(), count);
     }
+
+    public async Task<(IEnumerable<ItemUnitVM> Data, int Count)> GetItemUnits(int itemId, DataGridIntent intent)
+    {
+        var query = new GetItemUnitsQry(itemId, intent);
+        (var data, var count) = await sender.Send(query);
+
+        return (data.Adapt<IEnumerable<ItemUnitVM>>(), count);
+    }
 }
