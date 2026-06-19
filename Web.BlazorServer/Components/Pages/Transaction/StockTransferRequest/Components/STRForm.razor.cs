@@ -157,6 +157,7 @@ public partial class STRForm
             {
                 Model.ToSubsidiary = value;
                 Model.DestinationLocation = null;
+                DestinationLocationDropdown.Reset();
             }
             SourceLocationDropdown.Reset();
             await InvokeAsync(StateHasChanged);
