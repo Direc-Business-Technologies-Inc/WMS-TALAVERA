@@ -15,9 +15,9 @@ public class ItemsNSDTO
     public string Description { get; set; } = string.Empty;
     public string UnitTypeName { get; set; } = string.Empty;
     public int UnitTypeId { get; set; }
-    public string PurchaseUnit { get; set; } = string.Empty;
-    public string StockUnit { get; set; } = string.Empty;
-    public string SaleUnit { get; set; } = string.Empty;
+    public string PurchaseUnitName { get; set; } = string.Empty;
+    public string StockUnitName { get; set; } = string.Empty;
+    public string SaleUnitName { get; set; } = string.Empty;
     public int PurchaseUnitId { get; set; }
     public int StockUnitId { get; set; }
     public int SaleUnitId { get; set; }
