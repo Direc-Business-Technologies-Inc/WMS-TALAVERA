@@ -172,11 +172,13 @@ internal class StockTransferRequestIntegration(
                 ("BUILTIN.DF(tl.units)", nameof(StockTransferRequestLineDTO.UoM)),
                 ("BUILTIN.DF(tl.location)", nameof(StockTransferRequestLineDTO.Warehouse)),
                 ("item.displayname", nameof(StockTransferRequestLineDTO.ItemDescription)),
-                ("tl.quantity", nameof(StockTransferRequestLineDTO.QuantityOnHand))
+                ("iil.quantityonhand", nameof(StockTransferRequestLineDTO.QuantityOnHand))
             )
             .From("transactionline tl")
             .Join("transaction t", on: "tl.transaction = t.id")
             .Join("item", on: "tl.item = item.id")
+            .Join("transactionline ml", on: "ml.transaction = t.id AND ml.mainline = 'T'")
+            .Join("inventoryitemlocations iil", on: "tl.item = iil.item AND ml.location = iil.location")
             .WithFilters(
                 DataGridFilterUtilities.Equal("tl.transactionlinetype", "RECEIVING"),
                 DataGridFilterUtilities.Equal("t.tranid", id),

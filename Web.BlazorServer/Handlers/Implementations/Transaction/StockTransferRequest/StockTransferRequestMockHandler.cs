@@ -101,7 +101,6 @@ public class StockTransferRequestMockHandler : IStockTransferRequestHandler
                     {
                         ItemCode = item.code,
                         ItemDescription = item.desc,
-                        UoM = "in bags of 32 divided amongst 15 people",
                         Warehouse = "The land of sunshine",
                         QuantityOnHand = item.quantity,
                         QuantityAlloted = 69

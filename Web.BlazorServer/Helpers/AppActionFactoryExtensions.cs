@@ -32,4 +32,28 @@ public static class AppActionFactoryExtensions
             return await func();
         }, AppActionOptionPresets.Silent(actionName));
     }
+
+    public static async Task<AppAction> RunLoadingAsync(this IAppActionFactory factory, Func<Task> func, string actionName)
+    {
+        return await factory.RunAsync(async () =>
+        {
+            await func();
+        }, AppActionOptionPresets.Loading(actionName));
+    }
+
+    public static async Task<AppAction> RunConfirmedAsync(this IAppActionFactory factory, Func<Task> func, string actionName)
+    {
+        return await factory.RunAsync(async () =>
+        {
+            await func();
+        }, AppActionOptionPresets.Confirmed(actionName));
+    }
+
+    public static async Task<AppAction> RunSilentAsync(this IAppActionFactory factory, Func<Task> func, string actionName)
+    {
+        return await factory.RunAsync(async () =>
+        {
+            await func();
+        }, AppActionOptionPresets.Silent(actionName));
+    }
 }
