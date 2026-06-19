@@ -28,4 +28,17 @@
             }
         }
     </HeaderTemplate>
+    <EmptyTemplate>
+        @if (ShowEmptyTemplate)
+        {
+            if (EmptyTemplate is not null)
+            {
+                @EmptyTemplate
+            }
+            else
+            {
+                <RadzenText TextAlign="TextAlign.Center" class="rz-w-100 rz-color-base-600 rz-p-3" TextStyle="TextStyle.Body1" Style="font-style: italic;" Text="No Data" />
+            }
+        }
+    </EmptyTemplate>
 </RadzenDropDown>
