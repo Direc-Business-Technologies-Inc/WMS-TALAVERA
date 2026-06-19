@@ -15,6 +15,7 @@ partial class ItemDataGrid
 {
 
     [Parameter] public string? Id { get; set; } = "items_datagrid";
+    [Parameter] public int? LocationId { get; set; }
     [Parameter] public EventCallback<List<ItemsVM>> OnItemsSelected { get; set; }
     [Parameter] public SelectionModes SelectionMode { get; set; } = SelectionModes.Single;
     [Inject] IGridSettingsService GridSettingsService { get; set; } = default!;
@@ -41,7 +42,9 @@ partial class ItemDataGrid
         {
             AppBusyService.SetBusy(ActionGetItems, true);
 
-            var response = await ItemsHandler.GetItemsDataGridAsync(intent);
+            var response = LocationId is null ?
+                await ItemsHandler.GetItemsDataGridAsync(intent) :
+                await ItemsHandler.GetItemsAtLocationDataGridAsync(intent, (int)LocationId);
 
             return response;
 

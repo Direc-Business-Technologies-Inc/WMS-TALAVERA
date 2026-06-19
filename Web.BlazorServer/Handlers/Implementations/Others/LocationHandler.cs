@@ -22,4 +22,10 @@ public class LocationHandler(ISender sender) : ILocationHandler
         (var data, int count) = await sender.Send(query);
         return (data.Adapt<IEnumerable<LocationBinVM>>(), count);
     }
+    public async Task<(IEnumerable<LocationVM> Data, int Count)> GetLocationsBySubsidiaryAsync(DataGridIntent intent, int subsidiaryId)
+    {
+        GetLocationsBySubsidiaryQry query = new(intent, subsidiaryId);
+        (var data, int count) = await sender.Send(query);
+        return (data.Adapt<IEnumerable<LocationVM>>(), count);
+    }
 }

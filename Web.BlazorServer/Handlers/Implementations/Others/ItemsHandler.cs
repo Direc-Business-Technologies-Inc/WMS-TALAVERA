@@ -14,6 +14,14 @@ public class ItemsHandler(ISender sender) : IItemsHandler
         throw new NotImplementedException();
     }
 
+    public async Task<(IEnumerable<ItemsVM> Data, int Count)> GetItemsAtLocationDataGridAsync(DataGridIntent intent, int locationId)
+    {
+        var query = new GetItemsByLocationQry(intent, locationId);
+        (var data, var count) = await sender.Send(query);
+
+        return (data.Adapt<IEnumerable<ItemsVM>>(), count);
+    }
+
     public async Task<(IEnumerable<ItemsVM> Data, int Count)> GetItemsDataGridAsync(DataGridIntent intent)
     {
         var query = new GetItemsQry(intent);
