@@ -39,8 +39,7 @@
         {
             <RadzenDataGridColumn TItem="TItem"
                                   Frozen
-                                  Width="1%"
-                                  style="white-space: nowrap"
+                                  Width="@((ActionWidth ?? 35) + "px")"
                                   FrozenPosition="FrozenColumnPosition.Right" >
                 <Template>
                     @RowActions(context)

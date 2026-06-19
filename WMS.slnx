@@ -26,7 +26,7 @@
   </Folder>
   <Folder Name="/src/presentation/">
     <Project Path="Mobile.MAUI/Mobile.MAUI.csproj" Id="766d6141-82b9-4dda-8bad-5d9c276e86de">
-      <Deploy Solution="Debug|*" />
+      <Deploy />
     </Project>
     <Project Path="Web.BlazorServer/Web.BlazorServer.csproj" Id="7aed3800-45bd-4bd5-b086-0956e5231036" />
   </Folder>
