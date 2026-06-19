@@ -37,19 +37,21 @@
     bool IsLoadingData => AppBusyService.IsBusy(ActionGetStockTransferRequest);
 
 
-    protected override void OnParametersSet()
+    protected override async Task OnParametersSetAsync()
     {
-        base.OnParametersSet();
+        await base.OnParametersSetAsync();
         if (Type is not null)
         {
             FormData.Category = Type.ToLowerInvariant() switch
             {
                 "intercompanytransferorder" => TransferCategory.IntercompanyTransfer,
                 "returns" => TransferCategory.ReturnsGood,
+                "transferorder" => TransferCategory.Transfer,
                 _ => TransferCategory.Transfer
             };
         }
         FormData.Date = DateTime.Now;
+        await InvokeAsync(StateHasChanged);
     }
 
     async Task<bool> Create(StockTransferRequestInfoVM model)

@@ -63,14 +63,8 @@ public partial class STRForm
     private bool IsLoadingLocations => AppBusyService.IsBusy(ActionGetLocations);
     private bool IsLoadingSubsidiaries => AppBusyService.IsBusy(ActionGetSubsidiaries);
     private bool IsLoadingVendors => AppBusyService.IsBusy(ActionGetVendors);
-    public StockTransferRequestInfoVM _Model { get; set; } = new();
     private List<TransferCategory> ReturnCategories = [.. TransferCategory.ReturnCategories];
 
-
-    protected override void OnParametersSet()
-    {
-        Model.Adapt(_Model);
-    }
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         await base.OnAfterRenderAsync(firstRender);
