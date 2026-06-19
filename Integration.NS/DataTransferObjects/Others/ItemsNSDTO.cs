@@ -21,4 +21,7 @@ public class ItemsNSDTO
     public int PurchaseUnitId { get; set; }
     public int StockUnitId { get; set; }
     public int SaleUnitId { get; set; }
+    public decimal PurchaseUnitRate { get; set; }
+    public decimal StockUnitRate { get; set; }
+    public decimal SaleUnitRate { get; set; }
 }
