@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
 using Radzen;
 using Shared.Entities;
+using Web.BlazorServer.Components.Custom;
 using Web.BlazorServer.Components.Shared.Abstraction;
 using Web.BlazorServer.Defaults;
 using Web.BlazorServer.Handlers.Implementations.Others;
@@ -52,17 +53,10 @@ public partial class STRForm
     readonly string ActionGetSubsidiaries = "Get Subsidiaries";
     readonly string ActionGetVendors = "Get Vendors";
 
-    private List<VendorVM> Vendors { get; set; } = [];
-    private List<LocationVM> Locations { get; set; } = [];
-    private List<SubsidiaryVM> Subsidiaries { get; set; } = [];
+    private QuickVirtualizedDropdown<LocationVM> SourceLocationDropdown { get; set; } = default!;
+    private QuickVirtualizedDropdown<LocationVM> DestinationLocationDropdown { get; set; } = default!;
+    private QuickVirtualizedDropdown<VendorVM>? VendorDropdown { get; set; }
 
-    private int VendorsCount { get; set; } = 1;
-    private int LocationsCount { get; set; } = 1; // set counts to one to automatically trigger LoadData
-    private int SubsidiariesCount { get; set; } = 1;
-
-    private bool IsLoadingLocations => AppBusyService.IsBusy(ActionGetLocations);
-    private bool IsLoadingSubsidiaries => AppBusyService.IsBusy(ActionGetSubsidiaries);
-    private bool IsLoadingVendors => AppBusyService.IsBusy(ActionGetVendors);
     private List<TransferCategory> ReturnCategories = [.. TransferCategory.ReturnCategories];
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -70,10 +64,7 @@ public partial class STRForm
         await base.OnAfterRenderAsync(firstRender);
         if (firstRender)
         {
-            await Task.WhenAll(
-                LoadGridSettings(),
-                LoadVendors(new()),
-                LoadSubsidiaries(new()));
+            await LoadGridSettings();
         }
     }
 
@@ -104,101 +95,6 @@ public partial class STRForm
         }
     }
 
-    async Task LoadLocations(LoadDataArgs args, int? subsidiaryId)
-    {
-        if (subsidiaryId is null) return;
-
-        var action = await AppActionFactory.RunAsync(async () =>
-        {
-
-            AppBusyService.SetBusy(ActionGetLocations, true);
-            var DatagridAdapter = new DataGridIntentAdapter(args);
-            DatagridAdapter.AdaptToPagination();
-            if (DatagridAdapter.QueryIntent.Take <= 0)
-                DatagridAdapter.QueryIntent.Take = 5;
-
-            if (!string.IsNullOrEmpty(args.Filter))
-                DatagridAdapter.QueryIntent.Filters.Add(new()
-                {
-                    LogicalOperator = LogicalOperatorEnum.AND,
-                    Property = nameof(LocationVM.Name),
-                    Value = args.Filter,
-                    ComparisonOperator = ComparisonOperatorEnum.Contains
-                });
-
-            var response = await LocationHandler.GetLocationsBySubsidiaryAsync(DatagridAdapter.QueryIntent, (int)subsidiaryId);
-
-            Locations = [.. response.Data];
-            LocationsCount = response.Count;
-            AppBusyService.SetBusy(ActionGetLocations, false);
-            await InvokeAsync(StateHasChanged);
-        }, AppActionOptionPresets.Loading(ActionGetLocations));
-
-    }
-
-    async Task LoadSubsidiaries(LoadDataArgs args)
-    {
-        var action = await AppActionFactory.RunAsync(async () =>
-        {
-            AppBusyService.SetBusy(ActionGetSubsidiaries, true);
-            var DatagridAdapter = new DataGridIntentAdapter(args);
-            DatagridAdapter.AdaptToPagination();
-            if (DatagridAdapter.QueryIntent.Take <= 0)
-                DatagridAdapter.QueryIntent.Take = 5;
-
-            if (!string.IsNullOrEmpty(args.Filter))
-                DatagridAdapter.QueryIntent.Filters.Add(new()
-                {
-                    LogicalOperator = LogicalOperatorEnum.AND,
-                    Property = nameof(SubsidiaryVM.Name),
-                    Value = args.Filter,
-                    ComparisonOperator = ComparisonOperatorEnum.Contains
-                });
-
-            var response = await SubsidiaryHandler.GetSubsidiariesAsync(DatagridAdapter.QueryIntent);
-
-            Subsidiaries = [.. response.Data];
-            SubsidiariesCount = response.Count;
-
-            AppBusyService.SetBusy(ActionGetSubsidiaries, false);
-
-            await InvokeAsync(StateHasChanged);
-        }, AppActionOptionPresets.Loading(ActionGetSubsidiaries));
-    }
-
-    async Task LoadVendors(LoadDataArgs args)
-    {
-        if (Model.ToSubsidiary is null) return;
-        var sudsidiaryId = Model.ToSubsidiary.Id;
-        var action = await AppActionFactory.RunAsync(async () =>
-        {
-            AppBusyService.SetBusy(ActionGetVendors, true);
-            var DatagridAdapter = new DataGridIntentAdapter(args);
-            DatagridAdapter.AdaptToPagination();
-            if (DatagridAdapter.QueryIntent.Take <= 0)
-                DatagridAdapter.QueryIntent.Take = 5;
-
-            if (!string.IsNullOrEmpty(args.Filter))
-                DatagridAdapter.QueryIntent.Filters.Add(new()
-                {
-                    LogicalOperator = LogicalOperatorEnum.AND,
-                    Property = nameof(VendorVM.Name),
-                    Value = args.Filter,
-                    ComparisonOperator = ComparisonOperatorEnum.Contains
-                });
-
-
-            var response = await VendorHandler.GetVendorsListBySubsidiaryAsync(DatagridAdapter.QueryIntent, sudsidiaryId);
-
-            Vendors = [.. response.Data];
-            VendorsCount = response.Count;
-
-            AppBusyService.SetBusy(ActionGetVendors, false);
-
-            await InvokeAsync(StateHasChanged);
-        }, AppActionOptionPresets.Loading(ActionGetVendors));
-    }
-
     async Task AddItems(List<ItemsVM> items)
     {
         foreach (var item in items)
@@ -216,6 +112,32 @@ public partial class STRForm
         }
         await LinesTable.DataGrid.Reload();
         await InvokeAsync(StateHasChanged);
+    }
+
+    async Task<(IEnumerable<LocationVM>, int)> SourceLocationProvider(DataGridIntent intent)
+    {
+        if (Model.Subsidiary is null) return ([], 0);
+
+        return await LocationHandler.GetLocationsBySubsidiaryAsync(intent, Model.Subsidiary.Id);
+    }
+
+    async Task<(IEnumerable<LocationVM>, int)> DestinationLocationProvider(DataGridIntent intent)
+    {
+        if (Model.ToSubsidiary is null) return ([], 0);
+
+        return await LocationHandler.GetLocationsBySubsidiaryAsync(intent, Model.ToSubsidiary.Id);
+    }
+
+    async Task<(IEnumerable<VendorVM>, int)> VendorProvider(DataGridIntent intent)
+    {
+        if (Model.ToSubsidiary is null) return ([], 0);
+
+        return await VendorHandler.GetVendorsListBySubsidiaryAsync(intent, Model.ToSubsidiary.Id);
+    }
+
+    async Task<(IEnumerable<SubsidiaryVM>, int)> SubsidiaryProvider(DataGridIntent intent)
+    {
+        return await SubsidiaryHandler.GetSubsidiariesAsync(intent);
     }
 
     async Task OnSubsidiaryChanged(SubsidiaryVM? value)
@@ -236,6 +158,7 @@ public partial class STRForm
                 Model.ToSubsidiary = value;
                 Model.DestinationLocation = null;
             }
+            SourceLocationDropdown.Reset();
             await InvokeAsync(StateHasChanged);
         }
     }
@@ -246,25 +169,21 @@ public partial class STRForm
         if (Model.Lines.Any())
         {
             var confirm = await DialogService.Confirm(message: "Changing source warehouse will clear added items") ?? false;
-            if (confirm)
-            {
-                Model.SourceLocation = value;
-                Model.Lines.Clear();
-            }
+            if (!confirm) return;
         }
-        else
-        {
-            Model.SourceLocation = value;
-        }
+        Model.Lines.Clear();
+        Model.SourceLocation = value;
+
         await InvokeAsync(StateHasChanged);
     }
 
     async Task OnToSubsidiaryChanged(SubsidiaryVM? value)
     {
-        LocationsCount = 1;
         Model.ToSubsidiary = value;
         Model.DestinationLocation = null;
         Model.Vendor = null;
+        DestinationLocationDropdown.Reset();
+        VendorDropdown?.Reset();
     }
 
     async Task DeleteLine(StockTransferRequestLineVM line)
