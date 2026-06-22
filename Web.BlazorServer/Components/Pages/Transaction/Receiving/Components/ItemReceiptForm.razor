@@ -19,7 +19,7 @@
                 {
                     <RadzenColumn SizeMD="6">
                         <RadzenFormField AllowFloatingLabel="false" Text="From Subsidiary" class="rz-w-100">
-                            <RadzenTextBox Value="@Data.Subsidiary" ReadOnly/>
+                            <RadzenTextBox Value="@Data.Subsidiary" ReadOnly />
                         </RadzenFormField>
                     </RadzenColumn>
                     <RadzenColumn SizeMD="6">
@@ -81,44 +81,44 @@
                     <RadzenDataGridColumn TItem="ItemReceiptLineVM" Property="@nameof(ItemReceiptLineVM.UoM)" Title="UoM" />
                     <RadzenDataGridColumn TItem="ItemReceiptLineVM" Property="@nameof(ItemReceiptLineVM.Department)" Title="Department" />
                     <RadzenDataGridColumn TItem="ItemReceiptLineVM" Property="@nameof(ItemReceiptLineVM.Location)" Title="Warehouse" />
-                    <RadzenDataGridColumn TItem="ItemReceiptLineVM" Property="@nameof(ItemReceiptLineVM.WeightReceived)" Title="Received Weight" >
+                    <RadzenDataGridColumn TItem="ItemReceiptLineVM" Property="@nameof(ItemReceiptLineVM.WeightReceived)" Title="Weight">
+                        <Template Context="data">
+                                <RadzenNumeric Name="data_received_weight" Min="0" @bind-Value="data.WeightReceived" ShowUpDown="false" Disabled="@(!data.IsReceived)" />
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="ItemReceiptLineVM" Property="@nameof(ItemReceiptLineVM.WeightTotal)" Title="Total Weight" />
+                    <RadzenDataGridColumn TItem="ItemReceiptLineVM" Property="@nameof(ItemReceiptLineVM.QuantityReceived)" Title="Quantity Received" />
+                    <RadzenDataGridColumn TItem="ItemReceiptLineVM" Property="@nameof(ItemReceiptLineVM.QuantityPlanned)" Title="Quantity Planned" />
+                    <RadzenDataGridColumn TItem="ItemReceiptLineVM" Title="Good Quantity">
+                        <Template Context="data">
+                            <RadzenStack>
+                                <RadzenFormField>
+                                    <TextTemplate>
+                                        <RadzenText class="@(data.IsReceived ? "rz-color-success" : "rz-color-base-300")" Text="Good" TextStyle="TextStyle.Caption" />
+                                    </TextTemplate>
+                                    <ChildContent>
+                                        <RadzenNumeric Name="line_quantity_good" @bind-Value="@data.QuantityGood" Disabled="@(!data.IsReceived)" Max="@(data.QuantityOpen - data.QuantityBad)" />
+                                    </ChildContent>
+                                    <Helper>
+                                        <RadzenCustomValidator Component="line_quantity_good" Validator="@(() => data.QuantityOpen >= data.QuantityGood + data.QuantityBad)" Text="Cannot receive more than the open quantity" />
+                                    </Helper>
+                                </RadzenFormField>
+                            </RadzenStack>
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="ItemReceiptLineVM" Title="Bad Quantity">
                         <Template Context="data">
                             <RadzenFormField>
-                                <ChildContent>
-                                    <RadzenNumeric Min="0" @bind-Value="data.WeightReceived" ShowUpDown="false" Disabled="@(!data.IsReceived)"/>
-                                </ChildContent>
-                                <End>
-                                    <RadzenText TextStyle="TextStyle.Button">@($" / {data.WeightTotal}")</RadzenText>
-                                </End>
-                            </RadzenFormField>
-                        </Template>
-                    </RadzenDataGridColumn>
-                    <RadzenDataGridColumn TItem="ItemReceiptLineVM" Title="Quantity Received">
-                        <Template Context="data">
-                            <RadzenText TextStyle="TextStyle.Body2">@($"{data.QuantityReceived} / {data.QuantityPlanned}") </RadzenText>
-                        </Template>
-                    </RadzenDataGridColumn>
-                    <RadzenDataGridColumn TItem="ItemReceiptLineVM" Title="Quantity this Transaction" >
-                        <Template Context="data">
-                            <RadzenFormField class="rz-w-50">
-                                <TextTemplate>
-                                    <RadzenText class="@(data.IsReceived ? "rz-color-success" : "rz-color-base-300")" Text="Good" TextStyle="TextStyle.Caption" />
-                                </TextTemplate>
-                                <ChildContent>
-                                    <RadzenNumeric Name="line_quantity_good" @bind-Value="@data.QuantityGood" Disabled="@(!data.IsReceived)" Max="@(data.QuantityOpen - data.QuantityBad)" />
-                                </ChildContent>
-                                <Helper>
-                                    <RadzenCustomValidator Component="line_quantity_good" Validator="@(() => data.QuantityOpen >= data.QuantityGood + data.QuantityBad)" Text="Cannot receive more than the open quantity" />
-                                </Helper>
-                            </RadzenFormField> 
-                            <RadzenFormField class="rz-w-50">
                                 <TextTemplate>
                                     <RadzenText class="@(data.IsReceived ? "rz-color-danger" : "rz-color-base-300")" Text="Bad" TextStyle="TextStyle.Caption" />
                                 </TextTemplate>
                                 <ChildContent>
-                                    <RadzenNumeric @bind-Value="@data.QuantityBad" Disabled="@(!data.IsReceived)" Max="@(data.QuantityOpen - data.QuantityGood)" />
+                                    <RadzenNumeric Name="line_quantity_bad" @bind-Value="@data.QuantityBad" Disabled="@(!data.IsReceived)" Max="@(data.QuantityOpen - data.QuantityGood)" />
                                 </ChildContent>
-                            </RadzenFormField> 
+                                <Helper>
+                                    <RadzenCustomValidator Component="line_quantity_bad" Validator="@(() => data.QuantityOpen >= data.QuantityGood + data.QuantityBad)" Text="Cannot receive more than the open quantity" />
+                                </Helper>
+                            </RadzenFormField>
                         </Template>
                     </RadzenDataGridColumn>
                 </Columns>

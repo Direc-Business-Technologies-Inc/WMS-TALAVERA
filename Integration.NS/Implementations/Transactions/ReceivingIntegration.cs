@@ -322,6 +322,8 @@ public class ReceivingIntegration(
                 ("loc.usebins", "LocationUsesBins"),
                 ("item.displayname", "ItemDescription"),
                 ("pb.bin", "PrefferedBinAssignmentId"),
+                ("tl.custcol_dbti_record_weight", nameof(ItemReceiptLineDTO.WeightTotal)),
+                ("tl.custcol_dbti_actual_weight", nameof(ItemReceiptLineDTO.WeightReceived)),
                 ("(tl.quantity / uom.conversionrate)", "QuantityPlanned"),
                 ("(tl.quantity - tl.quantityshiprecv) / uom.conversionrate", "QuantityOpen"),
                 ("(tl.quantityshiprecv / uom.conversionrate)", "QuantityReceived")
