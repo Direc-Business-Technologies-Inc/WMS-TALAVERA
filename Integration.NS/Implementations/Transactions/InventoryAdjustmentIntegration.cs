@@ -1,5 +1,6 @@
 ﻿using Application.DataTransferObjects.Others;
 using Application.DataTransferObjects.Transactions.InventoryAdjustment;
+using Application.DataTransferObjects.Transactions.Receiving;
 using Application.UseCases.Repositories.Integration.Others;
 using Application.UseCases.Repositories.Integration.Transaction.InventoryAdjustment;
 using Integration.NS.DataTransferObjects.InventoryAdjustment;
@@ -11,6 +12,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 namespace Integration.NS.Implementations.Transactions;
@@ -110,6 +112,66 @@ public class InventoryAdjustmentIntegration(
         var response = await netsuiteService.ExecuteSuiteQLQuery<InventoryAdjustmentDataGridDTO>(query.Query, query.Limit, query.Offset);
         return (response.items, response.totalResults);
     }
+
+    public async Task<bool> CreateInventoryAdjustment(InventoryAdjustmentDTO value)
+    {
+        string payloadString = CreateIAPayload(value);
+        var url = netsuiteService.GetRestAPIURI + "/record/v1/inventoryAdjustment";
+
+        try
+        {
+            _ = await netsuiteService.MakeRequest<object>(url, payloadString, HttpMethod.Post);
+        }
+        catch (Exception ex) when (ex.Message.Equals("Empty response from NetSuite API", StringComparison.OrdinalIgnoreCase))
+        {
+            // Empty response is but http response is a success status code
+        }
+
+        return true;
+    }
+
+    private string CreateIAPayload(InventoryAdjustmentDTO dto)
+    {
+        var anon = new
+        {
+            account = new { id = dto.Account!.Id },
+            memo = dto.Memo,
+            subsidiary = new { id = dto.Subsidiary!.Id },
+            adjLocation = new { id = dto.Location!.Id },
+            department = new { id = 4 },
+            inventory = new
+            {
+                items = dto.Lines.Select(line => new
+                {
+                    item = new { id = line.ItemId }, 
+                    adjustQtyBy = line.QuantityAlloted,
+                    location = new { id = line.Location!.Id },
+                    department = new { id = 4 },
+                    inventoryDetail = new
+                    {
+                        inventoryAssignment = new
+                        {
+                            items = line.InventoryDetails.Select(d => new
+                            {
+                                binNumber = new { id = d.Bin!.Id },
+                                quantity = line.QuantityAlloted < 0 ? -d.QuantityAlloted :  d.QuantityAlloted
+                            })
+                        }
+                    }
+                })
+            }
+        };
+
+        return JsonSerializer.Serialize(anon, jsonSerializerOptions);
+    }
+
+
+    private readonly JsonSerializerOptions jsonSerializerOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        WriteIndented = true,
+        DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
+    };
 
     private InventoryAdjustmentLineDTO ConvertLine(InventoryAdjustmentLineNSDTO nsdto)
     {

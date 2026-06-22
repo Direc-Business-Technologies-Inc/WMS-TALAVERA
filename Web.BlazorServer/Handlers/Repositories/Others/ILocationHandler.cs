@@ -7,4 +7,6 @@ public interface ILocationHandler
 {
     Task<(IEnumerable<LocationVM> Data, int Count)> GetLocationsAsync(DataGridIntent intent);
     Task<(IEnumerable<LocationVM> Data, int Count)> GetLocationsBySubsidiaryAsync(DataGridIntent intent, int subsidiaryId);
+    Task<(IEnumerable<LocationBinVM> Data, int Count)> GetLocationBinsAsync(int locationId, DataGridIntent intent);
+
 }

@@ -14,6 +14,11 @@ public partial class InventoryAdjustmentForm
     [Parameter][EditorRequired] public required InventoryAdjustmentVM Model { get; set; }
     [Parameter][EditorRequired] public EditContext EditContext { get; set; }
     [Parameter] public EventCallback<InventoryAdjustmentVM> OnSubmit { get; set; }
+    [Parameter] public EventCallback<InventoryAdjustmentVM> OnSecondaryActionClicked { get; set; }
+    [Parameter] public EventCallback<InventoryAdjustmentVM> OnReturnClicked { get; set; }
+    [Parameter] public string ReturnString { get; set; } = "Return";
+    [Parameter] public string SubmitString { get; set; } = "Submit";
+    [Parameter] public string SecondaryActionString { get; set; } = "Action";
     [Parameter] public bool ReadOnly { get; set; } = false;
 
     [Inject] ISubsidiaryHandler subsidiaryHandler { get; set; } = default!;
@@ -36,7 +41,9 @@ public partial class InventoryAdjustmentForm
 
     async Task<(IEnumerable<LocationVM>, int)> LocationProvider(DataGridIntent intent)
     {
-        return await locationHandler.GetLocationsAsync(intent);
+        if (Model.Subsidiary is null) return ([], 0);
+
+        return await locationHandler.GetLocationsBySubsidiaryAsync(intent, Model.Subsidiary.Id);
     }
 
     async Task<(IEnumerable<BusinessAccountVM>, int)> AccountProvider(DataGridIntent intent)
@@ -50,8 +57,26 @@ public partial class InventoryAdjustmentForm
         return await itemsHandler.GetItemUnits(itemid, intent);
     }
 
+    async Task SetSubsidiary(SubsidiaryVM? value)
+    {
+        Model.Subsidiary = value;
+        LocationDropdown.Reset();
+        AccountDropdown.Reset();
+    }
+
     async Task AddItems(List<ItemsVM> items) {
-        throw new NotImplementedException();
+        Model.Lines.AddRange(items.Select(x =>
+            new InventoryAdjustmentLineVM
+            {
+                ItemId = x.Id,
+                ItemCode = x.ItemNumber,
+                ItemDescription = x.Name,
+                UoM = x.StockUnit,
+                Location = Model.Location,
+                QuantityOnHand = x.QuantityOnHand
+            }
+        ));
+        await InvokeAsync(StateHasChanged);
     }
 
     Task DeleteLine(InventoryAdjustmentLineVM line) {
@@ -59,11 +84,33 @@ public partial class InventoryAdjustmentForm
         return Task.CompletedTask;
     }
 
+    async Task SecondaryActionClicked()
+    {
+        if (OnSecondaryActionClicked.HasDelegate) await OnSecondaryActionClicked.InvokeAsync(Model);
+    }
+
+    async Task ReturnClicked()
+    {
+        if (OnReturnClicked.HasDelegate) await OnReturnClicked.InvokeAsync(Model);
+    }
+
     async Task OnValidSubmit()
     {
+        if (Model.Lines.Sum(x => x.QuantityAlloted) <= 0)
+        {
+            ToastService.Error("Please assign alloted quantities to items");
+            return;
+        } 
+
+        if (!Model.Lines.Aggregate(true, (a, b) => a && b.IsAllAssignedToBins))
+        {
+            ToastService.Error("Please set inventory assignment details");
+            return;
+        } 
         if ( OnSubmit.HasDelegate)
         {
            await OnSubmit.InvokeAsync(Model);
+
         }
     }
 }

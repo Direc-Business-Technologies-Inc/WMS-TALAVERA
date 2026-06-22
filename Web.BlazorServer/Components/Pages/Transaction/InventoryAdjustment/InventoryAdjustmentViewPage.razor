@@ -21,6 +21,6 @@
     
     <AppFormSkeleton TItem="InventoryAdjustmentVM" Loading="@IsLoadingData" />
     @if (!IsLoadingData) {
-        <InventoryAdjustmentForm Model="@FormData" EditContext="@EditContext" ReadOnly />
+        <InventoryAdjustmentForm Model="@FormData" EditContext="@EditContext" ReadOnly OnReturnClicked="OnReturn" />
     }
 </AppContent>
