@@ -1,14 +1,8 @@
-﻿using Application.DataTransferObjects.Others.NS;
+﻿using Application.DataTransferObjects.Transactions.Commons.NS;
+using Application.DataTransferObjects.Transactions.Packing.NS;
 using Application.DataTransferObjects.Transactions.Receiving.NS;
-using Application.DataTransferObjects.Transactions.Receiving.NS.Payload;
-using Shared.Libraries.ViewModel;
-using System;
-using System.Collections.Generic;
+using Application.DataTransferObjects.Transactions.TripTicket.NS;
 using System.ComponentModel;
-using System.Linq;
-using System.Runtime.InteropServices;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Application.UseCases.Repositories.Integration.Others;
 
@@ -16,7 +10,15 @@ public interface INetSuiteApiClientService : INotifyPropertyChanged
 {
     //Task<IEnumerable<OrdersDTO?>> GetAllPOPendingReceipt([Optional] int limit, [Optional] int offset);
     Task<IEnumerable<T>?> NetsuiteQuery<T>(string queryName, Dictionary<string, string>? parameters = null, int limit = 0, int offset = 0);
+
     Task<bool> SavePOItemReceipt(List<PostPurchaseOrderDTO> Data);
     Task<bool> SaveTOItemReceipt(List<PostTransferOrderDTO> Data);
     Task<bool> SaveReturnsItemReceipt(List<PostReturnsDTO> Data);
+
+
+    Task<bool> SaveTOItemFulfillment(List<PostTransferOrderDTO> Data);
+    Task<bool> SaveReturnsItemFulfillment(List<PostReturnsDTO> Data);
+    Task<bool> SaveVRAItemFulfillment(List<PostVendorReturnAuthorizationDTO> Data);
+
+    Task<bool> SaveTripTicket(PostTripTicketDTO Data);
 }

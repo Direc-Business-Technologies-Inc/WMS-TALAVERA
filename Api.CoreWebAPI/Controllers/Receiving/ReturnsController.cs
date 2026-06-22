@@ -1,17 +1,17 @@
-﻿using Application.DataTransferObjects.Transactions.Receiving.NS;
-using Application.DataTransferObjects.Transactions.Receiving.NS.Request;
+﻿using Application.DataTransferObjects.Transactions.Commons.NS;
+using Application.DataTransferObjects.Transactions.Commons.NS.Request;
 using Application.UseCases.Commands.Transaction.Receiving.NS.Returns;
 using Application.UseCases.Queries.Transaction.Receiving.NS.Returns;
 using Mapster;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Shared.Libraries.Entities;
-using Shared.Libraries.ViewModel;
+using Shared.Libraries.ViewModel.Returns;
 
 namespace Api.CoreWebAPI.Controllers.Receiving;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/Receiving/[controller]")]
 public class ReturnsController(ISender Sender) : ControllerBase
 {
     [HttpGet("PendingReceipt")]
@@ -29,6 +29,11 @@ public class ReturnsController(ISender Sender) : ControllerBase
     {
         var result = await Sender.Send(new GetReturnsLineQry(req));
 
+        if (result is null || !result.Any())
+        {
+            return ApiResult<IEnumerable<ReturnsLineVM>>.Succeeded(Enumerable.Empty<ReturnsLineVM>());
+        }
+
         List<ReturnsLineVM> ret = result.Adapt<List<ReturnsLineVM>>();
 
         return ApiResult<IEnumerable<ReturnsLineVM>>.Succeeded(ret);
@@ -37,7 +42,7 @@ public class ReturnsController(ISender Sender) : ControllerBase
     [HttpPost("SaveScan")]
     public async Task<ApiResult> ReturnsSaveScan(List<PostReturnsDTO> req)
     {
-        await Sender.Send(new PostReturnsCmd(req));
+        await Sender.Send(new PostReturnsIRCmd(req));
 
         return ApiResult.Succeeded();
     }
