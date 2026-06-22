@@ -4,13 +4,20 @@
 		<BackButton Path="@BackPath" />
 	}
 	<RadzenText TextAlign="TextAlign.Center" class="rz-color-primary font-bolder " Text="@Title" Style="font-size: .95rem; margin-bottom:0; text-transform:uppercase !important;" />
+
 </RadzenStack>
+<RadzenStack>
+	<RadzenText TextAlign="TextAlign.Center" class="rz-color-primary font-bolder " Text="@Id" Style="font-size: .95rem; margin-bottom:0; text-transform:uppercase !important;" />
+</RadzenStack>
+
 @code {
 	[Inject] NavigationManager _navManager { get; set; }
 	[Parameter]
 	public string Title { get; set; }
 	[Parameter]
 	public string? BackPath { get; set; }
+	[Parameter]
+	public string Id { get; set; }
 	[Parameter]
 	public EventCallback<MouseEventArgs> Click { get; set; }
 }

@@ -1,6 +1,6 @@
 using Mobile.MAUI.Helpers.Extensions;
 using Mobile.MAUI.Services;
-using Shared.Libraries.ViewModel;
+using Shared.Libraries.ViewModel.Returns;
 
 namespace Mobile.MAUI.Components.Pages.Receiving.Returns;
 
@@ -19,7 +19,7 @@ public partial class ReturnsView
             TaskAsync = async () =>
             {
                 await InvokeAsync(StateHasChanged);
-                var res = await Client.Get<List<ReturnsVM>>("/Returns/PendingReceipt");
+                var res = await Client.Get<List<ReturnsVM>>("/Receiving/Returns/PendingReceipt");
                 return res;
             },
             OnSuccess = async (result) =>
