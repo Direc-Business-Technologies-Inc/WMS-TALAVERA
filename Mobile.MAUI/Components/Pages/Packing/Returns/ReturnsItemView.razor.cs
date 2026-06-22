@@ -3,28 +3,28 @@ using Mobile.MAUI.Components.Reusables;
 using Mobile.MAUI.Services;
 using Mobile.MAUI.ViewModel;
 using Shared.Libraries.ViewModel;
+using Shared.Libraries.ViewModel.Returns;
 using static Mobile.MAUI.MauiProgram;
 using AppAction = Mobile.MAUI.Services.AppAction;
 
-namespace Mobile.MAUI.Components.Pages.ItemFulfillment.Packing;
+namespace Mobile.MAUI.Components.Pages.Packing.Returns;
 
-public partial class PackingItemView
+public partial class ReturnsItemView : IAsyncDisposable
 {
     [Parameter]
     public string OrderNumber { get; set; }
-
     private IJSObjectReference JsObj { get; set; }
-
-    AppAction<List<PackingLineVM>> ActionGetPackingItems { get; set; }
+    AppAction<List<ReturnsLineVM>> ActionGetReturnsItems { get; set; }
     AppAction<List<ItemBarcodesPerUoMVM>> ActionGetItemBarcodes { get; set; }
     AppAction ActionUpdateStartTime { get; set; }
     AppAction ActionSaveScan { get; set; }
 
-    List<PackingLineVM> PackingItems = [];
+    List<ReturnsLineVM> ReturnsItems = [];
     List<ItemBarcodesPerUoMVM> ItemBarcodes = [];
     List<BarcodeRequestVM> ItemRequest = [];
 
-    //PackingLineVM? LastScanned => PackingItems.OrderByDescending(x => x.ScanCount).FirstOrDefault();
+    ReturnsLineVM? SelectedLine;
+    //ReturnsLineVM? LastScanned => ReturnsItems.OrderByDescending(x => x.ScanCount).FirstOrDefault();
 
     int ScanCount { get; set; }
     bool SaveBtnDisabled => ScanCount == 0;
@@ -33,18 +33,18 @@ public partial class PackingItemView
 
     protected override async Task OnInitializedAsync()
     {
-        ActionGetPackingItems = new AppAction<List<PackingLineVM>>
+        ActionGetReturnsItems = new AppAction<List<ReturnsLineVM>>
         {
-            Name = "GetPackingItems",
+            Name = "GetReturnsItems",
             TaskAsync = async () =>
             {
                 await InvokeAsync(StateHasChanged);
-                var res = await Client.Post<List<PackingLineVM>>("/Packing/Items", new { OrderNumber = OrderNumber });
+                var res = await Client.Post<List<ReturnsLineVM>>("/Packing/Returns/Items", new { OrderNumber = OrderNumber });
                 return res;
             },
             OnSuccess = async (result) =>
             {
-                PackingItems = result.Data.Select(line => new PackingLineVM
+                ReturnsItems = result.Data.Select(line => new ReturnsLineVM
                 {
                     NetsuiteOrderInternalId = line.NetsuiteOrderInternalId,
                     OrderNumber = line.OrderNumber,
@@ -69,8 +69,10 @@ public partial class PackingItemView
                     MaterialCode = line.MaterialCode,
                     MaterialName = line.MaterialName,
                     MaterialWeight = line.MaterialWeight,
+
                     LineQuantity = line.LineQuantity,
-                    LineQuantityReceived = line.LineQuantityReceived,
+                    LineQuantityPacked = line.LineQuantityPacked,
+
                     NetsuiteUoMInternalId = line.NetsuiteUoMInternalId,
                     UoMName = line.UoMName,
                     UoMRate = line.UoMRate,
@@ -104,17 +106,17 @@ public partial class PackingItemView
 
         ActionSaveScan = new AppAction
         {
-            Name = "SavePackingScan",
+            Name = "SaveReturnsScan",
             TaskAsync = async () =>
             {
                 await InvokeAsync(StateHasChanged);
-                var res = await Client.Post("/Packing/SaveScan", PackingItems);
+                var res = await Client.Post("/Packing/Returns/SaveScan", ReturnsItems);
                 return res;
             },
             OnSuccess = async (result) =>
             {
                 await Toast.Success("Scanned items saved sucessfully");
-                NavManager.NavigateTo("/receiving");
+                NavManager.NavigateTo("/packing");
             }
         };
 
@@ -125,9 +127,9 @@ public partial class PackingItemView
     {
         if (firstRender)
         {
-            await ActionFactory.ExecuteAppActionAsync(ActionGetPackingItems);
+            await ActionFactory.ExecuteAppActionAsync(ActionGetReturnsItems);
 
-            ItemRequest = PackingItems.Select(i => new BarcodeRequestVM
+            ItemRequest = ReturnsItems.Select(i => new BarcodeRequestVM
             {
                 MaterialInternalId = i.NetsuiteMaterialInternalId,
             }).ToList();
@@ -135,11 +137,35 @@ public partial class PackingItemView
             await ActionFactory.ExecuteAppActionAsync(ActionGetItemBarcodes);
         }
 
-        if (PackingItems.Count > 0 && JsObj is null)
+        if (ReturnsItems.Count > 0 && JsObj is null)
         {
             JsObj = await Js.InvokeAsync<IJSObjectReference>("import", "./js/IntersectionObserver.js");
             await JsObj.InvokeVoidAsync("Observe");
         }
+    }
+
+    async Task LoadReturns()
+    {
+        await ActionFactory.ExecuteAppActionAsync(ActionGetReturnsItems);
+    }
+
+    private void SelectLine(ReturnsLineVM item)
+    {
+        if (SelectedLine?.LineSequenceNumber == item.LineSequenceNumber)
+        {
+            SelectedLine = null;
+        }
+        else
+        {
+            SelectedLine = item;
+        }
+
+        InvokeAsync(StateHasChanged);
+    }
+
+    private bool IsSelected(ReturnsLineVM row)
+    {
+        return SelectedLine?.LineSequenceNumber == row.LineSequenceNumber;
     }
 
     async void HandleItemScan(object sender, string message)
@@ -161,8 +187,10 @@ public partial class PackingItemView
                 return;
             }
 
-            var line = PackingItems.FirstOrDefault(x =>
-                    x.NetsuiteMaterialInternalId == barcode.MaterialInternalId);
+            var line = ReturnsItems.FirstOrDefault(x =>
+                    x.NetsuiteMaterialInternalId == barcode.MaterialInternalId &&
+                    (SelectedLine == null ||
+                     x.LineSequenceNumber == SelectedLine.LineSequenceNumber));
 
             if (line is null)
             {
@@ -170,9 +198,7 @@ public partial class PackingItemView
                 return;
             }
 
-            var lineTotal = line.ScannedQuantity;
-
-            var isOverScan = lineTotal >= line.NSLineQuantity;
+            var isOverScan = line.ScannedQuantity >= line.NSLineQuantityPacked;
 
             if (isOverScan)
             {
@@ -182,7 +208,7 @@ public partial class PackingItemView
 
             var scanQty = barcode.UoMRate / line.UoMRate;
 
-            var remainingQty = line.NSLineQuantity - line.ScannedQuantity;
+            var remainingQty = line.NSLineQuantityPacked - line.ScannedQuantity;
 
             bool isExceed = scanQty > remainingQty;
 
@@ -205,18 +231,7 @@ public partial class PackingItemView
                     return;
                 }
 
-                IsWeightDialogOpen = true;
-
-                weight = await Dialog.OpenAsync<WeightInputDialog>(
-                    "Weight Input",
-                    new Dictionary<string, object>
-                    {
-                            { "ItemName", barcode.MaterialName }
-                    },
-                    new DialogOptions()
-                );
-
-                IsWeightDialogOpen = false;
+                weight = await GetWeightAsync(barcode.MaterialName);
 
                 if (!weight.HasValue || weight.Value == 0m)
                 {
@@ -248,8 +263,8 @@ public partial class PackingItemView
 
     async Task SaveScan()
     {
-        PackingItems = PackingItems
-            .Select(x => new PackingLineVM
+        ReturnsItems = ReturnsItems.Where(x => x.NSLineQuantityPacked != 0)
+            .Select(x => new ReturnsLineVM
             {
                 NetsuiteOrderInternalId = x.NetsuiteOrderInternalId,
                 OrderNumber = x.OrderNumber,
@@ -274,8 +289,10 @@ public partial class PackingItemView
                 MaterialCode = x.MaterialCode,
                 MaterialName = x.MaterialName,
                 MaterialWeight = x.MaterialWeight,
+
                 LineQuantity = x.LineQuantity,
-                LineQuantityReceived = x.LineQuantityReceived,
+                LineQuantityPacked = x.LineQuantityPacked,
+
                 NetsuiteUoMInternalId = x.NetsuiteUoMInternalId,
                 UoMName = x.UoMName,
                 UoMRate = x.UoMRate,
@@ -304,13 +321,49 @@ public partial class PackingItemView
                 );
     }
 
+    private async Task<decimal?> GetWeightAsync(string itemName)
+    {
+        IsWeightDialogOpen = true;
+
+        try
+        {
+            return await Dialog.OpenAsync<WeightInputDialog>(
+                "Weight Input",
+                new Dictionary<string, object>
+                {
+                { "ItemName", itemName }
+                },
+                new DialogOptions());
+        }
+        finally
+        {
+            IsWeightDialogOpen = false;
+        }
+    }
+
     public async ValueTask DisposeAsync()
     {
         BroadcastService.BroadcastReceived -= HandleItemScan;
+
         if (JsObj is not null)
         {
-            await JsObj.InvokeVoidAsync("UnObserve");
-            await JsObj.DisposeAsync();
+            try
+            {
+                await JsObj.InvokeVoidAsync("Dispose");
+            }
+            catch
+            {
+                // ignore cleanup errors
+            }
+
+            try
+            {
+                await JsObj.DisposeAsync();
+            }
+            finally
+            {
+                JsObj = null;
+            }
         }
     }
 }

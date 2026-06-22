@@ -1,6 +1,6 @@
-namespace Mobile.MAUI.Components.Pages.ItemFulfillment;
+namespace Mobile.MAUI.Components.Pages.Packing;
 
-public partial class ItemFulfillmentView
+public partial class PackingView
 {
     protected override async Task OnInitializedAsync()
     {

@@ -6,32 +6,32 @@ using Shared.Libraries.ViewModel;
 using static Mobile.MAUI.MauiProgram;
 using AppAction = Mobile.MAUI.Services.AppAction;
 using Radzen.Blazor;
-using Shared.Libraries.ViewModel.PurchaseOrder;
+using Shared.Libraries.ViewModel.VendorReturnAuthorization;
 
-namespace Mobile.MAUI.Components.Pages.Receiving.PurchaseOrder;
+namespace Mobile.MAUI.Components.Pages.Packing.VendorReturnAuthorization;
 
-public partial class PurchaseOrderItemView : IAsyncDisposable
+public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
 {
     [Parameter]
     public string OrderNumber { get; set; }
 
     private IJSObjectReference JsObj { get; set; }
 
-    AppAction<List<PurchaseOrderLineVM>> ActionGetPOItems { get; set; }
+    AppAction<List<VendorReturnAuthorizationLineVM>> ActionGetVRAItems { get; set; }
     AppAction<List<ItemBarcodesPerUoMVM>> ActionGetItemBarcodes { get; set; }
     AppAction ActionUpdateStartTime { get; set; }
     AppAction ActionSaveScan { get; set; }
 
-    List<PurchaseOrderLineVM> GoodPOItems = [];
-    List<PurchaseOrderLineVM> BadPOItems = [];
+    List<VendorReturnAuthorizationLineVM> GoodVRAItems = [];
+    List<VendorReturnAuthorizationLineVM> BadVRAItems = [];
     List<ItemBarcodesPerUoMVM> ItemBarcodes = [];
     List<BarcodeRequestVM> ItemRequest = [];
 
-    List<PurchaseOrderLineVM> POItems = [];
+    List<VendorReturnAuthorizationLineVM> VRAItems = [];
 
-    PurchaseOrderLineVM? GoodSelectedLine;
-    PurchaseOrderLineVM? BadSelectedLine;
-    //PurchaseOrderLineVM? LastScanned => POItems.OrderByDescending(x => x.ScanCount).FirstOrDefault();
+    VendorReturnAuthorizationLineVM? GoodSelectedLine;
+    VendorReturnAuthorizationLineVM? BadSelectedLine;
+    //VRALineVM? LastScanned => VRAItems.OrderByDescending(x => x.ScanCount).FirstOrDefault();
 
     int ScanCount { get; set; }
     int ActiveTabIndex { get; set; } = 0;
@@ -44,18 +44,18 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
     decimal? ChangeWeight = null;
     protected override async Task OnInitializedAsync()
     {
-        ActionGetPOItems = new AppAction<List<PurchaseOrderLineVM>>
+        ActionGetVRAItems = new AppAction<List<VendorReturnAuthorizationLineVM>>
         {
-            Name = "GetPOItems",
+            Name = "GetVRAItems",
             TaskAsync = async () =>
             {
                 await InvokeAsync(StateHasChanged);
-                var res = await Client.Post<List<PurchaseOrderLineVM>>("/Receiving/PurchaseOrder/Items", new { OrderNumber = OrderNumber });
+                var res = await Client.Post<List<VendorReturnAuthorizationLineVM>>("/Packing/VendorReturnAuthorization/Items", new { OrderNumber = OrderNumber });
                 return res;
             },
             OnSuccess = async (result) =>
             {
-                GoodPOItems = result.Data.Select(line => new PurchaseOrderLineVM
+                GoodVRAItems = result.Data.Select(line => new VendorReturnAuthorizationLineVM
                 {
                     NetsuiteOrderInternalId = line.NetsuiteOrderInternalId,
                     OrderNumber = line.OrderNumber,
@@ -63,7 +63,6 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
                     OrderStatus = line.OrderStatus,
 
                     NetsuiteSubsidiaryInternalId = line.NetsuiteSubsidiaryInternalId,
-                    NetsuiteSubsidiaryDefaultBOInternalId = line.NetsuiteSubsidiaryDefaultBOInternalId,
 
                     NetsuiteLocationInternalId = line.NetsuiteLocationInternalId,
                     LocationName = line.LocationName,
@@ -92,7 +91,7 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
                     IsBad = false,
                 }).ToList() ?? [];
 
-                BadPOItems = result.Data.Select(line => new PurchaseOrderLineVM
+                BadVRAItems = result.Data.Select(line => new VendorReturnAuthorizationLineVM
                 {
                     NetsuiteOrderInternalId = line.NetsuiteOrderInternalId,
                     OrderNumber = line.OrderNumber,
@@ -100,7 +99,6 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
                     OrderStatus = line.OrderStatus,
 
                     NetsuiteSubsidiaryInternalId = line.NetsuiteSubsidiaryInternalId,
-                    NetsuiteSubsidiaryDefaultBOInternalId = line.NetsuiteSubsidiaryDefaultBOInternalId,
 
                     NetsuiteLocationInternalId = line.NetsuiteLocationInternalId,
                     LocationName = line.LocationName,
@@ -117,8 +115,10 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
                     MaterialCode = line.MaterialCode,
                     MaterialName = line.MaterialName,
                     MaterialWeight = line.MaterialWeight,
+
                     LineQuantity = line.LineQuantity,
-                    LineQuantityReceived = line.LineQuantityReceived,
+                    LineQuantityPacked = line.LineQuantityPacked,
+
                     NetsuiteUoMInternalId = line.NetsuiteUoMInternalId,
                     UoMName = line.UoMName,
                     UoMRate = line.UoMRate,
@@ -156,13 +156,13 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
             TaskAsync = async () =>
             {
                 await InvokeAsync(StateHasChanged);
-                var res = await Client.Post("/Receiving/PurchaseOrder/SaveScan", POItems);
+                var res = await Client.Post("/Packing/VendorReturnAuthorization/SaveScan", VRAItems);
                 return res;
             },
             OnSuccess = async (result) =>
             {
                 await Toast.Success("Scanned items saved sucessfully");
-                NavManager.NavigateTo("/receiving");
+                NavManager.NavigateTo("/packing");
             }
         };
 
@@ -173,9 +173,9 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
     {
         if (firstRender)
         {
-            await ActionFactory.ExecuteAppActionAsync(ActionGetPOItems);
+            await ActionFactory.ExecuteAppActionAsync(ActionGetVRAItems);
 
-            ItemRequest = GoodPOItems.Select(i => new BarcodeRequestVM
+            ItemRequest = GoodVRAItems.Select(i => new BarcodeRequestVM
             {
                 MaterialInternalId = i.NetsuiteMaterialInternalId,
             }).ToList();
@@ -183,19 +183,19 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
             await ActionFactory.ExecuteAppActionAsync(ActionGetItemBarcodes);
         }
 
-        if (GoodPOItems.Count > 0 && JsObj is null)
+        if (GoodVRAItems.Count > 0 && JsObj is null)
         {
             JsObj = await Js.InvokeAsync<IJSObjectReference>("import", "./js/IntersectionObserver.js");
             await JsObj.InvokeVoidAsync("Observe");
         }
     }
 
-    async Task LoadPurchaseOrder()
+    async Task LoadVRA()
     {
-        await ActionFactory.ExecuteAppActionAsync(ActionGetPOItems);
+        await ActionFactory.ExecuteAppActionAsync(ActionGetVRAItems);
     }
 
-    private void SelectGoodLine(PurchaseOrderLineVM item)
+    private void SelectGoodLine(VendorReturnAuthorizationLineVM item)
     {
         if (GoodSelectedLine?.LineSequenceNumber == item.LineSequenceNumber)
         {
@@ -209,12 +209,12 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
         InvokeAsync(StateHasChanged);
     }
 
-    private bool IsSelectedGood(PurchaseOrderLineVM row)
+    private bool IsSelectedGood(VendorReturnAuthorizationLineVM row)
     {
         return GoodSelectedLine?.LineSequenceNumber == row.LineSequenceNumber;
     }
 
-    private void SelectBadLine(PurchaseOrderLineVM item)
+    private void SelectBadLine(VendorReturnAuthorizationLineVM item)
     {
         if (BadSelectedLine?.LineSequenceNumber == item.LineSequenceNumber)
         {
@@ -228,7 +228,7 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
         InvokeAsync(StateHasChanged);
     }
 
-    private bool IsSelectedBad(PurchaseOrderLineVM row)
+    private bool IsSelectedBad(VendorReturnAuthorizationLineVM row)
     {
         return BadSelectedLine?.LineSequenceNumber
             == row.LineSequenceNumber;
@@ -238,7 +238,7 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
     {
         try
         {
-            PurchaseOrderLineVM? badLine;
+            VendorReturnAuthorizationLineVM? badLine;
 
             var scanned = message?.Trim();
 
@@ -261,7 +261,7 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
                 return;
             }
 
-            var goodLine = GoodPOItems.FirstOrDefault(x =>
+            var goodLine = GoodVRAItems.FirstOrDefault(x =>
                     x.NetsuiteMaterialInternalId == barcode.MaterialInternalId &&
                     (GoodSelectedLine == null ||
                      x.LineSequenceNumber == GoodSelectedLine.LineSequenceNumber));
@@ -269,14 +269,14 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
 
             if (NextScanIsBad)
             {
-                badLine = BadPOItems.FirstOrDefault(x =>
+                badLine = BadVRAItems.FirstOrDefault(x =>
                     x.NetsuiteMaterialInternalId == barcode.MaterialInternalId &&
                     (GoodSelectedLine == null ||
                      x.LineSequenceNumber == GoodSelectedLine.LineSequenceNumber));
             }
             else
             {
-                badLine = BadPOItems.FirstOrDefault(x =>
+                badLine = BadVRAItems.FirstOrDefault(x =>
                     x.NetsuiteMaterialInternalId == barcode.MaterialInternalId &&
                     (BadSelectedLine == null ||
                      x.LineSequenceNumber == BadSelectedLine.LineSequenceNumber));
@@ -284,14 +284,14 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
 
             if (goodLine is null)
             {
-                await Toast.Warning("Item not found in this PO.");
+                await Toast.Warning("Item not found in this VRA.");
                 return;
             }
 
             var badlineTotal = badLine.ScannedQuantity;
             var goodLineTotal = goodLine.ScannedQuantity;
 
-            var isOverScan = badlineTotal + goodLineTotal >= goodLine.NSLineQuantityReceived;
+            var isOverScan = badlineTotal + goodLineTotal >= goodLine.NSLineQuantityPacked;
 
             if (isOverScan)
             {
@@ -301,7 +301,7 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
 
             var scanQty = barcode.UoMRate / goodLine.UoMRate;
 
-            var remainingQty = goodLine.NSLineQuantityReceived - (goodLine.ScannedQuantity + (badLine?.ScannedQuantity ?? 0));
+            var remainingQty = goodLine.NSLineQuantityPacked - (goodLine.ScannedQuantity + (badLine?.ScannedQuantity ?? 0));
 
             bool isExceed = scanQty > remainingQty;
 
@@ -373,9 +373,9 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
 
     async Task SaveScan()
     {
-        POItems = GoodPOItems.Where(x => x.NSLineQuantityReceived != 0)
-            .Concat(BadPOItems.Where(x => x.NSLineQuantityReceived != 0))
-            .Select(x => new PurchaseOrderLineVM
+        VRAItems = GoodVRAItems.Where(x => x.NSLineQuantityPacked != 0)
+            .Concat(BadVRAItems.Where(x => x.NSLineQuantityPacked != 0))
+            .Select(x => new VendorReturnAuthorizationLineVM
             {
                 NetsuiteOrderInternalId = x.NetsuiteOrderInternalId,
                 OrderNumber = x.OrderNumber,
@@ -383,7 +383,6 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
                 OrderStatus = x.OrderStatus,
 
                 NetsuiteSubsidiaryInternalId = x.NetsuiteSubsidiaryInternalId,
-                NetsuiteSubsidiaryDefaultBOInternalId = x.NetsuiteSubsidiaryDefaultBOInternalId,
 
                 NetsuiteLocationInternalId = x.NetsuiteLocationInternalId,
                 LocationName = x.LocationName,
@@ -440,8 +439,8 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
     {
         try
         {
-            PurchaseOrderLineVM? badLine;
-            PurchaseOrderLineVM? goodLine;
+            VendorReturnAuthorizationLineVM? badLine;
+            VendorReturnAuthorizationLineVM? goodLine;
 
             var barcode = ItemBarcodes.FirstOrDefault(x =>
                 !string.IsNullOrWhiteSpace(x.MaterialBarcode) &&
@@ -455,25 +454,25 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
 
             if (ActiveTabIndex == 1)
             {
-                goodLine = GoodPOItems.FirstOrDefault(x =>
+                goodLine = GoodVRAItems.FirstOrDefault(x =>
                 x.NetsuiteMaterialInternalId == barcode.MaterialInternalId &&
                 (BadSelectedLine == null ||
                  x.LineSequenceNumber == BadSelectedLine.LineSequenceNumber));
 
-                badLine = BadPOItems.FirstOrDefault(x =>
+                badLine = BadVRAItems.FirstOrDefault(x =>
                     x.NetsuiteMaterialInternalId == barcode.MaterialInternalId &&
                     (BadSelectedLine == null ||
                      x.LineSequenceNumber == BadSelectedLine.LineSequenceNumber));
             }
             else
             {
-                goodLine = GoodPOItems.FirstOrDefault(x =>
+                goodLine = GoodVRAItems.FirstOrDefault(x =>
                 x.NetsuiteMaterialInternalId == barcode.MaterialInternalId &&
                 (GoodSelectedLine == null ||
                  x.LineSequenceNumber == GoodSelectedLine.LineSequenceNumber));
 
 
-                badLine = BadPOItems.FirstOrDefault(x =>
+                badLine = BadVRAItems.FirstOrDefault(x =>
                     x.NetsuiteMaterialInternalId == barcode.MaterialInternalId &&
                     (GoodSelectedLine == null ||
                      x.LineSequenceNumber == GoodSelectedLine.LineSequenceNumber));
@@ -481,7 +480,7 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
 
             if (goodLine is null)
             {
-                await Toast.Warning("Item not found in this PO.");
+                await Toast.Warning("Item not found in this VRA.");
                 return;
             }
 

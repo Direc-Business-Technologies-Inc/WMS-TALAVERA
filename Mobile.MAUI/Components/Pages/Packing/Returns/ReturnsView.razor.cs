@@ -1,25 +1,25 @@
 using Mobile.MAUI.Helpers.Extensions;
 using Mobile.MAUI.Services;
-using Shared.Libraries.ViewModel;
+using Shared.Libraries.ViewModel.Returns;
 
-namespace Mobile.MAUI.Components.Pages.ItemFulfillment.Packing;
+namespace Mobile.MAUI.Components.Pages.Packing.Returns;
 
-public partial class PackingView
+public partial class ReturnsView
 {
-    List<PackingVM> Data { get; set; } = [];
+    List<ReturnsVM> Data { get; set; } = [];
 
-    AppAction<List<PackingVM>> ActionGetPacking;
+    AppAction<List<ReturnsVM>> ActionGetReturns;
 
     protected override async Task OnInitializedAsync()
     {
         string userId = await AuthState.GetAuthenticatedUserId();
-        ActionGetPacking = new AppAction<List<PackingVM>>
+        ActionGetReturns = new AppAction<List<ReturnsVM>>
         {
-            Name = "GetPacking",
+            Name = "GetReturns",
             TaskAsync = async () =>
             {
                 await InvokeAsync(StateHasChanged);
-                var res = await Client.Get<List<PackingVM>>("/Packing/PendingFulfillment");
+                var res = await Client.Get<List<ReturnsVM>>("/Packing/Returns/PendingFulfillment");
                 return res;
             },
             OnSuccess = async (result) =>
@@ -40,6 +40,6 @@ public partial class PackingView
 
     async Task LoadData()
     {
-        await ActionFactory.ExecuteAppActionAsync(ActionGetPacking);
+        await ActionFactory.ExecuteAppActionAsync(ActionGetReturns);
     }
 }

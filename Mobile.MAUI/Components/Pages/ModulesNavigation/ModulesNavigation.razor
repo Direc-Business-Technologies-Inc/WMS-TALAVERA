@@ -9,7 +9,8 @@
 	<RadzenStack JustifyContent=JustifyContent.Center AlignItems="AlignItems.Center" class="rz-w-md-50 rz-l-25" Gap="0">
 		<RadzenImage Path="/img/wms_with_text.png" />
 		<RadzenButton Text="Receiving" Click=@(async () => await ConfirmModule(ModuleNavigation.Receiving)) ButtonStyle=ButtonStyle.Success Shade="Shade.Dark" class="rz-w-100 rz-mt-4" />
-		<RadzenButton Text="ItemFulfillment" Click=@(async () => await ConfirmModule(ModuleNavigation.ItemFulfillment)) ButtonStyle=ButtonStyle.Success Shade="Shade.Dark" class="rz-w-100 rz-mt-4" />
+		<RadzenButton Text="Packing" Click=@(async () => await ConfirmModule(ModuleNavigation.Packing)) ButtonStyle=ButtonStyle.Success Shade="Shade.Dark" class="rz-w-100 rz-mt-4" />
+		<RadzenButton Text="Trip Ticket" Click=@(async () => await ConfirmModule(ModuleNavigation.TripTicket)) ButtonStyle=ButtonStyle.Success Shade="Shade.Dark" class="rz-w-100 rz-mt-4" />
 	</RadzenStack>
 </RadzenStack>
 

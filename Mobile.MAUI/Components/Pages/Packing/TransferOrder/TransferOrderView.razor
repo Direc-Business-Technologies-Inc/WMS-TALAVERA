@@ -1,19 +1,20 @@
-﻿@using Mobile.MAUI.Components.Base
+@using Mobile.MAUI.Components.Base
 @using Shared.Libraries.ViewModel
+@using Shared.Libraries.ViewModel.TransferOrder
 
 @inherits BaseComponent
 <RadzenStack>
     <RadzenStack class="mt-4">
-        <Loading IsLoading="@ActionGetPacking.Busy" Text="Loading picklists..">
+        <Loading IsLoading="@ActionGetTransferOrder.Busy" Text="Loading Transfer Orders..">
             <ChildContent>
                 <RadzenStack>
                     <EmptyListTemplate ReloadCallback="LoadData" Visible="@(Data.Count == 0)" />
-                    <RadzenDataList Data="@(Data ?? Enumerable.Empty<PackingVM>())"
-                                    TItem="PackingVM"
+                    <RadzenDataList Data="@(Data ?? Enumerable.Empty<TransferOrderVM>())"
+                                    TItem="TransferOrderVM"
                                     class="trans-list">
                         <Template Context="row">
                             <RadzenStack class="trans-card"
-                                         @onclick="@(() => NavManager.NavigateTo($"/packing/{row.OrderNumber}"))"
+                                         @onclick="@(() => NavManager.NavigateTo($"/packing/transferorder/{row.OrderNumber}"))"
                                          Orientation="Orientation.Horizontal"
                                          AlignItems="AlignItems.Center"
                                          JustifyContent="JustifyContent.SpaceBetween">
@@ -40,7 +41,5 @@
         </Loading>
     </RadzenStack>
 </RadzenStack>
-
-
 
 
