@@ -15,36 +15,8 @@
                         <RadzenDatePicker @bind-Value="@Data.Date" ReadOnly />
                     </RadzenFormField>
                 </RadzenColumn>
-                <RadzenColumn SizeMD="4">
-                    <RadzenFormField AllowFloatingLabel="false" Text="Department" class="rz-w-100">
-                        <RadzenTextBox Value="@Data.Department" ReadOnly/>
-                    </RadzenFormField>
-                </RadzenColumn>
-                <RadzenColumn SizeMD="4">
-                    <RadzenFormField AllowFloatingLabel="false" Text="Vendor" class="rz-w-100">
-                        <RadzenTextBox Value="@Data.Vendor" />
-                    </RadzenFormField>
-                </RadzenColumn>
-                @if (Data.SourceType == ItemReceiptVM.SourceTypes.PurchaseOrder)
+                @if (Data.SourceType == ItemReceiptVM.SourceTypes.TransferOrder)
                 {
-                    <RadzenColumn SizeMD="4">
-                        <RadzenFormField AllowFloatingLabel="false" Text="Warehouse" class="rz-w-100">
-                            <RadzenTextBox @bind-Value="@Data.Location" />
-                        </RadzenFormField>
-                    </RadzenColumn>
-                    <RadzenColumn OffsetMD="8" SizeMD="4">
-                        <RadzenFormField AllowFloatingLabel="false" Text="Received By" class="rz-w-100">
-                            <RadzenTextBox @bind-Value="@Data.ReceivedBy" />
-                        </RadzenFormField>
-                    </RadzenColumn>
-                } 
-                else if (Data.SourceType == ItemReceiptVM.SourceTypes.TransferOrder)
-                {
-                    <RadzenColumn SizeMD="4">
-                        <RadzenFormField AllowFloatingLabel="false" Text="Received By" class="rz-w-100">
-                            <RadzenTextBox @bind-Value="@Data.ReceivedBy" />
-                        </RadzenFormField>
-                    </RadzenColumn>
                     <RadzenColumn SizeMD="6">
                         <RadzenFormField AllowFloatingLabel="false" Text="From Subsidiary" class="rz-w-100">
                             <RadzenTextBox Value="@Data.Subsidiary" ReadOnly/>
@@ -69,11 +41,6 @@
                 else if (Data.SourceType == ItemReceiptVM.SourceTypes.Returns)
                 {
                     <RadzenColumn SizeMD="4">
-                        <RadzenFormField AllowFloatingLabel="false" Text="Received By" class="rz-w-100">
-                            <RadzenTextBox @bind-Value="@Data.ReceivedBy" />
-                        </RadzenFormField>
-                    </RadzenColumn>
-                    <RadzenColumn SizeMD="4">
                         <RadzenFormField AllowFloatingLabel="false" Text="Subsidiary" class="rz-w-100">
                             <RadzenTextBox Value="@Data.Subsidiary" ReadOnly />
                         </RadzenFormField>
@@ -89,6 +56,16 @@
                         </RadzenFormField>
                     </RadzenColumn>
                 }
+                <RadzenColumn SizeMD="6">
+                    <RadzenFormField AllowFloatingLabel="false" Text="Department" class="rz-w-100">
+                        <RadzenTextBox Value="@Data.Department" ReadOnly />
+                    </RadzenFormField>
+                </RadzenColumn>
+                <RadzenColumn SizeMD="6">
+                    <RadzenFormField AllowFloatingLabel="false" Text="Vendor" class="rz-w-100">
+                        <RadzenTextBox ReadOnly Value="@Data.Vendor" />
+                    </RadzenFormField>
+                </RadzenColumn>
             </RadzenRow>
         </RadzenFieldset>
         <RadzenFieldset AllowCollapse Text="Lines">

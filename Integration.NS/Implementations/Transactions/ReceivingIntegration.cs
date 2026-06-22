@@ -301,7 +301,7 @@ public class ReceivingIntegration(
             .LeftJoin("customrecord_dbti_vendor_bin_assignment vba", on: "t.entity = vba.custrecord_dbti_vba_vendor")
             .Join("subsidiary s", on:"t.subsidiary = s.id")
             .WithFilters(
-                In("t.recordtype", new string[] {"transferorder", "purchaseorder" }),
+                In("t.type", new string[] {"TrnfrOrd", "PurchOrd" }),
                 Equal("t.tranid", docEntry)
             ).Build();
 
