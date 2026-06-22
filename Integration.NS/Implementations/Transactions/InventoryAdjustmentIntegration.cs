@@ -70,6 +70,7 @@ public class InventoryAdjustmentIntegration(
                 ("tl.units", nameof(InventoryAdjustmentLineNSDTO.UoMId)),
                 ("uom.conversionrate", nameof(InventoryAdjustmentLineNSDTO.UoMRate)),
                 ("tl.location", nameof(InventoryAdjustmentLineNSDTO.LocationId)),
+                ("tl.quantity", nameof(InventoryAdjustmentLineNSDTO.QuantityAlloted)),
                 ("iil.quantityonhand", nameof(InventoryAdjustmentLineNSDTO.QuantityOnHand))
             )
             .From("transactionline tl")
