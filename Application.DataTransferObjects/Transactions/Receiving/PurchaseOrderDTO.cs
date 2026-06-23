@@ -21,6 +21,7 @@ public class PurchaseOrderDTO
 
 public class PurchaseOrderLineDTO
 {
+    public int LineNumber { get; set; }
     public string ItemCode { get; set; } = string.Empty;
     public string ItemDescription { get; set; } = string.Empty;
     public string UoM { get; set; } = string.Empty;

@@ -173,7 +173,6 @@ public class ReceivingHandler(
             ItemReceiptVM.SourceTypes.TransferOrder => ItemReceiptDTO.SourceTypes.TransferOrder,
             _ => throw new NotImplementedException(),
         };
-        dto.Category = data.IsBad ? ItemReceiptDTO.ReceivingCategory.Confiscated : ItemReceiptDTO.ReceivingCategory.Good;
 
         var cmd = new CreateItemReceiptCmd(dto);
         return await Sender.Send(cmd);

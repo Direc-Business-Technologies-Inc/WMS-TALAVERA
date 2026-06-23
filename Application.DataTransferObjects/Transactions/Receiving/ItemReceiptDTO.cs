@@ -8,10 +8,7 @@ namespace Application.DataTransferObjects.Transactions.Receiving;
 
 public class ItemReceiptDTO
 {
-
-    public ReceivingCategory Category { get; set; } = ReceivingCategory.Good;
     public SourceTypes SourceType { get; set; } = SourceTypes.PurchaseOrder;
-
     public int SourceInternalId { get; set; }
     public int VendorPrefferedBin { get; set; }
     public int DefaultBO { get; set; }
@@ -29,11 +26,6 @@ public class ItemReceiptDTO
     public DateTime Date { get; set; } = DateTime.Now;
 
     public List<ItemReceiptLineDTO> Lines = [];
-
-    public enum ReceivingCategory{
-        Good,
-        Confiscated
-    }
 
     public enum SourceTypes
     {
@@ -65,7 +57,7 @@ public class ItemReceiptLineDTO
     public decimal QuantityOpen { get; set; }
     public decimal QuantityReceived { get; set; }
     public decimal QuantityBad { get; set; }
-    public decimal Quantity { get; set; }
+    public decimal QuantityGood { get; set; }
 
     public bool IsLocationBinUsed {
         get => _isLocationBinUsed;
