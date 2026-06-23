@@ -17,4 +17,6 @@ public class InventoryAdjustmentDataGridVM
     public string Memo { get; set; } = string.Empty;
     [QuickDataGridTitle("Prepared By")]
     public string PreparedBy { get; set; } = string.Empty;
+    [QuickDataGridTitle("Adjustment Reason")]
+    public string AdjustmentReason { get; set; } = string.Empty;
 }

@@ -56,4 +56,15 @@ public class InventoryAdjustmentHandler(ISender sender) : IInventoryAdjustmentHa
         CreateInventoryAdjustmentCmd cmd = new(dto);
         return await sender.Send(cmd);
     }
+
+    public async Task<(IEnumerable<InventoryAdjustmentReasonVM> Data, int Count)> GetInventoryAdjustmentReasonsAsync(DataGridIntent intent)
+    {
+        GetInventoryAdjustmentReasonsQry query = new(intent);
+
+        (var data, int count) = await sender.Send(query);
+
+        return (data.Adapt<IEnumerable<InventoryAdjustmentReasonVM>>(), count);
+    }
+
+
 }
