@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Integration.NS.DataTransferObjects;
+namespace Integration.NS.DataTransferObjects.StockTransferRequest;
 
 public class StockTransferRequestHeaderNSDTO
 {
@@ -26,6 +26,8 @@ public class StockTransferRequestHeaderNSDTO
     public string TransferCategoryName { get; set; } = string.Empty;
     public string PreparedBy { get; set; } = string.Empty;
     public string Remarks { get; set; } = string.Empty;
+    public string StatusName { get; set; } = string.Empty; 
+    public string StatusId { get; set; } = string.Empty; 
     public DateTime Date { get; set; }
     public List<StockTransferRequestLineDTO> Lines { get; set; } = [];
 }

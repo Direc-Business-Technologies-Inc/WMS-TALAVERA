@@ -1,4 +1,5 @@
-﻿@using Web.BlazorServer.Components.Security
+﻿@using Web.BlazorServer.Components.Custom
+@using Web.BlazorServer.Components.Security
 @using Web.BlazorServer.ViewModels.Administration.User
 @using Web.BlazorServer.ViewModels.Transaction.Receiving
 @using Web.BlazorServer.ViewModels.Transaction.StockTransferRequest
@@ -7,10 +8,17 @@
 
 <AppDataGrid @ref="@DataGrid" Id="purchase_order_grid" TItem="StockTransferRequestDataGridVM" DataGetter="@LoadDataAsync" GridSettings="@DataGridSettings" @bind-GridSettingsLoaded="@GridSettingsLoaded" ActionName="@ActionGetStockTransferRequests">
     <HeaderTemplate>
-        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" AlignItems="AlignItems.Center" Gap="8px">
-            <RadzenButton Icon="settings" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@OpenTableSettings" />
-            <RadzenButton Icon="add" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Success" Click="AddButtonPressed" Visible="@OnAddClicked.HasDelegate" />
-            <RadzenButton Icon="sync" Size="ButtonSize.Small" Click="DataGrid.ReloadDataAsync" />
+        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center" Gap="8px">
+            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Start" AlignItems="AlignItems.Center" Gap="8px">
+                <RadzenFormField Text="Filter By Status">
+                    <QuickVirtualizedDropdown TItem="TransferOrderStatusVM" ActionName="@ActionGetTranferOrderStatuses" DataGetter="@TranferOrderStatusProvider" TextProperty="@nameof(TransferOrderStatusVM.Name)" @bind-Value:get="@StatusFilter" @bind-Value:set="@StatusFilterChanged" />
+                </RadzenFormField>
+            </RadzenStack>
+            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" AlignItems="AlignItems.Center" Gap="8px">
+                <RadzenButton Icon="settings" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@OpenTableSettings" />
+                <RadzenButton Icon="add" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Success" Click="AddButtonPressed" Visible="@OnAddClicked.HasDelegate" />
+                <RadzenButton Icon="sync" Size="ButtonSize.Small" Click="DataGrid.ReloadDataAsync" />
+            </RadzenStack>
         </RadzenStack>
     </HeaderTemplate>
     <GridColumns>
@@ -22,6 +30,10 @@
                               Type="@typeof(DateTime)"
                               FormatString="{0:yyyy-MM-dd}"
                               Title="Date" />
+        <RadzenDataGridColumn TItem="StockTransferRequestDataGridVM"
+                              Property="@nameof(StockTransferRequestDataGridVM.StatusDisplayString)"
+                              Type="@typeof(string)"
+                              Title="Status" />
         <RadzenDataGridColumn TItem="StockTransferRequestDataGridVM"
                               Property="@nameof(StockTransferRequestDataGridVM.SourceLocation)"
                               Type="@typeof(string)"
