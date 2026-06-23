@@ -13,6 +13,7 @@
 
 	<ItemGroup>
 		<PackageReference Include="DotNetEnv" Version="3.1.1" />
+		<PackageReference Include="Flurl" Version="4.0.0" />
 		<PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.11" />
 		<PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.11">
 			<PrivateAssets>all</PrivateAssets>
@@ -30,7 +31,6 @@
 	<ItemGroup>
 	  <ProjectReference Include="..\Database.MsSql\Database.MsSql.csproj" />
 	  <ProjectReference Include="..\Integration.NS\Integration.NS.csproj" />
-	  <ProjectReference Include="..\Integration.SAP\Integration.SAP.csproj" />
 	  <ProjectReference Include="..\Shared.Libraries\Shared.Libraries.csproj" />
 	</ItemGroup>
 

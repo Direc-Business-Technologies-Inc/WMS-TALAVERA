@@ -1,0 +1,28 @@
+﻿@using Web.BlazorServer.Components.Pages.Transaction.Receiving.Components
+@using Web.BlazorServer.Components.Security
+@using Web.BlazorServer.Components.Shared.Skeletons
+@using Web.BlazorServer.ViewModels.Administration.User
+@using Web.BlazorServer.ViewModels.Transaction.Receiving
+
+@inherits BaseForm<ItemReceiptVM>
+@page "/transactions/purchasing/receiving/create-item-receipt"
+@layout ProtectedLayout
+@attribute [AppAuthorizationAttribute("VIEW", "ORCV")]
+
+
+<PageTitle>Creating Item Receipt</PageTitle>
+
+<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" class="rz-mb-4">
+    <AppBreadCrumbs ModuleCode="ORCV" />
+</RadzenStack>
+
+
+<AppContent>
+    
+    <AppFormSkeleton TItem="ItemReceiptVM" Loading="@IsLoadingData" />
+
+    @if (!IsLoadingData)
+    {
+        <ItemReceiptForm Data="@FormData" EditContext="EditContext" OnValidSubmit="@OnValidSubmit"/>
+    }
+</AppContent>

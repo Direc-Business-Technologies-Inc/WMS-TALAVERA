@@ -1,26 +1,29 @@
-﻿using Application.DataTransferObjects.Transactions.Commons;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Numerics;
+using System.Reflection.Metadata;
+using System.Text;
+using System.Threading.Tasks;
 
 namespace Application.DataTransferObjects.Transactions.Receiving;
 
-public class PurchaseOrderDTO : MarketingDocumentDTO
+public class PurchaseOrderDTO
 {
-    public string Remarks { get; set; }
-    public string SupplierContactPerson { get; set; }
-    public string PreparedBy { get; set; }
-    public int? Time { get; set; }
-    public List<string> ItemGroupCodes { get; set; } = [];
-    public string? PONo { get; set; }
-    public string? DRNo { get; set; }
-    public string? Designation { get; set; }
-    public string? ReceivedBy { get; set; }
-    public string? ApprovedBy { get; set; }
-    public string? NotedBy { get; set; }
-    public string? SchoolYear { get; set; }
-    public string? SINo { get; set; }
-    public string? DeliveredBy { get; set; }
-    public string? ReviewedBy { get; set; }
-    public string? PurchaseType { get; set; }
-    public string? ItemName { get; set; }
-    public string? DocRemarks { get; set; }
-    public List<PurchaseOrderLineDTO> DocumentLines { get; set; } = [];
+    public int Id { get; set; }
+    public string ReferenceNumber { get; set; } = string.Empty;
+    public string VendorName { get; set; } = string.Empty;
+    public string ReceivedBy { get; set; } = string.Empty;
+    public DateTime Date { get; set; }
+    public DateTime DeliveryDate { get; set; }
+    public List<PurchaseOrderLineDTO> Lines { get; set; } = [];
+}
+
+public class PurchaseOrderLineDTO
+{
+    public string ItemCode { get; set; } = string.Empty;
+    public string ItemDescription { get; set; } = string.Empty;
+    public string UoM { get; set; } = string.Empty;
+    public string Location { get; set; } = string.Empty;
+    public decimal QuantityPlanned { get; set; }
 }

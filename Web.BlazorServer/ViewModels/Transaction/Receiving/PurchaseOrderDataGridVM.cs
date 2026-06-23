@@ -4,13 +4,10 @@ namespace Web.BlazorServer.ViewModels.Transaction.Receiving;
 
 public class PurchaseOrderDataGridVM
 {
-    public int DocEntry { get; set; }
-    public int DocNum { get; set; }
-    public DateTime DocDate { get; set; }
-    public DateTime DocDueDate { get; set; }
-    public DocumentStatus DocStatus { get; set; }
-    public string CardCode { get; set; }
-    public string CardName { get; set; }
-    public string SupplierContactPerson { get; set; }
-    public string Remarks { get; set; }
+    public int Id { get; set; }
+    public string ReferenceNumber { get; set; } = string.Empty;
+    public DateTime? Date { get; set; }
+    public DateTime? DeliveryDate { get; set; }
+    public string Vendor { get; set; } = string.Empty;
+    public string Remarks { get; set; } = string.Empty;
 }

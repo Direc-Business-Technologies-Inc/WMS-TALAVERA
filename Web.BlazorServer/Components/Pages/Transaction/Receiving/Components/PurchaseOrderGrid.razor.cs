@@ -15,7 +15,6 @@ public partial class PurchaseOrderGrid
 {
     [Inject] IReceivingHandler ReceivingHandler { get; set; } = default!;
     [Inject] IGridSettingsService GridSettingsService { get; set; } = default!;
-
     AppDataGrid<PurchaseOrderDataGridVM> PurchaseOrderDataGrid { get; set; }
     DataGridSettings PurchaseOrderDataGridSettings { get; set; }
 
@@ -47,15 +46,22 @@ public partial class PurchaseOrderGrid
         {
             AppBusyService.SetBusy(ActionGetPurchaseOrders, true);
 
-            var response = await ReceivingHandler.GetPurchaseOrderDataGridAsync(intent);
+            if (intent.Sorts.Count == 0)
+            {
+                intent.Sorts.Add(new()
+                {
+                    Property = "Date",
+                    Direction = SortDirectionEnum.Descending
+                });
+            }
+            return await ReceivingHandler.GetPurchaseOrderDataGridAsync(intent);
 
-            return response;
-
+            throw new Exception("Invalid source for receiving grid");
         }, AppActionOptionPresets.Loading(ActionGetPurchaseOrders));
 
         AppBusyService.SetBusy(ActionGetPurchaseOrders, false);
         return DataGridResultVM<PurchaseOrderDataGridVM>.New(action.Result.Data ?? [], action.Result.Count);
     }
 
-    void ViewPurchaseOrder(PurchaseOrderDataGridVM purchaseOrder) => NavManager.NavigateTo($"/transactions/purchasing/receiving/purchase-order/view?ref={purchaseOrder.DocEntry}", true);
+    void ViewPurchaseOrder(PurchaseOrderDataGridVM purchaseOrder) => NavManager.NavigateTo($"/transactions/purchasing/receiving/purchase-order/view?ref={purchaseOrder.ReferenceNumber}", true);
 }

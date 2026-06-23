@@ -1,0 +1,71 @@
+﻿@using Web.BlazorServer.Components.Security
+@using Web.BlazorServer.ViewModels.Administration.User
+@using Web.BlazorServer.ViewModels.Transaction.Receiving
+
+@inherits BaseComponent
+
+<AppDataGrid @ref="@DataGrid" Id="receiving_returns_order_grid" TItem="ReturnsDataGridVM" DataGetter="@LoadDataAsync" GridSettings="@DataGridSettings" @bind-GridSettingsLoaded="@GridSettingsLoaded" ActionName="@ActionGetPurchaseOrders">
+    <HeaderTemplate>
+        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" AlignItems="AlignItems.Center" Gap="8px">
+            <RadzenButton Icon="settings" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@OpenTableSettings" />
+            <RadzenButton Icon="sync" Size="ButtonSize.Small" Click="DataGrid.ReloadDataAsync" />
+        </RadzenStack>
+    </HeaderTemplate>
+    <GridColumns>
+        <RadzenDataGridColumn TItem="ReturnsDataGridVM"
+                              Property="@nameof(ReturnsDataGridVM.ReferenceNumber)"
+                              Type="@typeof(int)"
+                              Title="Reference Number" />
+        <RadzenDataGridColumn TItem="ReturnsDataGridVM"
+                              Property="@nameof(ReturnsDataGridVM.Date)"
+                              Type="@typeof(DateTime)"
+                              FormatString="{0:yyyy-MM-dd}"
+                              Title="Purchase Order Date" />
+        <RadzenDataGridColumn TItem="ReturnsDataGridVM"
+                              Property="@nameof(ReturnsDataGridVM.Vendor)"
+                              Type="@typeof(string)"
+                              Title="Vendor Name" />
+        <RadzenDataGridColumn TItem="ReturnsDataGridVM"
+                              Property="@nameof(ReturnsDataGridVM.FromSubsidiary)"
+                              Type="@typeof(string)"
+                              Title="From Subsidiary" />
+        <RadzenDataGridColumn TItem="ReturnsDataGridVM"
+                              Property="@nameof(ReturnsDataGridVM.ToSubsidiary)"
+                              Type="@typeof(string)"
+                              Title="To Subsidiary" />
+        <RadzenDataGridColumn TItem="ReturnsDataGridVM"
+                              Property="@nameof(ReturnsDataGridVM.SourceWarehouse)"
+                              Type="@typeof(string)"
+                              Title="Source Warehouse" />
+        <RadzenDataGridColumn TItem="ReturnsDataGridVM"
+                              Property="@nameof(ReturnsDataGridVM.DestinationWarehouse)"
+                              Type="@typeof(string)"
+                              Title="Destination Warehouse" />
+        <RadzenDataGridColumn TItem="ReturnsDataGridVM"
+                              Property="@nameof(ReturnsDataGridVM.Remarks)"
+                              Type="@typeof(string)"
+                              Title="Remarks" />
+        <RadzenDataGridColumn TItem="ReturnsDataGridVM"
+                              Frozen
+                              FrozenPosition="FrozenColumnPosition.Right"
+                              Width="35px">
+            <Template>
+                <RadzenButton Icon="arrow_right_alt" Size="ButtonSize.ExtraSmall" Click="() => ViewItem(context)" />
+            </Template>
+        </RadzenDataGridColumn>
+    </GridColumns>
+</AppDataGrid>
+
+@code {
+    async Task OpenTableSettings()
+    {
+        await DialogService.OpenAsync(
+            "Table Settings",
+            ds => @<AppGridSettings TItem="ReturnsDataGridVM"
+                                    @bind-Grid=@DataGrid.DataGrid
+                                    @bind-GridSettings=@DataGridSettings />,
+        options: GridSettingsService.GetDialogOptions());
+
+        await DataGrid.DataGrid.Reload();
+    }
+}

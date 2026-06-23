@@ -12,4 +12,19 @@ public enum DocumentStatus
 
     [Description("Cancelled")]
     Cancelled,
+
+    [Description("For Approval")]
+    A,
+    [Description("Pending Receipt")]
+    B,
+    [Description("Partially Received")]
+    D,
+    [Description("Pending Billing")]
+    E,
+    [Description("Fully Billed")]
+    F,
+    [Description("Closed")]
+    G,
+    [Description("Rejected")]
+    H
 }

@@ -25,6 +25,7 @@ public partial class AppDataGrid<TItem> : BaseComponent where TItem : class
     [Parameter] public RenderFragment<TItem>? Template { get; set; }
     [Parameter] public RenderFragment Footer { get; set; }
     [Parameter] public RenderFragment LoadingTemplate { get; set; }
+    [Parameter] public RenderFragment DetailTemplate { get; set; }
     [Parameter] public RenderFragment EmptyTemplate { get; set; }
     [Parameter] public RenderFragment GridColumns { get; set; }
     [Parameter] public bool ServerSide { get; set; } = true;
@@ -58,6 +59,7 @@ public partial class AppDataGrid<TItem> : BaseComponent where TItem : class
         {
             await base.OnAfterRenderAsync(firstRender);
             await LoadGridSettings();
+            if (Template is not null) DataGrid.Template = Template;
         }
     }
 

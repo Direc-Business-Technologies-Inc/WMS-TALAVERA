@@ -11,12 +11,10 @@ public static class NSServicesDI
 {
     public static IServiceCollection AddNSServicesIntegraton(this IServiceCollection services)
     {
-
         services.AddScoped<INetSuiteApiClientService, NetSuiteApiClientService>();
-
-
         services.AddScoped<HttpContextAccessor>();
 
+        services.AddSingleton<SuiteQLQueryBuilderFactoryService>();
         services.AddNSImplementationsIntegraton();
 
         return services;

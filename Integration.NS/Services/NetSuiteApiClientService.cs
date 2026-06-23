@@ -193,12 +193,12 @@ namespace Integration.NS.Services
             return Regex.Replace(query, @"\s+", " ").Trim();
         }
 
-        async Task<T> MakeRequest<T>(string url, string? reqBody)
+        public async Task<T> MakeRequest<T>(string url, string? reqBody, HttpMethod method)
         {
             if (_accessToken == null || DateTime.Now >= _tokenExpiryTime)
                 _accessToken = await GetAccessToken();
 
-            using var httpRequest = new HttpRequestMessage(HttpMethod.Post, url);
+            using var httpRequest = new HttpRequestMessage(method, url);
 
             httpRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _accessToken);
 
@@ -217,11 +217,11 @@ namespace Integration.NS.Services
             {
                 var responseJson = await httpResponse.Content.ReadAsStringAsync();
                 //_logger.LogDebug("SuiteQLQuery Result: {@Result}", responseJson);
-                if (string.IsNullOrEmpty(responseJson))
-                {
-                    return default(T);
-                }
+                if (string.IsNullOrEmpty(responseJson)) throw new Exception("Empty response from NetSuite API");
 
+                var response = JsonSerializer.Deserialize<T>(responseJson, JsonSerializerOption);
+                if (response == null) throw new Exception("Bad response from NetSuite API");
+                return response;
                 T obj = System.Text.Json.JsonSerializer.Deserialize<T>(responseJson, JsonSerializerRequestOption);
                 return obj;
             }
@@ -261,11 +261,15 @@ namespace Integration.NS.Services
                 T obj = System.Text.Json.JsonSerializer.Deserialize<T>(responseJson, JsonSerializerRequestOption);
                 return obj;
             }
-
-            throw new Exception($"Request failed with status code: {httpResponse.StatusCode}");
+            var errorBody = await httpResponse.Content.ReadAsStringAsync();
+            throw new Exception($"Request failed with status code: {httpResponse.StatusCode}\n Error Message: {errorBody}");
         }
-
-        async Task<T> MakeRequestOAuth1<T>(string url, string? reqBody)
+        async Task<T> MakeRequest<T>(string url, string? reqBody = null)
+        {
+            return await MakeRequest<T>(url, reqBody, HttpMethod.Post);
+        }
+        
+        public async Task<T> MakeRequestOAuth1<T>(string url, string? reqBody)
         {
             string consumerKey = Environment.GetEnvironmentVariable("OAUTH1_CONSUMER_KEY") ?? "";
             string consumerSecret = Environment.GetEnvironmentVariable("OAUTH1_CONSUMER_SECRET") ?? "";
@@ -368,6 +372,7 @@ namespace Integration.NS.Services
                 return System.Text.Json.JsonSerializer.Deserialize<T>(responseJson);
             }
 
+            var errorMessage = await  httpResponse.Content.ReadAsStringAsync();
             throw new Exception($"Request failed with status code: {httpResponse.StatusCode}");
         }
 
@@ -413,6 +418,19 @@ namespace Integration.NS.Services
             var result = await MakeRequest<NetSuiteResponse<T>>(url, jsonBody);
 
             return result.items;
+        }
+
+        public async Task<NetSuiteResponse<T>> ExecuteSuiteQLQuery<T>(string query, int? limit = null, int? offset = null)
+        {
+            var url = SuiteQLRoot;
+            if (limit.HasValue) url += $"?limit={limit.Value}" + (offset.HasValue ? $"&offset={offset.Value}" : "");
+            else if (offset.HasValue) url += $"?offset={offset.Value}";
+
+            query = FormatQuery(query);
+
+            var jsonBody = JsonSerializer.Serialize(new { q = query });
+
+            return await MakeRequest<NetSuiteResponse<T>>(url, jsonBody);
         }
 
         #region Receiving
@@ -659,6 +677,9 @@ namespace Integration.NS.Services
                 throw new Exception("An error occurred while updating Item Fulfillment status.", ex);
             }
         }
+
+        public string GetRestAPIURI => RestApiRoot;
+        public string GetRestletURI => $"https://{AccountId}.restlets.api.netsuite.com/app/site/hosting/restlet.nl";
         #endregion
     }
 }
