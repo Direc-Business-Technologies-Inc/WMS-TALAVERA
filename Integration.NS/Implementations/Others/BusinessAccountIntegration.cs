@@ -30,7 +30,7 @@ public class BusinessAccountIntegration(
 
         if (subsidiary != null)
         {
-            builder.Join("accountsubsidiarymap asm", on: "asm.account = account.id")
+            builder.Join("accountsubsidiarymap asm", on: "asm.account = acc.id")
                 .WithFilters(DataGridFilterUtilities.Equal("asm.subsidiary", subsidiary ?? 0));
         }
 

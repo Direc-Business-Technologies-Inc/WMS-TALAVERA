@@ -2,6 +2,7 @@ using Mapster;
 using Microsoft.AspNetCore.Components;
 using Web.BlazorServer.Defaults;
 using Web.BlazorServer.Handlers.Repositories.Transaction.InventoryAdjustment;
+using Web.BlazorServer.ViewModels.Transaction.InventoryAdjustment;
 
 namespace Web.BlazorServer.Components.Pages.Transaction.InventoryAdjustment;
 
@@ -20,6 +21,7 @@ public partial class InventoryAdjustmentViewPage
         base.OnParametersSet();
         if (string.IsNullOrEmpty(Ref)) NavError("Please select a inventory adjustment from the list");
     }
+
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -57,6 +59,11 @@ public partial class InventoryAdjustmentViewPage
             NavError(ex.Message);
             return Task.CompletedTask;
         });
+    }
+    Task OnReturn(InventoryAdjustmentVM data)
+    {
+        NavManager.NavigateTo(InventoryAdjustmentRoutes.INDEX);
+        return Task.CompletedTask;
     }
 
     void NavError(string message)
