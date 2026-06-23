@@ -30,14 +30,15 @@ public class SupplierReturnIntegration(
                     ("BUILTIN.DF(t.custbody_dbti_return_category)", nameof(SupplierReturnNSDTO.CategoryName)),
                     ("t.custbody_dbti_return_category", nameof(SupplierReturnNSDTO.CategoryId)),
                     ("t.tranid", nameof(SupplierReturnNSDTO.ReferenceNumber)),
-                    ("t.location", nameof(SupplierReturnNSDTO.LocationId)),
-                    ("BUILTIN.DF(t.location)", nameof(SupplierReturnNSDTO.LocationName)),
+                    ("ml.location", nameof(SupplierReturnNSDTO.LocationId)),
+                    ("BUILTIN.DF(ml.location)", nameof(SupplierReturnNSDTO.LocationName)),
                     ("t.memo", nameof(SupplierReturnNSDTO.Memo)),
                     ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(SupplierReturnNSDTO.Date)),
                     ("s.name", nameof(SupplierReturnNSDTO.StatusName)),
                     ("s.id", nameof(SupplierReturnNSDTO.StatusId))
                 )
                 .From("transaction t")
+                .LeftJoin("transactionline ml", "ml.mainline = 'T' and ml.transaction = t.id")
                 .Join("VendorReturnAuthorizationStatus s", on: "t.status = s.id")
                 .WithFilters(
                     DataGridFilterUtilities.Equal("t.recordtype", "vendorreturnauthorization"),
@@ -89,7 +90,7 @@ public class SupplierReturnIntegration(
             .From("transactionline tl")
             .Join("transaction t", on: "tl.transaction = t.id")
             .Join("item", on: "tl.item = item.id")
-            .Join("unitsTypeUom uom", on: "tl.units = uom.internalid")
+            .LeftJoin("unitsTypeUom uom", on: "tl.units = uom.internalid")
             .WithFilters(
                 DataGridFilterUtilities.Equal("t.recordtype", "vendorreturnauthorization"),
                 DataGridFilterUtilities.Equal("t.tranid", referenceNumber)
