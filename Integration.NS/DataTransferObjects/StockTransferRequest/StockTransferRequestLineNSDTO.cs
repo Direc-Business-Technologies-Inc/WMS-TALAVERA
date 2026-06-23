@@ -5,14 +5,16 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Application.DataTransferObjects.Transactions.StockTransferRequest;
+namespace Integration.NS.DataTransferObjects.StockTransferRequest;
 
-public class StockTransferRequestLineDTO
+public class StockTransferRequestLineNSDTO
 {
     public int ItemId { get; set; }
     public string ItemCode { get; set; } = string.Empty;
     public string ItemDescription { get; set; } = string.Empty;
-    public ItemUnitDTO? UoM { get; set; } = null;
+    public string UoMName { get; set; } = string.Empty;
+    public int UoMId { get; set; }
+    public decimal UoMRate { get; set; }
     public string Warehouse { get; set; } = string.Empty;
     public decimal QuantityOnHand { get; set; }
     public decimal QuantityAlloted { get; set; }

@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Components;
 using Radzen;
 using Shared.Entities;
+using Shared.Libraries.Utilities;
 using Web.BlazorServer.Components.Shared.Abstraction;
 using Web.BlazorServer.Defaults;
 using Web.BlazorServer.Handlers.Implementations.Transaction.Receiving;
@@ -16,6 +17,7 @@ namespace Web.BlazorServer.Components.Pages.Transaction.StockTransferRequest.Com
 partial class STRDataGrid
 {
     [Inject] IGridSettingsService GridSettingsService { get; set; } = default!;
+    [Inject] IStockTransferRequestHandler strHandler { get; set; } = default!;
 
     [Parameter][EditorRequired]
     public required DataGetterDelegate DataGetter { get; init; }
@@ -25,8 +27,10 @@ partial class STRDataGrid
 
     AppDataGrid<StockTransferRequestDataGridVM> DataGrid { get; set; }
     DataGridSettings DataGridSettings { get; set; }
+    TransferOrderStatusVM? StatusFilter { get; set; } = null;
 
     readonly string ActionGetStockTransferRequests = "get things from db";
+    readonly string ActionGetTranferOrderStatuses = "Get Transfer Order Status";
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -39,6 +43,13 @@ partial class STRDataGrid
         }
     }
 
+    async Task StatusFilterChanged(TransferOrderStatusVM? statusFilter)
+    {
+        if (statusFilter?.Id == StatusFilter?.Id) return;
+
+        StatusFilter = statusFilter;
+        await DataGrid.DataGrid.Reload();
+    }
 
     async Task<DataGridResultVM<StockTransferRequestDataGridVM>> LoadDataAsync(DataGridIntent intent)
     {
@@ -53,6 +64,12 @@ partial class STRDataGrid
                     Property = "Date",
                     Direction = SortDirectionEnum.Descending
                 });
+            }
+            if (StatusFilter is not null)
+            {
+                intent.Filters.Add(
+                    DataGridFilterUtilities.Equal("StatusId", StatusFilter.Id)
+                );
             }
 
             return await DataGetter(intent);
@@ -71,6 +88,14 @@ partial class STRDataGrid
 
         await DataGrid.DataGrid.ReloadSettings();
         await DataGrid.DataGrid.Reload();
+    }
+
+    async Task<(IEnumerable<TransferOrderStatusVM>, int count)> TranferOrderStatusProvider(DataGridIntent intent)
+    {
+        intent.Filters.Add(
+            DataGridFilterUtilities.In(nameof(TransferOrderStatusVM.Id), new string[] { "C", "A" }
+        ));
+        return await strHandler.GetTransferOrderStatuses(intent);
     }
 
     void ViewSTR(StockTransferRequestDataGridVM item)

@@ -83,7 +83,6 @@ public class StockTransferRequestMockHandler : IStockTransferRequestHandler
             {
                 Id = i,
                 ReferenceNumber = $"STR{i:000}",
-                Status = Random.Shared.Next(3) switch { 0 => "Transfer Order", 1 => "ICTO", _ => "Returns"},
                 //Vendor = $"Some Guy",
                 //SourceLocation = $"Penn State",
                 //DestinationLocation = $"Nebraska",
@@ -131,6 +130,11 @@ public class StockTransferRequestMockHandler : IStockTransferRequestHandler
     }
 
     public Task<bool> UpdateStockTransferRequest(StockTransferRequestInfoVM data)
+    {
+        throw new NotImplementedException();
+    }
+
+    public Task<(IEnumerable<TransferOrderStatusVM> data, int count)> GetTransferOrderStatuses(DataGridIntent intent)
     {
         throw new NotImplementedException();
     }

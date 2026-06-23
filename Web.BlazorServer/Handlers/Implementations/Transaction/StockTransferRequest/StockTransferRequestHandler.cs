@@ -59,6 +59,15 @@ public class StockTransferRequestHandler(ISender sender) : IStockTransferRequest
         return (data.Adapt<IEnumerable<StockTransferRequestDataGridVM>>(), count);
     }
 
+    public async Task<(IEnumerable<TransferOrderStatusVM> data, int count)> GetTransferOrderStatuses(DataGridIntent intent)
+    {
+        GetTransferOrderStatusesQry query = new(intent);
+
+        (var data, int count) = await sender.Send(query);
+
+        return (data.Adapt<IEnumerable<TransferOrderStatusVM>>(), count);
+    }
+
     public async Task<bool> CreateStockTransferRequest(StockTransferRequestInfoVM data)
     {
         var dto = data.Adapt<StockTransferRequestInfoDTO>();

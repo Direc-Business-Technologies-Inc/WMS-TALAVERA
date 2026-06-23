@@ -9,7 +9,6 @@ namespace Application.DataTransferObjects.Transactions.StockTransferRequest;
 
 public class StockTransferRequestInfoDTO
 {
-    public string Status { get; set; } = string.Empty;
     public int Id { get; set; }
     public string ReferenceNumber { get; set; } = string.Empty;
     public VendorDTO? Vendor { get; set; } = null;
@@ -17,6 +16,7 @@ public class StockTransferRequestInfoDTO
     public LocationDTO? DestinationLocation { get; set; } = null;
     public SubsidiaryDTO? Subsidiary { get; set; } = null;
     public SubsidiaryDTO? ToSubsidiary { get; set; } = null;
+    public TransferOrderStatus? Status { get; set; } = null;
     public string PreparedBy { get; set; } = string.Empty;
     public string Remarks { get; set; } = string.Empty;
     public TransferCategory TransferCategory { get; set; } = TransferCategory.Transfer;

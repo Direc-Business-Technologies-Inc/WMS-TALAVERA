@@ -1,12 +1,13 @@
-﻿using System;
+﻿using Application.DataTransferObjects.Transactions.StockTransferRequest;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Application.DataTransferObjects.Transactions.StockTransferRequest;
+namespace Integration.NS.DataTransferObjects.StockTransferRequest;
 
-public class StockTransferRequestDataGridDTO
+public class StockTransferRequestDataGridNSDTO
 {
     public int Id { get; set; }
     public string ReferenceNumber { get; set; } = string.Empty;
@@ -16,6 +17,7 @@ public class StockTransferRequestDataGridDTO
     public string ToSubsidiary { get; set; } = string.Empty;
     public string PreparedBy { get; set; } = string.Empty;
     public string Remarks { get; set; } = string.Empty;
-    public TransferOrderStatus? Status { get; set; } = null;
+    public string StatusName { get; set; } = string.Empty;
+    public string StatusId { get; set; } = string.Empty;
     public DateTime Date { get; set; }
 }
