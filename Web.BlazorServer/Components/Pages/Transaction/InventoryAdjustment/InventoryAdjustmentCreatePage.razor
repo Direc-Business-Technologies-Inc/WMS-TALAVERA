@@ -1,0 +1,22 @@
+﻿@using Web.BlazorServer.Components.Custom
+@using Web.BlazorServer.Components.Pages.Transaction.InventoryAdjustment.Components.InventoryAdjustmentForm
+@using Web.BlazorServer.Components.Security
+@using Web.BlazorServer.Components.Shared.Skeletons
+@using Web.BlazorServer.ViewModels.Transaction.InventoryAdjustment
+
+@inherits BaseForm<InventoryAdjustmentVM>
+@layout ProtectedLayout
+@attribute [AppAuthorizationAttribute("VIEW", "OGRC")]
+@attribute [Route(InventoryAdjustmentRoutes.CREATE)];
+
+
+
+<PageTitle>Creating Inventory Adjustment </PageTitle>
+
+<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" class="rz-mb-4">
+    <AppBreadCrumbs ModuleCode="OGRC" />
+</RadzenStack>
+
+<AppContent>
+    <InventoryAdjustmentForm Model="@FormData" EditContext="@EditContext" OnReturnClicked="OnReturn" OnSubmit="@OnSubmit"/>
+</AppContent>

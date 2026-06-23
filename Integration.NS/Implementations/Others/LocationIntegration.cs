@@ -54,4 +54,25 @@ public class LocationIntegration(
         var result = await query.ExecuteWithPaging<LocationDTO>(netsuiteService);
         return (result.items, result.totalResults);
     }
+
+    public async Task<(IEnumerable<LocationBinDTO> data, int count)> GetLocationBinsAsync(LocationDTO dto, DataGridIntent intent)
+    {
+        return await GetLocationBinsAsync(dto.Id, intent);
+    }
+
+    public async Task<(IEnumerable<LocationBinDTO> data, int count)> GetLocationBinsAsync(int locationId, DataGridIntent intent)
+    {
+        var query = builderFactory.Create()
+            .Select(
+                ("bin.id", nameof(LocationBinDTO.Id)),
+                ("bin.binnumber", nameof(LocationBinDTO.BinNumber)),
+                ("bin.memo", nameof(LocationBinDTO.Memo))
+            )
+            .From("bin")
+            .WithFilters(DataGridFilterUtilities.Equal("bin.location", locationId))
+            .Build();
+
+        var result = await netsuiteService.ExecuteSuiteQLQuery<LocationBinDTO>(query.Query, query.Limit, query.Offset);
+        return (result.items, result.totalResults);
+    }
 }
