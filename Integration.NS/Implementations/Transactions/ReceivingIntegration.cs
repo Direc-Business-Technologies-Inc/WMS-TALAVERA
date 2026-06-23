@@ -89,14 +89,15 @@ public class ReceivingIntegration(
             .Select(
                 ("t.id", "Id"),
                 ("t.tranid", "ReferenceNumber"),
-                ("t.status", "Status"),
                 ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", "Date"),
                 ("t.location", "Location"),
                 ("TO_CHAR(t.custbody_dbti_order_date, 'YYYY-MM-DD\"T\"HH24:MI:SS')", "DeliveryDate"),
                 ("t.memo", "Memo"),
                 ("BUILTIN.DF(t.entity)", "VendorName"),
+                ("s.name", nameof(PurchaseOrderDataGridDTO.Status)),
                 ("t.transferlocation", "TransferLocation"))
             .From("transaction t")
+            .LeftJoin("purchaseorderstatus s", on:"s.id = t.status")
             .WithDatagridIntent(intent)
             .WithFilters(
                 Equal("t.recordtype", "purchaseorder"),
@@ -115,15 +116,17 @@ public class ReceivingIntegration(
             .Select(
                 ("t.id", "Id"),
                 ("t.tranid", "ReferenceNumber"),
-                ("t.status", "Status"),
                 ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", "Date"),
                 ("BUILTIN.DF(t.subsidiary)", "SourceSubsidiary"),
                 ("BUILTIN.DF(t.tosubsidiary)", "DestinationSubsidiary"),
                 ("BUILTIN.DF(tl.location)", "Location"),
+                ("s.name", nameof(TransferOrderDataGridDTO.Status)),
+                ("t.memo", nameof(TransferOrderDataGridDTO.Remarks)),
                 ("BUILTIN.DF(t.transferlocation)", "TransferLocation")
                 )
             .From("transaction t")
             .Join("transactionline tl", on:"tl.transaction = t.id")
+            .LeftJoin("transferorderstatus s", on: "t.status = s.id")
             .WithFilters(
                 Equal("tl.mainline", "T"),
                 In("t.recordtype", new string[] { "transferorder", "intercompanytransferorder" }),
@@ -214,10 +217,13 @@ public class ReceivingIntegration(
                 ("BUILTIN.DF(t.tosubsidiary)", "DestinationSubsidiary"),
                 ("t.custbody_dbti_return_to_vendor", "VendorName"),
                 ("BUILTIN.DF(t.location)", "Location"),
+                ("s.name", nameof(ReturnsDataGridDTO.Status)),
                 ("BUILTIN.DF(t.transferlocation)", "TransferLocation"),
+
                 ("t.memo", "Memo")
             )
             .From("transaction t")
+            .LeftJoin("transferorderstatus s", on: "s.id = t.status")
             .WithDatagridIntent(intent)
             .WithFilters(
                 Equal("t.recordtype", "intercompanytransferorder"),

@@ -38,6 +38,14 @@
                               Type="@typeof(string)"
                               Title="Destination Warehouse" />
         <RadzenDataGridColumn TItem="TransferOrderDataGridVM"
+                              Property="@nameof(TransferOrderDataGridVM.Status)"
+                              Type="@typeof(string)"
+                              Title="Status" />
+        <RadzenDataGridColumn TItem="TransferOrderDataGridVM"
+                              Property="@nameof(TransferOrderDataGridVM.Remarks)"
+                              Type="@typeof(string)"
+                              Title="Remarks" />
+        <RadzenDataGridColumn TItem="TransferOrderDataGridVM"
                               Frozen
                               FrozenPosition="FrozenColumnPosition.Right"
                               Width="35px">
