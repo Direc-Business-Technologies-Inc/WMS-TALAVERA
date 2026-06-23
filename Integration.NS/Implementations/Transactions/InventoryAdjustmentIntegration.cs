@@ -192,7 +192,8 @@ public class InventoryAdjustmentIntegration(
                                 quantity = line.QuantityAlloted < 0 ? -d.QuantityAlloted :  d.QuantityAlloted
                             })
                         }
-                    }
+                    },
+                    units = line.UoM?.Id.ToString() ?? null
                 })
             }
         };
