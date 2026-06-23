@@ -1,6 +1,6 @@
 using Mobile.MAUI.Helpers.Extensions;
 using Mobile.MAUI.Services;
-using Shared.Libraries.ViewModel;
+using Shared.Libraries.ViewModel.TransferOrder;
 
 namespace Mobile.MAUI.Components.Pages.Receiving.TransferOrder;
 
@@ -19,7 +19,7 @@ public partial class TransferOrderView
             TaskAsync = async () =>
             {
                 await InvokeAsync(StateHasChanged);
-                var res = await Client.Get<List<TransferOrderVM>>("/TransferOrder/PendingReceipt");
+                var res = await Client.Get<List<TransferOrderVM>>("/Receiving/TransferOrder/PendingReceipt");
                 return res;
             },
             OnSuccess = async (result) =>

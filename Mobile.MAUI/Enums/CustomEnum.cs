@@ -20,8 +20,9 @@ public class CustomEnum
     {
         [Description("Receiving")]
         Receiving = 1,
-        [Description("ItemFulfillment")]
-        ItemFulfillment = 2,
-
+        [Description("Packing")]
+        Packing = 2,
+        [Description("TripTicket")]
+        TripTicket = 3,
     }
 }

@@ -1,41 +1,15 @@
 ﻿
-export function ShowSuccess(message) {
-    try {
-        console.log(message);
-        window.Toastify({
-            text: message,
-            
-            className: "toast-success",
-
-        }).showToast();
-    } catch (e) {
-        console.log(e);
-    }
+function showToast(message, className) {
+    window.Toastify({
+        text: message,
+        duration: 2000,
+        //close: true,
+        //gravity: "top",
+        //position: "right",
+        className,
+    }).showToast();
 }
 
-export function ShowError(message) {
-    try {
-        console.log(message);
-        window.Toastify({
-            text: message,
-
-            className: "toast-error",
-
-        }).showToast();
-    } catch (e) {
-        console.log(e);
-    }
-}
-export function ShowWarning(message) {
-    try {
-        console.log(message);
-        window.Toastify({
-            text: message,
-
-            className: "toast-warning ",
-
-        }).showToast();
-    } catch (e) {
-        console.log(e);
-    }
-}
+export const ShowSuccess = (message) => showToast(message, "toast-success");
+export const ShowError = (message) => showToast(message, "toast-error");
+export const ShowWarning = (message) => showToast(message, "toast-warning");

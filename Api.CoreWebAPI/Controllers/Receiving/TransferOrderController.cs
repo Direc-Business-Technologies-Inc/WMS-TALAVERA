@@ -1,4 +1,6 @@
-﻿using Application.DataTransferObjects.Transactions.Receiving.NS;
+﻿using Application.DataTransferObjects.Transactions.Commons.NS;
+using Application.DataTransferObjects.Transactions.Commons.NS.Request;
+using Application.DataTransferObjects.Transactions.Receiving.NS;
 using Application.DataTransferObjects.Transactions.Receiving.NS.Request;
 using Application.UseCases.Commands.Transaction.Receiving.NS.TransferOrder;
 using Application.UseCases.Queries.Transaction.Receiving.NS.TransferOrder;
@@ -6,12 +8,12 @@ using Mapster;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Shared.Libraries.Entities;
-using Shared.Libraries.ViewModel;
+using Shared.Libraries.ViewModel.TransferOrder;
 
 namespace Api.CoreWebAPI.Controllers.Receiving;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/Receiving/[controller]")]
 public class TransferOrderController(ISender Sender) : ControllerBase
 {
     [HttpGet("PendingReceipt")]
@@ -37,7 +39,7 @@ public class TransferOrderController(ISender Sender) : ControllerBase
     [HttpPost("SaveScan")]
     public async Task<ApiResult> TransferOrderSaveScan(List<PostTransferOrderDTO> req)
     {
-        await Sender.Send(new PostTransferOrderCmd(req));
+        await Sender.Send(new PostTransferOrderIRCmd(req));
 
         return ApiResult.Succeeded();
     }

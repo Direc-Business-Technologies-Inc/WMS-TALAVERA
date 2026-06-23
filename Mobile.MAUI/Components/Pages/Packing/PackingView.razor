@@ -1,0 +1,19 @@
+﻿@page "/packing"
+@using Mobile.MAUI.Components.Pages.Packing.Returns
+@using Mobile.MAUI.Components.Pages.Packing.TransferOrder
+@using Mobile.MAUI.Components.Pages.Packing.VendorReturnAuthorization
+<PageHeading Title="Packing" BackPath="/" />
+
+<RadzenTabs Change=@OnChange TabPosition="TabPosition.Top" RenderMode="TabRenderMode.Client">
+    <Tabs>
+        <RadzenTabsItem Text="STR">
+            <TransferOrderView />
+        </RadzenTabsItem>
+        <RadzenTabsItem Text="Returns">
+            <ReturnsView />
+        </RadzenTabsItem>
+        <RadzenTabsItem Text="VRA">
+            <VendorReturnAuthorizationView />
+        </RadzenTabsItem>
+    </Tabs>
+</RadzenTabs>
