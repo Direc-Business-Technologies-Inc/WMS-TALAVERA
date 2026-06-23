@@ -14,8 +14,16 @@ public partial class SupplierReturnForm
     [Inject] ILocationHandler locationHandler { get; set; } = default!;
     [Inject] IVendorHandler vendorHandler { get; set; } = default!;
     [Inject] IItemsHandler itemsHandler { get; set; } = default!;
+
     [Parameter][EditorRequired] public required SupplierReturnVM Model { get; set; }
     [Parameter][EditorRequired] public required EditContext EditContext { get; set; }
+
+    [Parameter] public EventCallback<SupplierReturnVM> OnSecondaryAction { get; set; }
+    [Parameter] public EventCallback<SupplierReturnVM> OnSubmit { get; set; }
+    [Parameter] public EventCallback<SupplierReturnVM> OnReturn { get; set; }
+    [Parameter] public string SecondaryActionString { get; set; } = "Action";
+    [Parameter] public string SubmitString { get; set; } = "Submit";
+    [Parameter] public string ReturnString { get; set; } = "Return";
     [Parameter] public bool ReadOnly { get; set; } = false;
 
     async Task<(IEnumerable<ReturnCategoryVM>, int)> CategoryProvider(DataGridIntent intent)
@@ -42,5 +50,23 @@ public partial class SupplierReturnForm
     async Task<(IEnumerable<ItemUnitVM>, int)> ItemUnitsProvider(DataGridIntent intent, int itemId)
     {
         return await itemsHandler.GetItemUnits(itemId,intent);
+    }
+
+    async Task ReturnClicked()
+    {
+        if (OnReturn.HasDelegate)
+            await OnReturn.InvokeAsync(Model);
+    }
+
+    async Task SecondaryActionClicked()
+    {
+        if (OnSecondaryAction.HasDelegate)
+            await OnSecondaryAction.InvokeAsync(Model);
+    }
+
+    async Task SubmitClicked()
+    {
+        if (OnSubmit.HasDelegate)
+            await OnSubmit.InvokeAsync(Model);
     }
 }

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Components;
 using Web.BlazorServer.Handlers.Repositories.Transaction.SupplierReturn;
 using Web.BlazorServer.Helpers;
 using Web.BlazorServer.Services.Implementation;
+using Web.BlazorServer.ViewModels.Transaction.SupplierReturn;
 
 namespace Web.BlazorServer.Components.Pages.Transaction.SupplierReturn;
 
@@ -49,6 +50,11 @@ public partial class SupplierReturnView
             response.Adapt(FormData);
             await InvokeAsync(StateHasChanged);
         });
+    }
+
+    async Task Return(SupplierReturnVM _)
+    {
+        NavManager.NavigateTo(SupplierReturnRoutes.INDEX);
     }
 
     protected override Task InitializeEditing()

@@ -1,0 +1,14 @@
+﻿@using Web.BlazorServer.Components.Pages.Transaction.SupplierReturn.Components
+@using Web.BlazorServer.Components.Security
+@using Web.BlazorServer.ViewModels.Transaction.SupplierReturn
+
+@inherits BaseForm<SupplierReturnVM>
+@layout ProtectedLayout
+@attribute [AppAuthorizationAttribute("VIEW", "OSRN")]
+@attribute [Route(SupplierReturnRoutes.CREATE)]
+
+
+<PageTitle>Creating Return to Supplier</PageTitle>
+<AppContent>
+    <SupplierReturnForm Model="@FormData" EditContext="@EditContext" OnReturn="@Return"/>
+</AppContent>

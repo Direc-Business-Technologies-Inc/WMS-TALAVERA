@@ -15,6 +15,6 @@
     <AppFormSkeleton Loading="@IsLoadingData" TItem="SupplierReturnVM" />
     @if (!IsLoadingData)
     {
-        <SupplierReturnForm Model="@FormData" EditContext="@EditContext" />
+        <SupplierReturnForm Model="@FormData" EditContext="@EditContext" ReadOnly OnReturn="@Return" />
     }
-    </AppContent>
+</AppContent>
