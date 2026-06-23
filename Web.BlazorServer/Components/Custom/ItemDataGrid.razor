@@ -1,0 +1,44 @@
+﻿@using Web.BlazorServer.ViewModels.Others
+@inherits BaseComponent
+
+<AppDataGrid TItem="ItemsVM" @ref="@DataGrid" Id="@Id" GridSettings="@DataGridSettings" @bind-GridSettingsLoaded="@GridSettingsLoaded" ActionName="@ActionGetItems" DataGetter="@LoadDataAsync">
+    <HeaderTemplate>
+        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" AlignItems="AlignItems.Center" Gap="8px">
+            <RadzenButton Icon="settings" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@OpenTableSettings" />
+            <RadzenButton Icon="sync" Size="ButtonSize.Small" Click="DataGrid.ReloadDataAsync" />
+        </RadzenStack>
+    </HeaderTemplate>
+    <GridColumns>
+        <RadzenDataGridColumn TItem="ItemsVM" Property="@nameof(ItemsVM.ItemNumber)" Title="Item Id" />
+        <RadzenDataGridColumn TItem="ItemsVM" Property="@nameof(ItemsVM.Name)" Title="Name " />
+        <RadzenDataGridColumn TItem="ItemsVM" Property="@nameof(ItemsVM.Description)" Title="Description " />
+        <RadzenDataGridColumn TItem="ItemsVM" Property="@nameof(ItemsVM.QuantityOnHand)" Title="On Hand " />
+        <RadzenDataGridColumn TItem="ItemsVM"
+                              Frozen
+                              FrozenPosition="FrozenColumnPosition.Right"
+                              Width="35px"
+                              Filterable="false" Sortable="false" Pickable="false">
+            <Template>
+                <RadzenButton Variant="Variant.Text" Icon="@(SelectedItems.Contains(context) ? "check_box" : "check_box_outline_blank")" Size="ButtonSize.ExtraSmall" Click="() => SelectItem(context)" />
+            </Template>
+        </RadzenDataGridColumn>
+    </GridColumns>
+</AppDataGrid>
+    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5em" Visible="@(SelectionMode == SelectionModes.Multiple)" class="rz-mt-3 rz-w-100">
+        <RadzenButton ButtonType="ButtonType.Button" ButtonStyle="ButtonStyle.Primary" Text="Clear Selection" Click="@(_ => SelectedItems.Clear())" />
+        <RadzenButton ButtonType="ButtonType.Button" ButtonStyle="ButtonStyle.Success" Text="Select" Click="@Submit" />
+    </RadzenStack>
+
+@code {
+    async Task OpenTableSettings()
+    {
+        await DialogService.OpenAsync(
+            "Table Settings",
+            ds => @<AppGridSettings TItem="ItemsVM"
+                                    @bind-Grid=@DataGrid.DataGrid
+                                    @bind-GridSettings=@DataGridSettings />,
+        options: GridSettingsService.GetDialogOptions());
+
+        await DataGrid.DataGrid.Reload();
+    }
+}

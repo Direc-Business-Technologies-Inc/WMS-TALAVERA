@@ -1,0 +1,114 @@
+﻿@using Mapster
+@using Web.BlazorServer.Components.Pages.Transaction.Receiving.Components
+@using Web.BlazorServer.Components.Pages.Transaction.StockTransferRequest.Components
+@using Web.BlazorServer.Components.Security
+@using Web.BlazorServer.Components.Shared.Skeletons
+@using Web.BlazorServer.Defaults
+@using Web.BlazorServer.Handlers.Repositories.Transaction.StockTransferRequest
+@using Web.BlazorServer.ViewModels.Administration.User
+@using Web.BlazorServer.ViewModels.Transaction.Receiving
+@using Web.BlazorServer.ViewModels.Transaction.StockTransferRequest
+
+@inherits BaseForm<StockTransferRequestInfoVM>
+@layout ProtectedLayout
+@attribute [AppAuthorizationAttribute("VIEW", "ORCV")]
+@attribute [Route(STRRoutes.Update)]
+
+
+<PageTitle>Receiving</PageTitle>
+
+<AppContent>
+<AppFormSkeleton TItem="StockTransferRequestInfoVM" Loading="@IsLoadingData" />
+@if (!IsLoadingData)
+{
+    <STRForm OnSubmit="@Update" Model="@FormData" EditContext="@EditContext" ReturnURI="@(STRRoutes.View + $"?ref={Ref}")"/>
+}
+</AppContent>
+    @code {
+    [Inject] IStockTransferRequestHandler handler { get; set; } = default!;
+
+    [SupplyParameterFromQuery]
+    public string? Ref { get; set; }
+
+    bool IsLoadingData => AppBusyService.IsBusy(ActionGetStockTransferRequest);
+    bool IsUploadingData => AppBusyService.IsBusy(ActionUpdateStockTransferRequest);
+
+    readonly string ActionGetStockTransferRequest = "Get Stock Transfer Request";
+    readonly string ActionUpdateStockTransferRequest = "Update Stock Transfer Request";
+
+    protected override void OnParametersSet()
+    {
+        base.OnParametersSet();
+        if (string.IsNullOrEmpty(Ref)) NavError("Please select a stock transfer request from the list");
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+        if (firstRender)
+        {
+            AppBusyService.SetBusy(ActionGetStockTransferRequest, true);
+            await InvokeAsync(StateHasChanged);
+            await LoadDataAsync();
+        }
+    }
+
+    async Task LoadDataAsync()
+    {
+        var action = await AppActionFactory.RunAsync(async () =>
+        {
+            if (string.IsNullOrEmpty(Ref)) throw new Exception("Please select a stock transfer request from the list");
+
+            var response = await handler.GetStockTransferRequest(Ref);
+
+            if (response is null) throw new Exception($"Stock transfer request \"{Ref}\" could not be found");
+
+            return response;
+        }, AppActionOptionPresets.Loading(ActionGetStockTransferRequest));
+
+        action.OnSuccess(async (res) =>
+        {
+            res.Adapt(FormData);
+            await InvokeAsync(StateHasChanged);
+        });
+
+        action.OnFailure(ex =>
+        {
+            NavError(ex.Message);
+            return Task.CompletedTask;
+        });
+    }
+
+    async Task<bool> Update(StockTransferRequestInfoVM model)
+    {
+        var action = await AppActionFactory.RunAsync(async () =>
+        {
+            return await handler.UpdateStockTransferRequest(model);
+        }, AppActionOptionPresets.Confirmed(ActionUpdateStockTransferRequest));
+
+        action.OnSuccess(res =>
+        {
+            NavManager.NavigateTo(STRRoutes.Root);
+            return Task.CompletedTask;
+        });
+
+        action.OnFailure(ex =>
+        {
+            ToastService.Error(ex.Message);
+            return Task.CompletedTask;
+        });
+
+        return true;
+    }
+
+    void NavError(string message)
+    {
+        ToastService.Error(message);
+        NavManager.NavigateTo(STRRoutes.Root, true);
+    }
+
+
+    protected override Task InitializeEditing() => throw new NotImplementedException();
+    protected override Task CancelEditing() => throw new NotImplementedException();
+    protected override Task HandleSubmit() => throw new NotImplementedException();
+}
