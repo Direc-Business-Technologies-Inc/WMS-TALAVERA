@@ -14,9 +14,11 @@ public class SupplierReturnHandler(ISender sender) : ISupplierReturnHandler
         throw new NotImplementedException();
     }
 
-    public Task<(IEnumerable<ReturnCategoryVM> Data, int Count)> GetReturnCategories(DataGridIntent intent)
+    public async Task<(IEnumerable<ReturnCategoryVM> Data, int Count)> GetReturnCategories(DataGridIntent intent)
     {
-        throw new NotImplementedException();
+        GetReturnCategoriesQry query = new GetReturnCategoriesQry(intent);
+        (var data, int count) = await sender.Send(query);
+        return (data.Adapt<IEnumerable<ReturnCategoryVM>>(), count);
     }
 
     public Task<IEnumerable<SupplierReturnLineVM>> GetReturnLinesAsync()
@@ -33,8 +35,12 @@ public class SupplierReturnHandler(ISender sender) : ISupplierReturnHandler
         return (data.Adapt<IEnumerable<SupplierReturnDataGridVM>>(), count);
     }
 
-    public Task<(IEnumerable<ReturnStatusVM> Data, int Count)> GetReturnStatuses(DataGridIntent intent)
+    public async Task<(IEnumerable<ReturnStatusVM> Data, int Count)> GetReturnStatuses(DataGridIntent intent)
     {
-        throw new NotImplementedException();
+        GetReturnStatusesQry query = new(intent);
+
+        (var data, int count) = await sender.Send(query);
+
+        return (data.Adapt<IEnumerable<ReturnStatusVM>>(), count);
     }
 }

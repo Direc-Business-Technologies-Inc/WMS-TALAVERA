@@ -1,6 +1,7 @@
 ﻿using Application.DataTransferObjects.Transactions.SupplierReturn;
 using Application.UseCases.Repositories.Integration.Others;
 using Application.UseCases.Repositories.Integration.Transaction.SupplierReturn;
+using Integration.NS.Helpers;
 using Integration.NS.Services;
 using Shared.Entities;
 using Shared.Libraries.Utilities;
@@ -22,9 +23,19 @@ public class SupplierReturnIntegration(
         throw new NotImplementedException();
     }
 
-    public Task<(IEnumerable<ReturnCategoryDTO> Data, int Count)> GetReturnCategories(DataGridIntent intent)
+    public async Task<(IEnumerable<ReturnCategoryDTO> Data, int Count)> GetReturnCategories(DataGridIntent intent)
     {
-        throw new NotImplementedException();
+        var query = builderFactory.Create()
+            .Select(
+                ("id", nameof(ReturnCategoryDTO.Id)),
+                ("name", nameof(ReturnCategoryDTO.Name))
+            )
+            .From("CUSTOMLIST_DBTI_RETURN_CATEGORY_LIST")
+            .WithDatagridIntent(intent)
+            .Build();
+
+        var response = await query.ExecuteWithPaging<ReturnCategoryDTO>(netsuiteService);
+        return (response.items, response.totalResults);
     }
 
     public Task<IEnumerable<SupplierReturnLineDTO>> GetReturnLinesAsync()
@@ -54,8 +65,19 @@ public class SupplierReturnIntegration(
         return (response.items, response.totalResults);
     }
 
-    public Task<(IEnumerable<ReturnStatusDTO> Data, int Count)> GetReturnStatuses(DataGridIntent intent)
+    public async Task<(IEnumerable<ReturnStatusDTO> Data, int Count)> GetReturnStatuses(DataGridIntent intent)
     {
-        throw new NotImplementedException();
+        var query = builderFactory.Create()
+            .Select(
+                ("id", nameof(ReturnStatusDTO.Id)),
+                ("name", nameof(ReturnStatusDTO.Name))
+            )
+            .From("VendorReturnAuthorizationStatus")
+            .WithDatagridIntent(intent)
+            .Build();
+
+        var response = await query.ExecuteWithPaging<ReturnStatusDTO>(netsuiteService);
+
+        return (response.items, response.totalResults);
     }
 }
