@@ -13,6 +13,6 @@ public interface ISupplierReturnIntegration
     Task<(IEnumerable<SupplierReturnDataGridDTO> Data, int Count)> GetReturnsDataGridAsync(DataGridIntent intent);
     Task<(IEnumerable<ReturnCategoryDTO> Data, int Count)> GetReturnCategories(DataGridIntent intent);
     Task<(IEnumerable<ReturnStatusDTO> Data, int Count)> GetReturnStatuses(DataGridIntent intent);
-    Task<SupplierReturnDTO?> GetReturnAsync();
-    Task<IEnumerable<SupplierReturnLineDTO>> GetReturnLinesAsync();
+    Task<SupplierReturnDTO?> GetReturnAsync(string referenceNumber);
+    Task<IEnumerable<SupplierReturnLineDTO>> GetReturnLinesAsync(string referenceNumber);
 }

@@ -9,9 +9,13 @@ namespace Web.BlazorServer.Handlers.Implementations.Transaction.SupplierReturn;
 
 public class SupplierReturnHandler(ISender sender) : ISupplierReturnHandler
 {
-    public Task<SupplierReturnVM?> GetReturnAsync()
+    public async Task<SupplierReturnVM?> GetReturnAsync(string Ref)
     {
-        throw new NotImplementedException();
+        GetReturnQry query = new(Ref);
+
+        var dto = await sender.Send(query);
+
+        return dto?.Adapt<SupplierReturnVM>() ?? null;
     }
 
     public async Task<(IEnumerable<ReturnCategoryVM> Data, int Count)> GetReturnCategories(DataGridIntent intent)
@@ -21,7 +25,7 @@ public class SupplierReturnHandler(ISender sender) : ISupplierReturnHandler
         return (data.Adapt<IEnumerable<ReturnCategoryVM>>(), count);
     }
 
-    public Task<IEnumerable<SupplierReturnLineVM>> GetReturnLinesAsync()
+    public Task<IEnumerable<SupplierReturnLineVM>> GetReturnLinesAsync(string Ref)
     {
         throw new NotImplementedException();
     }
