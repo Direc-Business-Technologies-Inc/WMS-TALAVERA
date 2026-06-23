@@ -45,6 +45,7 @@
   </ItemGroup>
 	
   <ItemGroup>
+    <Folder Include="DataTransferObjects\SupplierReturn\" />
     <Folder Include="Repositories\" />
   </ItemGroup>
 

@@ -1,0 +1,6 @@
+﻿@using Web.BlazorServer.Components.Custom
+<QuickDataGrid DataGetter="@LoadDataAsync" ActionName="@ActionGetReturnsToSupplier" Id="returns_to_supplier_datagrid">
+    <RowActions>
+        <RadzenButton Icon="arrow_right_alt" Size="ButtonSize.ExtraSmall" Click="() => OnRowAction(context)" />
+    </RowActions>
+</QuickDataGrid>
