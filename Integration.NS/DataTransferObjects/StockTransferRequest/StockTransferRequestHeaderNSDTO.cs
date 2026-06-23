@@ -9,7 +9,6 @@ namespace Integration.NS.DataTransferObjects.StockTransferRequest;
 
 public class StockTransferRequestHeaderNSDTO
 {
-    public string Status { get; set; } = string.Empty;
     public int Id { get; set; }
     public string ReferenceNumber { get; set; } = string.Empty;
     public string VendorName { get; set; } = string.Empty;

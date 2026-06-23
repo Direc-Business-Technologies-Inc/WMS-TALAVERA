@@ -180,16 +180,19 @@ internal class StockTransferRequestIntegration(
 
         var query = builderFactory.Create()
             .Select(
-                ("item.id", nameof(StockTransferRequestLineDTO.ItemId)),
-                ("item.itemid", nameof(StockTransferRequestLineDTO.ItemCode)),
-                ("BUILTIN.DF(tl.units)", nameof(StockTransferRequestLineDTO.UoM)),
-                ("BUILTIN.DF(tl.location)", nameof(StockTransferRequestLineDTO.Warehouse)),
-                ("item.displayname", nameof(StockTransferRequestLineDTO.ItemDescription)),
-                ("iil.quantityonhand", nameof(StockTransferRequestLineDTO.QuantityOnHand))
+                ("item.id", nameof(StockTransferRequestLineNSDTO.ItemId)),
+                ("item.itemid", nameof(StockTransferRequestLineNSDTO.ItemCode)),
+                ("uom.unitName", nameof(StockTransferRequestLineNSDTO.UoMName)),
+                ("uom.internalid", nameof(StockTransferRequestLineNSDTO.UoMId)),
+                ("uom.conversionrate", nameof(StockTransferRequestLineNSDTO.UoMRate)),
+                ("BUILTIN.DF(tl.location)", nameof(StockTransferRequestLineNSDTO.Warehouse)),
+                ("item.displayname", nameof(StockTransferRequestLineNSDTO.ItemDescription)),
+                ("iil.quantityonhand", nameof(StockTransferRequestLineNSDTO.QuantityOnHand))
             )
             .From("transactionline tl")
             .Join("transaction t", on: "tl.transaction = t.id")
             .Join("item", on: "tl.item = item.id")
+            .Join("unitsTypeUom uom", on: "tl.units = uom.internalid")
             .Join("transactionline ml", on: "ml.transaction = t.id AND ml.mainline = 'T'")
             .Join("inventoryitemlocations iil", on: "tl.item = iil.item AND ml.location = iil.location")
             .WithFilters(
@@ -198,8 +201,14 @@ internal class StockTransferRequestIntegration(
                 DataGridFilterUtilities.Equal("tl.mainline", "F")
             ).Build();
 
-        var response = await netsuiteService.ExecuteSuiteQLQuery<StockTransferRequestLineDTO>(query.Query, query.Limit, query.Offset);
-        return [.. response.items];
+        var response = await netsuiteService.ExecuteSuiteQLQuery<StockTransferRequestLineNSDTO>(query.Query, query.Limit, query.Offset);
+        return [.. response.items.Select(x => x.Adapt(new StockTransferRequestLineDTO {
+            UoM = new Application.DataTransferObjects.Others.ItemUnitDTO{
+                ConversionRate = x.UoMRate,
+                Name = x.UoMName,
+                Id = x.UoMId
+            }
+        }))];
     }
 
     public async Task<(IEnumerable<TransferOrderStatus> data, int count)> GetTransferOrderStatuses(DataGridIntent intent)
