@@ -301,7 +301,7 @@ public class ReceivingIntegration(
             .LeftJoin("customrecord_dbti_vendor_bin_assignment vba", on: "t.entity = vba.custrecord_dbti_vba_vendor")
             .Join("subsidiary s", on:"t.subsidiary = s.id")
             .WithFilters(
-                In("t.recordtype", new string[] {"transferorder", "purchaseorder" }),
+                In("t.type", new string[] {"TrnfrOrd", "PurchOrd" }),
                 Equal("t.tranid", docEntry)
             ).Build();
 
@@ -322,6 +322,8 @@ public class ReceivingIntegration(
                 ("loc.usebins", "LocationUsesBins"),
                 ("item.displayname", "ItemDescription"),
                 ("pb.bin", "PrefferedBinAssignmentId"),
+                ("tl.custcol_dbti_record_weight", nameof(ItemReceiptLineDTO.WeightTotal)),
+                ("tl.custcol_dbti_actual_weight", nameof(ItemReceiptLineDTO.WeightReceived)),
                 ("(tl.quantity / uom.conversionrate)", "QuantityPlanned"),
                 ("(tl.quantity - tl.quantityshiprecv) / uom.conversionrate", "QuantityOpen"),
                 ("(tl.quantityshiprecv / uom.conversionrate)", "QuantityReceived")
@@ -373,7 +375,8 @@ public class ReceivingIntegration(
         }
         catch (Exception ex)
         {
-            exceptions.Add(new Exception("Error posting good items: " + ex.Message));
+            if (!ex.Message.Equals("Empty response from NetSuite API", StringComparison.OrdinalIgnoreCase))
+                exceptions.Add(new Exception("Error posting good items: " + ex.Message));
         }
 
         try
@@ -384,7 +387,8 @@ public class ReceivingIntegration(
         }
         catch (Exception ex)
         {
-            exceptions.Add(new Exception("Error posting bad items: " + ex.Message));
+            if (!ex.Message.Equals("Empty response from NetSuite API", StringComparison.OrdinalIgnoreCase))
+                exceptions.Add(new Exception("Error posting bad items: " + ex.Message));
         }
 
 
