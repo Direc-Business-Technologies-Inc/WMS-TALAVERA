@@ -65,6 +65,12 @@ partial class ItemReceiptCreatePage
             await receivingHandler.PostItemReceipt(model);
 
         }, AppActionOptionPresets.Loading(ActionGetItemReceiptSource));
+
+        action.OnSuccess(() =>
+        {
+            NavManager.NavigateTo("/transactions/purchasing/receiving", true);
+            return Task.CompletedTask;
+        });
     }
 
     protected override Task CancelEditing()

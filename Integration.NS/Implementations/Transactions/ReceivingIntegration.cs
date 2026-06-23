@@ -7,6 +7,7 @@ using Application.UseCases.Repositories.Integration.Transaction.Receiving;
 using Integration.NS.Services;
 using Integration.SAP.Entities.Transactional.Receiving;
 using Shared.Entities;
+using Shared.Libraries.Utilities;
 using Shared.Libraries.ViewModel;
 using System.Numerics;
 using System.Text.Json;
@@ -60,26 +61,24 @@ public class ReceivingIntegration(
 
     public async Task<IEnumerable<Application.DataTransferObjects.Transactions.Receiving.PurchaseOrderLineDTO>> GetPurchaseOrderLinesAsync(string docEntry)
     {
-        var queryString = $"""
-            SELECT
-                item.itemId AS ItemCode,
-                BUILTIN.DF(tl.units) as UoM,
-                BUILTIN.DF(tl.location) as Location,
-                item.displayname AS ItemDescription,
-                tl.quantity AS QuantityPlanned
-            FROM
-                transaction t
-            JOIN 
-                transactionline tl ON tl.transaction = t.id
-            JOIN
-                item ON item.id = tl.item
-            WHERE
-                t.tranid = '{docEntry}' AND
-                tl.mainline = 'F'
+        var query = builderFactory.Create()
+            .Select(
+                ("tl.id", nameof(PurchaseOrderLineDTO.LineNumber)),
+                ("BUILTIN.DF(tl.units)", nameof(PurchaseOrderLineDTO.UoM)),
+                ("BUILTIN.DF(tl.location)", nameof(PurchaseOrderLineDTO.Location)),
+                ("item.displayname", nameof(PurchaseOrderLineDTO.ItemDescription)),
+                ("item.itemid", nameof(PurchaseOrderLineDTO.ItemCode)),
+                ("tl.quantity", nameof(PurchaseOrderLineDTO.QuantityPlanned))
+            )
+            .From("transaction t")
+            .Join("transactionline tl", on: "tl.transaction = t.id")
+            .Join("item", on: "item.id = tl.item")
+            .WithFilters(
+                Equal("t.tranid", docEntry),
+                Equal("tl.mainline", "F")
+            ).Build();
 
-            """;
-
-        var response = await netsuiteService.ExecuteSuiteQLQuery<Application.DataTransferObjects.Transactions.Receiving.PurchaseOrderLineDTO>(queryString);
+        var response = await netsuiteService.ExecuteSuiteQLQuery<Application.DataTransferObjects.Transactions.Receiving.PurchaseOrderLineDTO>(query.Query);
 
         return response.items;
     }
@@ -302,7 +301,7 @@ public class ReceivingIntegration(
             .LeftJoin("customrecord_dbti_vendor_bin_assignment vba", on: "t.entity = vba.custrecord_dbti_vba_vendor")
             .Join("subsidiary s", on:"t.subsidiary = s.id")
             .WithFilters(
-                In("t.recordtype", new string[] {"transferorder", "purchaseorder" }),
+                In("t.type", new string[] {"TrnfrOrd", "PurchOrd" }),
                 Equal("t.tranid", docEntry)
             ).Build();
 
@@ -323,8 +322,10 @@ public class ReceivingIntegration(
                 ("loc.usebins", "LocationUsesBins"),
                 ("item.displayname", "ItemDescription"),
                 ("pb.bin", "PrefferedBinAssignmentId"),
+                ("tl.custcol_dbti_record_weight", nameof(ItemReceiptLineDTO.WeightTotal)),
+                ("tl.custcol_dbti_actual_weight", nameof(ItemReceiptLineDTO.WeightReceived)),
                 ("(tl.quantity / uom.conversionrate)", "QuantityPlanned"),
-                ("(tl.quantity - tl.quantityshiprecv)", "QuantityOpen"),
+                ("(tl.quantity - tl.quantityshiprecv) / uom.conversionrate", "QuantityOpen"),
                 ("(tl.quantityshiprecv / uom.conversionrate)", "QuantityReceived")
             )
             .From("transactionline tl")
@@ -351,47 +352,69 @@ public class ReceivingIntegration(
 
     public async Task<bool> PostItemReceipt(ItemReceiptDTO dto)
     {
-        var payload = ItemReceiptTransformPayload.Create(dto);
         var uri = dto.SourceType switch
         {
             ItemReceiptDTO.SourceTypes.PurchaseOrder => $"{netsuiteService.GetRestAPIURI}/record/v1/purchaseOrder/{dto.SourceInternalId}/!transform/itemReceipt",
             _ => $"{netsuiteService.GetRestletURI}?script=1853&deploy=1"
         };
-            
-        var payloadString = dto.SourceType switch
+        
+        (string goodPayload, string badPayload) = dto.SourceType switch
         {
-            ItemReceiptDTO.SourceTypes.PurchaseOrder => CreatePOJson(dto),
-            ItemReceiptDTO.SourceTypes.TransferOrder => CreateTOJson(dto),
-            _ => CreateReturnsJson(dto)
+            ItemReceiptDTO.SourceTypes.PurchaseOrder => (CreatePOJson(dto, true), CreatePOJson(dto, false)),
+            ItemReceiptDTO.SourceTypes.TransferOrder => (CreateTOJson(dto, true),CreateTOJson(dto, false)),
+            _ => (CreateReturnsJson(dto, true), CreateReturnsJson(dto, false))
         };
 
-        var x = dto.SourceType.Equals(ItemReceiptDTO.SourceTypes.TransferOrder) ?
-            await netsuiteService.MakeRequestOAuth1<object>(uri, payloadString) :
-            await netsuiteService.MakeRequest<object>(uri, payloadString, HttpMethod.Post);
+        List<Exception> exceptions = [];
 
+        try
+        {
+            _ = dto.SourceType.Equals(ItemReceiptDTO.SourceTypes.TransferOrder) ?
+                await netsuiteService.MakeRequestOAuth1<object>(uri, goodPayload) :
+                await netsuiteService.MakeRequest<object>(uri, goodPayload, HttpMethod.Post);
+        }
+        catch (Exception ex)
+        {
+            if (!ex.Message.Equals("Empty response from NetSuite API", StringComparison.OrdinalIgnoreCase))
+                exceptions.Add(new Exception("Error posting good items: " + ex.Message));
+        }
+
+        try
+        {
+            _ = dto.SourceType.Equals(ItemReceiptDTO.SourceTypes.TransferOrder) ?
+                await netsuiteService.MakeRequestOAuth1<object>(uri, badPayload) :
+                await netsuiteService.MakeRequest<object>(uri, badPayload, HttpMethod.Post);
+        }
+        catch (Exception ex)
+        {
+            if (!ex.Message.Equals("Empty response from NetSuite API", StringComparison.OrdinalIgnoreCase))
+                exceptions.Add(new Exception("Error posting bad items: " + ex.Message));
+        }
+
+
+        if (exceptions.Count > 0) throw new Exception(string.Join("\n\n", exceptions.Select(ex => ex.Message)));
         return true;
     }
 
-    private string CreateTOJson(ItemReceiptDTO dto)
+    private string CreateTOJson(ItemReceiptDTO dto, bool isGood)
     {
-        bool isGood = dto.Category.Equals(ItemReceiptDTO.ReceivingCategory.Good);
         var obj = new
         {
             transferOrderId = dto.SourceInternalId,
             transferCategory = isGood ? 1 : 2,
-            lines = dto.Lines.Where(x => x.Quantity > 0).Select(line =>
+            lines = dto.Lines.Where(x => x.QuantityGood > 0).Select(line =>
             {
                 return new
                 {
                     orderLine = line.LineNumber,
-                    quantity = line.Quantity,
+                    quantity = isGood ? line.QuantityGood : line.QuantityBad,
                     //rate = isGood ? (decimal?) null : 0,
                     inventoryDetail = new[]
                     {
                         new
                         {
                             inventoryStatus = isGood ? 1 : 3,
-                            quantity = line.Quantity
+                            quantity = isGood ? line.QuantityGood : line.QuantityBad
                         }
                     }
                 };
@@ -400,25 +423,25 @@ public class ReceivingIntegration(
         return JsonSerializer.Serialize(obj, JSON_OPTS);
     }
 
-    private string CreateReturnsJson(ItemReceiptDTO dto) => CreateTOJson(dto);
+    private string CreateReturnsJson(ItemReceiptDTO dto, bool isGood) => CreateTOJson(dto, isGood);
 
-    private string CreatePOJson(ItemReceiptDTO dto)
+    private string CreatePOJson(ItemReceiptDTO dto, bool isGood)
     {
-        bool isGood = dto.Category.Equals(ItemReceiptDTO.ReceivingCategory.Good);
         var obj = new
         {
             custbody_dbti_receiving_category = isGood ? 1 : 2,
             item = new
             {
-                items = dto.Lines.Select(line =>
+                items = dto.Lines.Where(line => line.QuantityPlanned != line.QuantityReceived).Select(line =>
                 {
-                    bool isItemReceived = line.IsReceived && line.Quantity > 0;
+                    decimal lineQuantity = isGood ? line.QuantityGood : line.QuantityBad;
+                    bool isItemReceived = line.IsReceived && lineQuantity > 0;
                     string? preferredBin = line.IsLocationBinUsed ? (isGood ? (dto.VendorPrefferedBin != 0 ? $"{dto.VendorPrefferedBin}" : $"{line.PrefferedBinAssignmentId}") : "5") : null;
                     return new
                     {
                         itemreceive = isItemReceived,
                         orderLine = line.LineNumber,
-                        quantity = isItemReceived ? line.Quantity : (decimal?)null,
+                        quantity = isItemReceived ? lineQuantity : (decimal?)null,
                         custcol_dbti_actual_weight = isItemReceived ? line.WeightReceived : (decimal?)null,
                         rate = isGood ? (decimal?) null : 0,
                         inventoryDetail = isItemReceived ? new
@@ -431,7 +454,7 @@ public class ReceivingIntegration(
                                     {
                                         inventoryStatus = isGood ? "1" : "3",
                                         binNumber = isGood ? preferredBin : "5",
-                                        quantity = line.Quantity
+                                        quantity = lineQuantity
                                     }
                                 }
                             }

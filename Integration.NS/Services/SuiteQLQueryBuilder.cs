@@ -1,4 +1,5 @@
 ﻿using Application.DataTransferObjects.Others.NS;
+using Mapster;
 using Microsoft.Net.Http.Headers;
 using Shared.Entities;
 using System.Collections;
@@ -30,6 +31,23 @@ public class SuiteQLQueryBuilder
     private string? _tableName;
     private List<string> _joins = [];
     private HashSet<string> _uniqueColumns = new();
+
+    public SuiteQLQueryBuilder() { }
+    public SuiteQLQueryBuilder(SuiteQLQueryBuilder source)
+    {
+        // TODO memory can be saved by usig a reference to the parent builder, but i doubt the query builder will take up too much memory so this is alright for now
+        // The code is way too patchwork already to do more stuff, do it later when refactoring
+        source.Filters.Adapt(Filters);
+        source.Sorts.Adapt(Sorts);
+        source.SelectColumns.Adapt(SelectColumns);
+        source._joins.Adapt(_joins);
+        PropertyMap = new Dictionary<string, string>(source.PropertyMap);
+
+        Take = source.Take;
+        Skip = source.Skip;
+
+        _tableName = source._tableName;
+    }
 
     public SuiteQLQueryBuilder WithDatagridIntent(DataGridIntent intent, Dictionary<string, string>? mapFields = null)
     {

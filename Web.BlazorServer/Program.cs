@@ -39,7 +39,7 @@ builder.Services.AddRadzenComponents();
 builder.Services.AddHttpClient();
 builder.Services.AddControllers();
 builder.Services.AddBlazorServerRegisters();
-builder.Services.AddBlazorServerHandlers();
+builder.Services.AddBlazorServerHandlers(builder.Environment);
 #endregion BlazorServerRegisters Configuration
 
 #region Security

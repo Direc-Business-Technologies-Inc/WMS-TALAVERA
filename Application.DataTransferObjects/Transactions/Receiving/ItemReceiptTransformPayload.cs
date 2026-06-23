@@ -29,25 +29,6 @@ public class ItemReceiptTransformPayload
     [JsonPropertyName("lines")]
     public List<LinesContainer>? Lines { get; set; }
 
-    public static ItemReceiptTransformPayload Create(ItemReceiptDTO dto)
-    {
-        var payload = new ItemReceiptTransformPayload();
-        bool isGood = dto.Category == ItemReceiptDTO.ReceivingCategory.Good;
-
-        payload.ReceivingCategory = isGood ? 1 : 2; //1 for good. 2 for bad
-
-        if (dto.SourceType == ItemReceiptDTO.SourceTypes.TransferOrder)
-        {
-            payload.TransferOrderId = dto.SourceInternalId;
-        }
-        else
-        {
-            payload.Item = GeneratePOLines(dto, isGood);
-        }
-
-        return payload;
-    }
-
     private static string? GetLineBinNumber(ItemReceiptLineDTO dto, bool isGood, int vendorPrefferedBin)
     {
         if (!dto.IsLocationBinUsed) return null;
@@ -61,12 +42,12 @@ public class ItemReceiptTransformPayload
         ItemContainer item = new();
         foreach (var line in dto.Lines)
         {
-            if (line.Quantity == 0 || !line.IsReceived) item.Add(new(line.LineNumber) { isReceived = false });
+            if (line.QuantityGood == 0 || !line.IsReceived) item.Add(new(line.LineNumber) { isReceived = false });
             else
             {
                 var x = new ItemContainerItems(line.LineNumber)
                 {
-                    Quantity = line.Quantity,
+                    Quantity = line.QuantityGood,
                     isReceived = true,
                     Rate = isGood ? null : 0,
                     ActualWeight = line.WeightReceived,
@@ -78,7 +59,7 @@ public class ItemReceiptTransformPayload
                 {
                     InventoryStatus = new(isGood ? "1" : "3"), //magic
                     BinNumber = binId is null ? null : new(binId),
-                    Quantity = line.Quantity
+                    Quantity = line.QuantityGood
                 });
                 item.Add(x);
             }

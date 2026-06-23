@@ -1,0 +1,64 @@
+﻿@typeparam TItem
+@inherits BaseComponent
+
+<AppDataGrid @ref="@DataGrid" Id="@(Id ?? GENERIC_DATAGRID_ID)" TItem="TItem" DataGetter="@LoadDataAsync" GridSettings="@DataGridSettings" @bind-GridSettingsLoaded="@GridSettingsLoaded" ActionName="@ActionName" >
+    <HeaderTemplate>
+        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween">
+            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" AlignItems="AlignItems.Center" Gap="8px">
+                @if (HeaderStart is not null)
+                {
+                    @HeaderStart
+                }
+            </RadzenStack>
+
+            
+            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" AlignItems="AlignItems.Center" Gap="8px">
+                @if (HeaderEnd is not null)
+                {
+                    @HeaderEnd
+                }
+                <RadzenButton Icon="settings" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@OpenTableSettings" />
+                <RadzenButton Icon="sync" Size="ButtonSize.Small" Click="DataGrid.ReloadDataAsync" />
+            </RadzenStack>
+        </RadzenStack>
+    </HeaderTemplate>
+    <GridColumns>
+        @if (Columns is not null)
+        {
+            @Columns
+        }
+        else 
+        {
+            foreach (var (prop, title) in PropertyTitles)
+            {
+                <RadzenDataGridColumn TItem="TItem" Property="@prop.Name" Title="@title" Type="@prop.GetType()" FormatString="{0:d}"/>
+            }
+        }
+        
+        @if (RowActions is not null)
+        {
+            <RadzenDataGridColumn TItem="TItem"
+                                  Frozen
+                                  Width="@((ActionWidth ?? 35) + "px")"
+                                  FrozenPosition="FrozenColumnPosition.Right" >
+                <Template>
+                    @RowActions(context)
+                </Template>
+            </RadzenDataGridColumn>
+        }
+    </GridColumns>
+</AppDataGrid>
+
+@code {
+    async Task OpenTableSettings()
+    {
+        await DialogService.OpenAsync(
+            "Table Settings",
+            ds => @<AppGridSettings TItem="TItem"
+                                    @bind-Grid=@DataGrid.DataGrid
+                                    @bind-GridSettings=@DataGridSettings />,
+        options: GridSettingsService.GetDialogOptions());
+
+        await DataGrid.DataGrid.Reload();
+    }
+}
