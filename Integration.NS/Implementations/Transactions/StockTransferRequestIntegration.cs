@@ -316,7 +316,8 @@ internal class StockTransferRequestIntegration(
                     {
                         item = new { id = line.ItemId },
                         quantity = line.QuantityAlloted,
-                        department = new { id = "4" }
+                        department = new { id = "4" },
+                        units = line.UoM?.Id.ToString() ?? null
                     };
                 })
             }
