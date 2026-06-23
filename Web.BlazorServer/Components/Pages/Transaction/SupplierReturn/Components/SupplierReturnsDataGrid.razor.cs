@@ -22,4 +22,5 @@ public partial class SupplierReturnsDataGrid
         if (RowAction.HasDelegate)
             await RowAction.InvokeAsync(data);
     }
+
 }

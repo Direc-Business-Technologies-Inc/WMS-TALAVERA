@@ -1,5 +1,6 @@
 ﻿@using Web.BlazorServer.Components.Pages.Transaction.SupplierReturn.Components
 @using Web.BlazorServer.Components.Security
+@using Web.BlazorServer.ViewModels.Transaction.SupplierReturn
 @inherits BaseComponent
 @layout ProtectedLayout
 @attribute [AppAuthorizationAttribute("VIEW", "OSRN")]
@@ -14,5 +15,13 @@
 </RadzenStack>
 
 <AppContent>
-    <SupplierReturnsDataGrid />
+    <SupplierReturnsDataGrid RowAction="OnRowAction" />
 </AppContent>
+
+
+@code {
+    async Task OnRowAction(SupplierReturnDataGridVM data)
+    {
+        NavManager.NavigateTo(SupplierReturnRoutes.VIEW + $"?ref={data.ReferenceNumber}");
+    }
+}

@@ -1,0 +1,20 @@
+﻿@using Web.BlazorServer.Components.Pages.Transaction.SupplierReturn.Components
+@using Web.BlazorServer.Components.Security
+@using Web.BlazorServer.Components.Shared.Skeletons
+@using Web.BlazorServer.ViewModels.Transaction.SupplierReturn
+
+@inherits BaseForm<SupplierReturnVM>
+@layout ProtectedLayout
+@attribute [AppAuthorizationAttribute("VIEW", "OSRN")]
+@attribute [Route(SupplierReturnRoutes.VIEW)]
+
+
+<PageTitle>Return to Supplier: @Ref</PageTitle>
+
+<AppContent>
+    <AppFormSkeleton Loading="@IsLoadingData" TItem="SupplierReturnVM" />
+    @if (!IsLoadingData)
+    {
+        <SupplierReturnForm Model="@FormData" EditContext="@EditContext" />
+    }
+    </AppContent>

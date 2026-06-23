@@ -1,0 +1,69 @@
+﻿@using Web.BlazorServer.Components.Custom
+@using Web.BlazorServer.ViewModels.Others
+@using Web.BlazorServer.ViewModels.Transaction.SupplierReturn
+<RadzenTemplateForm Data="@Model">
+    <RadzenFieldset Text="Details">
+        <RadzenRow Gap="0.5em">
+            <RadzenColumn SizeMD="4">
+                <RadzenFormField Text="Reference Number" class="rz-w-100">
+                    <RadzenTextBox Value="@Model.ReferenceNumber" Placeholder="To be generated" />
+                </RadzenFormField>
+            </RadzenColumn>
+            <RadzenColumn SizeMD="4">
+                <RadzenFormField Text="Date" class="rz-w-100">
+                    <RadzenDatePicker ReadOnly="@ReadOnly" TValue="DateTime" @bind-Value="@Model.Date" />
+                </RadzenFormField>
+            </RadzenColumn>
+            <RadzenColumn SizeMD="4">
+                <RadzenFormField Text="Warehouse" class="rz-w-100">
+                    <RadzenTextBox Visible="@ReadOnly" Value="@Model.ReturnCategory?.Name" Placeholder="No category given" />
+                    <QuickVirtualizedDropdown @bind-Value="@Model.ReturnCategory" Visible="@(!ReadOnly)" TItem="ReturnCategoryVM" DataGetter="@CategoryProvider" TextProperty="@nameof(ReturnCategoryVM.Name)" />
+                </RadzenFormField>
+            </RadzenColumn>
+            <RadzenColumn SizeMD="4">
+                <RadzenFormField Text="Vendor" class="rz-w-100">
+                    <RadzenTextBox Visible="@ReadOnly" Value="@Model.Vendor?.Name" Placeholder="No vendor given"/>
+                    <QuickVirtualizedDropdown @bind-Value="@Model.Vendor" Visible="@(!ReadOnly)" TItem="VendorVM" DataGetter="@VendorProvider" TextProperty="@nameof(VendorVM.Name)" />
+                </RadzenFormField>
+            </RadzenColumn>
+            <RadzenColumn SizeMD="4">
+                <RadzenFormField Text="Warehouse" class="rz-w-100">
+                    <RadzenTextBox Visible="ReadOnly" Value="@Model.Location?.Name" Placeholder="No location given" />
+                    <QuickVirtualizedDropdown @bind-Value="@Model.Location" Visible="@(!ReadOnly)" TItem="LocationVM" DataGetter="@LocationProvider" TextProperty="@nameof(LocationVM.Name)" />
+                </RadzenFormField>
+            </RadzenColumn>
+            <RadzenColumn SizeMD="4">
+                <RadzenFormField Text="Status" class="rz-w-100">
+                    <RadzenTextBox Visible="ReadOnly" Value="@Model.Status?.Name" Placeholder="No status given" />
+                    <QuickVirtualizedDropdown @bind-Value="@Model.Status" Visible="@(!ReadOnly)" TItem="ReturnStatusVM" DataGetter="@StatusProvider" TextProperty="@nameof(ReturnStatusVM.Name)" />
+                </RadzenFormField>
+            </RadzenColumn>
+        </RadzenRow>
+    </RadzenFieldset>
+    <RadzenFieldset Text="Lines">
+        <AppTableWithSettings TItem="SupplierReturnLineVM" Id="return_to_supplier_lines" Data="@Model.Lines">
+            <Columns>
+                <RadzenDataGridColumn TItem="SupplierReturnLineVM" Title="Item Code" Property="@nameof(SupplierReturnLineVM.ItemCode)" />
+                <RadzenDataGridColumn TItem="SupplierReturnLineVM" Title="Item Description" Property="@nameof(SupplierReturnLineVM.ItemDescription)" />
+                <RadzenDataGridColumn TItem="SupplierReturnLineVM" Title="UoM">
+                    <Template Context="data">
+                        <RadzenText Visible="@ReadOnly" TextStyle="TextStyle.Body2" Text="@(data.UoM?.Name ?? "-")" />
+                        <QuickVirtualizedDropdown @bind-Value="@data.UoM" Visible="@(!ReadOnly)" TItem="ItemUnitVM" DataGetter="@(intent => ItemUnitsProvider(intent, data.ItemId))" TextProperty="@nameof(ItemUnitVM.Name)" />
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="SupplierReturnLineVM" Title="Warehouse">
+                    <Template Context="data">
+                        <RadzenText Visible="@ReadOnly" TextStyle="TextStyle.Body2" Text="@(data.Location?.Name ?? "-")" />
+                        <QuickVirtualizedDropdown @bind-Value="@data.Location" Visible="@(!ReadOnly)" TItem="LocationVM" DataGetter="@LocationProvider" TextProperty="@nameof(LocationVM.Name)" />
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="SupplierReturnLineVM" Title="Alloted Quantity"> 
+                    <Template Context="data">
+                        <RadzenText Visible="@ReadOnly" TextStyle="TextStyle.Body2" Text="@data.QuantityAlloted.ToString()" />
+                        <RadzenNumeric Visible="@(!ReadOnly)" @bind-Value="@data.QuantityAlloted" />
+                    </Template>
+                </RadzenDataGridColumn>
+            </Columns>
+        </AppTableWithSettings>
+    </RadzenFieldset>
+</RadzenTemplateForm>
