@@ -11,7 +11,7 @@
             <RadzenRow>
                 <RadzenColumn SizeLG="3" SizeMD="6">
                     <RadzenFormField AllowFloatingLabel="false" Text="Stock Transfer Request Number" class="rz-w-100">
-                        <RadzenTextBox ReadOnly Value="@Model.ReferenceNumber" />
+                        <RadzenTextBox ReadOnly Value="@Model.ReferenceNumber" Placeholder="@(ReadOnly ? "-" : "Auto-Generated")" />
                     </RadzenFormField>
                 </RadzenColumn>
                 <RadzenColumn SizeLG="3" SizeMD="6">
