@@ -14,7 +14,7 @@
     <GridColumns>
         <RadzenDataGridColumn TItem="PurchaseOrderDataGridVM" 
                               Property="@nameof(PurchaseOrderDataGridVM.ReferenceNumber)"
-                              Type="@typeof(int)"
+                              Type="@typeof(string)"
                               Title="Reference Number" />
         <RadzenDataGridColumn TItem="PurchaseOrderDataGridVM"
                               Property="@nameof(PurchaseOrderDataGridVM.Date)"
@@ -28,6 +28,7 @@
                               Title="Delivery Date" />
         <RadzenDataGridColumn TItem="PurchaseOrderDataGridVM"
                               Property="@nameof(PurchaseOrderDataGridVM.Vendor)"
+                              FilterProperty="VendorName"
                               Type="@typeof(string)"
                               Title="Vendor Name" />
         <RadzenDataGridColumn TItem="PurchaseOrderDataGridVM"
@@ -36,11 +37,13 @@
                               Title="Status" />
         <RadzenDataGridColumn TItem="PurchaseOrderDataGridVM"
                               Property="@nameof(PurchaseOrderDataGridVM.Remarks)"
+                              FilterProperty="Memo"
                               Type="@typeof(string)"
                               Title="Remarks" />
         <RadzenDataGridColumn TItem="PurchaseOrderDataGridVM"
                               Frozen
                               FrozenPosition="FrozenColumnPosition.Right"
+                              Pickable="false" Sortable="false" Filterable="false"
                               Width="35px">
             <Template>
                 <RadzenButton Icon="arrow_right_alt" Size="ButtonSize.ExtraSmall" Click="() => ViewPurchaseOrder(context)" />
