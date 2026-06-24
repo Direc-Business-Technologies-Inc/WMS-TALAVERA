@@ -9,6 +9,7 @@ public class SupplierReturnVM
     public DateTime Date { get; set; }
     public VendorVM? Vendor { get; set; } = null;
     public LocationVM? Location { get; set; } = null;
+    public SubsidiaryVM? Subsidiary { get; set; } = null;
     public ReturnStatusVM? Status { get; set; } = null;
     public ReturnCategoryVM? ReturnCategory { get; set; } = null;
     public string? ReferenceNumber { get; set; }

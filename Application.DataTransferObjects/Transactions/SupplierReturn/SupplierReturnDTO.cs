@@ -15,6 +15,7 @@ public class SupplierReturnDTO
     public LocationDTO? Location { get; set; } = null;
     public ReturnStatusDTO? Status { get; set; } = null;
     public ReturnCategoryDTO? ReturnCategory { get; set; } = null;
+    public SubsidiaryDTO? Subsidiary { get; set; } = null;
     public string ReferenceNumber { get; set; } = string.Empty;
     public string Memo { get; set; } = string.Empty;
     public IEnumerable<SupplierReturnLineDTO> Lines { get; set; } = [];

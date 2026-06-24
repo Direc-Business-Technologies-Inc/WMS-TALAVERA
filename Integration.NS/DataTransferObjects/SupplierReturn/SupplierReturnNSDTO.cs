@@ -19,7 +19,9 @@ public class SupplierReturnNSDTO
     public string StatusName { get; set; } = string.Empty;
     public string StatusId { get; set; } = string.Empty;
     public string CategoryName { get; set; } = string.Empty;
-    public int CategoryId { get; set; } 
+    public int CategoryId { get; set; }
+    public string SubsidiaryName { get; set; } = string.Empty;
+    public int SubsidiaryId { get; set; }
     public string ReferenceNumber { get; set; } = string.Empty;
     public string Memo { get; set; } = string.Empty;
 }

@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
 using Shared.Entities;
+using Shared.Libraries.Utilities;
+using Web.BlazorServer.Components.Custom;
 using Web.BlazorServer.Handlers.Repositories.Others;
 using Web.BlazorServer.Handlers.Repositories.Transaction.SupplierReturn;
 using Web.BlazorServer.Services.Repositories;
@@ -15,6 +17,7 @@ public partial class SupplierReturnForm
     [Inject] ILocationHandler locationHandler { get; set; } = default!;
     [Inject] IVendorHandler vendorHandler { get; set; } = default!;
     [Inject] IItemsHandler itemsHandler { get; set; } = default!;
+    [Inject] ISubsidiaryHandler subsidiaryHandler { get; set; } = default!;
     [Inject] IGridSettingsService GridSettingsService { get; set; } = default!;
 
     [Parameter][EditorRequired] public required SupplierReturnVM Model { get; set; }
@@ -28,6 +31,9 @@ public partial class SupplierReturnForm
     [Parameter] public string ReturnString { get; set; } = "Return";
     [Parameter] public bool ReadOnly { get; set; } = false;
 
+    QuickVirtualizedDropdown<LocationVM> LocationDropdown { get; set; } = default!;
+    QuickVirtualizedDropdown<SubsidiaryVM> SubsidiaryDropdown { get; set; } = default!;
+
     async Task<(IEnumerable<ReturnCategoryVM>, int)> CategoryProvider(DataGridIntent intent)
     {
         return await returnHandler.GetReturnCategories(intent);
@@ -35,14 +41,25 @@ public partial class SupplierReturnForm
 
     async Task<(IEnumerable<ReturnStatusVM>, int)> StatusProvider(DataGridIntent intent)
     {
+        intent.Filters.Add(
+            DataGridFilterUtilities.In(
+                nameof(ReturnStatusVM.Id), 
+                new string[] { "A", "B" }));
+
         return await returnHandler.GetReturnStatuses(intent);
     }
 
     async Task<(IEnumerable<LocationVM>, int)> LocationProvider(DataGridIntent intent)
     {
-        return await locationHandler.GetLocationsAsync(intent);
+        if (Model.Subsidiary is null) return ([], 0);
+        return await locationHandler.GetLocationsBySubsidiaryAsync(intent, Model.Subsidiary.Id);
     }
-    
+
+    async Task<(IEnumerable<SubsidiaryVM>, int)> SubsidiaryProvider(DataGridIntent intent)
+    {
+        if (Model.Vendor is null) return ([], 0);
+        return await subsidiaryHandler.GetSubsidiariesByVendorAsync(intent, Model.Vendor.Id);
+    }
 
     async Task<(IEnumerable<VendorVM>, int)> VendorProvider(DataGridIntent intent)
     {
@@ -52,6 +69,60 @@ public partial class SupplierReturnForm
     async Task<(IEnumerable<ItemUnitVM>, int)> ItemUnitsProvider(DataGridIntent intent, int itemId)
     {
         return await itemsHandler.GetItemUnits(itemId,intent);
+    }
+
+    async Task SubsidiarySet(SubsidiaryVM? vm)
+    {
+        if (Model.Subsidiary == vm) return;
+
+        if (Model.Lines.Count > 0)
+        {
+            var response = await AlertService.PromptAsync("Changing subsidiaries will remove all added items");
+            if (!response) return;
+        }
+
+        Model.Subsidiary = vm;
+        Model.Location = null;
+        LocationDropdown.Reset();
+
+        Model.Lines.Clear();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    async Task LocationSet(LocationVM? vm)
+    {
+        if (Model.Location == vm) return;
+
+        if (Model.Lines.Count > 0)
+        {
+            var response = await AlertService.PromptAsync("Changing locations will remove all added items");
+            if (!response) return;
+        }
+
+        Model.Location = vm;
+        Model.Lines.Clear();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    async Task VendorSet(VendorVM? vm)
+    {
+        if (Model.Vendor == vm) return;
+
+        if (Model.Lines.Count > 0)
+        {
+            var response = await AlertService.PromptAsync("Changing vendors will remove all added items");
+            if (!response) return;
+        }
+
+        Model.Vendor = vm;
+        Model.Subsidiary = null;
+        Model.Location = null;
+
+        LocationDropdown.Reset();
+        SubsidiaryDropdown.Reset();
+
+        Model.Lines.Clear();
+        await InvokeAsync(StateHasChanged);
     }
 
     async Task ReturnClicked()

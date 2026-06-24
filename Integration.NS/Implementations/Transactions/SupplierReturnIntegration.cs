@@ -32,6 +32,8 @@ public class SupplierReturnIntegration(
                     ("t.custbody_dbti_return_category", nameof(SupplierReturnNSDTO.CategoryId)),
                     ("t.tranid", nameof(SupplierReturnNSDTO.ReferenceNumber)),
                     ("ml.location", nameof(SupplierReturnNSDTO.LocationId)),
+                    ("t.subsidiary", nameof(SupplierReturnNSDTO.SubsidiaryId)),
+                    ("BUILTIN.DF(t.subsidiary)", nameof(SupplierReturnNSDTO.SubsidiaryName)),
                     ("BUILTIN.DF(ml.location)", nameof(SupplierReturnNSDTO.LocationName)),
                     ("t.memo", nameof(SupplierReturnNSDTO.Memo)),
                     ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(SupplierReturnNSDTO.Date)),
@@ -57,6 +59,7 @@ public class SupplierReturnIntegration(
             ReturnCategory = new() { Id = nsdto.CategoryId, Name = nsdto.CategoryName },
             Status = new() { Id = nsdto.StatusId, Name = nsdto.StatusName },
             Vendor = new() { Id = nsdto.VendorId, Name = nsdto.VendorName },
+            Subsidiary = new() { Id= nsdto.SubsidiaryId, Name = nsdto.SubsidiaryName }
         });
     }
 
@@ -165,6 +168,7 @@ public class SupplierReturnIntegration(
             location = data.Location?.Id ?? null,
             department = 2,
             Class = 2,
+            subsidiary = data.Subsidiary?.Id ?? null,
             custbody_dbti_return_category = data.ReturnCategory?.Id ?? null,
             memo = data.Memo,
             item = new
