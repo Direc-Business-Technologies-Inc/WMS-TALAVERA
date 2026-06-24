@@ -211,10 +211,10 @@ public class ReceivingIntegration(
             .Select(
                 ("t.id", "Id"),
                 ("t.tranid", "ReferenceNumber"),
-                ("TO_CHAR(t.custbody_dbti_order_date, 'YYYY-MM-DD\"T\"HH24:MI:SS')", "Date"),
+                ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", "Date"),
                 ("BUILTIN.DF(t.subsidiary)", "SourceSubsidiary"),
                 ("BUILTIN.DF(t.tosubsidiary)", "DestinationSubsidiary"),
-                ("t.custbody_dbti_return_to_vendor", "VendorName"),
+                ("BUILTIN.DF(t.custbody_dbti_return_to_vendor)", "VendorName"),
                 ("BUILTIN.DF(t.location)", "Location"),
                 ("s.name", nameof(ReturnsDataGridDTO.Status)),
                 ("BUILTIN.DF(t.transferlocation)", "TransferLocation"),
@@ -243,12 +243,13 @@ public class ReceivingIntegration(
                 ("t.tranid", "ReferenceNumber"),
                 ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", "Date"),
                 ("BUILTIN.DF(t.subsidiary)", "FromSubsidiary"),
-                ("t.custbody_dbti_return_to_vendor", "Vendor"),
-                ("BUILTIN.DF(t.location)", "FromWarehouse"),
+                ("BUILTIN.DF(t.custbody_dbti_return_to_vendor)", "Vendor"),
+                ("BUILTIN.DF(tl.location)", "FromWarehouse"),
                 ("BUILTIN.DF(t.transferlocation)", "ToWarehouse"),
                 ("t.custbody_dbti_prepared_by", "PreparedBy")
             )
             .From("transaction t")
+            .Join("transactionline tl", "tl.transaction = t.id AND tl.mainline = 'T'")
             .WithFilters(
                 Equal("t.recordtype", "intercompanytransferorder"),
                 Any(
@@ -269,11 +270,12 @@ public class ReceivingIntegration(
                 ("BUILTIN.DF(tl.units)", "UoM"),
                 ("BUILTIN.DF(tl.location)", "Location"),
                 ("item.displayname", "ItemDescription"),
-                ("tl.quantity", "QuantityPlanned")
+                ("(tl.quantity / NVL(uom.conversionrate, 1))", "QuantityPlanned")
             )
             .From("transactionline tl")
             .Join("transaction t", on: "tl.transaction = t.id")
             .Join("item", on: "tl.item = item.id")
+            .LeftJoin("unitstypeuom uom", on: "tl.units = uom.internalid")
             .WithFilters(
                 Equal("tl.transactionlinetype", "RECEIVING"),
                 Equal("t.tranid", docEntry),
@@ -418,7 +420,7 @@ public class ReceivingIntegration(
                     {
                         new
                         {
-                            inventoryStatus = isGood ? 1 : 3,
+                            inventoryStatus = isGood ? 1 : 2,
                             quantity = isGood ? line.QuantityGood : line.QuantityBad
                         }
                     }
@@ -457,7 +459,7 @@ public class ReceivingIntegration(
                                 {
                                     new
                                     {
-                                        inventoryStatus = isGood ? "1" : "3",
+                                        inventoryStatus = isGood ? "1" : "2",
                                         binNumber = isGood ? preferredBin : "5",
                                         quantity = lineQuantity
                                     }
