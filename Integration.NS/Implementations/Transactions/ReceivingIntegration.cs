@@ -39,23 +39,22 @@ public class ReceivingIntegration(
 
     public async Task<PurchaseOrderDTO?> GetPurchaseOrderHeaderAsync(string docEntry)
     {
-        var queryString = $"""
-            SELECT 
-                t.id AS Id,
-                t.tranid AS ReferenceNumber,
-                TO_CHAR(t.custbody_dbti_order_date, 'YYYY-MM-DD"T"HH24:MI:SS') AS Date,
-                TO_CHAR(t.custbody_dbti_est_receipt_date, 'YYYY-MM-DD"T"HH24:MI:SS') AS Date,
-                entity.altname AS VendorName,
-                t.memo as Memo
-            FROM 
-                transaction t
-            JOIN 
-                entity ON entity.id = t.entity
-            WHERE
-                t.tranid = '{docEntry}'
-            """;
+        var query = builderFactory.Create()
+            .Select(
+                ("t.id", nameof(PurchaseOrderDTO.Id)),
+                ("t.tranid", nameof(PurchaseOrderDTO.ReferenceNumber)),
+                ("TO_CHAR(t.custbody_dbti_order_date, 'YYYY-MM-DD\"T\"HH24:MI:SS') ", nameof(PurchaseOrderDTO.Date)),
+                ("TO_CHAR(t.custbody_dbti_est_receipt_date, 'YYYY-MM-DD\"T\"HH24:MI:SS') ", nameof(PurchaseOrderDTO.DeliveryDate)),
+                ("BUILTIN.DF(t.entity)", nameof(PurchaseOrderDTO.VendorName)),
+                ("t.memo", nameof(PurchaseOrderDTO.Memo))
+            )
+            .From("transaction t")
+            .WithFilters(
+                Equal("t.tranid", docEntry)
+            )
+            .Build();
 
-        var response = await netsuiteService.ExecuteSuiteQLQuery<PurchaseOrderDTO>(queryString);
+        var response = await netsuiteService.ExecuteSuiteQLQuery<PurchaseOrderDTO>(query.Query);
         return response.items.FirstOrDefault();
     }
 
