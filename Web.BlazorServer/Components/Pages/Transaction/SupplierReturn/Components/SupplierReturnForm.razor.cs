@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Components.Forms;
 using Shared.Entities;
 using Web.BlazorServer.Handlers.Repositories.Others;
 using Web.BlazorServer.Handlers.Repositories.Transaction.SupplierReturn;
+using Web.BlazorServer.Services.Repositories;
 using Web.BlazorServer.ViewModels.Others;
 using Web.BlazorServer.ViewModels.Transaction.SupplierReturn;
 
@@ -14,6 +15,7 @@ public partial class SupplierReturnForm
     [Inject] ILocationHandler locationHandler { get; set; } = default!;
     [Inject] IVendorHandler vendorHandler { get; set; } = default!;
     [Inject] IItemsHandler itemsHandler { get; set; } = default!;
+    [Inject] IGridSettingsService GridSettingsService { get; set; } = default!;
 
     [Parameter][EditorRequired] public required SupplierReturnVM Model { get; set; }
     [Parameter][EditorRequired] public required EditContext EditContext { get; set; }
@@ -68,5 +70,21 @@ public partial class SupplierReturnForm
     {
         if (OnSubmit.HasDelegate)
             await OnSubmit.InvokeAsync(Model);
+    }
+
+    async Task AddItems(List<ItemsVM> items)
+    {
+        if (Model.Location is null) return;
+
+        Model.Lines.AddRange(
+            items.Select(x => new SupplierReturnLineVM
+            {
+                ItemId = x.Id,
+                ItemCode = x.Name,
+                ItemDescription = x.Description,
+                UoM = x.StockUnit,
+                Location = Model.Location,
+                QuantityAlloted = 0
+            }));
     }
 }

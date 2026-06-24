@@ -1,4 +1,6 @@
-﻿using Application.UseCases.Queries.Transaction.SupplierReturn;
+﻿using Application.DataTransferObjects.Transactions.SupplierReturn;
+using Application.UseCases.Commands.Transaction.SupplierReturn;
+using Application.UseCases.Queries.Transaction.SupplierReturn;
 using Mapster;
 using MediatR;
 using Shared.Entities;
@@ -9,6 +11,12 @@ namespace Web.BlazorServer.Handlers.Implementations.Transaction.SupplierReturn;
 
 public class SupplierReturnHandler(ISender sender) : ISupplierReturnHandler
 {
+    public async Task<bool> CreateSupplierReturnAsync(SupplierReturnVM data)
+    {
+        CreateSupplierReturnCmd cmd = new(data.Adapt<SupplierReturnDTO>());
+        return await sender.Send(cmd); 
+    }
+
     public async Task<SupplierReturnVM?> GetReturnAsync(string Ref)
     {
         GetReturnQry query = new(Ref);

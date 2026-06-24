@@ -12,6 +12,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 namespace Integration.NS.Implementations.Transactions;
@@ -138,6 +139,54 @@ public class SupplierReturnIntegration(
 
         return (response.items, response.totalResults);
     }
+
+    public async Task<bool> CreateSupplierReturn(SupplierReturnDTO data)
+    {
+        string payload = CreatePayload(data);
+        var uri = netsuiteService.GetRestAPIURI + "/record/v1/vendorReturnAuthorization";
+
+        try
+        {
+            _ = await netsuiteService.MakeRequest<object>(uri, payload, HttpMethod.Post);
+        }
+        catch (Exception ex) when (ex.Message.Equals("Empty response from NetSuite API", StringComparison.OrdinalIgnoreCase))
+        {
+            // Empty response is but http response is a success status code
+        }
+
+        return true;
+    }
+
+    private string CreatePayload(SupplierReturnDTO data)
+    {
+        var anon = new
+        {
+            entity = data.Vendor?.Id ?? null,
+            location = data.Location?.Id ?? null,
+            department = 2,
+            Class = 2,
+            custbody_dbti_return_category = data.ReturnCategory?.Id ?? null,
+            memo = data.Memo,
+            item = new
+            {
+                items = data.Lines.Select(x => new
+                {
+                    item = x.ItemId,
+                    quantity = x.QuantityAlloted,
+                    department = 2,
+                    units = x.UoM?.Id.ToString() ?? null
+                })
+            }
+        };
+
+        return JsonSerializer.Serialize(anon, jsonOpts);
+    }
+
+    private readonly JsonSerializerOptions jsonOpts = new JsonSerializerOptions
+    {
+        DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
+        WriteIndented = true,
+    };
 
     private SupplierReturnLineDTO ConvertLineDTO (SupplierReturnLineNSDTO nsdto)
     {

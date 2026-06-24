@@ -15,4 +15,6 @@ public interface ISupplierReturnIntegration
     Task<(IEnumerable<ReturnStatusDTO> Data, int Count)> GetReturnStatuses(DataGridIntent intent);
     Task<SupplierReturnDTO?> GetReturnAsync(string referenceNumber);
     Task<IEnumerable<SupplierReturnLineDTO>> GetReturnLinesAsync(string referenceNumber);
+    Task<bool> CreateSupplierReturn(SupplierReturnDTO data);
+
 }

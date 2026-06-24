@@ -11,4 +11,5 @@ public interface ISupplierReturnHandler
     Task<(IEnumerable<ReturnStatusVM> Data, int Count)> GetReturnStatuses(DataGridIntent intent);
     Task<SupplierReturnVM?> GetReturnAsync(string Ref);
     Task<IEnumerable<SupplierReturnLineVM>> GetReturnLinesAsync(string Ref);
+    Task<bool> CreateSupplierReturnAsync(SupplierReturnVM data);
 }

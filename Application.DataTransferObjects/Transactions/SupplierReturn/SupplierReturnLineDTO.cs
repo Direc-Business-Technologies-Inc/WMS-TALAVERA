@@ -9,6 +9,7 @@ namespace Application.DataTransferObjects.Transactions.SupplierReturn;
 
 public class SupplierReturnLineDTO
 {
+    public int ItemId { get; set; }
     public string ItemCode { get; set; } = string.Empty;
     public string ItemDescription { get; set; } = string.Empty;
     public ItemUnitDTO? UoM { get; set; }
