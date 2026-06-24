@@ -214,7 +214,7 @@ public class ReceivingIntegration(
                 ("TO_CHAR(t.custbody_dbti_order_date, 'YYYY-MM-DD\"T\"HH24:MI:SS')", "Date"),
                 ("BUILTIN.DF(t.subsidiary)", "SourceSubsidiary"),
                 ("BUILTIN.DF(t.tosubsidiary)", "DestinationSubsidiary"),
-                ("t.custbody_dbti_return_to_vendor", "VendorName"),
+                ("BUILTIN.DF(t.custbody_dbti_return_to_vendor)", "VendorName"),
                 ("BUILTIN.DF(t.location)", "Location"),
                 ("s.name", nameof(ReturnsDataGridDTO.Status)),
                 ("BUILTIN.DF(t.transferlocation)", "TransferLocation"),
@@ -243,12 +243,13 @@ public class ReceivingIntegration(
                 ("t.tranid", "ReferenceNumber"),
                 ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", "Date"),
                 ("BUILTIN.DF(t.subsidiary)", "FromSubsidiary"),
-                ("t.custbody_dbti_return_to_vendor", "Vendor"),
-                ("BUILTIN.DF(t.location)", "FromWarehouse"),
+                ("BUILTIN.DF(t.custbody_dbti_return_to_vendor)", "Vendor"),
+                ("BUILTIN.DF(tl.location)", "FromWarehouse"),
                 ("BUILTIN.DF(t.transferlocation)", "ToWarehouse"),
                 ("t.custbody_dbti_prepared_by", "PreparedBy")
             )
             .From("transaction t")
+            .Join("transactionline tl", "tl.transaction = t.id AND tl.mainline = 'T'")
             .WithFilters(
                 Equal("t.recordtype", "intercompanytransferorder"),
                 Any(
