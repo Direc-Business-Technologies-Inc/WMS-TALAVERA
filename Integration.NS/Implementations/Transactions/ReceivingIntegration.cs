@@ -270,11 +270,12 @@ public class ReceivingIntegration(
                 ("BUILTIN.DF(tl.units)", "UoM"),
                 ("BUILTIN.DF(tl.location)", "Location"),
                 ("item.displayname", "ItemDescription"),
-                ("tl.quantity", "QuantityPlanned")
+                ("(tl.quantity / NVL(uom.conversionrate, 1))", "QuantityPlanned")
             )
             .From("transactionline tl")
             .Join("transaction t", on: "tl.transaction = t.id")
             .Join("item", on: "tl.item = item.id")
+            .LeftJoin("unitstypeuom uom", on: "tl.units = uom.internalid")
             .WithFilters(
                 Equal("tl.transactionlinetype", "RECEIVING"),
                 Equal("t.tranid", docEntry),
