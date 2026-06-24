@@ -8,11 +8,13 @@ public class InventoryTransferRequestVM
 
     public int Id { get; set; }
     public string ReferenceNumber { get; set; } = string.Empty;
+    public CustomerVM? CustomerVM { get; set; }
     public SubsidiaryVM? Subsidiary { get; set; }
     public LocationVM? SourceLocation { get; set; }
     public LocationVM? DestinationLocation { get; set; }
     public string PreparedBy { get; set; } = string.Empty;
     public string Memo { get; set; } = string.Empty;
+    public DateTime Date { get; set; }
 
     public List<InventoryTransferRequestLineVM> Lines = [];
 }

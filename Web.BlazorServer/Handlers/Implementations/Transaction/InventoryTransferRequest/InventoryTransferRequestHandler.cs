@@ -9,9 +9,14 @@ namespace Web.BlazorServer.Handlers.Implementations.Transaction.InventoryTransfe
 
 public class InventoryTransferRequestHandler(ISender sender) : IInventoryTransferRequestHandler
 {
-    public Task<InventoryTransferRequestVM?> GetInventoryTransferRequestAsync(string Ref)
+    public async Task<InventoryTransferRequestVM?> GetInventoryTransferRequestAsync(string Ref)
     {
-        throw new NotImplementedException();
+        GetInventoryTransferRequestQry query = new(Ref);
+
+        var response = await sender.Send(query);
+        if (response is null) return null;
+
+        return response.Adapt<InventoryTransferRequestVM>();
     }
 
     public async Task<(IEnumerable<InventoryTransferRequestDataGridVM> Data, int Count)> GetInventoryTransferRequestsDataGridAsync(DataGridIntent intent)

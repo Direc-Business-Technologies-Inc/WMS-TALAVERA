@@ -1,0 +1,24 @@
+﻿@using Web.BlazorServer.Components.Pages.Transaction.InventoryTransferRequest.Components
+@using Web.BlazorServer.Components.Security
+@using Web.BlazorServer.Components.Shared.Skeletons
+@using Web.BlazorServer.ViewModels.Transaction.InventoryTransferRequest
+
+@inherits BaseForm<InventoryTransferRequestVM>
+@layout ProtectedLayout
+@attribute [AppAuthorizationAttribute("VIEW", "OITR")]
+@attribute [Route(ITRRoutes.VIEW)];
+
+
+<PageTitle>View Inventory Transfer Request: @Ref</PageTitle>
+
+<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" class="rz-mb-4">
+    <AppBreadCrumbs ModuleCode="OITR" />
+</RadzenStack>
+
+
+<AppContent>
+    <AppFormSkeleton TItem="InventoryTransferRequestVM" Loading="@IsLoadingData" />
+    @if (!IsLoadingData) {
+        <ITRForm Model="@FormData" EditContext="@EditContext" ReadOnly OnReturn="OnReturn" />
+    }
+</AppContent>

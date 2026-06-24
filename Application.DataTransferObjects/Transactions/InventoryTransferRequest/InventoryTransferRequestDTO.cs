@@ -16,5 +16,6 @@ public class InventoryTransferRequestDTO
     public LocationDTO? DestinationLocation { get; set; }
     public string PreparedBy { get; set; } = string.Empty;
     public string Memo { get; set; } = string.Empty;
+    public DateTime Date { get; set; }
     public List<InventoryTransferRequestLineDTO> Lines { get; set; } = [];
 }
