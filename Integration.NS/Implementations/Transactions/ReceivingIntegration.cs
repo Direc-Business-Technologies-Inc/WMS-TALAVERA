@@ -50,7 +50,7 @@ public class ReceivingIntegration(
             )
             .From("transaction t")
             .WithFilters(
-                Equal("t.tranid", docEntry)
+                Equal("t.tranid", docEntry) 
             )
             .Build();
 
