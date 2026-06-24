@@ -15,4 +15,5 @@ public class InventoryTransferRequestDataGridDTO
     public string DestinationLocation { get; set; } = string.Empty;
     public string PreparedBy { get; set; } = string.Empty;
     public string Memo { get; set; } = string.Empty;
+    public DateTime Date { get; set; }
 }

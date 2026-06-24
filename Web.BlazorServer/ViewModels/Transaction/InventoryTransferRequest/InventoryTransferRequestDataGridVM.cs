@@ -17,4 +17,5 @@ public class InventoryTransferRequestDataGridVM
     [QuickDataGridTitle("Prepared By")]
     public string PreparedBy { get; set; } = string.Empty;
     [QuickDataGridTitle("Remarks")]
-    public string Memo { get; set; } = string.Empty;I
+    public string Memo { get; set; } = string.Empty;
+}
