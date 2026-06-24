@@ -156,7 +156,7 @@ public class ReceivingIntegration(
                 ("t.id", "Id"),
                 ("t.tranid", "ReferenceNumber"),
                 ("t.status", "Status"),
-                ("TO_CHAR(t.custbody_dbti_order_date, 'YYYY-MM-DD\"T\"HH24:MI:SS')", "Date"),
+                ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", "Date"),
                 ("BUILTIN.DF(t.subsidiary)", "FromSubsidiary"),
                 ("BUILTIN.DF(t.tosubsidiary)", "ToSubsidiary"),
                 ("BUILTIN.DF(tl.location)", "Location"),
