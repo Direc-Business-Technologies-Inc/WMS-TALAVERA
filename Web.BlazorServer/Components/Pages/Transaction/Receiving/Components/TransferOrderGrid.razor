@@ -48,6 +48,7 @@
         <RadzenDataGridColumn TItem="TransferOrderDataGridVM"
                               Frozen
                               FrozenPosition="FrozenColumnPosition.Right"
+                              Pickable="false" Sortable="false" Filterable="false"
                               Width="35px">
             <Template>
                 <RadzenButton Icon="arrow_right_alt" Size="ButtonSize.ExtraSmall" Click="() => ViewTransferOrder(context)" />
