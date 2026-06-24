@@ -28,6 +28,7 @@
                               Title="Delivery Date" />
         <RadzenDataGridColumn TItem="PurchaseOrderDataGridVM"
                               Property="@nameof(PurchaseOrderDataGridVM.Vendor)"
+                              FilterProperty="VendorName"
                               Type="@typeof(string)"
                               Title="Vendor Name" />
         <RadzenDataGridColumn TItem="PurchaseOrderDataGridVM"
@@ -36,6 +37,7 @@
                               Title="Status" />
         <RadzenDataGridColumn TItem="PurchaseOrderDataGridVM"
                               Property="@nameof(PurchaseOrderDataGridVM.Remarks)"
+                              FilterProperty="Memo"
                               Type="@typeof(string)"
                               Title="Remarks" />
         <RadzenDataGridColumn TItem="PurchaseOrderDataGridVM"
