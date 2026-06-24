@@ -211,7 +211,7 @@ public class ReceivingIntegration(
             .Select(
                 ("t.id", "Id"),
                 ("t.tranid", "ReferenceNumber"),
-                ("TO_CHAR(t.custbody_dbti_order_date, 'YYYY-MM-DD\"T\"HH24:MI:SS')", "Date"),
+                ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", "Date"),
                 ("BUILTIN.DF(t.subsidiary)", "SourceSubsidiary"),
                 ("BUILTIN.DF(t.tosubsidiary)", "DestinationSubsidiary"),
                 ("BUILTIN.DF(t.custbody_dbti_return_to_vendor)", "VendorName"),
