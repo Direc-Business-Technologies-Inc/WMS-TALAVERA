@@ -9,6 +9,7 @@ using Application.UseCases.Repositories.Integration.Transaction.InventoryTransfe
 using Application.UseCases.Repositories.Integration.Transaction.Receiving;
 using Application.UseCases.Repositories.Integration.Transaction.SalesReturn;
 using Application.UseCases.Repositories.Integration.Transaction.StockTransferRequest;
+using Application.UseCases.Repositories.Integration.Transaction.SupplierReturn;
 using Integration.NS.Implementations.Others;
 using Integration.NS.Implementations.Transactions;
 using Integration.NS.Implementations.Vestigial;
@@ -41,6 +42,7 @@ public static class NSImplementationDI
         services.TryAddTransient<IVendorIntegration, VendorIntegration>();
         services.TryAddTransient<IBusinessAccountIntegration, BusinessAccountIntegration>();
         services.TryAddTransient<IInventoryAdjustmentIntegration, InventoryAdjustmentIntegration>();
+        services.TryAddTransient<ISupplierReturnIntegration, SupplierReturnIntegration>();
 
         services.TryAddTransient<INetSuiteApiClientService, NetSuiteApiClientService>();
 

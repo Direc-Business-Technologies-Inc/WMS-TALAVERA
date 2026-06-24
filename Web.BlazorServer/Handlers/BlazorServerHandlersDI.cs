@@ -14,6 +14,7 @@ using Web.BlazorServer.Handlers.Implementations.Transaction.InventoryTransfer;
 using Web.BlazorServer.Handlers.Implementations.Transaction.Receiving;
 using Web.BlazorServer.Handlers.Implementations.Transaction.SalesReturn;
 using Web.BlazorServer.Handlers.Implementations.Transaction.StockTransferRequest;
+using Web.BlazorServer.Handlers.Implementations.Transaction.SupplierReturn;
 using Web.BlazorServer.Handlers.Repositories.Administration.Authorization;
 using Web.BlazorServer.Handlers.Repositories.Administration.Role;
 using Web.BlazorServer.Handlers.Repositories.Administration.User;
@@ -29,6 +30,7 @@ using Web.BlazorServer.Handlers.Repositories.Transaction.InventoryTransfer;
 using Web.BlazorServer.Handlers.Repositories.Transaction.Receiving;
 using Web.BlazorServer.Handlers.Repositories.Transaction.SalesReturn;
 using Web.BlazorServer.Handlers.Repositories.Transaction.StockTransferRequest;
+using Web.BlazorServer.Handlers.Repositories.Transaction.SupplierReturn;
 
 namespace Web.BlazorServer.Handlers;
 
@@ -61,6 +63,7 @@ public static class BlazorServerHandlersDI
         services.TryAddTransient<ILocationHandler, LocationHandler>();
         services.TryAddTransient<ISubsidiaryHandler, SubsidiaryHandler>();
         services.TryAddTransient<IVendorHandler, VendorHandler>();
+        services.TryAddTransient<ISupplierReturnHandler, SupplierReturnHandler>();
 
         if (environment.IsDevelopment())
         {
