@@ -63,6 +63,7 @@ public static class BlazorServerHandlersDI
         services.TryAddTransient<ILocationHandler, LocationHandler>();
         services.TryAddTransient<ISubsidiaryHandler, SubsidiaryHandler>();
         services.TryAddTransient<IVendorHandler, VendorHandler>();
+        services.TryAddTransient<ICustomerHandler, CustomerHandler>();
         services.TryAddTransient<IInventoryTransferRequestHandler, InventoryTransferRequestHandler>();
 
         if (environment.IsDevelopment())

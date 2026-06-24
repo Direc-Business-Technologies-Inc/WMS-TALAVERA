@@ -40,6 +40,7 @@ public static class NSImplementationDI
         services.TryAddTransient<ILocationIntegration, LocationIntegration>();
         services.TryAddTransient<ISubsidiaryIntegration, SubsidiaryIntegration>();
         services.TryAddTransient<IVendorIntegration, VendorIntegration>();
+        services.TryAddTransient<ICustomerIntegration, CustomerIntegration>();
         services.TryAddTransient<IBusinessAccountIntegration, BusinessAccountIntegration>();
         services.TryAddTransient<IInventoryTransferRequestIntegration, InventoryTransferRequestIntegration>();
         services.TryAddTransient<IInventoryAdjustmentIntegration, InventoryAdjustmentIntegration>();

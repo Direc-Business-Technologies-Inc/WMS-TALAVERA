@@ -217,7 +217,10 @@ namespace Integration.NS.Services
             {
                 var responseJson = await httpResponse.Content.ReadAsStringAsync();
                 //_logger.LogDebug("SuiteQLQuery Result: {@Result}", responseJson);
-                if (string.IsNullOrEmpty(responseJson)) throw new Exception("Empty response from NetSuite API");
+                if (string.IsNullOrEmpty(responseJson))
+                {
+                    return default(T);
+                }
 
                 var response = JsonSerializer.Deserialize<T>(responseJson, JsonSerializerRequestOption);
                 if (response == null) throw new Exception("Bad response from NetSuite API");
