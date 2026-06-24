@@ -419,7 +419,7 @@ public class ReceivingIntegration(
                     {
                         new
                         {
-                            inventoryStatus = isGood ? 1 : 3,
+                            inventoryStatus = isGood ? 1 : 2,
                             quantity = isGood ? line.QuantityGood : line.QuantityBad
                         }
                     }
@@ -458,7 +458,7 @@ public class ReceivingIntegration(
                                 {
                                     new
                                     {
-                                        inventoryStatus = isGood ? "1" : "3",
+                                        inventoryStatus = isGood ? "1" : "2",
                                         binNumber = isGood ? preferredBin : "5",
                                         quantity = lineQuantity
                                     }
