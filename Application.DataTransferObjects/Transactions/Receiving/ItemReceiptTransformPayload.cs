@@ -50,7 +50,7 @@ public class ItemReceiptTransformPayload
                     Quantity = line.QuantityGood,
                     isReceived = true,
                     Rate = isGood ? null : 0,
-                    ActualWeight = line.WeightReceived,
+                    ActualWeight = line.WeightActual,
                     Location = isGood ? null : dto.DefaultBO
                 };
                 x.InventoryDetail = new();
