@@ -20,11 +20,6 @@ public interface INetSuiteApiClientService : INotifyPropertyChanged
     Task<T> MakeRequest<T>(string url, string? reqBody, HttpMethod method);
     Task<T> MakeRequestOAuth1<T>(string url, string? reqBody);
 
-
-    Task<bool> SavePOItemReceipt(List<PostPurchaseOrderDTO> Data);
-    Task<bool> SaveTOItemReceipt(List<PostTransferOrderDTO> Data);
-    Task<bool> SaveReturnsItemReceipt(List<PostReturnsDTO> Data);
-    
     string GetRestAPIURI { get; }
     string GetRestletURI { get; }
 }

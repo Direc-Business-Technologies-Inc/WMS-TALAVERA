@@ -1,12 +1,9 @@
 ﻿using Application.DataTransferObjects.Others.NS;
-using Application.DataTransferObjects.Transactions.Receiving.NS;
-using Application.DataTransferObjects.Transactions.Receiving.NS.Payload;
 using Application.UseCases.Repositories.Integration.Others;
 using Database.Libraries.Repositories;
 using Integration.NS.Entities;
 using Microsoft.AspNetCore.Http;
 using Microsoft.IdentityModel.Tokens;
-using Shared.Libraries.ViewModel;
 using System.ComponentModel;
 using System.IdentityModel.Tokens.Jwt;
 using System.Net.Http.Headers;
@@ -28,6 +25,8 @@ namespace Integration.NS.Services
 
         private static readonly string ItemFulfillmentUrl = $"https://{AccountId}.suitetalk.api.netsuite.com/services/rest/record/v1/{{0}}/{{1}}/!transform/itemFulfillment";
 
+        private static readonly string PatchItemFulfillmentUrl = $"https://{AccountId}.suitetalk.api.netsuite.com/services/rest/record/v1/itemFulfillment/{{0}}";
+
         private static readonly string ItemReceiptUrl = $"https://{AccountId}.suitetalk.api.netsuite.com/services/rest/record/v1/{{0}}/{{1}}/!transform/itemReceipt";
 
         private static readonly string UpdateRecordUrl = $"https://{AccountId}.suitetalk.api.netsuite.com/services/rest/record/v1/{{0}}/{{1}}";
@@ -35,6 +34,8 @@ namespace Integration.NS.Services
         private static readonly string ClientCredentialsCertificateId = Environment.GetEnvironmentVariable("NETSUITE_CERTIFICATE_ID") ?? string.Empty;
 
         private static readonly string ItemReceiptRestletUrl = $"https://{AccountId}.restlets.api.netsuite.com/app/site/hosting/restlet.nl?script=1853&deploy=1";
+
+        private static readonly string TripTicketRestletUrl = $"https://{AccountId}.restlets.api.netsuite.com/app/site/hosting/restlet.nl?script=1862&deploy=1";
 
         private static readonly string ApiConsumerKey = Environment.GetEnvironmentVariable("NETSUITE_CONSUMER_KEY") ?? string.Empty;
 
@@ -60,6 +61,13 @@ namespace Integration.NS.Services
 
         public event PropertyChangedEventHandler? PropertyChanged;
         JsonSerializerOptions JsonSerializerOption = new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = null,
+            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+            WriteIndented = true
+        };
+
+        JsonSerializerOptions JsonSerializerRequestOption = new JsonSerializerOptions
         {
             PropertyNameCaseInsensitive = true,
             NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString
@@ -266,7 +274,7 @@ namespace Integration.NS.Services
             var uri = new Uri(url);
 
             // Base URL WITHOUT query string
-            string baseUrl =$"https://{AccountId}.restlets.api.netsuite.com/app/site/hosting/restlet.nl";
+            string baseUrl = $"https://{AccountId}.restlets.api.netsuite.com/app/site/hosting/restlet.nl";
 
             // Parse query string parameters
             var parameters = new SortedDictionary<string, string>();
@@ -416,112 +424,6 @@ namespace Integration.NS.Services
 
             return await MakeRequest<NetSuiteResponse<T>>(url, jsonBody);
         }
-
-        public async Task<bool> SavePOItemReceipt(List<PostPurchaseOrderDTO> Data)
-        {
-            try
-            {
-                var orderId = Data.Select(x => x.NetsuiteOrderInternalId).FirstOrDefault();
-
-                PurchaseOrderPayloadDTO payloadGood = PurchaseOrderPayloadDTO.CreateForItemReceipt(Data.Where(x => !x.IsBad).ToList(), 1);
-
-                //var jsonString = JsonConvert.SerializeObject(itemReceipt, new JsonSerializerSettings
-                //{
-                //    NullValueHandling = Newtonsoft.Json.NullValueHandling.Ignore
-                //});
-
-                var jsonStringGood = JsonSerializer.Serialize(payloadGood, new JsonSerializerOptions
-                {
-                    PropertyNamingPolicy = null,
-                    DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-                    WriteIndented = true
-                });
-
-                string url = string.Format(ItemReceiptUrl, "purchaseOrder", orderId);
-                
-                await MakeRequest<object>(url, jsonStringGood);
-
-                PurchaseOrderPayloadDTO payloadBad = new();
-                var badPO = Data.Where(x => x.IsBad).ToList();
-                if (badPO != null && badPO.Count != 0)
-                {
-                    payloadBad = PurchaseOrderPayloadDTO.CreateForItemReceipt(badPO, 2);
-
-                    var jsonStringBad = JsonSerializer.Serialize(payloadBad, new JsonSerializerOptions
-                    {
-                        PropertyNamingPolicy = null,
-                        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-                        WriteIndented = true
-                    });
-
-                    await MakeRequest<object>(url, jsonStringBad);
-                }
-
-                return true;
-
-            }
-            catch (Exception ex)
-            {
-                throw new Exception("An error occurred in saving Purchase Order");
-            }
-        }
-
-        public async Task<bool> SaveTOItemReceipt(List<PostTransferOrderDTO> Data)
-        {
-            try
-            {
-                var orderId = Data.Select(x => x.NetsuiteOrderInternalId).FirstOrDefault();
-
-                TransferOrderPayloadDTO payloadGood = TransferOrderPayloadDTO.CreateForItemReceiptRestlet(Data.Where(x => !x.IsBad).ToList(), orderId, 1);
-
-                var jsonStringGood = JsonSerializer.Serialize(payloadGood, new JsonSerializerOptions
-                {
-                    PropertyNamingPolicy = null,
-                    DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-                    WriteIndented = true
-                });
-
-                string url = ItemReceiptRestletUrl;
-
-                await MakeRequestOAuth1<object>(url, jsonStringGood);
-
-                return true;
-
-            }
-            catch (Exception ex)
-            {
-                throw new Exception("An error occurred in saving Transfer Order");
-            }
-        }
-
-        public async Task<bool> SaveReturnsItemReceipt(List<PostReturnsDTO> Data)
-        {
-            try
-            {
-                var orderId = Data.Select(x => x.NetsuiteOrderInternalId).FirstOrDefault();
-
-                ReturnsPayloadDTO payloadGood = ReturnsPayloadDTO.CreateForItemReceipt(Data);
-
-                var jsonStringGood = JsonSerializer.Serialize(payloadGood, new JsonSerializerOptions
-                {
-                    PropertyNamingPolicy = null,
-                    DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-                    WriteIndented = true
-                });
-
-                string url = string.Format(ItemReceiptUrl, "transferOrder", orderId); ;
-
-                await MakeRequest<object>(url, jsonStringGood);
-
-                return true;
-
-            }
-            catch (Exception ex)
-            {
-                throw new Exception("An error occurred in saving Returns");
-            }
-        }
-
         public string GetRestAPIURI => RestApiRoot;
         public string GetRestletURI => $"https://{AccountId}.restlets.api.netsuite.com/app/site/hosting/restlet.nl";
     }

@@ -6,13 +6,3 @@ using MediatR;
 namespace Application.UseCases.Commands.Transaction.Receiving.NS.PurchaseOrder;
 
 public record PostPurchaseOrderCmd(List<PostPurchaseOrderDTO> Data) : ITransactionalRequest<bool>;
-
-public class PostPurchaseOrderCmdHandler(INetSuiteApiClientService netSuiteApiClientService) : IRequestHandler<PostPurchaseOrderCmd, bool>
-{
-    public async Task<bool> Handle(PostPurchaseOrderCmd request, CancellationToken cancellationToken)
-    {
-        bool result = await netSuiteApiClientService.SavePOItemReceipt(request.Data);
-
-        return result;
-    }
-}
