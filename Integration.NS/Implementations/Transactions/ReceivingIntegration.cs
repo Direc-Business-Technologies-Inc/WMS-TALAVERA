@@ -329,8 +329,8 @@ public class ReceivingIntegration(
                 ("loc.usebins", "LocationUsesBins"),
                 ("item.displayname", "ItemDescription"),
                 ("pb.bin", "PrefferedBinAssignmentId"),
-                ("tl.custcol_dbti_record_weight", nameof(ItemReceiptLineDTO.WeightTotal)),
-                ("tl.custcol_dbti_actual_weight", nameof(ItemReceiptLineDTO.WeightReceived)),
+                ("tl.custcol_dbti_record_weight", nameof(ItemReceiptLineDTO.WeightRecord)),
+                ("tl.custcol_dbti_actual_weight", nameof(ItemReceiptLineDTO.WeightActual)),
                 ("(tl.quantity / uom.conversionrate)", "QuantityPlanned"),
                 ("(tl.quantity - tl.quantityshiprecv) / uom.conversionrate", "QuantityOpen"),
                 ("(tl.quantityshiprecv / uom.conversionrate)", "QuantityReceived")
@@ -449,7 +449,7 @@ public class ReceivingIntegration(
                         itemreceive = isItemReceived,
                         orderLine = line.LineNumber,
                         quantity = isItemReceived ? lineQuantity : (decimal?)null,
-                        custcol_dbti_actual_weight = isItemReceived ? line.WeightReceived : (decimal?)null,
+                        custcol_dbti_actual_weight = isItemReceived ? line.WeightActual : (decimal?)null,
                         rate = isGood ? (decimal?) null : 0,
                         inventoryDetail = isItemReceived ? new
                         {

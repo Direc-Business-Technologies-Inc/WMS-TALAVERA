@@ -51,8 +51,8 @@ public class ItemReceiptLineDTO
         set => _isLocationBinUsed = value.Equals("T", StringComparison.OrdinalIgnoreCase);
     }
 
-    public decimal WeightReceived { get; set; }
-    public decimal WeightTotal { get; set; }
+    public decimal WeightActual { get; set; }
+    public decimal WeightRecord { get; set; }
     public decimal QuantityPlanned { get; set; }
     public decimal QuantityOpen { get; set; }
     public decimal QuantityReceived { get; set; }

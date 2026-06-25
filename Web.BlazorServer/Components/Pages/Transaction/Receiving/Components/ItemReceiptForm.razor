@@ -81,15 +81,15 @@
                     <RadzenDataGridColumn TItem="ItemReceiptLineVM" Property="@nameof(ItemReceiptLineVM.UoM)" Title="UoM" />
                     <RadzenDataGridColumn TItem="ItemReceiptLineVM" Property="@nameof(ItemReceiptLineVM.Department)" Title="Department" />
                     <RadzenDataGridColumn TItem="ItemReceiptLineVM" Property="@nameof(ItemReceiptLineVM.Location)" Title="Warehouse" />
-                    <RadzenDataGridColumn TItem="ItemReceiptLineVM" Property="@nameof(ItemReceiptLineVM.WeightReceived)" Title="Weight">
+                    <RadzenDataGridColumn TItem="ItemReceiptLineVM" Property="@nameof(ItemReceiptLineVM.WeightActual)" Title="Actual Weight" >
                         <Template Context="data">
-                                <RadzenNumeric Name="data_received_weight" Min="0" @bind-Value="data.WeightReceived" ShowUpDown="false" Disabled="@(!data.IsReceived)" />
+                            <RadzenNumeric Min="0" @bind-Value="data.WeightActual" ShowUpDown="false" Disabled="@(!data.IsReceived)"/>
                         </Template>
                     </RadzenDataGridColumn>
-                    <RadzenDataGridColumn TItem="ItemReceiptLineVM" Property="@nameof(ItemReceiptLineVM.WeightTotal)" Title="Total Weight" />
-                    <RadzenDataGridColumn TItem="ItemReceiptLineVM" Property="@nameof(ItemReceiptLineVM.QuantityReceived)" Title="Quantity Received" />
-                    <RadzenDataGridColumn TItem="ItemReceiptLineVM" Property="@nameof(ItemReceiptLineVM.QuantityPlanned)" Title="Quantity Planned" />
-                    <RadzenDataGridColumn TItem="ItemReceiptLineVM" Title="Good Quantity">
+                    <RadzenDataGridColumn TItem="ItemReceiptLineVM" Property="@nameof(ItemReceiptLineVM.WeightRecord)" Title="Record Weight" />
+                    <RadzenDataGridColumn TItem="ItemReceiptLineVM" Property="@nameof(ItemReceiptLineVM.QuantityPlanned)" Title="Planned Quantity" />
+                    <RadzenDataGridColumn TItem="ItemReceiptLineVM" Property="@nameof(ItemReceiptLineVM.QuantityReceived)" Title="Received Quantity" />
+                    <RadzenDataGridColumn TItem="ItemReceiptLineVM" Property="@nameof(ItemReceiptLineVM.QuantityBad)" Title="Quantity" >
                         <Template Context="data">
                             <RadzenStack>
                                 <RadzenFormField>
