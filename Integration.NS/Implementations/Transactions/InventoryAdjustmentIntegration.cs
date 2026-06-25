@@ -39,7 +39,8 @@ public class InventoryAdjustmentIntegration(
                 ("NVL(t.custbody_atlas_inv_adj_reason, -1)", nameof(InventoryAdjustmentNSDTO.ReasonId)),
                 ("iar.name", nameof(InventoryAdjustmentNSDTO.ReasonName)),
                 ("iar.custrecord_atlas_glaccount", nameof(InventoryAdjustmentNSDTO.ReasonAccountId)),
-                ("BUILTIN.DF(iar.custrecord_atlas_glaccount)", nameof(InventoryAdjustmentNSDTO.ReasonAccountName))
+                ("BUILTIN.DF(iar.custrecord_atlas_glaccount)", nameof(InventoryAdjustmentNSDTO.ReasonAccountName)),
+                ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS') ", nameof(InventoryAdjustmentNSDTO.Date))
             )
             .From("transaction t")
             .Join("transactionline tl", on: "tl.transaction = t.id")

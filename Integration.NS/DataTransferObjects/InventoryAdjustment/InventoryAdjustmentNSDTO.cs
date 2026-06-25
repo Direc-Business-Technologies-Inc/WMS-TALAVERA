@@ -22,4 +22,6 @@ public class InventoryAdjustmentNSDTO
     public int ReasonAccountId { get; set; }
     public string ReasonAccountName { get; set; } = string.Empty;
     public string PreparedBy { get; set; } = string.Empty;
+
+    public DateTime Date { get; set; }
 }
