@@ -25,6 +25,7 @@ public partial class QuickDataGrid<TItem> : BaseComponent where TItem : class
     [Parameter] public RenderFragment? HeaderEnd { get; set; } = null;
     [Parameter] public RenderFragment<TItem>? RowActions { get; set; } = null;
     [Parameter][EditorRequired] public required DataDelegate DataGetter { get; set; }
+    [Parameter] public bool IgnorePageSettings { get; set; } = false;
 
     public const string GENERIC_ACTION_NAME = "Generic Action";
     public const string GENERIC_DATAGRID_ID = "generic_app_datagrid";
@@ -66,6 +67,7 @@ public partial class QuickDataGrid<TItem> : BaseComponent where TItem : class
         else
         {
             await GridSettingsService.SetGridSettings(DataGrid.DataGrid, settings => DataGridSettings = settings ?? new());
+            if (IgnorePageSettings) DataGridSettings.CurrentPage = null;
         }
         GridSettingsLoaded = true;
 
