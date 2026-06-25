@@ -70,7 +70,7 @@
                         <QuickVirtualizedDropdown Visible="@(!ReadOnly)" ActionName="@ActionGetItemUnits" TItem="ItemUnitVM" @bind-Value="@data.UoM" DataGetter="@(intent => UnitsProvider(data.ItemId, intent))" TextProperty="@nameof(ItemUnitVM.Name)" />
                     </Template>
                 </RadzenDataGridColumn>
-                <RadzenDataGridColumn TItem="InventoryAdjustmentLineVM" Title="Type">
+                <RadzenDataGridColumn TItem="InventoryAdjustmentLineVM" Property="@nameof(InventoryAdjustmentLineVM.Type)" Title="Type">
                     <Template Context="data">
                         <RadzenSelectBar TValue="InventoryAdjustmentLineVM.Types" Size="ButtonSize.Small" @bind-Value="@data.Type">
                             <Items>
@@ -80,7 +80,7 @@
                         </RadzenSelectBar>
                     </Template>
                 </RadzenDataGridColumn>
-                <RadzenDataGridColumn TItem="InventoryAdjustmentLineVM" Title="Alloted Quantity">
+                <RadzenDataGridColumn TItem="InventoryAdjustmentLineVM" Property="@nameof(InventoryAdjustmentLineVM.QuantityAlloted)" Title="Alloted Quantity">
                     <Template Context="data">
                         <RadzenFormField>
                             <ChildContent>
