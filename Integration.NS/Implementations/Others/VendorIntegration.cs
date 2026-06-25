@@ -36,13 +36,14 @@ public class VendorIntegration(
     {
         var query = builderFactory.Create()
             .Select(
-                ("id", nameof(VendorDTO.Id)),
-                ("entityid", nameof(VendorDTO.ReferenceNumber)),
-                ("companyname", nameof(VendorDTO.CompanyName)),
-                ("fullname", nameof(VendorDTO.Name))
+                ("v.id", nameof(VendorDTO.Id)),
+                ("v.entityid", nameof(VendorDTO.ReferenceNumber)),
+                ("v.companyname", nameof(VendorDTO.CompanyName)),
+                ("v.fullname", nameof(VendorDTO.Name))
             )
-            .From("vendor")
-            .WithFilters(DataGridFilterUtilities.Equal("vendor.subsidiary", subsidiary))
+            .From("vendor v")
+            .Join("vendorSubsidiaryRelationship vsr", "vsr.entity = v.id")
+            .WithFilters(DataGridFilterUtilities.Equal("vsr.subsidiary", subsidiary))
             .WithDatagridIntent(intent)
             .Build();
 

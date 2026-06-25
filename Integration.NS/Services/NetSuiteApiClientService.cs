@@ -7,6 +7,7 @@ using Microsoft.IdentityModel.Tokens;
 using System.ComponentModel;
 using System.IdentityModel.Tokens.Jwt;
 using System.Net.Http.Headers;
+using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -217,8 +218,9 @@ namespace Integration.NS.Services
                 if (response == null) throw new Exception("Bad response from NetSuite API");
                 return response;
             }
-
-            throw new Exception($"Request failed with status code: {httpResponse.StatusCode}");
+            
+            var errorBody = await httpResponse.Content.ReadFromJsonAsync<NetSuiteErrorResponse>();
+            throw new Exception(errorBody?.DisplayString ?? $"Request failed with status code: {httpResponse.StatusCode}");
         }
 
         async Task<T> MakePatchRequest<T>(string url, string? reqBody)
