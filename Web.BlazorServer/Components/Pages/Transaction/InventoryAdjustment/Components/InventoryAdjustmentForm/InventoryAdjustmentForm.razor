@@ -33,7 +33,7 @@
                 <RadzenFormField Text="Account" class="rz-w-100">
                     <ChildContent>
                     <RadzenTextBox Visible="@ReadOnly" ReadOnly Value="@Model.Account?.Name" Placeholder="Enter account" />
-                    <QuickVirtualizedDropdown @ref="@AccountDropdown" Name="ia_account_dropdown" Visible="@(!ReadOnly)" Disabled="@(Model.Subsidiary is null || Model.Reason is not null)" ActionName="@ActionGetAccounts" TItem="BusinessAccountVM" @bind-Value="@Model.Account" DataGetter="@AccountProvider" TextProperty="@nameof(BusinessAccountVM.Name)" AllowFiltering AllowClear />
+                    <QuickVirtualizedDropdown @ref="@AccountDropdown" Name="ia_account_dropdown" Visible="@(!ReadOnly)" Disabled="@(Model.Subsidiary is null)" ActionName="@ActionGetAccounts" TItem="BusinessAccountVM" @bind-Value="@Model.Account" DataGetter="@AccountProvider" TextProperty="@nameof(BusinessAccountVM.Name)" AllowFiltering AllowClear />
                     </ChildContent>
                     <Helper>
                         <RadzenRequiredValidator Component="ia_account_dropdown" />

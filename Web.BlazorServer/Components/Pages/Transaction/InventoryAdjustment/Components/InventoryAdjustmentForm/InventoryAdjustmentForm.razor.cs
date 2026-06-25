@@ -52,6 +52,11 @@ public partial class InventoryAdjustmentForm
 
     async Task<(IEnumerable<BusinessAccountVM>, int)> AccountProvider(DataGridIntent intent)
     {
+        if (Model.Reason is not null) return ([new BusinessAccountVM
+        {
+            Name = Model.Reason.AccountName,
+            Id = Model.Reason.AccountId,
+        }], 1);
         if (Model.Subsidiary is null) return ([], 0);
         return await accountHandler.GetBusinessAccountsBySubsidiaryDataGridAsync(intent, Model.Subsidiary.Id);
     }
