@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
 using Shared.Entities;
+using Web.BlazorServer.Components.Custom;
 using Web.BlazorServer.Handlers.Repositories.Others;
+using Web.BlazorServer.Services.Repositories;
 using Web.BlazorServer.ViewModels.Others;
 using Web.BlazorServer.ViewModels.Transaction.InventoryTransferRequest;
 
@@ -12,6 +14,7 @@ public partial class ITRForm
     [Inject] ISubsidiaryHandler subsidiaryHandler { get; set; } = default!;
     [Inject] ILocationHandler locationHandler { get; set; } = default!;
     [Inject] IItemsHandler itemsHandler { get; set; } = default!;
+    [Inject] IGridSettingsService GridSettingsService { get; set; } = default!;
     [Parameter][EditorRequired] public InventoryTransferRequestVM Model { get; set; }
     [Parameter][EditorRequired] public EditContext EditContext { get; set; }
     [Parameter] public EventCallback<InventoryTransferRequestVM> OnSubmit { get; set; }
@@ -21,6 +24,9 @@ public partial class ITRForm
     [Parameter] public string SubmitLabel { get; set; } = "Submit";
     [Parameter] public string SecondaryActionLabel { get; set; } = "Action";
     [Parameter] public bool ReadOnly { get; set; } = false;
+
+    QuickVirtualizedDropdown<LocationVM> SourceLocationDropdown { get; set; } = default!;
+    QuickVirtualizedDropdown<LocationVM> DestinationLocationDropdown { get; set; } = default!;
 
     async Task<(IEnumerable<SubsidiaryVM>, int)> SubsidiaryProvider(DataGridIntent intent)
     {
@@ -41,6 +47,60 @@ public partial class ITRForm
     async Task<(IEnumerable<ItemUnitVM>, int)> ItemUnitProvider(DataGridIntent intent, int itemId)
     {
         return await itemsHandler.GetItemUnits(itemId,intent);
+    }
+
+    async Task SetSourceLocation(LocationVM? loc, bool skipPrompt = false)
+    {
+        if (Model.Lines.Count > 0)
+        {
+            var response = await AlertService.PromptAsync("This will delete all added lines", "Change source location?");
+            if (!response)
+            {
+                await InvokeAsync(StateHasChanged);
+                return;
+            }
+        }
+
+        Model.Lines.Clear();
+        Model.SourceLocation = loc;
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    async Task SubsidiariesSet(SubsidiaryVM? subsidiary, bool skipPrompt = false)
+    {
+        if (Model.Lines.Count > 0)
+        {
+            var response = await AlertService.PromptAsync("This will delete all added lines", "Change subsidiary?");
+            if (!response)
+            {
+                await InvokeAsync(StateHasChanged);
+                return;
+            }
+        }
+
+        Model.Lines.Clear();
+        Model.Subsidiary = subsidiary;
+        Model.DestinationLocation = null;
+        await SetSourceLocation(null, true);
+
+        SourceLocationDropdown.Reset();
+        DestinationLocationDropdown.Reset();
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    async Task AddItems(List<ItemsVM> items)
+    {
+        Model.Lines.AddRange(items.Select(x => new InventoryTransferRequestLineVM
+        {
+            ItemID = x.Id,
+            ItemCode = x.Name,
+            ItemDescription = x.Description,
+            UoM = x.StockUnit,
+            QuantityOnHand = x.QuantityOnHand,
+            Location = Model.SourceLocation
+        }));
     }
 
     async Task SecondaryAction()

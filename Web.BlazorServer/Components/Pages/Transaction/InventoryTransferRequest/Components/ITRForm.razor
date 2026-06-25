@@ -20,13 +20,13 @@
                 <RadzenColumn SizeMD="4">
                     <RadzenFormField Text="Subsidiary" class="rz-w-100">
                         <RadzenTextBox Visible="@ReadOnly" ReadOnly Value="@Model.Subsidiary?.Name" Placeholder="No subsidiary given" />
-                        <QuickVirtualizedDropdown Visible="@(!ReadOnly)" TItem="SubsidiaryVM" DataGetter="@SubsidiaryProvider" TextProperty="@nameof(SubsidiaryVM.Name)" @bind-Value="@Model.Subsidiary" />
+                        <QuickVirtualizedDropdown Visible="@(!ReadOnly)" TItem="SubsidiaryVM" DataGetter="@SubsidiaryProvider" TextProperty="@nameof(SubsidiaryVM.Name)" @bind-Value:get="@Model.Subsidiary" @bind-Value:set="@(val => SubsidiariesSet(val, false))" />
                     </RadzenFormField>
                 </RadzenColumn>
                 <RadzenColumn SizeMD="4">
                     <RadzenFormField Text="From Warehouse" class="rz-w-100">
                         <RadzenTextBox Visible="@ReadOnly" ReadOnly Value="@Model.SourceLocation?.Name" Placeholder="No source location given" />
-                        <QuickVirtualizedDropdown Visible="@(!ReadOnly)" TItem="LocationVM" DataGetter="@SourceLocationProvider" TextProperty="@nameof(LocationVM.Name)" @bind-Value="@Model.SourceLocation" />
+                        <QuickVirtualizedDropdown Visible="@(!ReadOnly)" TItem="LocationVM" DataGetter="@SourceLocationProvider" TextProperty="@nameof(LocationVM.Name)" @bind-Value:get="@Model.SourceLocation" @bind-Value:set="@(val => SetSourceLocation(val, false))" />
                     </RadzenFormField>
                 </RadzenColumn>
                 <RadzenColumn SizeMD="4">
@@ -39,6 +39,9 @@
         </RadzenFieldset>
         <RadzenFieldset Text="Lines">
             <AppTableWithSettings Id="inventory_transfer_request_lines_table" Data="@Model.Lines">
+                <HeaderTemplate>
+                    <RadzenButton Icon="add" ButtonStyle="ButtonStyle.Success" Click="(() => OpenItemDialog())" Size="ButtonSize.Small"/> 
+                </HeaderTemplate>
                 <Columns>
                     <RadzenDataGridColumn TItem="InventoryTransferRequestLineVM" Property="@nameof(InventoryTransferRequestLineVM.ItemCode)" Title="Item Code" />
                     <RadzenDataGridColumn TItem="InventoryTransferRequestLineVM" Property="@nameof(InventoryTransferRequestLineVM.ItemDescription)" Title="Item Description" />
@@ -70,3 +73,15 @@
         </RadzenStack>
     </RadzenStack>
 </RadzenTemplateForm>
+
+@code {
+    async Task OpenItemDialog()
+    {
+        List<ItemsVM> items = await DialogService.OpenAsync(
+            "Select Items",
+            ds => @<ItemSelectionDialog Location="@(Model.SourceLocation?.Id ?? null)" />,
+    options: GridSettingsService.GetDialogOptions());
+
+        if (items is not null) await AddItems(items);
+    }
+}
