@@ -131,7 +131,7 @@
             </RadzenColumn>
             <RadzenColumn SizeMD="4" OffsetMD="4">
                 <RadzenFormField Text="Prepared By" class="rz-w-100">
-                    <RadzenTextBox ReadOnly="@ReadOnly" @bind-Value="@Model.PreparedBy" />
+                    <RadzenTextBox ReadOnly Value="@Model.PreparedBy" Placeholder="@(ReadOnly ? " - " : "Auto Generated")" />
                 </RadzenFormField>
             </RadzenColumn>
         </RadzenRow>
