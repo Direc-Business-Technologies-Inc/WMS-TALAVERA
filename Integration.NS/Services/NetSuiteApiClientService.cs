@@ -10,6 +10,7 @@ using Shared.Libraries.ViewModel;
 using System.ComponentModel;
 using System.IdentityModel.Tokens.Jwt;
 using System.Net.Http.Headers;
+using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -206,8 +207,8 @@ namespace Integration.NS.Services
                 if (response == null) throw new Exception("Bad response from NetSuite API");
                 return response;
             }
-            var errorBody = await httpResponse.Content.ReadAsStringAsync();
-            throw new Exception($"Request failed with status code: {httpResponse.StatusCode}\n Error Message: {errorBody}");
+            var errorBody = await httpResponse.Content.ReadFromJsonAsync<NetSuiteErrorResponse>();
+            throw new Exception(errorBody?.DisplayString ?? $"Request failed with status code: {httpResponse.StatusCode}");
         }
         async Task<T> MakeRequest<T>(string url, string? reqBody = null)
         {
