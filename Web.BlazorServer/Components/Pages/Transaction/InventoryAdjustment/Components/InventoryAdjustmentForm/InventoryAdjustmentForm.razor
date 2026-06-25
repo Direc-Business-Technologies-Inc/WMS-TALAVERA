@@ -70,19 +70,9 @@
                         <QuickVirtualizedDropdown Visible="@(!ReadOnly)" ActionName="@ActionGetItemUnits" TItem="ItemUnitVM" @bind-Value="@data.UoM" DataGetter="@(intent => UnitsProvider(data.ItemId, intent))" TextProperty="@nameof(ItemUnitVM.Name)" />
                     </Template>
                 </RadzenDataGridColumn>
-                <RadzenDataGridColumn TItem="InventoryAdjustmentLineVM" Property="@nameof(InventoryAdjustmentLineVM.Type)" Title="Type">
-                    <Template Context="data">
-                        <RadzenSelectBar TValue="InventoryAdjustmentLineVM.Types" Size="ButtonSize.Small" @bind-Value="@data.Type">
-                            <Items>
-                                <RadzenSelectBarItem Value="InventoryAdjustmentLineVM.Types.Receipt" Text="@InventoryAdjustmentLineVM.Types.Receipt.ToString()" />
-                                <RadzenSelectBarItem Value="InventoryAdjustmentLineVM.Types.Issue" Text="@InventoryAdjustmentLineVM.Types.Issue.ToString()" />
-                            </Items>
-                        </RadzenSelectBar>
-                    </Template>
-                </RadzenDataGridColumn>
                 <RadzenDataGridColumn TItem="InventoryAdjustmentLineVM" Property="@nameof(InventoryAdjustmentLineVM.QuantityAlloted)" Title="Alloted Quantity">
                     <Template Context="data">
-                        <RadzenFormField>
+                        <RadzenFormField Text="@(data.Type == InventoryAdjustmentLineVM.Types.Issue ? "Issue" : "Receipt")">
                             <ChildContent>
                                 <RadzenNumeric ReadOnly="@ReadOnly" Name="line_details" @bind-Value="@data.QuantityAlloted" class="rz-w-100" Min="0" Max="@(data.QuantityOnHand / (data.UoM?.ConversionRate ?? 1))" />
                             </ChildContent>

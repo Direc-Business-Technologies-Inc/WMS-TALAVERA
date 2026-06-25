@@ -8,8 +8,10 @@ namespace Web.BlazorServer.Components.Pages.Transaction.InventoryAdjustment;
 public partial class InventoryAdjustmentCreatePage
 {
     [Inject] public IInventoryAdjustmentHandler? inventoryAdjustmentHandler { get; set; }
-
+    [SupplyParameterFromQuery] public string? Type { get; set; }
+    bool IsIssue => Type is not null && Type.Equals("issue", StringComparison.OrdinalIgnoreCase);
     readonly string ActionCreateInventoryAdjustment = "Create Inventory Adjustment";
+
     async Task OnSubmit(InventoryAdjustmentVM data)
     {
         var action = AppActionFactory.RunConfirmedAsync(async () =>
