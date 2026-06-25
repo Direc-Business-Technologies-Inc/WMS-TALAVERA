@@ -1,5 +1,6 @@
 ﻿using Web.BlazorServer.Components.Pages.Transaction.InventoryAdjustment;
 using Web.BlazorServer.Components.Pages.Transaction.StockTransferRequest;
+using Web.BlazorServer.Components.Pages.Transaction.SupplierReturn;
 using Web.BlazorServer.ViewModels.System;
 
 namespace Web.BlazorServer.Helpers;
@@ -69,6 +70,7 @@ public class NavRoutesRepository
 
         List<NavigationRouteVM> purchaseSubroutes = [
             new() {Name = "Receiving", Icon="stacked_inbox", Protected=true, Uri = "/transactions/purchasing/receiving" },
+            new() {Name = "Return to Supplier", Icon="assignment_return", Protected=true, Uri = SupplierReturnRoutes.INDEX },
         ];
 
         purchaseSubroutes.ForEach(x => x.Parent = purchase);
