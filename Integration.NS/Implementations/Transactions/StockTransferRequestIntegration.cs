@@ -191,8 +191,8 @@ internal class StockTransferRequestIntegration(
                 ("uom.conversionrate", nameof(StockTransferRequestLineNSDTO.UoMRate)),
                 ("BUILTIN.DF(tl.location)", nameof(StockTransferRequestLineNSDTO.Warehouse)),
                 ("item.displayname", nameof(StockTransferRequestLineNSDTO.ItemDescription)),
-                ("iil.quantityonhand", nameof(StockTransferRequestLineNSDTO.QuantityOnHand)),
-                ("tl.quantity", nameof(StockTransferRequestLineNSDTO.QuantityAlloted))
+                ("(iil.quantityonhand / uom.conversionrate)", nameof(StockTransferRequestLineNSDTO.QuantityOnHand)),
+                ("(tl.quantity / uom.conversionrate)", nameof(StockTransferRequestLineNSDTO.QuantityAlloted))
             )
             .From("transactionline tl")
             .Join("transaction t", on: "tl.transaction = t.id")
