@@ -20,19 +20,19 @@
                 <RadzenColumn SizeMD="4">
                     <RadzenFormField Text="Subsidiary" class="rz-w-100">
                         <RadzenTextBox Visible="@ReadOnly" ReadOnly Value="@Model.Subsidiary?.Name" Placeholder="No subsidiary given" />
-                        <QuickVirtualizedDropdown Visible="@(!ReadOnly)" TItem="SubsidiaryVM" DataGetter="@SubsidiaryProvider" TextProperty="@nameof(SubsidiaryVM.Name)" @bind-Value:get="@Model.Subsidiary" @bind-Value:set="@(val => SubsidiariesSet(val, false))" />
+                        <QuickVirtualizedDropdown Visible="@(!ReadOnly)" TItem="SubsidiaryVM" DataGetter="@SubsidiaryProvider" TextProperty="@nameof(SubsidiaryVM.Name)" @bind-Value:get="@Model.Subsidiary" @bind-Value:set="SubsidiarySet" />
                     </RadzenFormField>
                 </RadzenColumn>
                 <RadzenColumn SizeMD="4">
                     <RadzenFormField Text="From Warehouse" class="rz-w-100">
                         <RadzenTextBox Visible="@ReadOnly" ReadOnly Value="@Model.SourceLocation?.Name" Placeholder="No source location given" />
-                        <QuickVirtualizedDropdown Visible="@(!ReadOnly)" TItem="LocationVM" DataGetter="@SourceLocationProvider" TextProperty="@nameof(LocationVM.Name)" @bind-Value:get="@Model.SourceLocation" @bind-Value:set="@(val => SetSourceLocation(val, false))" />
+                        <QuickVirtualizedDropdown @ref="@SourceLocationDropdown" Disabled="@(Model.Subsidiary is null)" Visible="@(!ReadOnly)" TItem="LocationVM" DataGetter="@SourceLocationProvider" TextProperty="@nameof(LocationVM.Name)" @bind-Value:get="@Model.SourceLocation" @bind-Value:set="LocationSet" />
                     </RadzenFormField>
                 </RadzenColumn>
                 <RadzenColumn SizeMD="4">
                     <RadzenFormField Text="To Warehouse" class="rz-w-100">
                         <RadzenTextBox Visible="@ReadOnly" ReadOnly Value="@Model.DestinationLocation?.Name" Placeholder="No destination location given" />
-                        <QuickVirtualizedDropdown Visible="@(!ReadOnly)" TItem="LocationVM" DataGetter="@DestinationLocationProvider" TextProperty="@nameof(LocationVM.Name)" @bind-Value="@Model.DestinationLocation" />
+                        <QuickVirtualizedDropdown @ref="@DestinationLocationDropdown" Disabled="@(Model.SourceLocation is null)" Visible="@(!ReadOnly)" TItem="LocationVM" DataGetter="@DestinationLocationProvider" TextProperty="@nameof(LocationVM.Name)" @bind-Value="@Model.DestinationLocation" />
                     </RadzenFormField>
                 </RadzenColumn>
             </RadzenRow>
@@ -63,6 +63,11 @@
                     </RadzenDataGridColumn>
                 </Columns>
             </AppTableWithSettings>
+        </RadzenFieldset>
+        <RadzenFieldset Text="Additional Details">
+            <RadzenFormField Text="Remarks" class="rz-w-100">
+                <RadzenTextArea ReadOnly="@ReadOnly" @bind-Value="@Model.Memo" />
+            </RadzenFormField>
         </RadzenFieldset>
         <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween">
             <RadzenButton Visible="@OnReturn.HasDelegate" ButtonType="ButtonType.Button" Text="@ReturnLabel" Click="@Return"/>

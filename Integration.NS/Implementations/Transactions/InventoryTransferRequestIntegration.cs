@@ -11,6 +11,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 
 namespace Integration.NS.Implementations.Transactions;
@@ -49,8 +51,8 @@ public class InventoryTransferRequestIntegration(
 
         return result.Adapt(new InventoryTransferRequestDTO
         {
-            SourceLocation = new () { Id = result.SourceLocationId, Name = result.SourceLocationName},
-            DestinationLocation = new () { Id = result.DestinationLocationId, Name = result.DestinationLocationName},
+            SourceLocation = new() { Id = result.SourceLocationId, Name = result.SourceLocationName },
+            DestinationLocation = new() { Id = result.DestinationLocationId, Name = result.DestinationLocationName },
             Subsidiary = new() { Id = result.SubsidiaryId, Name = result.SubsidiaryName }
         });
     }
@@ -109,6 +111,55 @@ public class InventoryTransferRequestIntegration(
         var response = await netsuiteService.ExecuteSuiteQLQuery<InventoryTransferRequestDataGridDTO>(query.Query, query.Limit, query.Offset);
         return (response.items, response.totalResults);
     }
+
+    public async Task<bool> CreateInventoryTransferRequest(InventoryTransferRequestDTO data)
+    {
+        var url = netsuiteService.GetRestAPIURI + "/record/v1/CUSTOMSALE_DBTI_INV_TRANSFER_REQ";
+        var payload = CreatePayload(data);
+
+        try
+        {
+            _ = await netsuiteService.MakeRequest<object>(url, payload, HttpMethod.Post);
+        }
+        catch (Exception ex) when (ex.Message.Equals("Empty response from NetSuite API", StringComparison.OrdinalIgnoreCase))
+        {
+            // Empty response is but http response is a success status code
+        }
+
+        return true;
+    }
+
+    public string CreatePayload(InventoryTransferRequestDTO data)
+    {
+        var anon = new
+        {
+            subsidiary = data.Subsidiary?.Id ?? null,
+            location = data.SourceLocation?.Id ?? null,
+            custbody_dbti_itr_to_location = data.DestinationLocation?.Id ?? null,
+            memo = data.Memo,
+            date = data.Date,
+            item = new
+            {
+                items = data.Lines.Select(x => new
+                {
+                    item = x.ItemID,
+                    quantity = x.QuantityAlloted,
+                    units = x.UoM?.Id.ToString() ?? null
+                })
+            }
+        };
+
+        return JsonSerializer.Serialize(anon, jsonOpts);
+    }
+
+
+    readonly JsonSerializerOptions jsonOpts = new JsonSerializerOptions
+    {
+        PropertyNamingPolicy = null,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        WriteIndented = true
+    };
+
 
     public InventoryTransferRequestLineDTO ConvertLine(InventoryTransferRequestLineNSDTO line)
     {

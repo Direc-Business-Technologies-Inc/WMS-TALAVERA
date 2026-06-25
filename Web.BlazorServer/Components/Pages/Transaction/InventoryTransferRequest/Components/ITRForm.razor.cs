@@ -49,47 +49,6 @@ public partial class ITRForm
         return await itemsHandler.GetItemUnits(itemId,intent);
     }
 
-    async Task SetSourceLocation(LocationVM? loc, bool skipPrompt = false)
-    {
-        if (Model.Lines.Count > 0)
-        {
-            var response = await AlertService.PromptAsync("This will delete all added lines", "Change source location?");
-            if (!response)
-            {
-                await InvokeAsync(StateHasChanged);
-                return;
-            }
-        }
-
-        Model.Lines.Clear();
-        Model.SourceLocation = loc;
-
-        await InvokeAsync(StateHasChanged);
-    }
-
-    async Task SubsidiariesSet(SubsidiaryVM? subsidiary, bool skipPrompt = false)
-    {
-        if (Model.Lines.Count > 0)
-        {
-            var response = await AlertService.PromptAsync("This will delete all added lines", "Change subsidiary?");
-            if (!response)
-            {
-                await InvokeAsync(StateHasChanged);
-                return;
-            }
-        }
-
-        Model.Lines.Clear();
-        Model.Subsidiary = subsidiary;
-        Model.DestinationLocation = null;
-        await SetSourceLocation(null, true);
-
-        SourceLocationDropdown.Reset();
-        DestinationLocationDropdown.Reset();
-
-        await InvokeAsync(StateHasChanged);
-    }
-
     async Task AddItems(List<ItemsVM> items)
     {
         Model.Lines.AddRange(items.Select(x => new InventoryTransferRequestLineVM
@@ -116,6 +75,42 @@ public partial class ITRForm
     async Task Submit()
     {
         if (OnSubmit.HasDelegate) await OnSubmit.InvokeAsync(Model);
+    }
+
+    async Task SubsidiarySet(SubsidiaryVM? value)
+    {
+        if (Model.Lines.Count > 0)
+        {
+            var response = await AlertService.PromptAsync("Changing subsidiaries will clear added items", "Change Subsidiaries?");
+            if (!response) return;
+        }
+
+        Model.Lines.Clear();
+        Model.Subsidiary = value;
+        Model.SourceLocation = null;
+        Model.DestinationLocation = null;
+
+        SourceLocationDropdown.Reset();
+        DestinationLocationDropdown.Reset();
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    async Task LocationSet(LocationVM? value)
+    {
+
+        if (Model.Lines.Count > 0)
+        {
+            var response = await AlertService.PromptAsync("Changing source location will clear added items", "Change Source Location?");
+            if (!response) return;
+        }
+        Model.Lines.Clear();
+        Model.DestinationLocation = null;
+        Model.SourceLocation = value;
+
+        DestinationLocationDropdown.Reset();
+
+        await InvokeAsync(StateHasChanged);
     }
 
 }
