@@ -3,6 +3,8 @@
 @using Web.BlazorServer.Services.Repositories
 @using Web.BlazorServer.ViewModels.Others
 @using Web.BlazorServer.ViewModels.Transaction.StockTransferRequest
+@using global::Shared.Entities
+@using global::Shared.Libraries.Utilities
 @inherits BaseComponent
 
 <RadzenTemplateForm TItem="StockTransferRequestInfoVM" Submit="@HandleSubmit" EditContext="@EditContext">
@@ -230,9 +232,13 @@
     {
         List<ItemsVM> items = await DialogService.OpenAsync(
             "Select Items",
-            ds => @<ItemSelectionDialog Location="@(Model.SourceLocation?.Id ?? null)" />,
+            ds => @<ItemSelectionDialog Location="@(Model.SourceLocation?.Id ?? null)" Filters = "@ItemFilters"/>,
     options: GridSettingsService.GetDialogOptions());
 
         if (items is not null) await AddItems(items);
     }
+
+    List<AppFilterDescriptor> ItemFilters = [
+        DataGridFilterUtilities.GreaterThan(nameof(ItemsVM.QuantityOnHand), 0)
+    ];
 }
