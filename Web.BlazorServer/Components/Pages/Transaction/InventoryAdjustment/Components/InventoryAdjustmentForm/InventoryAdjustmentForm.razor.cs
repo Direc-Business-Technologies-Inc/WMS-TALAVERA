@@ -21,6 +21,7 @@ public partial class InventoryAdjustmentForm
     [Parameter] public string SubmitString { get; set; } = "Submit";
     [Parameter] public string SecondaryActionString { get; set; } = "Action";
     [Parameter] public bool ReadOnly { get; set; } = false;
+    [Parameter] public bool Issue { get; set; } = false;
 
     [Inject] ISubsidiaryHandler subsidiaryHandler { get; set; } = default!;
     [Inject] ILocationHandler locationHandler { get; set; } = default!;
@@ -51,6 +52,11 @@ public partial class InventoryAdjustmentForm
 
     async Task<(IEnumerable<BusinessAccountVM>, int)> AccountProvider(DataGridIntent intent)
     {
+        if (Model.Reason is not null) return ([new BusinessAccountVM
+        {
+            Name = Model.Reason.AccountName,
+            Id = Model.Reason.AccountId,
+        }], 1);
         if (Model.Subsidiary is null) return ([], 0);
         return await accountHandler.GetBusinessAccountsBySubsidiaryDataGridAsync(intent, Model.Subsidiary.Id);
     }
@@ -92,6 +98,7 @@ public partial class InventoryAdjustmentForm
             new InventoryAdjustmentLineVM
             {
                 ItemId = x.Id,
+                Type = Issue ? InventoryAdjustmentLineVM.Types.Issue : InventoryAdjustmentLineVM.Types.Receipt,
                 ItemCode = x.ItemNumber,
                 ItemDescription = x.Name,
                 UoM = x.StockUnit,
