@@ -1,0 +1,8 @@
+﻿@using Web.BlazorServer.Components.Custom
+@inherits BaseComponent
+
+<QuickDataGrid Id="inventory_transfer_request_table" ActionName="@ActionGetList" DataGetter="@GetList">
+    <RowActions>
+        <RadzenButton Icon="arrow_right_alt" Size="ButtonSize.ExtraSmall" Click="@(() => OnRowAction(context))" />
+    </RowActions>
+</QuickDataGrid>

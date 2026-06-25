@@ -1,0 +1,72 @@
+﻿@using Web.BlazorServer.Components.Custom
+@using Web.BlazorServer.ViewModels.Others
+@using Web.BlazorServer.ViewModels.Transaction.InventoryTransferRequest
+@inherits BaseComponent
+
+<RadzenTemplateForm TItem="InventoryTransferRequestVM" Data="@Model" EditContext="@EditContext" Submit="@Submit">
+    <RadzenStack Gap="0.5em">
+        <RadzenFieldset Text="Details">
+            <RadzenRow>
+                <RadzenColumn SizeMD="6">
+                    <RadzenFormField Text="Reference Number" class="rz-w-100">
+                        <RadzenTextBox ReadOnly Value="@Model.ReferenceNumber" Placeholder="@(ReadOnly ? "-" : "Auto-Generated")" />
+                    </RadzenFormField>
+                </RadzenColumn>
+                <RadzenColumn SizeMD="6">
+                    <RadzenFormField Text="Date" class="rz-w-100">
+                        <RadzenDatePicker TValue="DateTime" Value="@Model.Date" />
+                    </RadzenFormField>
+                </RadzenColumn>
+                <RadzenColumn SizeMD="4">
+                    <RadzenFormField Text="Subsidiary" class="rz-w-100">
+                        <RadzenTextBox Visible="@ReadOnly" ReadOnly Value="@Model.Subsidiary?.Name" Placeholder="No subsidiary given" />
+                        <QuickVirtualizedDropdown Visible="@(!ReadOnly)" TItem="SubsidiaryVM" DataGetter="@SubsidiaryProvider" TextProperty="@nameof(SubsidiaryVM.Name)" @bind-Value="@Model.Subsidiary" />
+                    </RadzenFormField>
+                </RadzenColumn>
+                <RadzenColumn SizeMD="4">
+                    <RadzenFormField Text="From Warehouse" class="rz-w-100">
+                        <RadzenTextBox Visible="@ReadOnly" ReadOnly Value="@Model.SourceLocation?.Name" Placeholder="No source location given" />
+                        <QuickVirtualizedDropdown Visible="@(!ReadOnly)" TItem="LocationVM" DataGetter="@SourceLocationProvider" TextProperty="@nameof(LocationVM.Name)" @bind-Value="@Model.SourceLocation" />
+                    </RadzenFormField>
+                </RadzenColumn>
+                <RadzenColumn SizeMD="4">
+                    <RadzenFormField Text="To Warehouse" class="rz-w-100">
+                        <RadzenTextBox Visible="@ReadOnly" ReadOnly Value="@Model.DestinationLocation?.Name" Placeholder="No destination location given" />
+                        <QuickVirtualizedDropdown Visible="@(!ReadOnly)" TItem="LocationVM" DataGetter="@DestinationLocationProvider" TextProperty="@nameof(LocationVM.Name)" @bind-Value="@Model.DestinationLocation" />
+                    </RadzenFormField>
+                </RadzenColumn>
+            </RadzenRow>
+        </RadzenFieldset>
+        <RadzenFieldset Text="Lines">
+            <AppTableWithSettings Id="inventory_transfer_request_lines_table" Data="@Model.Lines">
+                <Columns>
+                    <RadzenDataGridColumn TItem="InventoryTransferRequestLineVM" Property="@nameof(InventoryTransferRequestLineVM.ItemCode)" Title="Item Code" />
+                    <RadzenDataGridColumn TItem="InventoryTransferRequestLineVM" Property="@nameof(InventoryTransferRequestLineVM.ItemDescription)" Title="Item Description" />
+                    <RadzenDataGridColumn TItem="InventoryTransferRequestLineVM" Title="UoM">
+                        <Template Context="data">
+                            <RadzenFormField>
+                                <RadzenTextBox Visible="@ReadOnly" ReadOnly Value="@data.UoM?.Name" Placeholder="No item unit given" />
+                                <QuickVirtualizedDropdown Visible="@(!ReadOnly)" TItem="ItemUnitVM" DataGetter="@(intent => ItemUnitProvider(intent, data.ItemID))" TextProperty="@nameof(ItemUnitVM.Name)" @bind-Value="@data.UoM" />
+                            </RadzenFormField>
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="InventoryTransferRequestLineVM" Property="@nameof(InventoryTransferRequestLineVM.QuantityOnHand)" Title="On Hand Quantity" />
+                    <RadzenDataGridColumn TItem="InventoryTransferRequestLineVM" Title="Alloted Quantity">
+                        <Template Context="data">
+                            <RadzenFormField>
+                                <RadzenNumeric ReadOnly="@ReadOnly" @bind-Value="@data.QuantityAlloted" Min="0" />
+                            </RadzenFormField>
+                        </Template>
+                    </RadzenDataGridColumn>
+                </Columns>
+            </AppTableWithSettings>
+        </RadzenFieldset>
+        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween">
+            <RadzenButton Visible="@OnReturn.HasDelegate" ButtonType="ButtonType.Button" Text="@ReturnLabel" Click="@Return"/>
+            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5em">
+                <RadzenButton Visible="@OnSecondaryAction.HasDelegate" ButtonType="ButtonType.Button" Text="@SecondaryActionLabel" Click="@SecondaryAction" />
+                <RadzenButton Visible="@OnSubmit.HasDelegate" ButtonType="ButtonType.Submit" ButtonStyle="ButtonStyle.Success" Text="@SubmitLabel" />
+            </RadzenStack>
+        </RadzenStack>
+    </RadzenStack>
+</RadzenTemplateForm>

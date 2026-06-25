@@ -54,6 +54,28 @@ public class LocationIntegration(
         var result = await query.ExecuteWithPaging<LocationDTO>(netsuiteService);
         return (result.items, result.totalResults);
     }
+    public async Task<(IEnumerable<LocationDTO> data, int count)> GetSublocationsOfLocationAsync(DataGridIntent intent, int location)
+    {
+        var query = builderFactory.Create()
+            .Select(
+                ("id", nameof(LocationDTO.Id)),
+                ("externalId", nameof(LocationDTO.LocationNumber)),
+                ("name", nameof(LocationDTO.Name)),
+                ("BUILTIN.DF(mainaddress)", nameof(LocationDTO.Address)),
+                ("BUILTIN.DF(subsidiary)", nameof(LocationDTO.Subsidiary)),
+                ("subsidiary", nameof(LocationDTO.SubsidiaryId))
+            )
+            .From("location")
+            .WithFilter(
+                DataGridFilterUtilities.Equal("parent", location)
+            )
+            .WithDatagridIntent(intent)
+            .Build();
+
+        var result = await query.ExecuteWithPaging<LocationDTO>(netsuiteService);
+        return (result.items, result.totalResults);
+    }
+
 
     public async Task<(IEnumerable<LocationBinDTO> data, int count)> GetLocationBinsAsync(LocationDTO dto, DataGridIntent intent)
     {

@@ -200,11 +200,50 @@ namespace Integration.NS.Services
             {
                 var responseJson = await httpResponse.Content.ReadAsStringAsync();
                 //_logger.LogDebug("SuiteQLQuery Result: {@Result}", responseJson);
-                if (string.IsNullOrEmpty(responseJson)) throw new Exception("Empty response from NetSuite API");
+                if (string.IsNullOrEmpty(responseJson))
+                {
+                    return default(T);
+                }
 
-                var response = JsonSerializer.Deserialize<T>(responseJson, JsonSerializerOption);
+                var response = JsonSerializer.Deserialize<T>(responseJson, JsonSerializerRequestOption);
                 if (response == null) throw new Exception("Bad response from NetSuite API");
                 return response;
+            }
+
+            throw new Exception($"Request failed with status code: {httpResponse.StatusCode}");
+        }
+
+        async Task<T> MakePatchRequest<T>(string url, string? reqBody)
+        {
+            if (_accessToken == null || DateTime.Now >= _tokenExpiryTime)
+                _accessToken = await GetAccessToken();
+
+            using var httpRequest = new HttpRequestMessage(HttpMethod.Patch, url);
+
+            httpRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _accessToken);
+
+            // Add other custom headers
+            httpRequest.Headers.Add("Prefer", "transient");
+
+            if (!string.IsNullOrEmpty(reqBody))
+            {
+                //_logger.LogDebug("SuiteQLQuery Request: {@Request}", reqBody);
+                httpRequest.Content = new StringContent(reqBody, Encoding.UTF8, "application/json");
+            }
+
+            var httpResponse = await _httpClient.SendAsync(httpRequest);
+
+            if (httpResponse.IsSuccessStatusCode)
+            {
+                var responseJson = await httpResponse.Content.ReadAsStringAsync();
+                //_logger.LogDebug("SuiteQLQuery Result: {@Result}", responseJson);
+                if (string.IsNullOrEmpty(responseJson))
+                {
+                    return default(T);
+                }
+
+                T obj = System.Text.Json.JsonSerializer.Deserialize<T>(responseJson, JsonSerializerRequestOption);
+                return obj;
             }
             var errorBody = await httpResponse.Content.ReadAsStringAsync();
             throw new Exception($"Request failed with status code: {httpResponse.StatusCode}\n Error Message: {errorBody}");
