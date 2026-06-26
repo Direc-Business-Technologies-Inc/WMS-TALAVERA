@@ -4,6 +4,7 @@ namespace Web.BlazorServer.ViewModels.Transaction.StockTransferRequest;
 
 public class StockTransferRequestLineVM
 {
+    public int? LineNumber { get; set; }
     public int ItemId { get; set; } 
     public string ItemCode { get; set; } = string.Empty;
     public string ItemDescription { get; set; } = string.Empty;
