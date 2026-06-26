@@ -12,7 +12,7 @@ public class SupplierReturnVM
     public SubsidiaryVM? Subsidiary { get; set; } = null;
     public ReturnStatusVM? Status { get; set; } = null;
     public ReturnCategoryVM? ReturnCategory { get; set; } = null;
-    public string? ReferenceNumber { get; set; }
+    public string ReferenceNumber { get; set; } = string.Empty;
     public string Memo { get; set; } = string.Empty;
     public string PreparedBy { get; set; } = string.Empty;
     public List<SupplierReturnLineVM> Lines { get; set; } = [];
