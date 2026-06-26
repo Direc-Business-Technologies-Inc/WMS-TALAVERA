@@ -233,9 +233,9 @@ public class SuiteQLQueryBuilder
 
         return op switch
         {
-            ComparisonOperatorEnum.Contains => $"LOWER({prop}) LIKE '%{strVal}%'",
-            ComparisonOperatorEnum.EndsWith => $"LOWER({prop}) LIKE '%{strVal}'",
-            ComparisonOperatorEnum.StartsWith => $"LOWER({prop}) LIKE '{strVal}%'",
+            ComparisonOperatorEnum.Contains => $"LOWER({prop}) LIKE LOWER('%{strVal}%')",
+            ComparisonOperatorEnum.EndsWith => $"LOWER({prop}) LIKE LOWER('%{strVal}')",
+            ComparisonOperatorEnum.StartsWith => $"LOWER({prop}) LIKE LOWER('{strVal}%')",
             _ => throw new NotImplementedException($"string operation {op} is not implemented in this version of wms")
         };
     }
