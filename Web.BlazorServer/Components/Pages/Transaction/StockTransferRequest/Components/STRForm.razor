@@ -3,6 +3,8 @@
 @using Web.BlazorServer.Services.Repositories
 @using Web.BlazorServer.ViewModels.Others
 @using Web.BlazorServer.ViewModels.Transaction.StockTransferRequest
+@using global::Shared.Entities
+@using global::Shared.Libraries.Utilities
 @inherits BaseComponent
 
 <RadzenTemplateForm TItem="StockTransferRequestInfoVM" Submit="@HandleSubmit" EditContext="@EditContext">
@@ -16,7 +18,7 @@
                 </RadzenColumn>
                 <RadzenColumn SizeLG="3" SizeMD="6">
                     <RadzenFormField AllowFloatingLabel="@(!ReadOnly)" Text="Document Date" class="rz-w-100">
-                        <RadzenDatePicker ReadOnly @bind-Value="@Model.Date" />
+                        <RadzenDatePicker DateFormat="d" ShowTime="false" ReadOnly @bind-Value="@Model.Date" />
                     </RadzenFormField>
                 </RadzenColumn>
                 <RadzenColumn SizeLG="@(Model.IsReturn ? 3 : 6)" SizeMD="@(Model.IsReturn ? 6 : 12)">
@@ -198,8 +200,8 @@
                     </RadzenFormField>
                 </RadzenColumn>
                 <RadzenColumn SizeMD="4" OffsetMD="4">
-                    <RadzenFormField AllowFloatingLabel="@(!ReadOnly)" Text="Prepared By" class="rz-w-100">
-                        <RadzenTextBox ReadOnly @bind-Value="@Model.PreparedBy" Placeholder="@(ReadOnly ? "-" : "Auto Generated")" />
+                    <RadzenFormField AllowFloatingLabel="false" Text="Prepared By" class="rz-w-100">
+                        <RadzenTextBox ReadOnly @bind-Value="@Model.PreparedBy" Placeholder="@(ReadOnly ? "-" : "Auto-Generated")" />
                     </RadzenFormField>
                 </RadzenColumn>
             </RadzenRow>
@@ -230,9 +232,13 @@
     {
         List<ItemsVM> items = await DialogService.OpenAsync(
             "Select Items",
-            ds => @<ItemSelectionDialog Location="@(Model.SourceLocation?.Id ?? null)" />,
+            ds => @<ItemSelectionDialog Location="@(Model.SourceLocation?.Id ?? null)" Filters = "@ItemFilters"/>,
     options: GridSettingsService.GetDialogOptions());
 
         if (items is not null) await AddItems(items);
     }
+
+    List<AppFilterDescriptor> ItemFilters = [
+        DataGridFilterUtilities.GreaterThan(nameof(ItemsVM.QuantityOnHand), 0)
+    ];
 }
