@@ -14,12 +14,18 @@ public partial class InventoryAdjustmentCreatePage
 
     async Task OnSubmit(InventoryAdjustmentVM data)
     {
-        var action = AppActionFactory.RunConfirmedAsync(async () =>
+        var action = await AppActionFactory.RunConfirmedAsync(async () =>
         {
             if (inventoryAdjustmentHandler is null) throw new Exception("No registered handler for inventory adjustment");
 
             await inventoryAdjustmentHandler.CreateInventoryAdjustmentAsync(data);
         }, ActionCreateInventoryAdjustment);
+
+        action.OnSuccess(async () =>
+        {
+            await Task.Delay(100);
+            NavManager.NavigateTo(InventoryAdjustmentRoutes.INDEX);
+        });
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
