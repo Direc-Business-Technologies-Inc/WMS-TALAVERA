@@ -10,4 +10,5 @@ public class SupplierReturnLineVM
     public ItemUnitVM? UoM { get; set; }
     public LocationVM? Location { get; set; }
     public decimal QuantityAlloted { get; set; }
+    public int? LineNumber { get; set; }
 }

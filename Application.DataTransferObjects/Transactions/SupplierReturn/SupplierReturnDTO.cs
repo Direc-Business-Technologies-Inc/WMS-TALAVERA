@@ -19,4 +19,6 @@ public class SupplierReturnDTO
     public string ReferenceNumber { get; set; } = string.Empty;
     public string Memo { get; set; } = string.Empty;
     public IEnumerable<SupplierReturnLineDTO> Lines { get; set; } = [];
+
+    public int? SourcePO { get; set; }
 }

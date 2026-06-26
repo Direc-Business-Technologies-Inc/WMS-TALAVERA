@@ -24,4 +24,5 @@ public class SupplierReturnNSDTO
     public int SubsidiaryId { get; set; }
     public string ReferenceNumber { get; set; } = string.Empty;
     public string Memo { get; set; } = string.Empty;
+    public int? SourcePO { get; set; }
 }
