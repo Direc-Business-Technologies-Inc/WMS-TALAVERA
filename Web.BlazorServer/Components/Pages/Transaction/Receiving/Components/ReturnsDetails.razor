@@ -22,7 +22,7 @@
             </RadzenColumn>
             <RadzenColumn SizeMD="6">
                 <RadzenFormField AllowFloatingLabel="false" Text="Date" class="rz-w-100">
-                    <RadzenTextBox ReadOnly Value="@Model.Date.ToString("yyyy-MM-dd")" />
+                    <RadzenDatePicker ReadOnly Value="@Model.Date" TValue="DateTime" DateFormat="MMMM dd, yyyy" />
                 </RadzenFormField>
             </RadzenColumn>
             <RadzenColumn SizeMD="6">

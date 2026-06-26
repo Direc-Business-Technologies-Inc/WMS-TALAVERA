@@ -62,14 +62,15 @@ partial class ItemReceiptCreatePage
         var action = await AppActionFactory.RunAsync(async () =>
         {
             if (receivingHandler is null) throw new Exception("No handlers registered for item receipt");
-            await receivingHandler.PostItemReceipt(model);
+            return await receivingHandler.PostItemReceipt(model);
 
-        }, AppActionOptionPresets.Loading(ActionGetItemReceiptSource));
+        }, AppActionOptionPresets.Confirmed(ActionGetItemReceiptSource));
 
-        action.OnSuccess(() =>
+        action.OnSuccess(async (res) =>
         {
-            NavManager.NavigateTo("/transactions/purchasing/receiving", true);
-            return Task.CompletedTask;
+            await Task.Delay(100);
+
+            NavManager.NavigateTo("/transactions/purchasing/receiving");
         });
     }
 
