@@ -35,11 +35,15 @@ public partial class SupplierReturnForm
 
     QuickVirtualizedDropdown<LocationVM> LocationDropdown { get; set; } = default!;
     QuickVirtualizedDropdown<SubsidiaryVM> SubsidiaryDropdown { get; set; } = default!;
+    QuickVirtualizedDropdown<ReturnStatusVM> StatusDropdown { get; set; } = default!;
 
     readonly string ActionGetPO = "Get Purchase Order";
     bool canSelectPO = true;
     bool IsEditable => !ReadOnly && Model.SourcePO is null;
     bool IsFromPo => Model.SourcePO is not null;
+
+    readonly string[] StatusIdsNormal = ["A", "B"];
+    readonly string[] StatusIdsBad = ["B"];
 
     protected override void OnParametersSet()
     {
@@ -54,10 +58,11 @@ public partial class SupplierReturnForm
 
     async Task<(IEnumerable<ReturnStatusVM>, int)> StatusProvider(DataGridIntent intent)
     {
+
         intent.Filters.Add(
             DataGridFilterUtilities.In(
                 nameof(ReturnStatusVM.Id), 
-                new string[] { "A", "B" }));
+                Model.ReturnCategory?.Id == 1 ? StatusIdsBad : StatusIdsNormal));
 
         return await returnHandler.GetReturnStatuses(intent);
     }
@@ -82,6 +87,16 @@ public partial class SupplierReturnForm
     async Task<(IEnumerable<ItemUnitVM>, int)> ItemUnitsProvider(DataGridIntent intent, int itemId)
     {
         return await itemsHandler.GetItemUnits(itemId,intent);
+    }
+
+    async Task CategorySet(ReturnCategoryVM? val)
+    {
+        if (val?.Id == null && (!Model.Status?.Id.Equals("B", StringComparison.OrdinalIgnoreCase) ?? false))
+        {
+            Model.Status = null;
+            StatusDropdown.Reset();
+        }
+        Model.ReturnCategory = val;
     }
 
     async Task SubsidiarySet(SubsidiaryVM? vm)
