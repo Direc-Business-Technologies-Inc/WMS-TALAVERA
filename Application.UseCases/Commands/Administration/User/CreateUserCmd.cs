@@ -1,4 +1,5 @@
 ﻿using Application.DataTransferObjects.Administration.User;
+using Application.DataTransferObjects.Others;
 using Application.DataTransferObjects.System;
 using Application.UseCases.Notifications;
 using Application.UseCases.Repositories.Bases;
@@ -35,6 +36,7 @@ public class CrateUserCmdHandler(
         request.User.Account.HashedPassword = Encryption.Encrypt(request.User.Account.HashedPassword);
 
         List<RolePermissionDEM> rolePermissions = await appReadRepo.GetListAsync<RolePermissionDEM>(x => x.RoleId == request.User.Role.Id);
+        EmployeeNsDTO employee = request.User.EmployeeNs ?? throw new ArgumentException("Employee is required.");
 
         UserDEM dem = UserDEM.Create(new PersonNameVO(request.User.Name.FirstName,
                                                       request.User.Name.MiddleName,
@@ -45,7 +47,16 @@ public class CrateUserCmdHandler(
                                                    request.User.Account.LockoutEnabled),
                                      request.User.Company,
                                      request.User.Role.Id,
-                                     request.User.PhoneNumber);
+                                     request.User.PhoneNumber,
+                                     employeeNs: new EmployeeNsVO(
+                                         employee.NsId,
+                                         employee.EmployeeCode,
+                                         employee.FirstName,
+                                         employee.LastName,
+                                         employee.NsDepartmentId,
+                                         employee.DepartmentName,
+                                         employee.NsSubsidiaryId,
+                                         employee.SubsidiaryName));
 
         dem.AddPermission([.. rolePermissions.Select(rp => {
                 return UserPermissionDEM.Create(rp.ModulePermission, dem.Id);

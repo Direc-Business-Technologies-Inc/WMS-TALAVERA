@@ -4,6 +4,7 @@
 @using Web.BlazorServer.Extensions
 @using Web.BlazorServer.ViewModels.Administration.Role
 @using Web.BlazorServer.ViewModels.Administration.User
+@using Web.BlazorServer.ViewModels.Others
 
 @inherits BaseForm<UserVM>
 @page "/administration/user/user-management/create"
@@ -61,6 +62,30 @@
                                         </ChildContent>
                                         <Helper>
                                             <RadzenRequiredValidator Component="user_lastname" Text="Last Name is required" Popup />
+                                        </Helper>
+                                    </RadzenFormField>
+                                </RadzenColumn>
+                            </RadzenRow>
+                            <RadzenRow>
+                                <RadzenColumn Size="12">
+                                    <RadzenFormField Text="Netsuite Employee*" class="rz-w-100" AllowFloatingLabel="false">
+                                        <ChildContent>
+                                            <RadzenDropDownDataGrid TValue="EmployeeNsVM"
+                                                                    @bind-Value="@FormData.EmployeeNs"
+                                                                    Data="@Employees"
+                                                                    TextProperty="@nameof(EmployeeNsVM.FullName)"
+                                                                    AllowColumnResize="true"
+                                                                    AllowFilteringByAllStringColumns="true"
+                                                                    Disabled="@(Viewing || IsBusy)"
+                                                                    Name="user_employee">
+                                                <Columns>
+                                                    <RadzenDropDownDataGridColumn Property="@nameof(EmployeeNsVM.EmployeeCode)" Title="Employee Code" Width="100px" />
+                                                    <RadzenDropDownDataGridColumn Property="@nameof(EmployeeNsVM.FullName)" Title="Employee Name" Width="200px" />
+                                                </Columns>
+                                            </RadzenDropDownDataGrid>
+                                        </ChildContent>
+                                        <Helper>
+                                            <RadzenRequiredValidator Component="user_employee" Text="Employee is required." Popup />
                                         </Helper>
                                     </RadzenFormField>
                                 </RadzenColumn>

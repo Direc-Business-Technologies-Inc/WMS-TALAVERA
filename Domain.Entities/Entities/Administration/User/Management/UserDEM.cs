@@ -11,6 +11,7 @@ public class UserDEM : AuditableDEM, IAggregateRoot, IActivateable
     public PersonNameVO Name { get; private set; }
     public EmailVO Email { get; private set; }
     public AccountVO Account { get; private set; }
+    public EmployeeNsVO? EmployeeNs { get; private set; }
 
     public string? PhoneNumber { get; private set; }
     public string Company { get; private set; }
@@ -26,13 +27,22 @@ public class UserDEM : AuditableDEM, IAggregateRoot, IActivateable
 
     UserDEM() { }
 
-    UserDEM(PersonNameVO name, EmailVO email, AccountVO account, string company, Guid roleId, string? phoneNumber = null, IEnumerable<UserPermissionDEM>? permissions = null)
+    UserDEM(
+        PersonNameVO name,
+        EmailVO email,
+        AccountVO account,
+        string company,
+        Guid roleId,
+        string? phoneNumber = null,
+        IEnumerable<UserPermissionDEM>? permissions = null,
+        EmployeeNsVO? employeeNs = null)
     {
         Name = Guard.Against.Null(name, nameof(name), "User name cannot be null");
         Email = Guard.Against.Null(email, nameof(email), "User email cannot be null");
         Company = Guard.Against.NullOrEmpty(company, nameof(company), "User company cannot be null or empty");
         RoleId = Guard.Against.Null(roleId, nameof(roleId), "User role ID cannot be null or empty");
         Account = Guard.Against.Null(account, nameof(account), "User cannot be null");
+        EmployeeNs = employeeNs;
         Active = true;
         PhoneNumber = phoneNumber;
         if (permissions is not null)
@@ -41,7 +51,15 @@ public class UserDEM : AuditableDEM, IAggregateRoot, IActivateable
         DomainEvents.Add(new EntityCreatedEvent<UserDEM>(this));
     }
 
-    public static UserDEM Create(PersonNameVO name, EmailVO email, AccountVO account, string company, Guid roleId, string? phoneNumber = null, IEnumerable<UserPermissionDEM>? permissions = null)
+    public static UserDEM Create(
+        PersonNameVO name,
+        EmailVO email,
+        AccountVO account,
+        string company,
+        Guid roleId,
+        string? phoneNumber = null,
+        IEnumerable<UserPermissionDEM>? permissions = null,
+        EmployeeNsVO? employeeNs = null)
     {
         return new(
             name,
@@ -50,20 +68,29 @@ public class UserDEM : AuditableDEM, IAggregateRoot, IActivateable
             company,
             roleId,
             phoneNumber,
-            permissions
+            permissions,
+            employeeNs
             )
         {
 
         };
     }
 
-    public UserDEM Update(PersonNameVO name, EmailVO email, AccountVO account, string company, Guid roleId, string? phoneNumber = null)
+    public UserDEM Update(
+        PersonNameVO name,
+        EmailVO email,
+        AccountVO account,
+        string company,
+        Guid roleId,
+        string? phoneNumber = null,
+        EmployeeNsVO? employeeNs = null)
     {
         Name = Guard.Against.Null(name, nameof(name), "User name cannot be null");
         Email = Guard.Against.Null(email, nameof(email), "User email cannot be null");
         Company = Guard.Against.NullOrEmpty(company, nameof(company), "User company cannot be null or empty");
         RoleId = Guard.Against.Null(roleId, nameof(roleId), "User role ID cannot be null or empty");
         Account = Guard.Against.Null(account, nameof(account), "User cannot be null");
+        EmployeeNs = employeeNs;
         Active = true;
         PhoneNumber = phoneNumber;
 
@@ -97,6 +124,12 @@ public class UserDEM : AuditableDEM, IAggregateRoot, IActivateable
     public UserDEM ChangeCompany(string company)
     {
         Company = Guard.Against.NullOrEmpty(company, nameof(company), "User company cannot be null or empty");
+        return this;
+    }
+
+    public UserDEM ChangeEmployee(EmployeeNsVO employeeNs)
+    {
+        EmployeeNs = Guard.Against.Null(employeeNs, nameof(employeeNs), "Employee cannot be null");
         return this;
     }
 

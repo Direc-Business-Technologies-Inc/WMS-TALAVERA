@@ -392,6 +392,56 @@ namespace Database.MsSql.Migrations
                                 .HasForeignKey("UserDEMId");
                         });
 
+                    b.OwnsOne("Domain.ValueObjects.Others.EmployeeNsVO", "EmployeeNs", b1 =>
+                        {
+                            b1.Property<Guid>("UserDEMId")
+                                .HasColumnType("uniqueidentifier");
+
+                            b1.Property<string>("DepartmentName")
+                                .HasMaxLength(200)
+                                .HasColumnType("nvarchar(200)")
+                                .HasColumnName("NSDepartmentName");
+
+                            b1.Property<string>("EmployeeCode")
+                                .HasMaxLength(50)
+                                .HasColumnType("nvarchar(50)")
+                                .HasColumnName("NSEmployeeCode");
+
+                            b1.Property<string>("FirstName")
+                                .HasMaxLength(100)
+                                .HasColumnType("nvarchar(100)")
+                                .HasColumnName("NSEmployeeFirstName");
+
+                            b1.Property<string>("LastName")
+                                .HasMaxLength(100)
+                                .HasColumnType("nvarchar(100)")
+                                .HasColumnName("NSEmployeeLastName");
+
+                            b1.Property<int?>("NsDepartmentId")
+                                .HasColumnType("int")
+                                .HasColumnName("NSDepartmentId");
+
+                            b1.Property<int?>("NsId")
+                                .HasColumnType("int")
+                                .HasColumnName("NSEmployeeId");
+
+                            b1.Property<int?>("NsSubsidiaryId")
+                                .HasColumnType("int")
+                                .HasColumnName("NSSubsidiaryId");
+
+                            b1.Property<string>("SubsidiaryName")
+                                .HasMaxLength(200)
+                                .HasColumnType("nvarchar(200)")
+                                .HasColumnName("NSSubsidiaryName");
+
+                            b1.HasKey("UserDEMId");
+
+                            b1.ToTable("OUSR");
+
+                            b1.WithOwner()
+                                .HasForeignKey("UserDEMId");
+                        });
+
                     b.OwnsOne("Domain.ValueObjects.Others.PersonNameVO", "Name", b1 =>
                         {
                             b1.Property<Guid>("UserDEMId")
@@ -470,6 +520,8 @@ namespace Database.MsSql.Migrations
 
                     b.Navigation("Email")
                         .IsRequired();
+
+                    b.Navigation("EmployeeNs");
 
                     b.Navigation("Name")
                         .IsRequired();

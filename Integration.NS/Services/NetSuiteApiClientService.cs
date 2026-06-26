@@ -219,11 +219,9 @@ namespace Integration.NS.Services
                 //_logger.LogDebug("SuiteQLQuery Result: {@Result}", responseJson);
                 if (string.IsNullOrEmpty(responseJson)) throw new Exception("Empty response from NetSuite API");
 
-                var response = JsonSerializer.Deserialize<T>(responseJson, JsonSerializerOption);
+                var response = JsonSerializer.Deserialize<T>(responseJson, JsonSerializerRequestOption);
                 if (response == null) throw new Exception("Bad response from NetSuite API");
                 return response;
-                T obj = System.Text.Json.JsonSerializer.Deserialize<T>(responseJson, JsonSerializerRequestOption);
-                return obj;
             }
 
             throw new Exception($"Request failed with status code: {httpResponse.StatusCode}");
