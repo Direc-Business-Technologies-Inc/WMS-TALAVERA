@@ -189,7 +189,7 @@ internal class StockTransferRequestIntegration(
                 ("uom.unitName", nameof(StockTransferRequestLineNSDTO.UoMName)),
                 ("uom.internalid", nameof(StockTransferRequestLineNSDTO.UoMId)),
                 ("uom.conversionrate", nameof(StockTransferRequestLineNSDTO.UoMRate)),
-                ("BUILTIN.DF(tl.location)", nameof(StockTransferRequestLineNSDTO.Warehouse)),
+                ("BUILTIN.DF(ml.location)", nameof(StockTransferRequestLineNSDTO.Warehouse)),
                 ("item.displayname", nameof(StockTransferRequestLineNSDTO.ItemDescription)),
                 ("(iil.quantityonhand / uom.conversionrate)", nameof(StockTransferRequestLineNSDTO.QuantityOnHand)),
                 ("(tl.quantity / uom.conversionrate)", nameof(StockTransferRequestLineNSDTO.QuantityAlloted))
@@ -202,6 +202,7 @@ internal class StockTransferRequestIntegration(
             .Join("inventoryitemlocations iil", on: "tl.item = iil.item AND ml.location = iil.location")
             .WithFilters(
                 DataGridFilterUtilities.Equal("tl.transactionlinetype", "RECEIVING"),
+                DataGridFilterUtilities.In("t.recordtype", new string[] { "intercompanytransferorder", "transferorder" }),
                 DataGridFilterUtilities.Equal("t.tranid", id),
                 DataGridFilterUtilities.Equal("tl.mainline", "F")
             ).Build();
