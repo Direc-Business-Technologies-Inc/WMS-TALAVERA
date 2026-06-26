@@ -96,12 +96,6 @@
                             <QuickVirtualizedDropdown @bind-Value="@data.UoM" Visible="@IsEditable" TItem="ItemUnitVM" DataGetter="@(intent => ItemUnitsProvider(intent, data.ItemId))" TextProperty="@nameof(ItemUnitVM.Name)" />
                         </Template>
                     </RadzenDataGridColumn>
-                    <RadzenDataGridColumn TItem="SupplierReturnLineVM" Title="Warehouse">
-                        <Template Context="data">
-                            <RadzenText Visible="@(!IsEditable)" TextStyle="TextStyle.Body2" Text="@(data.Location?.Name ?? "-")" />
-                            <QuickVirtualizedDropdown @bind-Value="@data.Location" Visible="@IsEditable" TItem="LocationVM" DataGetter="@LocationProvider" TextProperty="@nameof(LocationVM.Name)" />
-                        </Template>
-                    </RadzenDataGridColumn>
                     <RadzenDataGridColumn TItem="SupplierReturnLineVM" Title="Alloted Quantity">
                         <Template Context="data">
                             <RadzenText Visible="@(!IsEditable)" TextStyle="TextStyle.Body2" Text="@data.QuantityAlloted.ToString()" />
