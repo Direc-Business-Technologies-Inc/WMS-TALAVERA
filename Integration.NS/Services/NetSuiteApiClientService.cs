@@ -256,9 +256,10 @@ namespace Integration.NS.Services
                 T obj = System.Text.Json.JsonSerializer.Deserialize<T>(responseJson, JsonSerializerRequestOption);
                 return obj;
             }
-            var errorBody = await httpResponse.Content.ReadAsStringAsync();
-            throw new Exception($"Request failed with status code: {httpResponse.StatusCode}\n Error Message: {errorBody}");
+            var errorBody = await httpResponse.Content.ReadFromJsonAsync<NetSuiteErrorResponse>();
+            throw new Exception(errorBody?.DisplayString ?? $"Request failed with status code: {httpResponse.StatusCode}");
         }
+        
         async Task<T> MakeRequest<T>(string url, string? reqBody = null)
         {
             return await MakeRequest<T>(url, reqBody, HttpMethod.Post);
