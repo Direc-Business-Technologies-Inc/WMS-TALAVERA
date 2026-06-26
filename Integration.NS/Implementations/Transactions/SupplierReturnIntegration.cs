@@ -170,6 +170,7 @@ public class SupplierReturnIntegration(
             Class = 2,
             subsidiary = data.Subsidiary?.Id ?? null,
             custbody_dbti_return_category = data.ReturnCategory?.Id ?? null,
+            orderstatus = data.Status?.Id ?? null,
             memo = data.Memo,
             item = new
             {
