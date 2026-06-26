@@ -20,7 +20,7 @@
                 </RadzenColumn>
                 <RadzenColumn SizeMD="4">
                     <RadzenFormField Text="Date" class="rz-w-100">
-                        <RadzenDatePicker ReadOnly="@(!IsEditable)" TValue="DateTime" @bind-Value="@Model.Date" />
+                        <RadzenDatePicker DateFormat="MMMM dd, yyyy" ReadOnly TValue="DateTime" @bind-Value="@Model.Date" />
                     </RadzenFormField>
                 </RadzenColumn>
                 <RadzenColumn SizeMD="4">
