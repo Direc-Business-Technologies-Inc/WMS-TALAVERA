@@ -153,15 +153,12 @@ public class SuiteQLQueryBuilder
                 return _binary(filter.Property, "<", filter.Value, propertyMap);
             case ComparisonOperatorEnum.LessThanOrEqual  :
                 return _binary(filter.Property, "<=", filter.Value, propertyMap);
-            case ComparisonOperatorEnum.Contains :
-                if (filter.Value is not string) throw new InvalidOperationException($"{filter.Property} is not a string and does not support the contains operation");
-                return _binary(filter.Property, "LIKE", $"%{filter.Value}%", propertyMap);
+            case ComparisonOperatorEnum.Contains:
+                return _stringOp(filter.Property, ComparisonOperatorEnum.Contains, filter.Value, propertyMap);
             case ComparisonOperatorEnum.StartsWith:
-                if (filter.Value is not string) throw new InvalidOperationException($"{filter.Property} is not a string and does not support the starts with operation");
-                return _binary(filter.Property, "LIKE", $"{filter.Value}%", propertyMap);
+                return _stringOp(filter.Property, ComparisonOperatorEnum.StartsWith, filter.Value, propertyMap);
             case ComparisonOperatorEnum.EndsWith:
-                if (filter.Value is not string) throw new InvalidOperationException($"{filter.Property} is not a string and does not support the ends with operation");
-                return _binary(filter.Property, "LIKE", $"%{filter.Value}", propertyMap);
+                return _stringOp(filter.Property, ComparisonOperatorEnum.EndsWith, filter.Value, propertyMap);
             case ComparisonOperatorEnum.In :
                 return _listOp(filter.Property, "IN", filter.Value, propertyMap);
             case ComparisonOperatorEnum.NotIn :
@@ -225,6 +222,22 @@ public class SuiteQLQueryBuilder
         prop = propertyMap != null && propertyMap.ContainsKey(prop) ? propertyMap[prop] : prop;
 
         return $"{prop} {op} {_stringifyValue(value)}";
+    }
+
+    private string _stringOp(string prop, ComparisonOperatorEnum op, object? value, Dictionary<string, string>? propertyMap = null)
+    {
+        if (value is null) throw new InvalidOperationException($"no value given for {prop}");
+        if (value is not string strVal) throw new InvalidOperationException($"'{value}' is not a string and does not support {op}");
+
+        prop = propertyMap != null && propertyMap.ContainsKey(prop) ? propertyMap[prop] : prop;
+
+        return op switch
+        {
+            ComparisonOperatorEnum.Contains => $"LOWER({prop}) LIKE '%{strVal}%'",
+            ComparisonOperatorEnum.EndsWith => $"LOWER({prop}) LIKE '%{strVal}'",
+            ComparisonOperatorEnum.StartsWith => $"LOWER({prop}) LIKE '{strVal}%'",
+            _ => throw new NotImplementedException($"string operation {op} is not implemented in this version of wms")
+        };
     }
 
     private string _parseFilterGroup(AppFilterDescriptor filter, Dictionary<string, string>? propertyMap = null)

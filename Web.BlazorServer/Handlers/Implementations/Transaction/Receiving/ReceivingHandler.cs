@@ -35,6 +35,8 @@ public class ReceivingHandler(
 
         var x = Data.Select(x => new PurchaseOrderDataGridVM
         {
+
+            Status = x.Status,
             Id = x.Id,
             ReferenceNumber = x.ReferenceNumber,
             Date = x.Date,
@@ -51,6 +53,7 @@ public class ReceivingHandler(
         (var data, var count) = await Sender.Send(qry);
         var x = data.Select(x => new ReturnsDataGridVM
         {
+            Status = x.Status,
             ReferenceNumber = x.ReferenceNumber,
             Date = x.Date,
             FromSubsidiary = x.SourceSubsidiary,
@@ -72,6 +75,7 @@ public class ReceivingHandler(
 
         var x = Data.Select(x => new TransferOrderDataGridVM
         {
+            Status = x.Status,
             Id = x.Id,
             ReferenceNumber = x.ReferenceNumber,
             Date = x.Date,

@@ -39,23 +39,22 @@ public class ReceivingIntegration(
 
     public async Task<PurchaseOrderDTO?> GetPurchaseOrderHeaderAsync(string docEntry)
     {
-        var queryString = $"""
-            SELECT 
-                t.id AS Id,
-                t.tranid AS ReferenceNumber,
-                TO_CHAR(t.custbody_dbti_order_date, 'YYYY-MM-DD"T"HH24:MI:SS') AS Date,
-                TO_CHAR(t.custbody_dbti_est_receipt_date, 'YYYY-MM-DD"T"HH24:MI:SS') AS Date,
-                entity.altname AS VendorName,
-                t.memo as Memo
-            FROM 
-                transaction t
-            JOIN 
-                entity ON entity.id = t.entity
-            WHERE
-                t.tranid = '{docEntry}'
-            """;
+        var query = builderFactory.Create()
+            .Select(
+                ("t.id", nameof(PurchaseOrderDTO.Id)),
+                ("t.tranid", nameof(PurchaseOrderDTO.ReferenceNumber)),
+                ("TO_CHAR(t.custbody_dbti_order_date, 'YYYY-MM-DD\"T\"HH24:MI:SS') ", nameof(PurchaseOrderDTO.Date)),
+                ("TO_CHAR(t.custbody_dbti_est_receipt_date, 'YYYY-MM-DD\"T\"HH24:MI:SS') ", nameof(PurchaseOrderDTO.DeliveryDate)),
+                ("BUILTIN.DF(t.entity)", nameof(PurchaseOrderDTO.VendorName)),
+                ("t.memo", nameof(PurchaseOrderDTO.Memo))
+            )
+            .From("transaction t")
+            .WithFilters(
+                Equal("t.tranid", docEntry) 
+            )
+            .Build();
 
-        var response = await netsuiteService.ExecuteSuiteQLQuery<PurchaseOrderDTO>(queryString);
+        var response = await netsuiteService.ExecuteSuiteQLQuery<PurchaseOrderDTO>(query.Query);
         return response.items.FirstOrDefault();
     }
 
@@ -89,14 +88,15 @@ public class ReceivingIntegration(
             .Select(
                 ("t.id", "Id"),
                 ("t.tranid", "ReferenceNumber"),
-                ("t.status", "Status"),
                 ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", "Date"),
                 ("t.location", "Location"),
                 ("TO_CHAR(t.custbody_dbti_order_date, 'YYYY-MM-DD\"T\"HH24:MI:SS')", "DeliveryDate"),
                 ("t.memo", "Memo"),
                 ("BUILTIN.DF(t.entity)", "VendorName"),
+                ("s.name", nameof(PurchaseOrderDataGridDTO.Status)),
                 ("t.transferlocation", "TransferLocation"))
             .From("transaction t")
+            .LeftJoin("purchaseorderstatus s", on:"s.id = t.status")
             .WithDatagridIntent(intent)
             .WithFilters(
                 Equal("t.recordtype", "purchaseorder"),
@@ -115,15 +115,17 @@ public class ReceivingIntegration(
             .Select(
                 ("t.id", "Id"),
                 ("t.tranid", "ReferenceNumber"),
-                ("t.status", "Status"),
                 ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", "Date"),
                 ("BUILTIN.DF(t.subsidiary)", "SourceSubsidiary"),
                 ("BUILTIN.DF(t.tosubsidiary)", "DestinationSubsidiary"),
                 ("BUILTIN.DF(tl.location)", "Location"),
+                ("s.name", nameof(TransferOrderDataGridDTO.Status)),
+                ("t.memo", nameof(TransferOrderDataGridDTO.Remarks)),
                 ("BUILTIN.DF(t.transferlocation)", "TransferLocation")
                 )
             .From("transaction t")
             .Join("transactionline tl", on:"tl.transaction = t.id")
+            .LeftJoin("transferorderstatus s", on: "t.status = s.id")
             .WithFilters(
                 Equal("tl.mainline", "T"),
                 In("t.recordtype", new string[] { "transferorder", "intercompanytransferorder" }),
@@ -154,7 +156,7 @@ public class ReceivingIntegration(
                 ("t.id", "Id"),
                 ("t.tranid", "ReferenceNumber"),
                 ("t.status", "Status"),
-                ("TO_CHAR(t.custbody_dbti_order_date, 'YYYY-MM-DD\"T\"HH24:MI:SS')", "Date"),
+                ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", "Date"),
                 ("BUILTIN.DF(t.subsidiary)", "FromSubsidiary"),
                 ("BUILTIN.DF(t.tosubsidiary)", "ToSubsidiary"),
                 ("BUILTIN.DF(tl.location)", "Location"),
@@ -209,15 +211,18 @@ public class ReceivingIntegration(
             .Select(
                 ("t.id", "Id"),
                 ("t.tranid", "ReferenceNumber"),
-                ("TO_CHAR(t.custbody_dbti_order_date, 'YYYY-MM-DD\"T\"HH24:MI:SS')", "Date"),
+                ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", "Date"),
                 ("BUILTIN.DF(t.subsidiary)", "SourceSubsidiary"),
                 ("BUILTIN.DF(t.tosubsidiary)", "DestinationSubsidiary"),
-                ("t.custbody_dbti_return_to_vendor", "VendorName"),
+                ("BUILTIN.DF(t.custbody_dbti_return_to_vendor)", "VendorName"),
                 ("BUILTIN.DF(t.location)", "Location"),
+                ("s.name", nameof(ReturnsDataGridDTO.Status)),
                 ("BUILTIN.DF(t.transferlocation)", "TransferLocation"),
+
                 ("t.memo", "Memo")
             )
             .From("transaction t")
+            .LeftJoin("transferorderstatus s", on: "s.id = t.status")
             .WithDatagridIntent(intent)
             .WithFilters(
                 Equal("t.recordtype", "intercompanytransferorder"),
@@ -238,12 +243,13 @@ public class ReceivingIntegration(
                 ("t.tranid", "ReferenceNumber"),
                 ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", "Date"),
                 ("BUILTIN.DF(t.subsidiary)", "FromSubsidiary"),
-                ("t.custbody_dbti_return_to_vendor", "Vendor"),
-                ("BUILTIN.DF(t.location)", "FromWarehouse"),
+                ("BUILTIN.DF(t.custbody_dbti_return_to_vendor)", "Vendor"),
+                ("BUILTIN.DF(tl.location)", "FromWarehouse"),
                 ("BUILTIN.DF(t.transferlocation)", "ToWarehouse"),
                 ("t.custbody_dbti_prepared_by", "PreparedBy")
             )
             .From("transaction t")
+            .Join("transactionline tl", "tl.transaction = t.id AND tl.mainline = 'T'")
             .WithFilters(
                 Equal("t.recordtype", "intercompanytransferorder"),
                 Any(
@@ -264,11 +270,12 @@ public class ReceivingIntegration(
                 ("BUILTIN.DF(tl.units)", "UoM"),
                 ("BUILTIN.DF(tl.location)", "Location"),
                 ("item.displayname", "ItemDescription"),
-                ("tl.quantity", "QuantityPlanned")
+                ("(tl.quantity / NVL(uom.conversionrate, 1))", "QuantityPlanned")
             )
             .From("transactionline tl")
             .Join("transaction t", on: "tl.transaction = t.id")
             .Join("item", on: "tl.item = item.id")
+            .LeftJoin("unitstypeuom uom", on: "tl.units = uom.internalid")
             .WithFilters(
                 Equal("tl.transactionlinetype", "RECEIVING"),
                 Equal("t.tranid", docEntry),
@@ -322,8 +329,8 @@ public class ReceivingIntegration(
                 ("loc.usebins", "LocationUsesBins"),
                 ("item.displayname", "ItemDescription"),
                 ("pb.bin", "PrefferedBinAssignmentId"),
-                ("tl.custcol_dbti_record_weight", nameof(ItemReceiptLineDTO.WeightTotal)),
-                ("tl.custcol_dbti_actual_weight", nameof(ItemReceiptLineDTO.WeightReceived)),
+                ("tl.custcol_dbti_record_weight", nameof(ItemReceiptLineDTO.WeightRecord)),
+                ("tl.custcol_dbti_actual_weight", nameof(ItemReceiptLineDTO.WeightActual)),
                 ("(tl.quantity / uom.conversionrate)", "QuantityPlanned"),
                 ("(tl.quantity - tl.quantityshiprecv) / uom.conversionrate", "QuantityOpen"),
                 ("(tl.quantityshiprecv / uom.conversionrate)", "QuantityReceived")
@@ -413,7 +420,7 @@ public class ReceivingIntegration(
                     {
                         new
                         {
-                            inventoryStatus = isGood ? 1 : 3,
+                            inventoryStatus = isGood ? 1 : 2,
                             quantity = isGood ? line.QuantityGood : line.QuantityBad
                         }
                     }
@@ -442,7 +449,7 @@ public class ReceivingIntegration(
                         itemreceive = isItemReceived,
                         orderLine = line.LineNumber,
                         quantity = isItemReceived ? lineQuantity : (decimal?)null,
-                        custcol_dbti_actual_weight = isItemReceived ? line.WeightReceived : (decimal?)null,
+                        custcol_dbti_actual_weight = isItemReceived ? line.WeightActual : (decimal?)null,
                         rate = isGood ? (decimal?) null : 0,
                         inventoryDetail = isItemReceived ? new
                         {
@@ -452,7 +459,7 @@ public class ReceivingIntegration(
                                 {
                                     new
                                     {
-                                        inventoryStatus = isGood ? "1" : "3",
+                                        inventoryStatus = isGood ? "1" : "2",
                                         binNumber = isGood ? preferredBin : "5",
                                         quantity = lineQuantity
                                     }

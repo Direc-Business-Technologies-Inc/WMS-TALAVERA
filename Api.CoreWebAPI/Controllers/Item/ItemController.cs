@@ -1,4 +1,4 @@
-﻿using Application.DataTransferObjects.Transactions.Commons.NS.Request;
+﻿using Application.DataTransferObjects.Transactions.Receiving.NS.Request;
 using Application.UseCases.Queries.Others;
 using Mapster;
 using MediatR;
@@ -14,7 +14,7 @@ namespace Api.CoreWebAPI.Controllers.Item;
 public class ItemController(ISender Sender) : Controller
 {
     [HttpPost("Barcodes")]
-    public async Task<ApiResult<IEnumerable<ItemBarcodesPerUoMVM>>> ItemBarcodes(List<ItemBarcodesRequestDTO> req)
+    public async Task<ApiResult<IEnumerable<ItemBarcodesPerUoMVM>>> PurchaseOrderItems(List<ItemBarcodesRequestDTO> req)
     {
         var result = await Sender.Send(new GetItemBarcodesPerUoMQry(req));
 

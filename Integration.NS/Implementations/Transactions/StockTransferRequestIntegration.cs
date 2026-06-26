@@ -34,7 +34,8 @@ internal class StockTransferRequestIntegration(
                     ("BUILTIN.DF(t.transferlocation)", nameof(StockTransferRequestDataGridNSDTO.DestinationLocation)),
                     ("BUILTIN.DF(tl.location)", nameof(StockTransferRequestDataGridNSDTO.SourceLocation)),
                     ("s.name", nameof(StockTransferRequestDataGridNSDTO.StatusName)),
-                    ("s.id", nameof(StockTransferRequestDataGridNSDTO.StatusId))
+                    ("s.id", nameof(StockTransferRequestDataGridNSDTO.StatusId)),
+                    ("t.memo", nameof(StockTransferRequestDataGridNSDTO.Remarks))
                 )
                 .From("transaction t")
                 .Join("transactionline tl", on: "tl.transaction = t.id")
@@ -65,7 +66,8 @@ internal class StockTransferRequestIntegration(
                     ("BUILTIN.DF(t.transferlocation)", nameof(StockTransferRequestDataGridNSDTO.DestinationLocation)),
                     ("BUILTIN.DF(tl.location)", nameof(StockTransferRequestDataGridNSDTO.SourceLocation)),
                     ("s.name", nameof(StockTransferRequestDataGridNSDTO.StatusName)),
-                    ("s.id", nameof(StockTransferRequestDataGridNSDTO.StatusId))
+                    ("s.id", nameof(StockTransferRequestDataGridNSDTO.StatusId)),
+                    ("t.memo", nameof(StockTransferRequestDataGridNSDTO.Remarks))
                 )
                 .From("transaction t")
                 .Join("transactionline tl", on: "tl.transaction = t.id")
@@ -96,7 +98,8 @@ internal class StockTransferRequestIntegration(
                     ("BUILTIN.DF(t.transferlocation)", nameof(StockTransferRequestDataGridNSDTO.DestinationLocation)),
                     ("s.name", nameof(StockTransferRequestDataGridNSDTO.StatusName)),
                     ("s.id", nameof(StockTransferRequestDataGridNSDTO.StatusId)),
-                    ("BUILTIN.DF(tl.location)", nameof(StockTransferRequestDataGridNSDTO.SourceLocation))
+                    ("BUILTIN.DF(tl.location)", nameof(StockTransferRequestDataGridNSDTO.SourceLocation)),
+                    ("t.memo", nameof(StockTransferRequestDataGridNSDTO.Remarks))
                 )
                 .From("transaction t")
                 .Join("transactionline tl", on: "tl.transaction = t.id")
@@ -134,6 +137,7 @@ internal class StockTransferRequestIntegration(
                     ("t.tosubsidiary", nameof(StockTransferRequestHeaderNSDTO.ToSubsidiaryId)),
                     ("t.transferlocation", nameof(StockTransferRequestHeaderNSDTO.DestinationLocationId)),
                     ("tl.location", nameof(StockTransferRequestHeaderNSDTO.SourceLocationId)),
+                    ("t.memo", nameof(StockTransferRequestHeaderNSDTO.Remarks)),
                     ("t.custbody_dbti_transfer_category", nameof(StockTransferRequestHeaderNSDTO.TransferCategoryId)),
                     ("s.name", nameof(StockTransferRequestHeaderNSDTO.StatusName)),
                     ("s.id", nameof(StockTransferRequestHeaderNSDTO.StatusId)),
@@ -187,7 +191,8 @@ internal class StockTransferRequestIntegration(
                 ("uom.conversionrate", nameof(StockTransferRequestLineNSDTO.UoMRate)),
                 ("BUILTIN.DF(tl.location)", nameof(StockTransferRequestLineNSDTO.Warehouse)),
                 ("item.displayname", nameof(StockTransferRequestLineNSDTO.ItemDescription)),
-                ("iil.quantityonhand", nameof(StockTransferRequestLineNSDTO.QuantityOnHand))
+                ("(iil.quantityonhand / uom.conversionrate)", nameof(StockTransferRequestLineNSDTO.QuantityOnHand)),
+                ("(tl.quantity / uom.conversionrate)", nameof(StockTransferRequestLineNSDTO.QuantityAlloted))
             )
             .From("transactionline tl")
             .Join("transaction t", on: "tl.transaction = t.id")
@@ -316,7 +321,8 @@ internal class StockTransferRequestIntegration(
                     {
                         item = new { id = line.ItemId },
                         quantity = line.QuantityAlloted,
-                        department = new { id = "4" }
+                        department = new { id = "4" },
+                        units = line.UoM?.Id.ToString() ?? null
                     };
                 })
             }

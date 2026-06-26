@@ -17,11 +17,6 @@ namespace Api.CoreWebAPI.Controllers.Authentication
             LoginCmd cmd = new(reqbody);
             var loginResponse = await Sender.Send(cmd);
 
-            if (!loginResponse.IsSuccess)
-            {
-                return ApiResult<string>.Failed(loginResponse.Message);
-            }
-
             var token = await Auth.GetJwtToken(loginResponse.User);
 
             return ApiResult<string>.Succeeded(token);

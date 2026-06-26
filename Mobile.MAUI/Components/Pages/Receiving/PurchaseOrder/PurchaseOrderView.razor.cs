@@ -1,6 +1,6 @@
 using Mobile.MAUI.Helpers.Extensions;
 using Mobile.MAUI.Services;
-using Shared.Libraries.ViewModel.PurchaseOrder;
+using Shared.Libraries.ViewModel;
 
 namespace Mobile.MAUI.Components.Pages.Receiving.PurchaseOrder;
 
@@ -19,7 +19,7 @@ public partial class PurchaseOrderView
             TaskAsync = async () =>
             {
                 await InvokeAsync(StateHasChanged);
-                var res = await Client.Get<List<PurchaseOrderVM>>("/Receiving/PurchaseOrder/PendingReceipt");
+                var res = await Client.Get<List<PurchaseOrderVM>>("/PurchaseOrder/PendingReceipt");
                 return res;
             },  
             OnSuccess = async (result) =>

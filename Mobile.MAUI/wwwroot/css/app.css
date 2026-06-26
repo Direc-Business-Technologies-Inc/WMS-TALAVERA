@@ -279,8 +279,3 @@ div.rz-datalist-content ul.rz-datalist-data > li {
     font-weight: 700;
     padding: 3px 8px;
 }
-
-.selected-row {
-    border: 2px solid #28a745;
-    border-radius: 6px;
-}

@@ -3,17 +3,18 @@ using Mobile.MAUI.Components.Reusables;
 using Mobile.MAUI.Services;
 using Mobile.MAUI.ViewModel;
 using Shared.Libraries.ViewModel;
-using Shared.Libraries.ViewModel.Returns;
 using static Mobile.MAUI.MauiProgram;
 using AppAction = Mobile.MAUI.Services.AppAction;
 
 namespace Mobile.MAUI.Components.Pages.Receiving.Returns;
 
-public partial class ReturnsItemView : IAsyncDisposable
+public partial class ReturnsItemView
 {
     [Parameter]
     public string OrderNumber { get; set; }
+
     private IJSObjectReference JsObj { get; set; }
+
     AppAction<List<ReturnsLineVM>> ActionGetReturnsItems { get; set; }
     AppAction<List<ItemBarcodesPerUoMVM>> ActionGetItemBarcodes { get; set; }
     AppAction ActionUpdateStartTime { get; set; }
@@ -23,7 +24,6 @@ public partial class ReturnsItemView : IAsyncDisposable
     List<ItemBarcodesPerUoMVM> ItemBarcodes = [];
     List<BarcodeRequestVM> ItemRequest = [];
 
-    ReturnsLineVM? SelectedLine;
     //ReturnsLineVM? LastScanned => ReturnsItems.OrderByDescending(x => x.ScanCount).FirstOrDefault();
 
     int ScanCount { get; set; }
@@ -39,7 +39,7 @@ public partial class ReturnsItemView : IAsyncDisposable
             TaskAsync = async () =>
             {
                 await InvokeAsync(StateHasChanged);
-                var res = await Client.Post<List<ReturnsLineVM>>("/Receiving/Returns/Items", new { OrderNumber = OrderNumber });
+                var res = await Client.Post<List<ReturnsLineVM>>("/Returns/Items", new { OrderNumber = OrderNumber });
                 return res;
             },
             OnSuccess = async (result) =>
@@ -108,7 +108,7 @@ public partial class ReturnsItemView : IAsyncDisposable
             TaskAsync = async () =>
             {
                 await InvokeAsync(StateHasChanged);
-                var res = await Client.Post("/Receiving/Returns/SaveScan", ReturnsItems);
+                var res = await Client.Post("/Returns/SaveScan", ReturnsItems);
                 return res;
             },
             OnSuccess = async (result) =>
@@ -142,30 +142,6 @@ public partial class ReturnsItemView : IAsyncDisposable
         }
     }
 
-    async Task LoadReturns()
-    {
-        await ActionFactory.ExecuteAppActionAsync(ActionGetReturnsItems);
-    }
-
-    private void SelectLine(ReturnsLineVM item)
-    {
-        if (SelectedLine?.LineSequenceNumber == item.LineSequenceNumber)
-        {
-            SelectedLine = null;
-        }
-        else
-        {
-            SelectedLine = item;
-        }
-
-        InvokeAsync(StateHasChanged);
-    }
-
-    private bool IsSelected(ReturnsLineVM row)
-    {
-        return SelectedLine?.LineSequenceNumber == row.LineSequenceNumber;
-    }
-
     async void HandleItemScan(object sender, string message)
     {
         try
@@ -186,9 +162,7 @@ public partial class ReturnsItemView : IAsyncDisposable
             }
 
             var line = ReturnsItems.FirstOrDefault(x =>
-                    x.NetsuiteMaterialInternalId == barcode.MaterialInternalId &&
-                    (SelectedLine == null ||
-                     x.LineSequenceNumber == SelectedLine.LineSequenceNumber));
+                    x.NetsuiteMaterialInternalId == barcode.MaterialInternalId);
 
             if (line is null)
             {
@@ -196,7 +170,9 @@ public partial class ReturnsItemView : IAsyncDisposable
                 return;
             }
 
-            var isOverScan = line.ScannedQuantity >= line.NSLineQuantityReceived;
+            var lineTotal = line.ScannedQuantity;
+
+            var isOverScan = lineTotal >= line.NSLineQuantity;
 
             if (isOverScan)
             {
@@ -206,7 +182,7 @@ public partial class ReturnsItemView : IAsyncDisposable
 
             var scanQty = barcode.UoMRate / line.UoMRate;
 
-            var remainingQty = line.NSLineQuantityReceived - line.ScannedQuantity;
+            var remainingQty = line.NSLineQuantity - line.ScannedQuantity;
 
             bool isExceed = scanQty > remainingQty;
 
@@ -229,7 +205,18 @@ public partial class ReturnsItemView : IAsyncDisposable
                     return;
                 }
 
-                weight = await GetWeightAsync(barcode.MaterialName);
+                IsWeightDialogOpen = true;
+
+                weight = await Dialog.OpenAsync<WeightInputDialog>(
+                    "Weight Input",
+                    new Dictionary<string, object>
+                    {
+                            { "ItemName", barcode.MaterialName }
+                    },
+                    new DialogOptions()
+                );
+
+                IsWeightDialogOpen = false;
 
                 if (!weight.HasValue || weight.Value == 0m)
                 {
@@ -261,7 +248,7 @@ public partial class ReturnsItemView : IAsyncDisposable
 
     async Task SaveScan()
     {
-        ReturnsItems = ReturnsItems.Where(x => x.NSLineQuantityReceived != 0)
+        ReturnsItems = ReturnsItems.Where(x => x.ScannedQuantity != 0)
             .Select(x => new ReturnsLineVM
             {
                 NetsuiteOrderInternalId = x.NetsuiteOrderInternalId,
@@ -317,49 +304,13 @@ public partial class ReturnsItemView : IAsyncDisposable
                 );
     }
 
-    private async Task<decimal?> GetWeightAsync(string itemName)
-    {
-        IsWeightDialogOpen = true;
-
-        try
-        {
-            return await Dialog.OpenAsync<WeightInputDialog>(
-                "Weight Input",
-                new Dictionary<string, object>
-                {
-                { "ItemName", itemName }
-                },
-                new DialogOptions());
-        }
-        finally
-        {
-            IsWeightDialogOpen = false;
-        }
-    }
-
     public async ValueTask DisposeAsync()
     {
         BroadcastService.BroadcastReceived -= HandleItemScan;
-
         if (JsObj is not null)
         {
-            try
-            {
-                await JsObj.InvokeVoidAsync("Dispose");
-            }
-            catch
-            {
-                // ignore cleanup errors
-            }
-
-            try
-            {
-                await JsObj.DisposeAsync();
-            }
-            finally
-            {
-                JsObj = null;
-            }
+            await JsObj.InvokeVoidAsync("UnObserve");
+            await JsObj.DisposeAsync();
         }
     }
 }

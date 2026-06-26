@@ -17,19 +17,19 @@
                     <RadzenDatePicker TValue="DateTime" ReadOnly Value="@Model.Date" />
                 </RadzenFormField>
             </RadzenColumn>
-            <RadzenColumn SizeMD="4">
+            <RadzenColumn SizeMD="6">
                 <RadzenFormField Text="Subsidiary" class="rz-w-100">
                     <RadzenTextBox Visible="@ReadOnly" ReadOnly Value="@Model.Subsidiary?.Name" Placeholder="Enter subsidiary" />
                     <QuickVirtualizedDropdown Visible="@(!ReadOnly)" ActionName="@ActionGetSubsidiaries" TItem="SubsidiaryVM" @bind-Value:get="@Model.Subsidiary" @bind-Value:set="@SetSubsidiary" DataGetter="@SubsidiaryProvider" TextProperty="@nameof(SubsidiaryVM.Name)" AllowFiltering />
                 </RadzenFormField>
             </RadzenColumn>
-            <RadzenColumn SizeMD="4">
+            <RadzenColumn SizeMD="6">
                 <RadzenFormField Text="Location" class="rz-w-100">
                     <RadzenTextBox Visible="@ReadOnly" ReadOnly Value="@Model.Location?.Name" Placeholder="Enter location" />
                     <QuickVirtualizedDropdown @ref="@LocationDropdown" Visible="@(!ReadOnly)" Disabled="@(Model.Subsidiary is null)" ActionName="@ActionGetLocations" TItem="LocationVM" @bind-Value="@Model.Location" DataGetter="@LocationProvider" TextProperty="@nameof(LocationVM.Name)" AllowFiltering AllowClear/>
                 </RadzenFormField>
             </RadzenColumn>
-            <RadzenColumn SizeMD="4">
+            <RadzenColumn SizeMD="6">
                 <RadzenFormField Text="Account" class="rz-w-100">
                     <ChildContent>
                     <RadzenTextBox Visible="@ReadOnly" ReadOnly Value="@Model.Account?.Name" Placeholder="Enter account" />
@@ -38,6 +38,14 @@
                     <Helper>
                         <RadzenRequiredValidator Component="ia_account_dropdown" />
                     </Helper>
+                </RadzenFormField>
+            </RadzenColumn>
+            <RadzenColumn SizeMD="6">
+                <RadzenFormField Text="Adjustment Reason" class="rz-w-100">
+                    <ChildContent>
+                    <RadzenTextBox Visible="@ReadOnly" ReadOnly Value="@Model.Reason?.Name" Placeholder="Enter adjustment reason" />
+                        <QuickVirtualizedDropdown Visible="@(!ReadOnly)" ActionName="@ActionGetReasons" TItem="InventoryAdjustmentReasonVM" @bind-Value:get="@Model.Reason" @bind-Value:set="@SetReason" DataGetter="@ReasonProvider" TextProperty="@nameof(InventoryAdjustmentReasonVM.Name)" AllowFiltering AllowClear />
+                    </ChildContent>
                 </RadzenFormField>
             </RadzenColumn>
         </RadzenRow>
@@ -62,19 +70,9 @@
                         <QuickVirtualizedDropdown Visible="@(!ReadOnly)" ActionName="@ActionGetItemUnits" TItem="ItemUnitVM" @bind-Value="@data.UoM" DataGetter="@(intent => UnitsProvider(data.ItemId, intent))" TextProperty="@nameof(ItemUnitVM.Name)" />
                     </Template>
                 </RadzenDataGridColumn>
-                <RadzenDataGridColumn TItem="InventoryAdjustmentLineVM" Title="Type">
+                <RadzenDataGridColumn TItem="InventoryAdjustmentLineVM" Property="@nameof(InventoryAdjustmentLineVM.QuantityAlloted)" Title="Alloted Quantity">
                     <Template Context="data">
-                        <RadzenSelectBar TValue="InventoryAdjustmentLineVM.Types" Size="ButtonSize.Small" @bind-Value="@data.Type">
-                            <Items>
-                                <RadzenSelectBarItem Value="InventoryAdjustmentLineVM.Types.Receipt" Text="@InventoryAdjustmentLineVM.Types.Receipt.ToString()" />
-                                <RadzenSelectBarItem Value="InventoryAdjustmentLineVM.Types.Issue" Text="@InventoryAdjustmentLineVM.Types.Issue.ToString()" />
-                            </Items>
-                        </RadzenSelectBar>
-                    </Template>
-                </RadzenDataGridColumn>
-                <RadzenDataGridColumn TItem="InventoryAdjustmentLineVM" Title="Alloted Quantity">
-                    <Template Context="data">
-                        <RadzenFormField>
+                        <RadzenFormField Text="@(data.Type == InventoryAdjustmentLineVM.Types.Issue ? "Issue" : "Receipt")">
                             <ChildContent>
                                 <RadzenNumeric ReadOnly="@ReadOnly" Name="line_details" @bind-Value="@data.QuantityAlloted" class="rz-w-100" Min="0" Max="@(data.QuantityOnHand / (data.UoM?.ConversionRate ?? 1))" />
                             </ChildContent>
@@ -123,7 +121,7 @@
             </RadzenColumn>
             <RadzenColumn SizeMD="4" OffsetMD="4">
                 <RadzenFormField Text="Prepared By" class="rz-w-100">
-                    <RadzenTextBox ReadOnly="@ReadOnly" @bind-Value="@Model.PreparedBy" />
+                    <RadzenTextBox ReadOnly Value="@Model.PreparedBy" Placeholder="@(ReadOnly ? " - " : "Auto Generated")" />
                 </RadzenFormField>
             </RadzenColumn>
         </RadzenRow>

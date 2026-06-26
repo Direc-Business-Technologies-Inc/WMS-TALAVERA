@@ -4,6 +4,7 @@ using Application.DataTransferObjects.Transactions.Receiving;
 using Application.UseCases.Repositories.Integration.Others;
 using Application.UseCases.Repositories.Integration.Transaction.InventoryAdjustment;
 using Integration.NS.DataTransferObjects.InventoryAdjustment;
+using Integration.NS.Helpers;
 using Integration.NS.Services;
 using Mapster;
 using Shared.Entities;
@@ -34,10 +35,16 @@ public class InventoryAdjustmentIntegration(
                 ("BUILTIN.DF(t.account)", nameof(InventoryAdjustmentNSDTO.AccountName)),
                 ("t.account", nameof(InventoryAdjustmentNSDTO.AccountId)),
                 ("BUILTIN.DF(t.subsidiary)", nameof(InventoryAdjustmentNSDTO.SubsidiaryName)),
-                ("t.subsidiary", nameof(InventoryAdjustmentNSDTO.SubsidiaryId))
+                ("t.subsidiary", nameof(InventoryAdjustmentNSDTO.SubsidiaryId)),
+                ("NVL(t.custbody_atlas_inv_adj_reason, -1)", nameof(InventoryAdjustmentNSDTO.ReasonId)),
+                ("iar.name", nameof(InventoryAdjustmentNSDTO.ReasonName)),
+                ("iar.custrecord_atlas_glaccount", nameof(InventoryAdjustmentNSDTO.ReasonAccountId)),
+                ("BUILTIN.DF(iar.custrecord_atlas_glaccount)", nameof(InventoryAdjustmentNSDTO.ReasonAccountName)),
+                ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS') ", nameof(InventoryAdjustmentNSDTO.Date))
             )
             .From("transaction t")
             .Join("transactionline tl", on: "tl.transaction = t.id")
+            .LeftJoin("CUSTOMRECORD_ATLAS_INV_ADJ_REASN iar", on: "iar.id = t.custbody_atlas_inv_adj_reason")
             .WithFilters(
                 DataGridFilterUtilities.Equal("t.recordtype", "inventoryadjustment"),
                 DataGridFilterUtilities.Equal("t.tranid", id),
@@ -55,7 +62,13 @@ public class InventoryAdjustmentIntegration(
         result.Subsidiary = new SubsidiaryDTO { Id = nsdto.SubsidiaryId, Name = nsdto.SubsidiaryName };
         result.Location = new LocationDTO { Id = nsdto.LocationId, Name = nsdto.LocationName };
         result.Account = new BusinessAccountDTO { Id = nsdto.AccountId, Name = nsdto.AccountName };
-
+        result.Reason = nsdto.ReasonId < 0 ? null : new InventoryAdjustmentReasonDTO 
+        { 
+            Name = nsdto.ReasonName,
+            Id  = nsdto.ReasonId,
+            AccountId = nsdto.AccountId,
+            AccountName = nsdto.ReasonAccountName
+        };
         return result;
     }
 
@@ -99,10 +112,12 @@ public class InventoryAdjustmentIntegration(
                 ("t.custbody_dbti_prepared_by", nameof(InventoryAdjustmentDataGridDTO.PreparedBy)),
                 ("BUILTIN.DF(tl.location)", nameof(InventoryAdjustmentDataGridDTO.Location)),
                 ("BUILTIN.DF(t.account)", nameof(InventoryAdjustmentDataGridDTO.Account)),
-                ("BUILTIN.DF(t.subsidiary)", nameof(InventoryAdjustmentDataGridDTO.Subsidiary))
+                ("BUILTIN.DF(t.subsidiary)", nameof(InventoryAdjustmentDataGridDTO.Subsidiary)),
+                ("iar.name", nameof(InventoryAdjustmentDataGridDTO.AdjustmentReason))
             )
             .From("transaction t")
             .Join("transactionline tl", on:"tl.transaction = t.id")
+            .LeftJoin("CUSTOMRECORD_ATLAS_INV_ADJ_REASN iar", on: "iar.id = t.custbody_atlas_inv_adj_reason")
             .WithFilters(
                 DataGridFilterUtilities.Equal("t.recordtype", "inventoryadjustment"),
                 DataGridFilterUtilities.Equal("tl.mainline", "T")
@@ -113,6 +128,24 @@ public class InventoryAdjustmentIntegration(
         var response = await netsuiteService.ExecuteSuiteQLQuery<InventoryAdjustmentDataGridDTO>(query.Query, query.Limit, query.Offset);
         return (response.items, response.totalResults);
     }
+
+    public async Task<(IEnumerable<InventoryAdjustmentReasonDTO> Data, int Count)> GetInventoryAdjustmentReasonsAsync(DataGridIntent intent)
+    {
+        var query = builderFactory.Create()
+            .Select(
+                ("custrecord_atlas_glaccount", nameof(InventoryAdjustmentReasonDTO.AccountId)),
+                ("BUILTIN.DF(custrecord_atlas_glaccount)", nameof(InventoryAdjustmentReasonDTO.AccountName)),
+                ("name", nameof(InventoryAdjustmentReasonDTO.Name)),
+                ("id", nameof(InventoryAdjustmentReasonDTO.Id))
+            )
+            .From("CUSTOMRECORD_ATLAS_INV_ADJ_REASN")
+            .WithDatagridIntent(intent)
+            .Build();
+
+        var response = await query.ExecuteWithPaging<InventoryAdjustmentReasonDTO>(netsuiteService);
+        return (response.items, response.totalResults);
+    }
+
 
     public async Task<bool> CreateInventoryAdjustment(InventoryAdjustmentDTO value)
     {
@@ -140,6 +173,8 @@ public class InventoryAdjustmentIntegration(
             subsidiary = new { id = dto.Subsidiary!.Id },
             adjLocation = new { id = dto.Location!.Id },
             department = new { id = 4 },
+            custbody_atlas_inv_adj_reason = dto.Reason?.Id ?? null,
+            Class = 1,
             inventory = new
             {
                 items = dto.Lines.Select(line => new
@@ -158,7 +193,8 @@ public class InventoryAdjustmentIntegration(
                                 quantity = line.QuantityAlloted < 0 ? -d.QuantityAlloted :  d.QuantityAlloted
                             })
                         }
-                    }
+                    },
+                    units = line.UoM?.Id.ToString() ?? null
                 })
             }
         };

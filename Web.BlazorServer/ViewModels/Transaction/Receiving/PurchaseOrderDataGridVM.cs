@@ -9,5 +9,6 @@ public class PurchaseOrderDataGridVM
     public DateTime? Date { get; set; }
     public DateTime? DeliveryDate { get; set; }
     public string Vendor { get; set; } = string.Empty;
+    public string Status { get; set; } = string.Empty;
     public string Remarks { get; set; } = string.Empty;
 }

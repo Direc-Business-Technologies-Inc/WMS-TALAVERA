@@ -11,8 +11,4 @@
     <ProjectReference Include="..\Shared.Libraries\Shared.Libraries.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="Transactions\TripTicket\NS\Request\" />
-  </ItemGroup>
-
 </Project>

@@ -6,9 +6,11 @@ using Application.UseCases.Repositories.Integration.Transaction.GoodsReturn;
 using Application.UseCases.Repositories.Integration.Transaction.InventoryAdjustment;
 using Application.UseCases.Repositories.Integration.Transaction.InventoryCounting;
 using Application.UseCases.Repositories.Integration.Transaction.InventoryTransfer;
+using Application.UseCases.Repositories.Integration.Transaction.InventoryTransferRequest;
 using Application.UseCases.Repositories.Integration.Transaction.Receiving;
 using Application.UseCases.Repositories.Integration.Transaction.SalesReturn;
 using Application.UseCases.Repositories.Integration.Transaction.StockTransferRequest;
+using Application.UseCases.Repositories.Integration.Transaction.SupplierReturn;
 using Integration.NS.Implementations.Others;
 using Integration.NS.Implementations.Transactions;
 using Integration.NS.Implementations.Vestigial;
@@ -39,10 +41,12 @@ public static class NSImplementationDI
         services.TryAddTransient<ILocationIntegration, LocationIntegration>();
         services.TryAddTransient<ISubsidiaryIntegration, SubsidiaryIntegration>();
         services.TryAddTransient<IVendorIntegration, VendorIntegration>();
+        services.TryAddTransient<ICustomerIntegration, CustomerIntegration>();
         services.TryAddTransient<IBusinessAccountIntegration, BusinessAccountIntegration>();
+        services.TryAddTransient<IInventoryTransferRequestIntegration, InventoryTransferRequestIntegration>();
         services.TryAddTransient<IInventoryAdjustmentIntegration, InventoryAdjustmentIntegration>();
         services.TryAddTransient<IEmployeeIntegration, EmployeeIntegration>();
-
+        services.TryAddTransient<ISupplierReturnIntegration, SupplierReturnIntegration>();
         services.TryAddTransient<INetSuiteApiClientService, NetSuiteApiClientService>();
 
         // TODO FOR REMOVAL

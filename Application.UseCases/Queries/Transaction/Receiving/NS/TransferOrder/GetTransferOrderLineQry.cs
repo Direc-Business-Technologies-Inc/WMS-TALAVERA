@@ -1,5 +1,5 @@
-﻿using Application.DataTransferObjects.Transactions.Commons.NS;
-using Application.DataTransferObjects.Transactions.Commons.NS.Request;
+﻿using Application.DataTransferObjects.Transactions.Receiving.NS;
+using Application.DataTransferObjects.Transactions.Receiving.NS.Request;
 using Application.UseCases.Repositories.Integration.Others;
 using Mapster;
 using MediatR;
