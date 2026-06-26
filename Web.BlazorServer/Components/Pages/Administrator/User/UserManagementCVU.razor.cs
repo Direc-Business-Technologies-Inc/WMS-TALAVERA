@@ -1,14 +1,17 @@
 ﻿using Mapster;
 using Microsoft.AspNetCore.Components;
 using Shared.Entities;
+using Shared.Libraries.ViewModel.Common;
 using Web.BlazorServer.Defaults;
 using Web.BlazorServer.Handlers.Repositories.Administration.Role;
 using Web.BlazorServer.Handlers.Repositories.Administration.User;
 using Web.BlazorServer.Handlers.Repositories.System;
 using Web.BlazorServer.Helpers;
 using Web.BlazorServer.Services.Repositories;
+using Web.BlazorServer.ViewModels.Abstraction;
 using Web.BlazorServer.ViewModels.Administration.Role;
 using Web.BlazorServer.ViewModels.Enums;
+using Web.BlazorServer.ViewModels.Others;
 using KernelEnumHelper = Shared.Kernel.EnumHelper;
 
 namespace Web.BlazorServer.Components.Pages.Administrator.User;
@@ -48,10 +51,12 @@ public partial class UserManagementCVU
     readonly string ActionGetUser = KernelEnumHelper.GetEnumDescription(AppActions.ViewUser);
     readonly string ActionUpdateUser = KernelEnumHelper.GetEnumDescription(AppActions.UpdateUser);
     readonly string ActionGetRoles = KernelEnumHelper.GetEnumDescription(AppActions.GetAllRoles);
+    readonly string ActionGetEmployees = KernelEnumHelper.GetEnumDescription(AppActions.GetEmployees);
     #endregion Primitives
 
     #region Data Structures
     IEnumerable<RoleVM> Roles { get; set; } = [];
+    IEnumerable<EmployeeNsVM> Employees { get; set; } = [];
     #endregion Data Structures
 
     #region Overrides
@@ -115,11 +120,18 @@ public partial class UserManagementCVU
         await Task.WhenAll(
             GetRolesAsync(),
             GetUserAsync(),
+            GetEmployeeAsync(),
             GetLatestUserSeries()
             );
 
         await Task.Yield();
-        
+
+        if (FormData.EmployeeNs is not null)
+        {
+            FormData.EmployeeNs = Employees.FirstOrDefault(employee =>
+                employee.NsId == FormData.EmployeeNs.NsId) ?? FormData.EmployeeNs;
+        }
+
         AppBusyService.SetBusy(ActionGetUser, false);
         await InvokeAsync(StateHasChanged);
 
@@ -141,6 +153,21 @@ public partial class UserManagementCVU
 
         }
     }
+
+    async Task GetEmployeeAsync()
+    {
+        var action = await AppActionFactory.RunAsync(async () =>
+        {
+            AppBusyService.SetBusy(ActionGetEmployees, true);
+
+            var response = await UsersHandler.GetAllEmployeesAsync(new DataGridIntent { Take = int.MaxValue });
+            Employees = response.data ?? [];
+
+        }, AppActionOptionPresets.Loading(ActionGetEmployees));
+
+        AppBusyService.SetBusy(ActionGetEmployees, false);
+    }
+
 
     async Task GetRolesAsync()
     {

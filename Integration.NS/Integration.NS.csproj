@@ -24,6 +24,7 @@
 	<ItemGroup>
 	  <Compile Remove="NSScripts\NS_Get_Helpers.cs" />
 	  <Compile Remove="NSScripts\NS_Get_Location.cs" />
+	  <Compile Remove="NSScripts\NS_Get_WMS_Employee.cs" />
 	  <Compile Remove="NSScripts\NS_IF_Get_Items.cs" />
 	  <Compile Remove="NSScripts\NS_InventoryCounting_Get_Started.cs" />
 	  <Compile Remove="NSScripts\NS_Item_Get_Barcodes.cs" />

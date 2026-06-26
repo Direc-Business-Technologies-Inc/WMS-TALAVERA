@@ -12,6 +12,8 @@ public enum AppActions
     #region Others
     [Description("Get Customers")]
     GetCustomers,
+    [Description("Get Employees")]
+    GetEmployees,
     [Description("Get Vendors")]
     GetVendors,
     [Description("Get TransactionTypes")]

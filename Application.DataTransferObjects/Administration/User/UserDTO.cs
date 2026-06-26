@@ -11,7 +11,7 @@ public class UserDTO : AuditableDTO
     public EmailDTO Email { get; set; }
     public AccountDTO Account { get; set; }
     public RoleDTO Role { get; set; }
-
+    public EmployeeNsDTO? EmployeeNs { get; set; }
     public string? PhoneNumber { get; set; }
     public string Company { get; set; } = string.Empty;
     public bool Active { get; set; }

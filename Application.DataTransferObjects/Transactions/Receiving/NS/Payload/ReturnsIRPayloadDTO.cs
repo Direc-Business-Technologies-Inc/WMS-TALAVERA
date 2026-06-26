@@ -17,33 +17,33 @@ public class ReturnsIRPayloadDTO
         // Make it nullable if its not included in json
         return new ReturnsIRPayloadDTO
         {
-            ReceivingCategory = receivingCategory,
-            Item = new ItemContainer
-            {
-                Items = lines.Select(line =>
-                {
-                    if (line.ScannedQuantity == 0)
-                    {
-                        return new OrderLineItem
-                        {
-                            OrderLine = line.LineSequenceNumber,
-                            isReceived = false
-                        };
-                    }
-                    else
-                    {
-                        return new OrderLineItem
-                        {
-                            OrderLine = line.LineSequenceNumber,
-                            isReceived = true,
-                            Quantity = line.ScannedQuantity,
-                            RecordWeight = line.TotalWeight,
-                            ActualWeight = line.ScannedWeight,
-                            Rate = line.IsBad ? 0 : null,
-                        };
-                    }
-                }).ToList()
-            }
+            //ReceivingCategory = receivingCategory,
+            //Item = new ItemContainer
+            //{
+            //    Items = lines.Select(line =>
+            //    {
+            //        if (line.ScannedQuantity == 0)
+            //        {
+            //            return new OrderLineItem
+            //            {
+            //                OrderLine = line.LineSequenceNumber,
+            //                isReceived = false
+            //            };
+            //        }
+            //        else
+            //        {
+            //            return new OrderLineItem
+            //            {
+            //                OrderLine = line.LineSequenceNumber,
+            //                isReceived = true,
+            //                Quantity = line.ScannedQuantity,
+            //                RecordWeight = line.TotalWeight,
+            //                ActualWeight = line.ScannedWeight,
+            //                Rate = line.IsBad ? 0 : null,
+            //            };
+            //        }
+            //    }).ToList()
+            //}
         };
     }
 }

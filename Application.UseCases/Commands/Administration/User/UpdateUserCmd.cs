@@ -1,4 +1,5 @@
 ﻿using Application.DataTransferObjects.Administration.User;
+using Application.DataTransferObjects.Others;
 using Application.UseCases.Repositories.Bases;
 using Domain.Entities.Administration.User.Management;
 using Domain.ValueObjects.Others;
@@ -25,6 +26,7 @@ public class UpdateUserCmdHandler(
             throw new Exception("User not found");
 
         request.User.Account.HashedPassword = dem.Account.HashedPassword;
+        EmployeeNsDTO employee = request.User.EmployeeNs ?? throw new ArgumentException("Employee is required.");
 
         dem.Update(new PersonNameVO(request.User.Name.FirstName,
                                     request.User.Name.MiddleName,
@@ -36,7 +38,16 @@ public class UpdateUserCmdHandler(
                                                 request.User.Account.LockoutEnabled),
                    request.User.Company,
                    request.User.Role.Id,
-                   request.User.PhoneNumber);
+                   request.User.PhoneNumber,
+                   new EmployeeNsVO(
+                       employee.NsId,
+                       employee.EmployeeCode,
+                       employee.FirstName,
+                       employee.LastName,
+                       employee.NsDepartmentId,
+                       employee.DepartmentName,
+                       employee.NsSubsidiaryId,
+                       employee.SubsidiaryName));
 
         if (request.User.Active)
             dem.Activate();
