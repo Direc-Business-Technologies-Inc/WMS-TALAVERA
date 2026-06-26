@@ -27,7 +27,7 @@
                     <RadzenFormField Text="Return Category" class="rz-w-100">
                         <ChildContent>
                             <RadzenTextBox Visible="@ReadOnly" Value="@Model.ReturnCategory?.Name" Placeholder="No category given" />
-                            <QuickVirtualizedDropdown Name="str_return_categ" @bind-Value="@Model.ReturnCategory" Visible="@(!ReadOnly)" TItem="ReturnCategoryVM" DataGetter="@CategoryProvider" TextProperty="@nameof(ReturnCategoryVM.Name)" />
+                            <QuickVirtualizedDropdown Name="str_return_categ" @bind-Value:get="@Model.ReturnCategory" @bind-Value:set="@CategorySet" Visible="@(!ReadOnly)" TItem="ReturnCategoryVM" DataGetter="@CategoryProvider" TextProperty="@nameof(ReturnCategoryVM.Name)" />
                         </ChildContent>
                         <Helper>
                             <RadzenRequiredValidator Visible="@IsEditable" Component="str_return_categ" />
@@ -50,7 +50,7 @@
                         <ChildContent>
 
                             <RadzenTextBox Visible="@(ReadOnly)" Value="@Model.Status?.Name" Placeholder="No status given" />
-                            <QuickVirtualizedDropdown Name="str_return_status" @bind-Value="@Model.Status" Visible="@(!ReadOnly)" TItem="ReturnStatusVM" DataGetter="@StatusProvider" TextProperty="@nameof(ReturnStatusVM.Name)" />
+                            <QuickVirtualizedDropdown Name="str_return_status" @ref="@StatusDropdown" @bind-Value="@Model.Status" Visible="@(!ReadOnly)" TItem="ReturnStatusVM" DataGetter="@StatusProvider" TextProperty="@nameof(ReturnStatusVM.Name)" />
                         </ChildContent>
 
                         <Helper>
