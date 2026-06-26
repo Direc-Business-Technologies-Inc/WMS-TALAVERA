@@ -8,13 +8,13 @@
         <RadzenFieldset Text="Details">
             <RadzenRow>
                 <RadzenColumn SizeMD="6">
-                    <RadzenFormField Text="Reference Number" class="rz-w-100">
+                    <RadzenFormField AllowFloatingLabel="false" Text="Reference Number" class="rz-w-100">
                         <RadzenTextBox ReadOnly Value="@Model.ReferenceNumber" Placeholder="@(ReadOnly ? "-" : "Auto-Generated")" />
                     </RadzenFormField>
                 </RadzenColumn>
                 <RadzenColumn SizeMD="6">
                     <RadzenFormField Text="Date" class="rz-w-100">
-                        <RadzenDatePicker TValue="DateTime" Value="@Model.Date" />
+                        <RadzenDatePicker DateFormat="MMMM dd, yyyy" TValue="DateTime" Value="@Model.Date" />
                     </RadzenFormField>
                 </RadzenColumn>
                 <RadzenColumn SizeMD="4">
@@ -40,7 +40,7 @@
         <RadzenFieldset Text="Lines">
             <AppTableWithSettings Id="inventory_transfer_request_lines_table" Data="@Model.Lines">
                 <HeaderTemplate>
-                    <RadzenButton Icon="add" ButtonStyle="ButtonStyle.Success" Click="(() => OpenItemDialog())" Size="ButtonSize.Small"/> 
+                    <RadzenButton Icon="add" Disabled="@(Model.SourceLocation is null)" ButtonStyle="ButtonStyle.Success" Click="(() => OpenItemDialog())" Size="ButtonSize.Small"/> 
                 </HeaderTemplate>
                 <Columns>
                     <RadzenDataGridColumn TItem="InventoryTransferRequestLineVM" Property="@nameof(InventoryTransferRequestLineVM.ItemCode)" Title="Item Code" />
@@ -65,9 +65,18 @@
             </AppTableWithSettings>
         </RadzenFieldset>
         <RadzenFieldset Text="Additional Details">
-            <RadzenFormField Text="Remarks" class="rz-w-100">
-                <RadzenTextArea ReadOnly="@ReadOnly" @bind-Value="@Model.Memo" />
-            </RadzenFormField>
+            <RadzenRow>
+                <RadzenColumn SizeMD="4">
+                    <RadzenFormField Text="Remarks" class="rz-w-100">
+                        <RadzenTextArea ReadOnly="@ReadOnly" @bind-Value="@Model.Memo" />
+                    </RadzenFormField>
+                </RadzenColumn>
+                <RadzenColumn SizeMD="4" OffsetMD="4">
+                    <RadzenFormField AllowFloatingLabel="false" Text="Prepared By" class="rz-w-100">
+                        <RadzenTextBox ReadOnly Value="@Model.PreparedBy" Placeholder="@(ReadOnly ? "-" : "Auto-Generated")" />
+                    </RadzenFormField>
+                </RadzenColumn>
+            </RadzenRow>
         </RadzenFieldset>
         <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween">
             <RadzenButton Visible="@OnReturn.HasDelegate" ButtonType="ButtonType.Button" Text="@ReturnLabel" Click="@Return"/>

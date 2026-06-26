@@ -2,6 +2,9 @@
 @inherits BaseComponent
 
 <QuickDataGrid Id="inventory_transfer_request_table" ActionName="@ActionGetList" DataGetter="@GetList">
+    <HeaderEnd>
+        <RadzenButton ButtonStyle="ButtonStyle.Success" Icon="Add" Size="ButtonSize.Small" Click="@(() => NavManager.NavigateTo(ITRRoutes.CREATE))" />
+    </HeaderEnd>
     <RowActions>
         <RadzenButton Icon="arrow_right_alt" Size="ButtonSize.ExtraSmall" Click="@(() => OnRowAction(context))" />
     </RowActions>
