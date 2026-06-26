@@ -219,6 +219,7 @@ namespace Integration.NS.Services
                 return response;
             }
             
+
             var errorBody = await httpResponse.Content.ReadFromJsonAsync<NetSuiteErrorResponse>();
             throw new Exception(errorBody?.DisplayString ?? $"Request failed with status code: {httpResponse.StatusCode}");
         }

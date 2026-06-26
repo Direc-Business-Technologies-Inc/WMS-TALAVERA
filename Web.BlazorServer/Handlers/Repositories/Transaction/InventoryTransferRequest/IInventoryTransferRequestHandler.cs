@@ -8,4 +8,6 @@ public interface IInventoryTransferRequestHandler
 
     Task<(IEnumerable<InventoryTransferRequestDataGridVM> Data, int Count)> GetInventoryTransferRequestsDataGridAsync(DataGridIntent intent);
     Task<InventoryTransferRequestVM?> GetInventoryTransferRequestAsync(string Ref);
+    Task<bool> CreateInventoryTransferRequest(InventoryTransferRequestVM data);
+
 }

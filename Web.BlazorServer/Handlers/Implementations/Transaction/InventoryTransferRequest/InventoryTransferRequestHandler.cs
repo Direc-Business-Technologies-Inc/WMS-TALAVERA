@@ -1,4 +1,6 @@
-﻿using Application.UseCases.Queries.Transaction.InventoryTransferRequests;
+﻿using Application.DataTransferObjects.Transactions.InventoryTransferRequest;
+using Application.UseCases.Commands.Transaction.InventoryTransferRequest;
+using Application.UseCases.Queries.Transaction.InventoryTransferRequests;
 using Mapster;
 using MediatR;
 using Shared.Entities;
@@ -27,4 +29,11 @@ public class InventoryTransferRequestHandler(ISender sender) : IInventoryTransfe
 
         return (data.Adapt<IEnumerable<InventoryTransferRequestDataGridVM>>(), count);
     }
+    public async Task<bool> CreateInventoryTransferRequest(InventoryTransferRequestVM data)
+    {
+        CreateInventoryTransferRequestCmd cmd = new(data.Adapt<InventoryTransferRequestDTO>());
+
+        return await sender.Send(cmd);
+    }
+
 }
