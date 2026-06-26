@@ -50,7 +50,7 @@ public class ReceivingIntegration(
             )
             .From("transaction t")
             .WithFilters(
-                Equal("t.tranid", docEntry) 
+                Equal("t.tranid", docEntry)
             )
             .Build();
 
@@ -96,11 +96,11 @@ public class ReceivingIntegration(
                 ("s.name", nameof(PurchaseOrderDataGridDTO.Status)),
                 ("t.transferlocation", "TransferLocation"))
             .From("transaction t")
-            .LeftJoin("purchaseorderstatus s", on:"s.id = t.status")
+            .LeftJoin("purchaseorderstatus s", on: "s.id = t.status")
             .WithDatagridIntent(intent)
             .WithFilters(
                 Equal("t.recordtype", "purchaseorder"),
-                In("t.status", new string[] {"B", "E" })
+                In("t.status", new string[] { "B", "E" })
             );
 
         SuiteQLQuery query = builder.Build();
@@ -124,14 +124,14 @@ public class ReceivingIntegration(
                 ("BUILTIN.DF(t.transferlocation)", "TransferLocation")
                 )
             .From("transaction t")
-            .Join("transactionline tl", on:"tl.transaction = t.id")
+            .Join("transactionline tl", on: "tl.transaction = t.id")
             .LeftJoin("transferorderstatus s", on: "t.status = s.id")
             .WithFilters(
                 Equal("tl.mainline", "T"),
                 In("t.recordtype", new string[] { "transferorder", "intercompanytransferorder" }),
                 NotEqual("t.custbody_dbti_transfer_category", 4), // returns - bad items
                 NotEqual("t.custbody_dbti_transfer_category", 3), // returns - good items
-                In("t.status", new string[] {"F", "E"}))
+                In("t.status", new string[] { "F", "E" }))
             .WithDatagridIntent(intent)
             .Build();
 
@@ -150,7 +150,7 @@ public class ReceivingIntegration(
     }
 
     public async Task<TransferOrderDTO?> GetTransferOrderHeaderAsync(string docEntry)
-    { 
+    {
         var query = builderFactory.Create()
             .Select(
                 ("t.id", "Id"),
@@ -171,7 +171,7 @@ public class ReceivingIntegration(
                 Equal("t.tranid", docEntry),
                 NotEqual("t.custbody_dbti_transfer_category", 3),
                 NotEqual("t.custbody_dbti_transfer_category", 4),
-                In("t.status", new string[] {"F", "E"})
+                In("t.status", new string[] { "F", "E" })
             ).Build();
 
         var response = await netsuiteService.ExecuteSuiteQLQuery<TransferOrderDTO>(query.Query);
@@ -306,9 +306,9 @@ public class ReceivingIntegration(
             )
             .From("transaction t")
             .LeftJoin("customrecord_dbti_vendor_bin_assignment vba", on: "t.entity = vba.custrecord_dbti_vba_vendor")
-            .Join("subsidiary s", on:"t.subsidiary = s.id")
+            .Join("subsidiary s", on: "t.subsidiary = s.id")
             .WithFilters(
-                In("t.type", new string[] {"TrnfrOrd", "PurchOrd" }),
+                In("t.type", new string[] { "TrnfrOrd", "PurchOrd" }),
                 Equal("t.tranid", docEntry)
             ).Build();
 
@@ -339,7 +339,7 @@ public class ReceivingIntegration(
             .Join("item", on: "tl.item = item.id")
             .Join("transaction t", on: "tl.transaction = t.id")
             .Join("location loc", on: "tl.location = loc.id")
-            .Join("unitstypeuom uom", on: "tl.units = uom.internalid") 
+            .Join("unitstypeuom uom", on: "tl.units = uom.internalid")
             .LeftJoin("(SELECT ibq.bin, ibq.item, b.location FROM itembinquantity ibq JOIN bin b ON ibq.bin = b.id WHERE preferredbin = \'T\') pb", on: "pb.item = item.id AND pb.location = tl.location")
             .WithFilters(
                 Equal("t.tranid", docEntry),
@@ -364,38 +364,44 @@ public class ReceivingIntegration(
             ItemReceiptDTO.SourceTypes.PurchaseOrder => $"{netsuiteService.GetRestAPIURI}/record/v1/purchaseOrder/{dto.SourceInternalId}/!transform/itemReceipt",
             _ => $"{netsuiteService.GetRestletURI}?script=1853&deploy=1"
         };
-        
+
         (string goodPayload, string badPayload) = dto.SourceType switch
         {
             ItemReceiptDTO.SourceTypes.PurchaseOrder => (CreatePOJson(dto, true), CreatePOJson(dto, false)),
-            ItemReceiptDTO.SourceTypes.TransferOrder => (CreateTOJson(dto, true),CreateTOJson(dto, false)),
+            ItemReceiptDTO.SourceTypes.TransferOrder => (CreateTOJson(dto, true), CreateTOJson(dto, false)),
             _ => (CreateReturnsJson(dto, true), CreateReturnsJson(dto, false))
         };
 
         List<Exception> exceptions = [];
 
-        try
+        if (dto.Lines.Any(x => x.QuantityGood > 0))
         {
-            _ = dto.SourceType.Equals(ItemReceiptDTO.SourceTypes.TransferOrder) ?
-                await netsuiteService.MakeRequestOAuth1<object>(uri, goodPayload) :
-                await netsuiteService.MakeRequest<object>(uri, goodPayload, HttpMethod.Post);
-        }
-        catch (Exception ex)
-        {
-            if (!ex.Message.Equals("Empty response from NetSuite API", StringComparison.OrdinalIgnoreCase))
-                exceptions.Add(new Exception("Error posting good items: " + ex.Message));
+            try
+            {
+                _ = dto.SourceType.Equals(ItemReceiptDTO.SourceTypes.TransferOrder) ?
+                    await netsuiteService.MakeRequestOAuth1<object>(uri, goodPayload) :
+                    await netsuiteService.MakeRequest<object>(uri, goodPayload, HttpMethod.Post);
+            }
+            catch (Exception ex)
+            {
+                if (!ex.Message.Equals("Empty response from NetSuite API", StringComparison.OrdinalIgnoreCase))
+                    exceptions.Add(new Exception("Error posting good items: " + ex.Message));
+            }
         }
 
-        try
+        if (dto.Lines.Any(x => x.QuantityBad > 0))
         {
-            _ = dto.SourceType.Equals(ItemReceiptDTO.SourceTypes.TransferOrder) ?
-                await netsuiteService.MakeRequestOAuth1<object>(uri, badPayload) :
-                await netsuiteService.MakeRequest<object>(uri, badPayload, HttpMethod.Post);
-        }
-        catch (Exception ex)
-        {
-            if (!ex.Message.Equals("Empty response from NetSuite API", StringComparison.OrdinalIgnoreCase))
-                exceptions.Add(new Exception("Error posting bad items: " + ex.Message));
+            try
+            {
+                _ = dto.SourceType.Equals(ItemReceiptDTO.SourceTypes.TransferOrder) ?
+                    await netsuiteService.MakeRequestOAuth1<object>(uri, badPayload) :
+                    await netsuiteService.MakeRequest<object>(uri, badPayload, HttpMethod.Post);
+            }
+            catch (Exception ex)
+            {
+                if (!ex.Message.Equals("Empty response from NetSuite API", StringComparison.OrdinalIgnoreCase))
+                    exceptions.Add(new Exception("Error posting bad items: " + ex.Message));
+            }
         }
 
 
@@ -420,7 +426,7 @@ public class ReceivingIntegration(
                     {
                         new
                         {
-                            inventoryStatus = isGood ? 1 : 2,
+                            inventoryStatus = isGood ? 1 : 3,
                             quantity = isGood ? line.QuantityGood : line.QuantityBad
                         }
                     }
@@ -450,7 +456,7 @@ public class ReceivingIntegration(
                         orderLine = line.LineNumber,
                         quantity = isItemReceived ? lineQuantity : (decimal?)null,
                         custcol_dbti_actual_weight = isItemReceived ? line.WeightActual : (decimal?)null,
-                        rate = isGood ? (decimal?) null : 0,
+                        rate = isGood ? (decimal?)null : 0,
                         inventoryDetail = isItemReceived ? new
                         {
                             inventoryAssignment = new
@@ -459,7 +465,7 @@ public class ReceivingIntegration(
                                 {
                                     new
                                     {
-                                        inventoryStatus = isGood ? "1" : "2",
+                                        inventoryStatus = isGood ? "1" : "3",
                                         binNumber = isGood ? preferredBin : "5",
                                         quantity = lineQuantity
                                     }
