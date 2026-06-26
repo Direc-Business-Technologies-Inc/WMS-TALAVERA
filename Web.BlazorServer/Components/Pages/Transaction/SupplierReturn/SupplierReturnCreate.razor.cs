@@ -42,5 +42,11 @@ public partial class SupplierReturnCreate
         {
             await returnHandler.CreateSupplierReturnAsync(data);
         }, ActionCreateSupplierReturn);
+
+        action.OnSuccess(async () =>
+        {
+            await Task.Delay(100);
+            NavManager.NavigateTo(SupplierReturnRoutes.INDEX);
+        }); 
     }
 }
