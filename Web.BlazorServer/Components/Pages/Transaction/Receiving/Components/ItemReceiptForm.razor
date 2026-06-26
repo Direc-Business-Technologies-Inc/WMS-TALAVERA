@@ -12,7 +12,7 @@
                 </RadzenColumn>
                 <RadzenColumn SizeMD="6">
                     <RadzenFormField AllowFloatingLabel="false" Text="Date" class="rz-w-100">
-                        <RadzenDatePicker @bind-Value="@Data.Date" ReadOnly />
+                        <RadzenDatePicker DateFormat="MMMM dd, yyyy" @bind-Value="@Data.Date" ReadOnly />
                     </RadzenFormField>
                 </RadzenColumn>
                 @if (Data.SourceType == ItemReceiptVM.SourceTypes.TransferOrder)
