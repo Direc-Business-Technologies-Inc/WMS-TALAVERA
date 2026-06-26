@@ -1,4 +1,6 @@
-﻿using Application.DataTransferObjects.Transactions.SupplierReturn;
+﻿using Application.DataTransferObjects.Others.NS;
+using Application.DataTransferObjects.Transactions.Receiving;
+using Application.DataTransferObjects.Transactions.SupplierReturn;
 using Application.UseCases.Repositories.Integration.Others;
 using Application.UseCases.Repositories.Integration.Transaction.SupplierReturn;
 using Integration.NS.DataTransferObjects.StockTransferRequest;
@@ -11,6 +13,7 @@ using Shared.Libraries.Utilities;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -145,6 +148,12 @@ public class SupplierReturnIntegration(
 
     public async Task<bool> CreateSupplierReturn(SupplierReturnDTO data)
     {
+        if (data.SourcePO is null) return await CreateNewSupplierReturn(data);
+        return await CreateSupplierReturnFromPurchaseOrder(data);
+    }
+
+    public async Task<bool> CreateNewSupplierReturn(SupplierReturnDTO data)
+    {
         string payload = CreatePayload(data);
         var uri = netsuiteService.GetRestAPIURI + "/record/v1/vendorReturnAuthorization";
 
@@ -159,6 +168,120 @@ public class SupplierReturnIntegration(
 
         return true;
     }
+    public async Task<bool> CreateSupplierReturnFromPurchaseOrder(SupplierReturnDTO data)
+    {
+        if (data.SourcePO is null) throw new InvalidOperationException("INTERNAL ERROR: No purchase order reference given");
+        var payload = new
+        {
+            custbody_dbti_return_category = data.ReturnCategory?.Id ?? null,
+            orderstatus = data.Status?.Id ?? null,
+        };
+        var payloadString = JsonSerializer.Serialize(payload, jsonOpts);
+        var uri = netsuiteService.GetRestAPIURI + $"/record/v1/purchaseOrder/{data.SourcePO}/!transform/vendorReturnAuthorization";
+
+        try
+        {
+            _ = await netsuiteService.MakeRequest<object>(uri, payloadString, HttpMethod.Post);
+        }
+        catch (Exception ex) when (ex.Message.Equals("Empty response from NetSuite API", StringComparison.OrdinalIgnoreCase))
+        {
+            // Empty response is but http response is a success status code
+        }
+
+        return true;
+    }
+
+
+    public async Task<SupplierReturnDTO?> GetReturnFromPurchaseOrderAsync(string purchaseOrderId)
+    {
+        var query = builderFactory.Create()
+                .Select(
+                    ("t.id", nameof(SupplierReturnNSDTO.SourcePO)),
+                    ("BUILTIN.DF(t.entity)", nameof(SupplierReturnNSDTO.VendorName)),
+                    ("t.entity", nameof(SupplierReturnNSDTO.VendorId)),
+                    ("t.tranid", nameof(SupplierReturnNSDTO.ReferenceNumber)),
+                    ("ml.location", nameof(SupplierReturnNSDTO.LocationId)),
+                    ("t.subsidiary", nameof(SupplierReturnNSDTO.SubsidiaryId)),
+                    ("BUILTIN.DF(t.subsidiary)", nameof(SupplierReturnNSDTO.SubsidiaryName)),
+                    ("BUILTIN.DF(ml.location)", nameof(SupplierReturnNSDTO.LocationName)),
+                    ("t.memo", nameof(SupplierReturnNSDTO.Memo)),
+                    ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(SupplierReturnNSDTO.Date))
+                )
+                .From("transaction t")
+                .LeftJoin("transactionline ml", "ml.mainline = 'T' and ml.transaction = t.id")
+                .Join("VendorReturnAuthorizationStatus s", "t.status = s.id")
+                .WithFilters(
+                    DataGridFilterUtilities.Equal("t.recordtype", "purchaseorder"),
+                    DataGridFilterUtilities.Equal("t.status", "F"),
+                    DataGridFilterUtilities.Equal("t.tranid", purchaseOrderId)
+                )
+                .Build();
+
+        var response = await netsuiteService.ExecuteSuiteQLQuery<SupplierReturnNSDTO>(query.Query);
+        var nsdto = response.items.FirstOrDefault();
+        if (nsdto is null) return null;
+
+        return nsdto.Adapt(new SupplierReturnDTO
+        {
+            Location = new() { Id = nsdto.LocationId, Name = nsdto.LocationName },
+            Vendor = new() { Id = nsdto.VendorId, Name = nsdto.VendorName },
+            Subsidiary = new() { Id = nsdto.SubsidiaryId, Name = nsdto.SubsidiaryName }
+        });
+    }
+
+    public async Task<IEnumerable<SupplierReturnLineDTO>> GetReturnFromPurchaseOrderLinesAsync(string purchaseOrderId)
+    {
+        var query = builderFactory.Create()
+            .Select(
+                ("item.itemid", nameof(SupplierReturnLineNSDTO.ItemCode)),
+                ("item.id", nameof(SupplierReturnLineNSDTO.ItemId)),
+                ("tl.linesequencenumber", nameof(SupplierReturnLineNSDTO.LineNumber)),
+                ("uom.unitName", nameof(SupplierReturnLineNSDTO.UoMName)),
+                ("uom.internalid", nameof(SupplierReturnLineNSDTO.UoMId)),
+                ("uom.conversionrate", nameof(SupplierReturnLineNSDTO.UoMRate)),
+                ("BUILTIN.DF(tl.location)", nameof(SupplierReturnLineNSDTO.LocationName)),
+                ("tl.location", nameof(SupplierReturnLineNSDTO.LocationId)),
+                ("item.displayname", nameof(SupplierReturnLineNSDTO.ItemDescription)),
+                ("(tl.quantity / uom.conversionrate)", nameof(SupplierReturnLineNSDTO.QuantityAlloted))
+            )
+            .From("transactionline tl")
+            .Join("transaction t", on: "tl.transaction = t.id")
+            .Join("item", on: "tl.item = item.id")
+            .LeftJoin("unitsTypeUom uom", on: "tl.units = uom.internalid")
+            .WithFilters(
+                DataGridFilterUtilities.Equal("t.recordtype", "purchaseorder"),
+                DataGridFilterUtilities.Equal("t.tranid", purchaseOrderId)
+            )
+            .Build();
+
+        var response = await netsuiteService.ExecuteSuiteQLQuery<SupplierReturnLineNSDTO>(query.Query);
+        return response.items.Select(ConvertLineDTO);
+    }
+
+    public async Task<(IEnumerable<PurchaseOrderDataGridDTO>, int)> GetPurchaseOrdersListAsync(DataGridIntent intent)
+    {
+        var builder = builderFactory.Create()
+            .Select(
+                ("t.id", nameof(PurchaseOrderDataGridDTO.Id)),
+                ("t.tranid", nameof(PurchaseOrderDataGridDTO.ReferenceNumber)),
+                ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(PurchaseOrderDataGridDTO.Date)),
+                ("TO_CHAR(t.custbody_dbti_order_date, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(PurchaseOrderDataGridDTO.DeliveryDate)),
+                ("t.memo", nameof(PurchaseOrderDataGridDTO.Memo)),
+                ("BUILTIN.DF(t.entity)", nameof(PurchaseOrderDataGridDTO.VendorName))
+            )
+            .From("transaction t")
+            .WithDatagridIntent(intent)
+            .WithFilters(
+                DataGridFilterUtilities.Equal("t.recordtype", "purchaseorder"),
+                DataGridFilterUtilities.In("t.status", new string[] {"F", "G"})
+            );
+
+        SuiteQLQuery query = builder.Build();
+
+        var response = await netsuiteService.ExecuteSuiteQLQuery<PurchaseOrderDataGridDTO>(query.Query, limit: query.Limit, offset: query.Offset);
+        return (response.items, response.totalResults);
+    }
+
 
     private string CreatePayload(SupplierReturnDTO data)
     {

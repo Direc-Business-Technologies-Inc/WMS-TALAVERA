@@ -1,3 +1,4 @@
+using Mapster;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
 using Shared.Entities;
@@ -5,6 +6,7 @@ using Shared.Libraries.Utilities;
 using Web.BlazorServer.Components.Custom;
 using Web.BlazorServer.Handlers.Repositories.Others;
 using Web.BlazorServer.Handlers.Repositories.Transaction.SupplierReturn;
+using Web.BlazorServer.Helpers;
 using Web.BlazorServer.Services.Repositories;
 using Web.BlazorServer.ViewModels.Others;
 using Web.BlazorServer.ViewModels.Transaction.SupplierReturn;
@@ -33,6 +35,17 @@ public partial class SupplierReturnForm
 
     QuickVirtualizedDropdown<LocationVM> LocationDropdown { get; set; } = default!;
     QuickVirtualizedDropdown<SubsidiaryVM> SubsidiaryDropdown { get; set; } = default!;
+
+    readonly string ActionGetPO = "Get Purchase Order";
+    bool canSelectPO = true;
+    bool IsEditable => !ReadOnly && Model.SourcePO is null;
+    bool IsFromPo => Model.SourcePO is not null;
+
+    protected override void OnParametersSet()
+    {
+        base.OnParametersSet();
+        canSelectPO = Model.SourcePO is null && Model.Id is null;
+    }
 
     async Task<(IEnumerable<ReturnCategoryVM>, int)> CategoryProvider(DataGridIntent intent)
     {
@@ -125,6 +138,23 @@ public partial class SupplierReturnForm
         await InvokeAsync(StateHasChanged);
     }
 
+    async Task GetPurchaseOrder(string poRef)
+    {
+        var action = await AppActionFactory.RunLoadingAsync(async () =>
+        {
+            return await returnHandler.GetReturnFromPurchaseOrderAsync(poRef);
+        }, ActionGetPO);
+
+        action.OnSuccess(po =>
+        {
+            po.Adapt(Model);
+            canSelectPO = false;
+            return Task.CompletedTask;
+        });
+
+        await InvokeAsync(StateHasChanged);
+    }
+
     async Task ReturnClicked()
     {
         if (OnReturn.HasDelegate)
@@ -147,6 +177,7 @@ public partial class SupplierReturnForm
     {
         if (Model.Location is null) return;
 
+        canSelectPO = false;
         Model.Lines.AddRange(
             items.Select(x => new SupplierReturnLineVM
             {

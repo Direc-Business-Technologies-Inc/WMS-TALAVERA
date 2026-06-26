@@ -10,12 +10,17 @@
             <RadzenRow Gap="0.5em">
                 <RadzenColumn SizeMD="4">
                     <RadzenFormField Text="Reference Number" class="rz-w-100">
-                        <RadzenTextBox Value="@Model.ReferenceNumber" Placeholder="To be generated" />
+                        <ChildContent>
+                            <RadzenTextBox Value="@Model.ReferenceNumber" Placeholder="@(!IsEditable ? "-" : "Auto-Generated")" />
+                        </ChildContent>
+                        <End>
+                            <RadzenButton ButtonType="ButtonType.Button" Text="Select from Purchase Order" Visible="@(!ReadOnly && canSelectPO)" Size="ButtonSize.ExtraSmall" Click="OpenPurchaseOrderDialog" ButtonStyle="ButtonStyle.Primary" />
+                        </End>
                     </RadzenFormField>
                 </RadzenColumn>
                 <RadzenColumn SizeMD="4">
                     <RadzenFormField Text="Date" class="rz-w-100">
-                        <RadzenDatePicker ReadOnly="@ReadOnly" TValue="DateTime" @bind-Value="@Model.Date" />
+                        <RadzenDatePicker ReadOnly="@(!IsEditable)" TValue="DateTime" @bind-Value="@Model.Date" />
                     </RadzenFormField>
                 </RadzenColumn>
                 <RadzenColumn SizeMD="4">
@@ -26,26 +31,26 @@
                 </RadzenColumn>
                 <RadzenColumn SizeMD="6">
                     <RadzenFormField Text="Vendor" class="rz-w-100">
-                        <RadzenTextBox Visible="@ReadOnly" Value="@Model.Vendor?.Name" Placeholder="No vendor given" />
-                        <QuickVirtualizedDropdown @bind-Value:get="@Model.Vendor" @bind-Value:set="@VendorSet" Visible="@(!ReadOnly)" TItem="VendorVM" DataGetter="@VendorProvider" TextProperty="@nameof(VendorVM.Name)" />
+                        <RadzenTextBox Visible="@(!IsEditable)" Value="@Model.Vendor?.Name" Placeholder="No vendor given" />
+                        <QuickVirtualizedDropdown @bind-Value:get="@Model.Vendor" @bind-Value:set="@VendorSet" Visible="@IsEditable" TItem="VendorVM" DataGetter="@VendorProvider" TextProperty="@nameof(VendorVM.Name)" />
                     </RadzenFormField>
                 </RadzenColumn>
                 <RadzenColumn SizeMD="6">
                     <RadzenFormField Text="Status" class="rz-w-100">
-                        <RadzenTextBox Visible="ReadOnly" Value="@Model.Status?.Name" Placeholder="No status given" />
+                        <RadzenTextBox Visible="@(ReadOnly)" Value="@Model.Status?.Name" Placeholder="No status given" />
                         <QuickVirtualizedDropdown @bind-Value="@Model.Status" Visible="@(!ReadOnly)" TItem="ReturnStatusVM" DataGetter="@StatusProvider" TextProperty="@nameof(ReturnStatusVM.Name)" />
                     </RadzenFormField>
                 </RadzenColumn>
                 <RadzenColumn SizeMD="6">
                     <RadzenFormField Text="Subsidiary" class="rz-w-100">
-                        <RadzenTextBox Visible="ReadOnly" Value="@Model.Subsidiary?.Name" Placeholder="No location given" />
-                        <QuickVirtualizedDropdown @ref="@SubsidiaryDropdown" @bind-Value:get="@Model.Subsidiary" @bind-Value:set="@SubsidiarySet" Visible="@(!ReadOnly)" TItem="SubsidiaryVM" DataGetter="@SubsidiaryProvider" TextProperty="@nameof(SubsidiaryVM.Name)" Disabled="@(Model.Vendor is null)" />
+                        <RadzenTextBox Visible="@(!IsEditable)" Value="@Model.Subsidiary?.Name" Placeholder="No location given" />
+                        <QuickVirtualizedDropdown @ref="@SubsidiaryDropdown" @bind-Value:get="@Model.Subsidiary" @bind-Value:set="@SubsidiarySet" Visible="@IsEditable" TItem="SubsidiaryVM" DataGetter="@SubsidiaryProvider" TextProperty="@nameof(SubsidiaryVM.Name)" Disabled="@(Model.Vendor is null)" />
                     </RadzenFormField>
                 </RadzenColumn>
                 <RadzenColumn SizeMD="6">
                     <RadzenFormField Text="Warehouse" class="rz-w-100">
-                        <RadzenTextBox Visible="ReadOnly" Value="@Model.Location?.Name" Placeholder="No location given" />
-                        <QuickVirtualizedDropdown @ref="@LocationDropdown" @bind-Value:get="@Model.Location" @bind-Value:set="@LocationSet" Visible="@(!ReadOnly)" TItem="LocationVM" DataGetter="@LocationProvider" TextProperty="@nameof(LocationVM.Name)" Disabled="@(Model.Subsidiary is null)" />
+                        <RadzenTextBox Visible="@(!IsEditable)" Value="@Model.Location?.Name" Placeholder="No location given" />
+                        <QuickVirtualizedDropdown @ref="@LocationDropdown" @bind-Value:get="@Model.Location" @bind-Value:set="@LocationSet" Visible="@IsEditable" TItem="LocationVM" DataGetter="@LocationProvider" TextProperty="@nameof(LocationVM.Name)" Disabled="@(Model.Subsidiary is null)" />
                     </RadzenFormField>
                 </RadzenColumn>
             </RadzenRow>
@@ -53,36 +58,45 @@
         <RadzenFieldset Text="Lines">
             <AppTableWithSettings TItem="SupplierReturnLineVM" Id="return_to_supplier_lines" Data="@Model.Lines">
                 <HeaderTemplate>
-                    <RadzenButton ButtonType="ButtonType.Button" Icon="add" Visible="@(!ReadOnly)" Disabled="@(Model.Location is null)" Size="ButtonSize.Small" Click="OpenItemDialog" ButtonStyle="ButtonStyle.Success" />
+                    <RadzenButton ButtonType="ButtonType.Button" Icon="add" Visible="@IsEditable" Disabled="@(Model.Location is null)" Size="ButtonSize.Small" Click="OpenItemDialog" ButtonStyle="ButtonStyle.Success" />
                 </HeaderTemplate>
                 <Columns>
                     <RadzenDataGridColumn TItem="SupplierReturnLineVM" Title="Item Code" Property="@nameof(SupplierReturnLineVM.ItemCode)" />
                     <RadzenDataGridColumn TItem="SupplierReturnLineVM" Title="Item Description" Property="@nameof(SupplierReturnLineVM.ItemDescription)" />
                     <RadzenDataGridColumn TItem="SupplierReturnLineVM" Title="UoM">
                         <Template Context="data">
-                            <RadzenText Visible="@ReadOnly" TextStyle="TextStyle.Body2" Text="@(data.UoM?.Name ?? "-")" />
-                            <QuickVirtualizedDropdown @bind-Value="@data.UoM" Visible="@(!ReadOnly)" TItem="ItemUnitVM" DataGetter="@(intent => ItemUnitsProvider(intent, data.ItemId))" TextProperty="@nameof(ItemUnitVM.Name)" />
+                            <RadzenText Visible="@(!IsEditable)" TextStyle="TextStyle.Body2" Text="@(data.UoM?.Name ?? "-")" />
+                            <QuickVirtualizedDropdown @bind-Value="@data.UoM" Visible="@IsEditable" TItem="ItemUnitVM" DataGetter="@(intent => ItemUnitsProvider(intent, data.ItemId))" TextProperty="@nameof(ItemUnitVM.Name)" />
                         </Template>
                     </RadzenDataGridColumn>
                     <RadzenDataGridColumn TItem="SupplierReturnLineVM" Title="Warehouse">
                         <Template Context="data">
-                            <RadzenText Visible="@ReadOnly" TextStyle="TextStyle.Body2" Text="@(data.Location?.Name ?? "-")" />
-                            <QuickVirtualizedDropdown @bind-Value="@data.Location" Visible="@(!ReadOnly)" TItem="LocationVM" DataGetter="@LocationProvider" TextProperty="@nameof(LocationVM.Name)" />
+                            <RadzenText Visible="@(!IsEditable)" TextStyle="TextStyle.Body2" Text="@(data.Location?.Name ?? "-")" />
+                            <QuickVirtualizedDropdown @bind-Value="@data.Location" Visible="@IsEditable" TItem="LocationVM" DataGetter="@LocationProvider" TextProperty="@nameof(LocationVM.Name)" />
                         </Template>
                     </RadzenDataGridColumn>
                     <RadzenDataGridColumn TItem="SupplierReturnLineVM" Title="Alloted Quantity">
                         <Template Context="data">
-                            <RadzenText Visible="@ReadOnly" TextStyle="TextStyle.Body2" Text="@data.QuantityAlloted.ToString()" />
-                            <RadzenNumeric Visible="@(!ReadOnly)" @bind-Value="@data.QuantityAlloted" />
+                            <RadzenText Visible="@(!IsEditable)" TextStyle="TextStyle.Body2" Text="@data.QuantityAlloted.ToString()" />
+                            <RadzenNumeric Visible="@(IsEditable)" @bind-Value="@data.QuantityAlloted" />
                         </Template>
                     </RadzenDataGridColumn>
                 </Columns>
             </AppTableWithSettings>
         </RadzenFieldset>
-        <RadzenFieldset>
-            <RadzenFormField Text="Remarks" class="rz-w-100">
-                <RadzenTextArea @bind-Value="@Model.Memo" ReadOnly="@ReadOnly" />
-            </RadzenFormField>
+        <RadzenFieldset Text="Additional Details">
+            <RadzenRow Gap="0.5em">
+                <RadzenColumn SizeMD="4">
+                    <RadzenFormField Text="Remarks" class="rz-w-100">
+                        <RadzenTextArea @bind-Value="@Model.Memo" ReadOnly="@(!IsEditable)" />
+                    </RadzenFormField>
+                </RadzenColumn>
+                <RadzenColumn SizeMD="4" OffsetMD="4">
+                    <RadzenFormField Text="Remarks" class="rz-w-100">
+                        <RadzenTextBox Value="@Model.PreparedBy" ReadOnly Placeholder="@(!IsEditable ? "-" : "Auto-Generated")" />
+                    </RadzenFormField>
+                </RadzenColumn>
+            </RadzenRow>
         </RadzenFieldset>
         <RadzenStack Gap="0.5em" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween">
             <RadzenButton ButtonType="ButtonType.Button" Text="@ReturnString" Visible="@OnReturn.HasDelegate" Click="ReturnClicked" />
@@ -103,6 +117,16 @@
     options: GridSettingsService.GetDialogOptions());
 
         if (items is not null) await AddItems(items);
+    }
+
+    async Task OpenPurchaseOrderDialog()
+    {
+        string? poRef = await DialogService.OpenAsync(
+            "Select Purchase Order",
+            ds => @<PurchaseOrderDialog />,
+    options: GridSettingsService.GetDialogOptions());
+
+        if (poRef != null) await GetPurchaseOrder(poRef);
     }
 
 }

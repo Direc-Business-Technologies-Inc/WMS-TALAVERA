@@ -1,0 +1,9 @@
+﻿@using Web.BlazorServer.Components.Custom
+@inherits BaseComponent
+<AppContent>
+    <QuickDataGrid DataGetter="PurchaseOrdersProvider" ActionName="@ActionGetList">
+        <RowActions>
+            <RadzenButton Size="ButtonSize.ExtraSmall" Icon="arrow_right_alt" Click="@(() => SelectPO(context))" ButtonType="ButtonType.Button" />
+        </RowActions>
+    </QuickDataGrid>
+</AppContent>

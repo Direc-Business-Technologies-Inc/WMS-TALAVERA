@@ -5,7 +5,7 @@ namespace Web.BlazorServer.ViewModels.Transaction.SupplierReturn;
 
 public class SupplierReturnVM
 {
-    public int Id { get; set; }
+    public int? Id { get; set; }
     public DateTime Date { get; set; }
     public VendorVM? Vendor { get; set; } = null;
     public LocationVM? Location { get; set; } = null;
@@ -14,5 +14,8 @@ public class SupplierReturnVM
     public ReturnCategoryVM? ReturnCategory { get; set; } = null;
     public string? ReferenceNumber { get; set; }
     public string Memo { get; set; } = string.Empty;
+    public string PreparedBy { get; set; } = string.Empty;
     public List<SupplierReturnLineVM> Lines { get; set; } = [];
+
+    public int? SourcePO { get; set; }
 }

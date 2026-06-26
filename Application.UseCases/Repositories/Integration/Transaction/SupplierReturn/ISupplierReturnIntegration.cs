@@ -1,4 +1,5 @@
-﻿using Application.DataTransferObjects.Transactions.SupplierReturn;
+﻿using Application.DataTransferObjects.Transactions.Receiving;
+using Application.DataTransferObjects.Transactions.SupplierReturn;
 using Shared.Entities;
 using System;
 using System.Collections.Generic;
@@ -16,5 +17,7 @@ public interface ISupplierReturnIntegration
     Task<SupplierReturnDTO?> GetReturnAsync(string referenceNumber);
     Task<IEnumerable<SupplierReturnLineDTO>> GetReturnLinesAsync(string referenceNumber);
     Task<bool> CreateSupplierReturn(SupplierReturnDTO data);
-
+    Task<(IEnumerable<PurchaseOrderDataGridDTO>, int)> GetPurchaseOrdersListAsync(DataGridIntent intent);
+    Task<SupplierReturnDTO?> GetReturnFromPurchaseOrderAsync(string purchaseOrderId);
+    Task<IEnumerable<SupplierReturnLineDTO>> GetReturnFromPurchaseOrderLinesAsync(string purchaseOrderId);
 }
