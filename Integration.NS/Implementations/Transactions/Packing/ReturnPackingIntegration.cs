@@ -1,5 +1,150 @@
-﻿namespace Integration.NS.Implementations.Transactions.Packing;
+using Application.DataTransferObjects.Transactions.Packing.Returns;
+using Application.UseCases.Repositories.Integration.Others;
+using Application.UseCases.Repositories.Integration.Transaction.Packing;
+using Integration.NS.DataTransferObjects.Packing.Returns;
+using Integration.NS.Helpers;
+using Integration.NS.Services;
+using Shared.Entities;
+using static Shared.Libraries.Utilities.DataGridFilterUtilities;
 
-internal class ReturnPackingIntegration
+namespace Integration.NS.Implementations.Transactions.Packing;
+
+internal class ReturnPackingIntegration(
+    INetSuiteApiClientService netsuiteService,
+    SuiteQLQueryBuilderFactoryService builderFactory) : IReturnPackingIntegration
 {
+    public async Task<(IEnumerable<ReturnsDataGridDTO> Data, int Count)> GetPackingReturnsList(DataGridIntent intent)
+    {
+        var query = builderFactory.Create()
+            .Select(
+                ("t.id", nameof(ReturnPackingDataGridNSDTO.Id)),
+                ("t.tranid", nameof(ReturnPackingDataGridNSDTO.ReferenceNumber)),
+                ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(ReturnPackingDataGridNSDTO.Date)),
+                ("BUILTIN.DF(t.subsidiary)", nameof(ReturnPackingDataGridNSDTO.SourceSubsidiary)),
+                ("BUILTIN.DF(t.tosubsidiary)", nameof(ReturnPackingDataGridNSDTO.DestinationSubsidiary)),
+                ("BUILTIN.DF(tl.location)", nameof(ReturnPackingDataGridNSDTO.Location)),
+                ("BUILTIN.DF(t.transferlocation)", nameof(ReturnPackingDataGridNSDTO.TransferLocation)),
+                ("s.name", nameof(ReturnPackingDataGridNSDTO.Status)),
+                ("t.memo", nameof(ReturnPackingDataGridNSDTO.Remarks))
+            )
+            .From("transaction t")
+            .Join("transactionline tl", on: "tl.transaction = t.id")
+            .LeftJoin("transferorderstatus s", on: "s.id = t.status")
+            .WithFilters(Equal("tl.mainline", "T"))
+            .WithFilters(PackingReturnsFilters())
+            .WithDatagridIntent(intent)
+            .Build();
+
+        var response = await query.ExecuteWithPaging<ReturnPackingDataGridNSDTO>(netsuiteService);
+
+        return (response.items.Select(MapDataGridDto), response.totalResults);
+    }
+
+    public async Task<ReturnsInfoDTO?> GetPackingReturn(string id)
+    {
+        var query = builderFactory.Create()
+            .Select(
+                ("t.id", nameof(ReturnPackingHeaderNSDTO.Id)),
+                ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(ReturnPackingHeaderNSDTO.Date)),
+                ("t.tranid", nameof(ReturnPackingHeaderNSDTO.ReferenceNumber)),
+                ("BUILTIN.DF(t.subsidiary)", nameof(ReturnPackingHeaderNSDTO.FromSubsidiary)),
+                ("BUILTIN.DF(t.tosubsidiary)", nameof(ReturnPackingHeaderNSDTO.ToSubsidiary)),
+                ("BUILTIN.DF(tl.location)", nameof(ReturnPackingHeaderNSDTO.Location)),
+                ("BUILTIN.DF(t.transferlocation)", nameof(ReturnPackingHeaderNSDTO.TransferLocation)),
+                ("t.custbody_dbti_prepared_by", nameof(ReturnPackingHeaderNSDTO.PreparedBy))
+            )
+            .From("transaction t")
+            .Join("transactionline tl", on: "tl.transaction = t.id")
+            .WithFilters(
+                Equal("t.tranid", id),
+                Equal("tl.mainline", "T"))
+            .WithFilters(PackingReturnsFilters())
+            .Build();
+
+        var response = await netsuiteService.ExecuteSuiteQLQuery<ReturnPackingHeaderNSDTO>(query.Query, query.Limit, query.Offset);
+        var nsdto = response.items.FirstOrDefault();
+
+        return nsdto is null ? null : MapInfoDto(nsdto);
+    }
+
+    public async Task<(IEnumerable<ReturnsLineDTO> Data, int Count)> GetPackingReturnLines(string id, DataGridIntent intent)
+    {
+        var query = builderFactory.Create()
+            .Select(
+                ("item.itemid", nameof(ReturnPackingLineNSDTO.ItemCode)),
+                ("item.displayname", nameof(ReturnPackingLineNSDTO.ItemDescription)),
+                ("BUILTIN.DF(tl.units)", nameof(ReturnPackingLineNSDTO.UoM)),
+                ("BUILTIN.DF(tl.location)", nameof(ReturnPackingLineNSDTO.Warehouse)),
+                ("tl.quantity", nameof(ReturnPackingLineNSDTO.QuantityPlanned))
+            )
+            .From("transactionline tl")
+            .Join("transaction t", on: "tl.transaction = t.id")
+            .Join("item", on: "tl.item = item.id")
+            .WithFilters(
+                Equal("t.tranid", id),
+                Equal("tl.transactionlinetype", "SHIPPING"),
+                Equal("tl.mainline", "F"))
+            .WithFilters(PackingReturnsFilters())
+            .WithDatagridIntent(intent)
+            .Build();
+
+        var response = await query.ExecuteWithPaging<ReturnPackingLineNSDTO>(netsuiteService);
+
+        return (response.items.Select(MapLineDto), response.totalResults);
+    }
+
+    private static AppFilterDescriptor[] PackingReturnsFilters()
+    {
+        return
+        [
+            In("t.recordtype", new string[] { "intercompanytransferorder" }),
+            In("t.custbody_dbti_transfer_category", new string[] { "3", "4" }),
+            Equal("t.ordpicked", "F"),
+            In("t.status", new string[] { "B", "D", "E" })
+        ];
+    }
+
+    private static ReturnsDataGridDTO MapDataGridDto(ReturnPackingDataGridNSDTO nsdto)
+    {
+        return new()
+        {
+            Id = nsdto.Id,
+            ReferenceNumber = nsdto.ReferenceNumber,
+            Date = nsdto.Date,
+            SourceSubsidiary = nsdto.SourceSubsidiary,
+            DestinationSubsidiary = nsdto.DestinationSubsidiary,
+            Location = nsdto.Location,
+            TransferLocation = nsdto.TransferLocation,
+            Status = nsdto.Status,
+            Remarks = nsdto.Remarks
+        };
+    }
+
+    private static ReturnsInfoDTO MapInfoDto(ReturnPackingHeaderNSDTO nsdto)
+    {
+        return new()
+        {
+            Id = nsdto.Id,
+            Date = nsdto.Date,
+            ReferenceNumber = nsdto.ReferenceNumber,
+            FromSubsidiary = nsdto.FromSubsidiary,
+            ToSubsidiary = nsdto.ToSubsidiary,
+            Location = nsdto.Location,
+            TransferLocation = nsdto.TransferLocation,
+            PreparedBy = nsdto.PreparedBy,
+            ReceivedBy = nsdto.ReceivedBy
+        };
+    }
+
+    private static ReturnsLineDTO MapLineDto(ReturnPackingLineNSDTO nsdto)
+    {
+        return new()
+        {
+            ItemCode = nsdto.ItemCode,
+            ItemDescription = nsdto.ItemDescription,
+            UoM = nsdto.UoM,
+            Warehouse = nsdto.Warehouse,
+            QuantityPlanned = nsdto.QuantityPlanned
+        };
+    }
 }

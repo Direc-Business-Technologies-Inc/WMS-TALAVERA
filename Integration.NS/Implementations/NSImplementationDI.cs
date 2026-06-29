@@ -1,4 +1,4 @@
-﻿using Application.UseCases.Repositories.Integration.Others;
+using Application.UseCases.Repositories.Integration.Others;
 using Application.UseCases.Repositories.Integration.Transaction.Delivery;
 using Application.UseCases.Repositories.Integration.Transaction.GoodsIssue;
 using Application.UseCases.Repositories.Integration.Transaction.GoodsReceipt;
@@ -47,6 +47,7 @@ public static class NSImplementationDI
 
         services.TryAddTransient<INetSuiteApiClientService, NetSuiteApiClientService>();
         services.TryAddTransient<IStockTransferRequestPackingIntegration, StockTransferRequestPackingIntegration>();
+        services.TryAddTransient<IReturnPackingIntegration, ReturnPackingIntegration>();
 
         // TODO FOR REMOVAL
         services.TryAddTransient<ITransactionTypeIntegration, TransactionTypeIntegration>();

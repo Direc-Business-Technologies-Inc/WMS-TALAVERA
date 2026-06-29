@@ -1,5 +1,6 @@
 @using Web.BlazorServer.Components.Pages.Transaction.Packing
 @using Web.BlazorServer.Components.Pages.Transaction.Packing.STR.Component
+@using Web.BlazorServer.Components.Pages.Transaction.Packing.Returns.Component
 @using Web.BlazorServer.Components.Security
 
 @inherits BaseComponent
@@ -18,6 +19,9 @@
         <Tabs>
             <RadzenTabsItem Text="Stock Transfer Request">
                 <STRPackingDataGrid />
+            </RadzenTabsItem>
+            <RadzenTabsItem Text="Returns">
+                <ReturnsPackingDataGrid />
             </RadzenTabsItem>
         </Tabs>
     </RadzenTabs>

@@ -1,4 +1,4 @@
-﻿using System.ComponentModel;
+using System.ComponentModel;
 
 namespace Web.BlazorServer.Defaults;
 
@@ -214,5 +214,7 @@ public enum AppActions
     #endregion Transaction - Vendor Return Authorization
 
     #region Transaction - Returns
+    [Description("Get All Packing Returns")]
+    GetAllPackingReturns,
     #endregion Transaction - Returns
 }
