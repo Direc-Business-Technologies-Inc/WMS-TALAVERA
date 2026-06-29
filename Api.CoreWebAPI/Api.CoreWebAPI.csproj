@@ -20,8 +20,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Integration.NS\Integration.NS.csproj" />
     <ProjectReference Include="..\Database.MsSql\Database.MsSql.csproj" />
+    <ProjectReference Include="..\Integration.NS\Integration.NS.csproj" />
+    <ProjectReference Include="..\Shared.Libraries\Shared.Libraries.csproj" />
   </ItemGroup>
 
 </Project>

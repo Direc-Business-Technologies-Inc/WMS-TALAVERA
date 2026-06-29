@@ -1,0 +1,29 @@
+@using Web.BlazorServer.Components.Pages.Transaction.Packing
+@using Web.BlazorServer.Components.Pages.Transaction.Packing.STR.Component
+@using Web.BlazorServer.Components.Security
+@using Web.BlazorServer.Handlers.Repositories.Transaction.Packing.STR
+
+@inherits BaseComponent
+@layout ProtectedLayout
+@attribute [AppAuthorizationAttribute("VIEW", "OPCK")]
+@attribute [Route(PackingRoutes.Root)]
+
+<PageTitle>Packing</PageTitle>
+
+<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" class="rz-mb-4">
+    <AppBreadCrumbs ModuleCode="OPCK" />
+</RadzenStack>
+
+<AppContent>
+    <RadzenTabs @bind-SelectedIndex="@SelectedTab" @bind-SelectedIndex:after="@TabChanged">
+        <Tabs>
+            <RadzenTabsItem Text="Stock Transfer Request">
+                <STRPackingDataGrid DataGetter="@(async intent => await strHandler.GetStockTransferRequestsList(intent))" />
+            </RadzenTabsItem>
+        </Tabs>
+    </RadzenTabs>
+</AppContent>
+
+@code {
+    [Inject] IStockTransferRequestPackingHandler strHandler { get; set; } = default!;
+}

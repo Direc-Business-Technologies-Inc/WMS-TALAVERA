@@ -12,6 +12,7 @@ using Web.BlazorServer.Handlers.Implementations.Transaction.InventoryAdjustment;
 using Web.BlazorServer.Handlers.Implementations.Transaction.InventoryCounting;
 using Web.BlazorServer.Handlers.Implementations.Transaction.InventoryTransfer;
 using Web.BlazorServer.Handlers.Implementations.Transaction.InventoryTransferRequest;
+using Web.BlazorServer.Handlers.Implementations.Transaction.Packing.STR;
 using Web.BlazorServer.Handlers.Implementations.Transaction.Receiving;
 using Web.BlazorServer.Handlers.Implementations.Transaction.SalesReturn;
 using Web.BlazorServer.Handlers.Implementations.Transaction.StockTransferRequest;
@@ -29,6 +30,7 @@ using Web.BlazorServer.Handlers.Repositories.Transaction.InventoryAdjustment;
 using Web.BlazorServer.Handlers.Repositories.Transaction.InventoryCounting;
 using Web.BlazorServer.Handlers.Repositories.Transaction.InventoryTransfer;
 using Web.BlazorServer.Handlers.Repositories.Transaction.InventoryTransferRequest;
+using Web.BlazorServer.Handlers.Repositories.Transaction.Packing.STR;
 using Web.BlazorServer.Handlers.Repositories.Transaction.Receiving;
 using Web.BlazorServer.Handlers.Repositories.Transaction.SalesReturn;
 using Web.BlazorServer.Handlers.Repositories.Transaction.StockTransferRequest;
@@ -68,6 +70,7 @@ public static class BlazorServerHandlersDI
         services.TryAddTransient<ISupplierReturnHandler, SupplierReturnHandler>();
         services.TryAddTransient<ICustomerHandler, CustomerHandler>();
         services.TryAddTransient<IInventoryTransferRequestHandler, InventoryTransferRequestHandler>();
+        services.TryAddTransient<IStockTransferRequestPackingHandler, StockTransferRequestPackingHandler>();
 
         if (environment.IsDevelopment())
         {

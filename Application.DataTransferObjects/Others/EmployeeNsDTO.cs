@@ -1,6 +1,4 @@
-﻿using Shared.Libraries.ViewModel.Common;
-
-namespace Application.DataTransferObjects.Others;
+﻿namespace Application.DataTransferObjects.Others;
 
 public class EmployeeNsDTO
 {

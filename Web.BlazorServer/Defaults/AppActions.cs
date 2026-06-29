@@ -206,4 +206,15 @@ public enum AppActions
     [Description("Get Warehouse Items for Counting")]
     GetWarehouseItemsForCounting,
     #endregion Transaction - Inventory Counting
+
+    #region Transaction - Packing
+    [Description("Get All Packing Stock Transfer Request")]
+    GetAllPackingStockTransferRequest,
+    #endregion Transaction - Packing
+
+    #region Transaction - Vendor Return Authorization
+    #endregion Transaction - Vendor Return Authorization
+
+    #region Transaction - Returns
+    #endregion Transaction - Returns
 }

@@ -1,5 +1,6 @@
 ﻿using Web.BlazorServer.Components.Pages.Transaction.InventoryAdjustment;
 using Web.BlazorServer.Components.Pages.Transaction.InventoryTransferRequest;
+using Web.BlazorServer.Components.Pages.Transaction.Packing;
 using Web.BlazorServer.Components.Pages.Transaction.StockTransferRequest;
 using Web.BlazorServer.Components.Pages.Transaction.SupplierReturn;
 using Web.BlazorServer.ViewModels.System;
@@ -68,6 +69,7 @@ public class NavRoutesRepository
             new() {Name = "Stock Transfer Request", Icon="battery_android_share", Protected=true, Uri = STRRoutes.Root },
             new() {Name = "Inventory Adjustment", Icon="swap_vert", Protected=true, Uri = InventoryAdjustmentRoutes.INDEX },
             new() {Name = "Inventory Transfer Request", Icon="warehouse", Protected=true, Uri = ITRRoutes.INDEX },
+            new() {Name = "Packing", Icon="package_2", Protected=true, Uri = PackingRoutes.Root},
         ];
 
         List<NavigationRouteVM> purchaseSubroutes = [

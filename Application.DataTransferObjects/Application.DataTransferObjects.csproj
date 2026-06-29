@@ -11,4 +11,9 @@
     <ProjectReference Include="..\Shared.Libraries\Shared.Libraries.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Transactions\Packing\Return\" />
+    <Folder Include="Transactions\Packing\VRA\" />
+  </ItemGroup>
+
 </Project>
