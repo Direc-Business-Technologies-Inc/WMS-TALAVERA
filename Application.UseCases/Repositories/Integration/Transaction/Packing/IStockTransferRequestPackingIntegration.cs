@@ -7,6 +7,5 @@ public interface IStockTransferRequestPackingIntegration
 {
     Task<(IEnumerable<StockTransferRequestPackingDataGridDTO> Data, int Count)> GetPackingStockTransferRequestList(DataGridIntent intent);
     Task<StockTransferRequestInfoPackingDTO?> GetPackingStockTransferRequest(string id);
-    Task<IEnumerable<StockTransferRequestLinePackingDTO>?> GetPackingStockTransferRequestLines(string id);
-    Task<(IEnumerable<TransferOrderStatusPacking> data, int count)> GetPackingTransferOrderStatuses(DataGridIntent intent);
+    Task<(IEnumerable<StockTransferRequestLinePackingDTO> Data, int Count)> GetPackingStockTransferRequestLines(string id, DataGridIntent intent);
 }

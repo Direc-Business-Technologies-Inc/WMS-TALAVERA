@@ -2,7 +2,6 @@ using Microsoft.AspNetCore.Components;
 using Radzen;
 using Shared.Entities;
 using Shared.Kernel;
-using Shared.Libraries.Utilities;
 using Web.BlazorServer.Components.Pages.Transaction.Packing;
 using Web.BlazorServer.Components.Shared.Abstraction;
 using Web.BlazorServer.Defaults;
@@ -16,21 +15,12 @@ namespace Web.BlazorServer.Components.Pages.Transaction.Packing.STR.Component;
 partial class STRPackingDataGrid
 {
     [Inject] IGridSettingsService GridSettingsService { get; set; } = default!;
-    [Inject] IStockTransferRequestPackingHandler strHandler { get; set; } = default!;
+    [Inject] IStockTransferRequestPackingHandler StrHandler { get; set; } = default!;
 
-    [Parameter]
-    [EditorRequired]
-    public required DataGetterDelegate DataGetter { get; init; }
+    AppDataGrid<StockTransferRequestPackingDataGridVM> DataGrid { get; set; } = default!;
+    DataGridSettings DataGridSettings { get; set; } = new();
 
-    [Parameter]
-    public EventCallback OnAddClicked { get; set; }
-
-    AppDataGrid<StockTransferRequestPackingDataGridVM> DataGrid { get; set; }
-    DataGridSettings DataGridSettings { get; set; }
-    TransferOrderStatusPackingVM? StatusFilter { get; set; } = null;
-
-    readonly string ActionGetStockTransferRequests = EnumHelper.GetEnumDescription(AppActions.GetAllPackingStockTransferRequest);
-    readonly string ActionGetTranferOrderStatuses = "Get Packing Transfer Order Status";
+    string ActionGetStockTransferRequests { get; } = EnumHelper.GetEnumDescription(AppActions.GetAllPackingStockTransferRequest);
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -43,11 +33,12 @@ partial class STRPackingDataGrid
         }
     }
 
-    async Task StatusFilterChanged(TransferOrderStatusPackingVM? statusFilter)
+    async Task LoadGridSettings()
     {
-        if (statusFilter?.Id == StatusFilter?.Id) return;
+        await GridSettingsService.SetGridSettings(DataGrid.DataGrid, settings => DataGridSettings = settings ?? new());
+        GridSettingsLoaded = true;
 
-        StatusFilter = statusFilter;
+        await DataGrid.DataGrid.ReloadSettings();
         await DataGrid.DataGrid.Reload();
     }
 
@@ -61,51 +52,20 @@ partial class STRPackingDataGrid
             {
                 intent.Sorts.Add(new()
                 {
-                    Property = "Date",
+                    Property = nameof(StockTransferRequestPackingDataGridVM.Date),
                     Direction = SortDirectionEnum.Descending
                 });
             }
-            if (StatusFilter is not null)
-            {
-                intent.Filters.Add(
-                    DataGridFilterUtilities.Equal("StatusId", StatusFilter.Id)
-                );
-            }
 
-            return await DataGetter(intent);
+            return await StrHandler.GetStockTransferRequestsList(intent);
         }, AppActionOptionPresets.Loading(ActionGetStockTransferRequests));
 
         AppBusyService.SetBusy(ActionGetStockTransferRequests, false);
-        return DataGridResultVM<StockTransferRequestPackingDataGridVM>.New(action.Result.data ?? [], action.Result.count);
-    }
-
-    async Task LoadGridSettings()
-    {
-        await GridSettingsService.SetGridSettings(DataGrid.DataGrid, settings => DataGridSettings = settings ?? new());
-        DataGridSettings.CurrentPage = null;
-        GridSettingsLoaded = true;
-
-        await DataGrid.DataGrid.ReloadSettings();
-        await DataGrid.DataGrid.Reload();
-    }
-
-    async Task<(IEnumerable<TransferOrderStatusPackingVM>, int count)> TranferOrderStatusProvider(DataGridIntent intent)
-    {
-        intent.Filters.Add(
-            DataGridFilterUtilities.In(nameof(TransferOrderStatusPackingVM.Id), new string[] { "B", "D" }
-        ));
-        return await strHandler.GetTransferOrderStatuses(intent);
+        return DataGridResultVM<StockTransferRequestPackingDataGridVM>.New(action.Result.Data ?? [], action.Result.Count);
     }
 
     void ViewSTR(StockTransferRequestPackingDataGridVM item)
     {
-        NavManager.NavigateTo(PackingRoutes.StockTransferRequestView + $"?ref={item.ReferenceNumber}");
+        NavManager.NavigateTo(PackingRoutes.StockTransferRequestView + $"?ref={item.ReferenceNumber}", true);
     }
-
-    async Task AddButtonPressed()
-    {
-        if (OnAddClicked.HasDelegate) await OnAddClicked.InvokeAsync();
-    }
-
-    public delegate Task<(IEnumerable<StockTransferRequestPackingDataGridVM> data, int count)> DataGetterDelegate(DataGridIntent intent);
 }
