@@ -16,6 +16,8 @@ using Web.BlazorServer.Handlers.Implementations.Transaction.Packing.ItemReceipt;
 using Web.BlazorServer.Handlers.Implementations.Transaction.Packing.STR;
 using Web.BlazorServer.Handlers.Implementations.Transaction.Packing.Returns;
 using Web.BlazorServer.Handlers.Repositories.Transaction.Packing.Returns;
+using Web.BlazorServer.Handlers.Implementations.Transaction.Packing.VendorReturnAuthorization;
+using Web.BlazorServer.Handlers.Repositories.Transaction.Packing.VendorReturnAuthorization;
 using Web.BlazorServer.Handlers.Implementations.Transaction.Receiving;
 using Web.BlazorServer.Handlers.Implementations.Transaction.SalesReturn;
 using Web.BlazorServer.Handlers.Implementations.Transaction.StockTransferRequest;
@@ -78,6 +80,8 @@ public static class BlazorServerHandlersDI
         services.TryAddTransient<IItemReceiptPackingHandler, ItemReceiptPackingHandler>();
         services.TryAddTransient<IReturnPackingHandler, ReturnPackingHandler>();
         services.TryAddTransient<IReturnsItemReceiptPackingHandler, ReturnsItemReceiptPackingHandler>();
+        services.TryAddTransient<IVendorReturnAuthorizationPackingHandler, VendorReturnAuthorizationPackingHandler>();
+        services.TryAddTransient<IVendorReturnAuthorizationItemReceiptPackingHandler, VendorReturnAuthorizationItemReceiptPackingHandler>();
 
         if (environment.IsDevelopment())
         {

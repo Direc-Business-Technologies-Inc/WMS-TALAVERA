@@ -22,6 +22,7 @@ partial class PackingPage
         SelectedTab = Tab?.ToLowerInvariant() switch
         {
             "returns" => 1,
+            "vendorreturnauthorization" => 2,
             _ => 0
         };
     }
@@ -34,6 +35,7 @@ partial class PackingPage
         Tab = SelectedTab switch
         {
             1 => "returns",
+            2 => "vendorreturnauthorization",
             _ => "stocktransferrequest"
         };
         NavManager.NavigateTo($"{PackingRoutes.Root}?tab={Tab}");

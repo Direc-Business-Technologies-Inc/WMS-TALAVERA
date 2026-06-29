@@ -7,4 +7,6 @@ public static class PackingRoutes
     public const string CreateItemReceipt = $"{Root}/create-item-receipt";
     public const string ReturnsView = $"{Root}/returns/view";
     public const string CreateReturnsItemReceipt = $"{Root}/returns/create-item-receipt";
+    public const string VendorReturnAuthorizationView = $"{Root}/vendor-return-authorization/view";
+    public const string CreateVendorReturnAuthorizationItemReceipt = $"{Root}/vendor-return-authorization/create-item-receipt";
 }
