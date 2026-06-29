@@ -1,7 +1,6 @@
 @using Web.BlazorServer.Components.Pages.Transaction.Packing
 @using Web.BlazorServer.Components.Pages.Transaction.Packing.STR.Component
 @using Web.BlazorServer.Components.Security
-@using Web.BlazorServer.Handlers.Repositories.Transaction.Packing.STR
 
 @inherits BaseComponent
 @layout ProtectedLayout
@@ -18,12 +17,8 @@
     <RadzenTabs @bind-SelectedIndex="@SelectedTab" @bind-SelectedIndex:after="@TabChanged">
         <Tabs>
             <RadzenTabsItem Text="Stock Transfer Request">
-                <STRPackingDataGrid DataGetter="@(async intent => await strHandler.GetStockTransferRequestsList(intent))" />
+                <STRPackingDataGrid />
             </RadzenTabsItem>
         </Tabs>
     </RadzenTabs>
 </AppContent>
-
-@code {
-    [Inject] IStockTransferRequestPackingHandler strHandler { get; set; } = default!;
-}

@@ -1,12 +1,11 @@
-﻿using Application.DataTransferObjects.Transactions.Packing.STR;
+using Application.DataTransferObjects.Transactions.Packing.STR;
 using Application.UseCases.Repositories.Integration.Others;
 using Application.UseCases.Repositories.Integration.Transaction.Packing;
 using Integration.NS.DataTransferObjects.Packing.STR;
 using Integration.NS.Helpers;
 using Integration.NS.Services;
-using Mapster;
 using Shared.Entities;
-using Shared.Libraries.Utilities;
+using static Shared.Libraries.Utilities.DataGridFilterUtilities;
 
 namespace Integration.NS.Implementations.Transactions.Packing;
 
@@ -17,155 +16,135 @@ internal class StockTransferRequestPackingIntegration(
     public async Task<(IEnumerable<StockTransferRequestPackingDataGridDTO> Data, int Count)> GetPackingStockTransferRequestList(DataGridIntent intent)
     {
         var query = builderFactory.Create()
-                .Select(
-                    ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(StrPackingDataGridNSDTO.Date)),
-                    ("t.tranid", nameof(StrPackingDataGridNSDTO.ReferenceNumber)),
-                    ("BUILTIN.DF(t.custbody_dbti_prepared_by)", nameof(StrPackingDataGridNSDTO.PreparedBy)),
-                    ("BUILTIN.DF(t.subsidiary)", nameof(StrPackingDataGridNSDTO.Subsidiary)),
-                    ("BUILTIN.DF(t.tosubsidiary)", nameof(StrPackingDataGridNSDTO.ToSubsidiary)),
-                    ("BUILTIN.DF(t.transferlocation)", nameof(StrPackingDataGridNSDTO.DestinationLocation)),
-                    ("BUILTIN.DF(tl.location)", nameof(StrPackingDataGridNSDTO.SourceLocation)),
-                    ("s.name", nameof(StrPackingDataGridNSDTO.StatusName)),
-                    ("s.id", nameof(StrPackingDataGridNSDTO.StatusId)),
-                    ("t.memo", nameof(StrPackingDataGridNSDTO.Remarks))
-                )
-                .From("transaction t")
-                .Join("transactionline tl", on: "tl.transaction = t.id")
-                .LeftJoin("transferorderstatus s", on: "s.id = t.status")
-                .WithFilters(
-                    DataGridFilterUtilities.Equal("tl.mainline", "T"),
-                    DataGridFilterUtilities.In("t.recordtype", new string[] { "transferorder", "intercompanytransferorder" }),
-                    DataGridFilterUtilities.In("t.status", new string[] { "B", "D" }),
-                    DataGridFilterUtilities.NotEqual("t.custbody_dbti_transfer_category", 3),
-                    DataGridFilterUtilities.NotEqual("t.custbody_dbti_transfer_category", 4)
-                )
-                .WithDatagridIntent(intent)
-                .Build();
+            .Select(
+                ("t.id", nameof(StrPackingDataGridNSDTO.Id)),
+                ("t.tranid", nameof(StrPackingDataGridNSDTO.ReferenceNumber)),
+                ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(StrPackingDataGridNSDTO.Date)),
+                ("BUILTIN.DF(t.subsidiary)", nameof(StrPackingDataGridNSDTO.SourceSubsidiary)),
+                ("BUILTIN.DF(t.tosubsidiary)", nameof(StrPackingDataGridNSDTO.DestinationSubsidiary)),
+                ("BUILTIN.DF(tl.location)", nameof(StrPackingDataGridNSDTO.Location)),
+                ("BUILTIN.DF(t.transferlocation)", nameof(StrPackingDataGridNSDTO.TransferLocation)),
+                ("s.name", nameof(StrPackingDataGridNSDTO.Status)),
+                ("t.memo", nameof(StrPackingDataGridNSDTO.Remarks))
+            )
+            .From("transaction t")
+            .Join("transactionline tl", on: "tl.transaction = t.id")
+            .LeftJoin("transferorderstatus s", on: "s.id = t.status")
+            .WithFilters(Equal("tl.mainline", "T"))
+            .WithFilters(PackingStockTransferRequestFilters())
+            .WithDatagridIntent(intent)
+            .Build();
 
         var response = await query.ExecuteWithPaging<StrPackingDataGridNSDTO>(netsuiteService);
-        return (response.items.Select(ConvertDataGridDTO), response.totalResults);
+
+        return (response.items.Select(MapDataGridDto), response.totalResults);
     }
 
     public async Task<StockTransferRequestInfoPackingDTO?> GetPackingStockTransferRequest(string id)
     {
         var query = builderFactory.Create()
-                .Select(
-                    ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(StrPackingHeaderNSDTO.Date)),
-                    ("t.tranid", nameof(StrPackingHeaderNSDTO.ReferenceNumber)),
-                    ("BUILTIN.DF(t.custbody_dbti_prepared_by)", nameof(StrPackingHeaderNSDTO.PreparedBy)),
-                    ("BUILTIN.DF(t.custbody_dbti_return_to_vendor)", nameof(StrPackingHeaderNSDTO.VendorName)),
-                    ("BUILTIN.DF(t.subsidiary)", nameof(StrPackingHeaderNSDTO.SubsidiaryName)),
-                    ("BUILTIN.DF(t.tosubsidiary)", nameof(StrPackingHeaderNSDTO.ToSubsidiaryName)),
-                    ("BUILTIN.DF(t.transferlocation)", nameof(StrPackingHeaderNSDTO.DestinationLocationName)),
-                    ("BUILTIN.DF(tl.location)", nameof(StrPackingHeaderNSDTO.SourceLocationName)),
-                    ("t.custbody_dbti_return_to_vendor", nameof(StrPackingHeaderNSDTO.VendorId)),
-                    ("t.subsidiary", nameof(StrPackingHeaderNSDTO.SubsidiaryId)),
-                    ("t.tosubsidiary", nameof(StrPackingHeaderNSDTO.ToSubsidiaryId)),
-                    ("t.transferlocation", nameof(StrPackingHeaderNSDTO.DestinationLocationId)),
-                    ("tl.location", nameof(StrPackingHeaderNSDTO.SourceLocationId)),
-                    ("t.memo", nameof(StrPackingHeaderNSDTO.Remarks)),
-                    ("t.custbody_dbti_transfer_category", nameof(StrPackingHeaderNSDTO.TransferCategoryId)),
-                    ("s.name", nameof(StrPackingHeaderNSDTO.StatusName)),
-                    ("s.id", nameof(StrPackingHeaderNSDTO.StatusId)),
-                    ("BUILTIN.DF(t.custbody_dbti_transfer_category)", nameof(StrPackingHeaderNSDTO.TransferCategoryName))
-                )
-                .From("transaction t")
-                .Join("transactionline tl", on: "tl.transaction = t.id")
-                .LeftJoin("transferorderstatus s", on: "s.id = t.status")
-                .WithFilters(
-                    DataGridFilterUtilities.In("t.status", new string[] { "B", "D" }),
-                    DataGridFilterUtilities.Equal("t.tranid", id),
-                    DataGridFilterUtilities.Equal("tl.mainline", "T"),
-                    DataGridFilterUtilities.In("t.recordtype", new string[] { "transferorder", "intercompanytransferorder" }),
-                    DataGridFilterUtilities.NotEqual("t.custbody_dbti_transfer_category", 3),
-                    DataGridFilterUtilities.NotEqual("t.custbody_dbti_transfer_category", 4)
-                )
-                .Build();
+            .Select(
+                ("t.id", nameof(StrPackingHeaderNSDTO.Id)),
+                ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(StrPackingHeaderNSDTO.Date)),
+                ("t.tranid", nameof(StrPackingHeaderNSDTO.ReferenceNumber)),
+                ("BUILTIN.DF(t.subsidiary)", nameof(StrPackingHeaderNSDTO.FromSubsidiary)),
+                ("BUILTIN.DF(t.tosubsidiary)", nameof(StrPackingHeaderNSDTO.ToSubsidiary)),
+                ("BUILTIN.DF(tl.location)", nameof(StrPackingHeaderNSDTO.Location)),
+                ("BUILTIN.DF(t.transferlocation)", nameof(StrPackingHeaderNSDTO.TransferLocation)),
+                ("t.custbody_dbti_prepared_by", nameof(StrPackingHeaderNSDTO.PreparedBy))
+            )
+            .From("transaction t")
+            .Join("transactionline tl", on: "tl.transaction = t.id")
+            .WithFilters(
+                Equal("t.tranid", id),
+                Equal("tl.mainline", "T"))
+            .WithFilters(PackingStockTransferRequestFilters())
+            .Build();
 
         var response = await netsuiteService.ExecuteSuiteQLQuery<StrPackingHeaderNSDTO>(query.Query, query.Limit, query.Offset);
         var nsdto = response.items.FirstOrDefault();
-        if (nsdto is null) return null;
 
-        var dto = nsdto.Adapt<StockTransferRequestInfoPackingDTO>();
-
-        dto.Vendor = new() { Name = nsdto.VendorName, Id = nsdto.VendorId };
-        dto.SourceLocation = new() { Name = nsdto.SourceLocationName, Id = nsdto.SourceLocationId };
-        dto.SourceLocation = new() { Name = nsdto.SourceLocationName, Id = nsdto.SourceLocationId };
-        dto.DestinationLocation = new() { Name = nsdto.DestinationLocationName, Id = nsdto.DestinationLocationId };
-        dto.Subsidiary = new() { Name = nsdto.SubsidiaryName, Id = nsdto.SubsidiaryId };
-        dto.ToSubsidiary = new() { Name = nsdto.ToSubsidiaryName, Id = nsdto.ToSubsidiaryId };
-        dto.Status = new() { Name = nsdto.StatusName, Id = nsdto.StatusId };
-        dto.TransferCategory = nsdto.TransferCategoryId switch
-        {
-            1 => TransferCategoryPacking.Transfer,
-            2 => TransferCategoryPacking.IntercompanyTransfer,
-            3 => TransferCategoryPacking.ReturnsGood,
-            4 => TransferCategoryPacking.ReturnsBad,
-            _ => throw new NotImplementedException($"Current WMS version does not support transfer category: {nsdto.TransferCategoryName}")
-        };
-
-        return dto;
+        return nsdto is null ? null : MapInfoDto(nsdto);
     }
 
-    public async Task<IEnumerable<StockTransferRequestLinePackingDTO>?> GetPackingStockTransferRequestLines(string id)
+    public async Task<(IEnumerable<StockTransferRequestLinePackingDTO> Data, int Count)> GetPackingStockTransferRequestLines(string id, DataGridIntent intent)
     {
         var query = builderFactory.Create()
             .Select(
-                ("item.id", nameof(StrPackingLineNSDTO.ItemId)),
                 ("item.itemid", nameof(StrPackingLineNSDTO.ItemCode)),
-                ("uom.unitName", nameof(StrPackingLineNSDTO.UoMName)),
-                ("uom.internalid", nameof(StrPackingLineNSDTO.UoMId)),
-                ("uom.conversionrate", nameof(StrPackingLineNSDTO.UoMRate)),
-                ("BUILTIN.DF(tl.location)", nameof(StrPackingLineNSDTO.Warehouse)),
                 ("item.displayname", nameof(StrPackingLineNSDTO.ItemDescription)),
-                ("(iil.quantityonhand / uom.conversionrate)", nameof(StrPackingLineNSDTO.QuantityOnHand)),
-                ("(tl.quantity / uom.conversionrate)", nameof(StrPackingLineNSDTO.QuantityAlloted))
+                ("BUILTIN.DF(tl.units)", nameof(StrPackingLineNSDTO.UoM)),
+                ("BUILTIN.DF(tl.location)", nameof(StrPackingLineNSDTO.Warehouse)),
+                ("tl.quantity", nameof(StrPackingLineNSDTO.QuantityPlanned))
             )
             .From("transactionline tl")
             .Join("transaction t", on: "tl.transaction = t.id")
             .Join("item", on: "tl.item = item.id")
-            .Join("unitsTypeUom uom", on: "tl.units = uom.internalid")
-            .Join("inventoryitemlocations iil", on: "tl.item = iil.item AND tl.location = iil.location")
             .WithFilters(
-                DataGridFilterUtilities.Equal("tl.transactionlinetype", "SHIPPING"),
-                DataGridFilterUtilities.Equal("t.tranid", id),
-                DataGridFilterUtilities.Equal("tl.mainline", "F")
-            ).Build();
-
-        var response = await netsuiteService.ExecuteSuiteQLQuery<StrPackingLineNSDTO>(query.Query, query.Limit, query.Offset);
-        return [.. response.items.Select(x => x.Adapt(new StockTransferRequestLinePackingDTO {
-            UoM = new Application.DataTransferObjects.Others.ItemUnitDTO{
-                ConversionRate = x.UoMRate,
-                Name = x.UoMName,
-                Id = x.UoMId
-            }
-        }))];
-    }
-
-    public async Task<(IEnumerable<TransferOrderStatusPacking> data, int count)> GetPackingTransferOrderStatuses(DataGridIntent intent)
-    {
-        var query = builderFactory.Create()
-            .Select(
-                ("id", nameof(TransferOrderStatusPacking.Id)),
-                ("name", nameof(TransferOrderStatusPacking.Name))
-            )
-            .From("transferorderstatus")
+                Equal("t.tranid", id),
+                Equal("tl.transactionlinetype", "SHIPPING"),
+                Equal("tl.mainline", "F"))
+            .WithFilters(PackingStockTransferRequestFilters())
             .WithDatagridIntent(intent)
             .Build();
 
-        var response = await query.ExecuteWithPaging<TransferOrderStatusPacking>(netsuiteService);
+        var response = await query.ExecuteWithPaging<StrPackingLineNSDTO>(netsuiteService);
 
-        return (response.items, response.totalResults);
+        return (response.items.Select(MapLineDto), response.totalResults);
     }
 
-    private static StockTransferRequestPackingDataGridDTO ConvertDataGridDTO(StrPackingDataGridNSDTO nsdto)
+    private static AppFilterDescriptor[] PackingStockTransferRequestFilters()
     {
-        var dto = nsdto.Adapt<StockTransferRequestPackingDataGridDTO>();
-        dto.Status = new TransferOrderStatusPacking
+        return
+        [
+            In("t.recordtype", new string[] { "intercompanytransferorder", "transferorder" }),
+            In("t.custbody_dbti_transfer_category", new string[] { "1", "2" }),
+            Equal("t.ordpicked", "F"),
+            In("t.status", new string[] { "B", "D", "E" })
+        ];
+    }
+
+    private static StockTransferRequestPackingDataGridDTO MapDataGridDto(StrPackingDataGridNSDTO nsdto)
+    {
+        return new()
         {
-            Id = nsdto.StatusId,
-            Name = nsdto.StatusName
+            Id = nsdto.Id,
+            ReferenceNumber = nsdto.ReferenceNumber,
+            Date = nsdto.Date,
+            SourceSubsidiary = nsdto.SourceSubsidiary,
+            DestinationSubsidiary = nsdto.DestinationSubsidiary,
+            Location = nsdto.Location,
+            TransferLocation = nsdto.TransferLocation,
+            Status = nsdto.Status,
+            Remarks = nsdto.Remarks
         };
-        return dto;
+    }
+
+    private static StockTransferRequestInfoPackingDTO MapInfoDto(StrPackingHeaderNSDTO nsdto)
+    {
+        return new()
+        {
+            Id = nsdto.Id,
+            Date = nsdto.Date,
+            ReferenceNumber = nsdto.ReferenceNumber,
+            FromSubsidiary = nsdto.FromSubsidiary,
+            ToSubsidiary = nsdto.ToSubsidiary,
+            Location = nsdto.Location,
+            TransferLocation = nsdto.TransferLocation,
+            PreparedBy = nsdto.PreparedBy,
+            ReceivedBy = nsdto.ReceivedBy
+        };
+    }
+
+    private static StockTransferRequestLinePackingDTO MapLineDto(StrPackingLineNSDTO nsdto)
+    {
+        return new()
+        {
+            ItemCode = nsdto.ItemCode,
+            ItemDescription = nsdto.ItemDescription,
+            UoM = nsdto.UoM,
+            Warehouse = nsdto.Warehouse,
+            QuantityPlanned = nsdto.QuantityPlanned
+        };
     }
 }

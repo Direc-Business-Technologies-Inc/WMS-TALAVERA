@@ -4,4 +4,5 @@ public static class PackingRoutes
 {
     public const string Root = "/transactions/inventory/packing";
     public const string StockTransferRequestView = $"{Root}/stock-transfer-request/view";
+    public const string CreateItemReceipt = $"{Root}/create-item-receipt";
 }

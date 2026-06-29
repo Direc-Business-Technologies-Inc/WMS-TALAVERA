@@ -1,0 +1,25 @@
+@using Web.BlazorServer.Components.Pages.Transaction.Packing
+@using Web.BlazorServer.Components.Pages.Transaction.Packing.ItemReceipt.Components
+@using Web.BlazorServer.Components.Security
+@using Web.BlazorServer.Components.Shared.Skeletons
+@using Web.BlazorServer.ViewModels.Transaction.Packing.ItemReceipt
+
+@inherits BaseForm<ItemReceiptPackingVM>
+@layout ProtectedLayout
+@attribute [AppAuthorizationAttribute("VIEW", "OPCK")]
+@attribute [Route(PackingRoutes.CreateItemReceipt)]
+
+<PageTitle>Creating Packing Item Receipt</PageTitle>
+
+<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" class="rz-mb-4">
+    <AppBreadCrumbs ModuleCode="OPCK" />
+</RadzenStack>
+
+<AppContent>
+    <AppFormSkeleton TItem="ItemReceiptPackingVM" Loading="@IsLoadingData" />
+
+    @if (!IsLoadingData)
+    {
+        <PackingItemReceiptForm Data="@FormData" EditContext="@EditContext" OnValidSubmit="@OnValidSubmit" />
+    }
+</AppContent>

@@ -1,0 +1,111 @@
+@using Web.BlazorServer.Components.Custom
+@using Web.BlazorServer.ViewModels.Transaction.Packing.ItemReceipt
+
+<RadzenTemplateForm TItem="ItemReceiptPackingVM" EditContext="@EditContext" Submit="@Submit">
+    <RadzenStack Gap="0.5em">
+        <RadzenFieldset Text="Details" AllowCollapse>
+            <RadzenRow Gap="0.5em">
+                <RadzenColumn SizeMD="6">
+                    <RadzenFormField AllowFloatingLabel="false" Text="Created From" class="rz-w-100">
+                        <RadzenTextBox Value="@Data.CreatedFrom" ReadOnly />
+                    </RadzenFormField>
+                </RadzenColumn>
+                <RadzenColumn SizeMD="6">
+                    <RadzenFormField AllowFloatingLabel="false" Text="Date" class="rz-w-100">
+                        <RadzenDatePicker @bind-Value="@Data.Date" ReadOnly />
+                    </RadzenFormField>
+                </RadzenColumn>
+                <RadzenColumn SizeMD="6">
+                    <RadzenFormField AllowFloatingLabel="false" Text="From Subsidiary" class="rz-w-100">
+                        <RadzenTextBox Value="@Data.Subsidiary" ReadOnly />
+                    </RadzenFormField>
+                </RadzenColumn>
+                <RadzenColumn SizeMD="6">
+                    <RadzenFormField AllowFloatingLabel="false" Text="To Subsidiary" class="rz-w-100">
+                        <RadzenTextBox Value="@Data.ToSubsidiary" ReadOnly />
+                    </RadzenFormField>
+                </RadzenColumn>
+                <RadzenColumn SizeMD="6">
+                    <RadzenFormField AllowFloatingLabel="false" Text="From Warehouse" class="rz-w-100">
+                        <RadzenTextBox Value="@Data.Location" ReadOnly />
+                    </RadzenFormField>
+                </RadzenColumn>
+                <RadzenColumn SizeMD="6">
+                    <RadzenFormField AllowFloatingLabel="false" Text="To Warehouse" class="rz-w-100">
+                        <RadzenTextBox Value="@Data.TransferLocation" ReadOnly />
+                    </RadzenFormField>
+                </RadzenColumn>
+                <RadzenColumn SizeMD="6">
+                    <RadzenFormField AllowFloatingLabel="false" Text="Department" class="rz-w-100">
+                        <RadzenTextBox Value="@Data.Department" ReadOnly />
+                    </RadzenFormField>
+                </RadzenColumn>
+                <RadzenColumn SizeMD="6">
+                    <RadzenFormField AllowFloatingLabel="false" Text="Vendor" class="rz-w-100">
+                        <RadzenTextBox ReadOnly Value="@Data.Vendor" />
+                    </RadzenFormField>
+                </RadzenColumn>
+            </RadzenRow>
+        </RadzenFieldset>
+        <RadzenFieldset AllowCollapse Text="Lines">
+            <AppTableWithSettings Data="@Data.Lines" Id="packing_item_receipt_lines">
+                <Columns>
+                    <RadzenDataGridColumn TItem="ItemReceiptLinePackingVM" Width="30px">
+                        <Template Context="data">
+                            <RadzenCheckBox @bind-Value="data.IsReceived" Disabled="data.IsComplete" />
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="ItemReceiptLinePackingVM" Property="@nameof(ItemReceiptLinePackingVM.ItemCode)" Title="Item Code" />
+                    <RadzenDataGridColumn TItem="ItemReceiptLinePackingVM" Property="@nameof(ItemReceiptLinePackingVM.ItemDescription)" Title="Item Description" />
+                    <RadzenDataGridColumn TItem="ItemReceiptLinePackingVM" Property="@nameof(ItemReceiptLinePackingVM.UoM)" Title="UoM" />
+                    <RadzenDataGridColumn TItem="ItemReceiptLinePackingVM" Property="@nameof(ItemReceiptLinePackingVM.Department)" Title="Department" />
+                    <RadzenDataGridColumn TItem="ItemReceiptLinePackingVM" Property="@nameof(ItemReceiptLinePackingVM.Location)" Title="Warehouse" />
+                    <RadzenDataGridColumn TItem="ItemReceiptLinePackingVM" Property="@nameof(ItemReceiptLinePackingVM.WeightActual)" Title="Actual Weight">
+                        <Template Context="data">
+                            <RadzenNumeric Min="0" @bind-Value="data.WeightActual" ShowUpDown="false" Disabled="@(!data.IsReceived)" />
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="ItemReceiptLinePackingVM" Property="@nameof(ItemReceiptLinePackingVM.WeightRecord)" Title="Record Weight" />
+                    <RadzenDataGridColumn TItem="ItemReceiptLinePackingVM" Property="@nameof(ItemReceiptLinePackingVM.QuantityPlanned)" Title="Planned Quantity" />
+                    <RadzenDataGridColumn TItem="ItemReceiptLinePackingVM" Property="@nameof(ItemReceiptLinePackingVM.QuantityReceived)" Title="Received Quantity" />
+                    <RadzenDataGridColumn TItem="ItemReceiptLinePackingVM" Property="@nameof(ItemReceiptLinePackingVM.QuantityBad)" Title="Quantity">
+                        <Template Context="data">
+                            <RadzenStack>
+                                <RadzenFormField>
+                                    <TextTemplate>
+                                        <RadzenText class="@(data.IsReceived ? "rz-color-success" : "rz-color-base-300")" Text="Good" TextStyle="TextStyle.Caption" />
+                                    </TextTemplate>
+                                    <ChildContent>
+                                        <RadzenNumeric Name="line_quantity_good" @bind-Value="@data.QuantityGood" Disabled="@(!data.IsReceived)" Max="@(data.QuantityOpen - data.QuantityBad)" Min="0" />
+                                    </ChildContent>
+                                    <Helper>
+                                        <RadzenCustomValidator Component="line_quantity_good" Validator="@(() => data.QuantityOpen >= data.QuantityGood + data.QuantityBad)" Text="Cannot receive more than the open quantity" />
+                                    </Helper>
+                                </RadzenFormField>
+                            </RadzenStack>
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="ItemReceiptLinePackingVM" Title="Bad Quantity">
+                        <Template Context="data">
+                            <RadzenFormField>
+                                <TextTemplate>
+                                    <RadzenText class="@(data.IsReceived ? "rz-color-danger" : "rz-color-base-300")" Text="Bad" TextStyle="TextStyle.Caption" />
+                                </TextTemplate>
+                                <ChildContent>
+                                    <RadzenNumeric Name="line_quantity_bad" @bind-Value="@data.QuantityBad" Disabled="@(!data.IsReceived)" Max="@(data.QuantityOpen - data.QuantityGood)" Min="0" />
+                                </ChildContent>
+                                <Helper>
+                                    <RadzenCustomValidator Component="line_quantity_bad" Validator="@(() => data.QuantityOpen >= data.QuantityGood + data.QuantityBad)" Text="Cannot receive more than the open quantity" />
+                                </Helper>
+                            </RadzenFormField>
+                        </Template>
+                    </RadzenDataGridColumn>
+                </Columns>
+            </AppTableWithSettings>
+        </RadzenFieldset>
+        <RadzenStack JustifyContent="JustifyContent.SpaceBetween" Orientation="Orientation.Horizontal">
+            <RadzenButton ButtonStyle="ButtonStyle.Light" ButtonType="ButtonType.Button" Click="@Return" Text="Return" />
+            <RadzenButton ButtonStyle="ButtonStyle.Success" ButtonType="ButtonType.Submit" Text="Submit" />
+        </RadzenStack>
+    </RadzenStack>
+</RadzenTemplateForm>

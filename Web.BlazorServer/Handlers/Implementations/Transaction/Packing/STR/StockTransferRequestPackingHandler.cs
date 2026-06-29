@@ -1,4 +1,4 @@
-﻿using Application.UseCases.Queries.Transaction.Packing.STR;
+using Application.UseCases.Queries.Transaction.Packing.STR;
 using Mapster;
 using MediatR;
 using Shared.Entities;
@@ -9,17 +9,7 @@ namespace Web.BlazorServer.Handlers.Implementations.Transaction.Packing.STR;
 
 public class StockTransferRequestPackingHandler(ISender sender) : IStockTransferRequestPackingHandler
 {
-    public async Task<StockTransferRequestInfoPackingVM?> GetPackingStockTransferRequest(string reference, bool includeLines = true)
-    {
-        GetPackingStockTransferRequestQry query = new(reference);
-        var dto = await sender.Send(query);
-        var vm = dto.Adapt<StockTransferRequestInfoPackingVM>();
-
-        vm.Category = dto.TransferCategory;
-        return vm;
-    }
-
-    public async Task<(IEnumerable<StockTransferRequestPackingDataGridVM> data, int count)> GetStockTransferRequestsList(DataGridIntent intent)
+    public async Task<(IEnumerable<StockTransferRequestPackingDataGridVM> Data, int Count)> GetStockTransferRequestsList(DataGridIntent intent)
     {
         GetPackingStockTransferRequestListQry query = new(intent);
 
@@ -28,12 +18,26 @@ public class StockTransferRequestPackingHandler(ISender sender) : IStockTransfer
         return (data.Adapt<IEnumerable<StockTransferRequestPackingDataGridVM>>(), count);
     }
 
-    public async Task<(IEnumerable<TransferOrderStatusPackingVM> data, int count)> GetTransferOrderStatuses(DataGridIntent intent)
+    public async Task<StockTransferRequestInfoPackingVM?> GetPackingStockTransferRequest(string reference)
     {
-        GetPackingTransferOrderStatusesQry query = new(intent);
+        GetPackingStockTransferRequestQry query = new(reference);
+
+        var dto = await sender.Send(query);
+        if (dto is null) return null;
+
+        var vm = dto.Adapt<StockTransferRequestInfoPackingVM>();
+        vm.SourceWarehouse = dto.Location;
+        vm.DestinationWarehouse = dto.TransferLocation;
+
+        return vm;
+    }
+
+    public async Task<(IEnumerable<StockTransferRequestLinePackingVM> Data, int Count)> GetPackingStockTransferRequestLines(string reference, DataGridIntent intent)
+    {
+        GetPackingStockTransferRequestLinesQry query = new(reference, intent);
 
         (var data, int count) = await sender.Send(query);
 
-        return (data.Adapt<IEnumerable<TransferOrderStatusPackingVM>>(), count);
+        return (data.Adapt<IEnumerable<StockTransferRequestLinePackingVM>>(), count);
     }
 }
