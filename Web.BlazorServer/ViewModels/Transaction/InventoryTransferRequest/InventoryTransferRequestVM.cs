@@ -8,7 +8,7 @@ public class InventoryTransferRequestVM
 
     public int Id { get; set; }
     public string ReferenceNumber { get; set; } = string.Empty;
-    public CustomerVM? CustomerVM { get; set; }
+    public CustomerVM? Customer { get; set; }
     public SubsidiaryVM? Subsidiary { get; set; }
     public LocationVM? SourceLocation { get; set; }
     public LocationVM? DestinationLocation { get; set; }

@@ -15,6 +15,7 @@ public partial class ITRForm
     [Inject] ILocationHandler locationHandler { get; set; } = default!;
     [Inject] IItemsHandler itemsHandler { get; set; } = default!;
     [Inject] IGridSettingsService GridSettingsService { get; set; } = default!;
+    [Inject] ICustomerHandler customerHandler { get; set; } = default!;
     [Parameter][EditorRequired] public InventoryTransferRequestVM Model { get; set; }
     [Parameter][EditorRequired] public EditContext EditContext { get; set; }
     [Parameter] public EventCallback<InventoryTransferRequestVM> OnSubmit { get; set; }
@@ -27,10 +28,16 @@ public partial class ITRForm
 
     QuickVirtualizedDropdown<LocationVM> SourceLocationDropdown { get; set; } = default!;
     QuickVirtualizedDropdown<LocationVM> DestinationLocationDropdown { get; set; } = default!;
+    QuickVirtualizedDropdown<SubsidiaryVM> SubsidiaryDropdown { get; set; } = default!;
 
+    async Task<(IEnumerable<CustomerVM>, int)> CustomerProvider(DataGridIntent intent)
+    {
+        return await customerHandler.GetCustomersListAsync(intent);
+    }
     async Task<(IEnumerable<SubsidiaryVM>, int)> SubsidiaryProvider(DataGridIntent intent)
     {
-        return await subsidiaryHandler.GetSubsidiariesAsync(intent);
+        if (Model.Customer is null) return ([], 0);
+        return await subsidiaryHandler.GetSubsidiariesByCustomerAsync(intent, Model.Customer.Id);
     }
     async Task<(IEnumerable<LocationVM>, int)> SourceLocationProvider(DataGridIntent intent)
     {
@@ -77,6 +84,20 @@ public partial class ITRForm
         if (OnSubmit.HasDelegate) await OnSubmit.InvokeAsync(Model);
     }
 
+    async Task CustomerSet(CustomerVM? value)
+    {
+
+        if (Model.Lines.Count > 0)
+        {
+            var response = await AlertService.PromptAsync("Changing customers will clear added items", "Change Customers?");
+            if (!response) return;
+        }
+
+        Model.Customer = value;
+        Model.Lines.Clear();
+        await SubsidiarySet(null);
+        SubsidiaryDropdown.Reset();
+    }
     async Task SubsidiarySet(SubsidiaryVM? value)
     {
         if (Model.Lines.Count > 0)
