@@ -64,17 +64,21 @@ public class NavRoutesRepository
     {
         NavigationRouteVM purchase = new() { Name = "Purchasing A/P", Icon = "archive", Protected = false };
         NavigationRouteVM inventory = new() { Name = "Inventory", Icon = "inventory_2", Protected = false };
+        NavigationRouteVM delivery = new() { Name = "Delivery", Icon = "inventory_2", Protected = false };
 
         List<NavigationRouteVM> inventorySubroutes = [
             new() {Name = "Stock Transfer Request", Icon="battery_android_share", Protected=true, Uri = STRRoutes.Root },
             new() {Name = "Inventory Adjustment", Icon="swap_vert", Protected=true, Uri = InventoryAdjustmentRoutes.INDEX },
             new() {Name = "Inventory Transfer Request", Icon="warehouse", Protected=true, Uri = ITRRoutes.INDEX },
-            new() {Name = "Packing", Icon="package_2", Protected=true, Uri = PackingRoutes.Root},
         ];
 
         List<NavigationRouteVM> purchaseSubroutes = [
             new() {Name = "Receiving", Icon="stacked_inbox", Protected=true, Uri = "/transactions/purchasing/receiving" },
             new() {Name = "Return to Supplier", Icon="assignment_return", Protected=true, Uri = SupplierReturnRoutes.INDEX },
+        ];
+
+        List<NavigationRouteVM> deliverySubroutes = [
+            new() {Name = "Packing", Icon="local_shipping", Protected=true, Uri = PackingRoutes.Root},
         ];
 
         purchaseSubroutes.ForEach(x => x.Parent = purchase);
@@ -83,7 +87,10 @@ public class NavRoutesRepository
         inventorySubroutes.ForEach(x => x.Parent = inventory);
         inventory.Children.AddRange(inventorySubroutes);
 
-        return [purchase, inventory];
+        deliverySubroutes.ForEach(x => x.Parent = delivery);
+        delivery.Children.AddRange(deliverySubroutes);
+
+        return [purchase, inventory, delivery];
     }
 
 }
