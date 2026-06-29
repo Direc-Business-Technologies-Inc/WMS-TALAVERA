@@ -6,11 +6,14 @@ using Application.UseCases.Repositories.Integration.Transaction.GoodsReturn;
 using Application.UseCases.Repositories.Integration.Transaction.InventoryAdjustment;
 using Application.UseCases.Repositories.Integration.Transaction.InventoryCounting;
 using Application.UseCases.Repositories.Integration.Transaction.InventoryTransfer;
+// using Application.UseCases.Repositories.Integration.Transaction.InventoryTransferRequest;
+using Application.UseCases.Repositories.Integration.Transaction.Packing;
 using Application.UseCases.Repositories.Integration.Transaction.Receiving;
 using Application.UseCases.Repositories.Integration.Transaction.SalesReturn;
 using Application.UseCases.Repositories.Integration.Transaction.StockTransferRequest;
 using Integration.NS.Implementations.Others;
 using Integration.NS.Implementations.Transactions;
+using Integration.NS.Implementations.Transactions.Packing;
 using Integration.NS.Implementations.Vestigial;
 using Integration.NS.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -43,6 +46,7 @@ public static class NSImplementationDI
         services.TryAddTransient<IInventoryAdjustmentIntegration, InventoryAdjustmentIntegration>();
 
         services.TryAddTransient<INetSuiteApiClientService, NetSuiteApiClientService>();
+        services.TryAddTransient<IStockTransferRequestPackingIntegration, StockTransferRequestPackingIntegration>();
 
         // TODO FOR REMOVAL
         services.TryAddTransient<ITransactionTypeIntegration, TransactionTypeIntegration>();

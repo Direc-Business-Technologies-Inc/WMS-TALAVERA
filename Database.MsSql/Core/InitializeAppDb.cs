@@ -12,7 +12,7 @@ public class InitializeAppDb
 			AppDbContext AppDbContext = Scope.ServiceProvider.GetService<AppDbContext>()
                 ?? throw new Exception("AppDbContext was not registered in the services");
 
-			//await AppDbContext!.Database.EnsureDeletedAsync();
+			await AppDbContext!.Database.EnsureDeletedAsync();
 			//await AppDbContext!.Database.EnsureCreatedAsync();
 			await AppDbMigration.MigrateAsync(AppDbContext);
 

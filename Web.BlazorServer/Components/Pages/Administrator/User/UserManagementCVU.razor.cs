@@ -1,5 +1,6 @@
 ﻿using Mapster;
 using Microsoft.AspNetCore.Components;
+using Shared.Entities;
 using Web.BlazorServer.Defaults;
 using Web.BlazorServer.Handlers.Repositories.Administration.Role;
 using Web.BlazorServer.Handlers.Repositories.Administration.User;

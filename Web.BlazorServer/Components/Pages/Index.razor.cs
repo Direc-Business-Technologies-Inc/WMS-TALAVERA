@@ -1,10 +1,9 @@
-﻿
+﻿using KernelEnumHelper = Shared.Kernel.EnumHelper;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 using Web.BlazorServer.Components.Security;
 using Web.BlazorServer.Defaults;
 using Web.BlazorServer.ViewModels.Security;
-using KernelEnumHelper = Shared.Kernel.EnumHelper;
 
 namespace Web.BlazorServer.Components.Pages;
 
