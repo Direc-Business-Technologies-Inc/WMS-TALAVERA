@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Web.BlazorServer.Handlers.Implementations.Administration.Authorization;
 using Web.BlazorServer.Handlers.Implementations.Administration.Role;
 using Web.BlazorServer.Handlers.Implementations.Administration.User;
@@ -14,6 +14,8 @@ using Web.BlazorServer.Handlers.Implementations.Transaction.InventoryTransfer;
 using Web.BlazorServer.Handlers.Implementations.Transaction.InventoryTransferRequest;
 using Web.BlazorServer.Handlers.Implementations.Transaction.Packing.ItemReceipt;
 using Web.BlazorServer.Handlers.Implementations.Transaction.Packing.STR;
+using Web.BlazorServer.Handlers.Implementations.Transaction.Packing.Returns;
+using Web.BlazorServer.Handlers.Repositories.Transaction.Packing.Returns;
 using Web.BlazorServer.Handlers.Implementations.Transaction.Receiving;
 using Web.BlazorServer.Handlers.Implementations.Transaction.SalesReturn;
 using Web.BlazorServer.Handlers.Implementations.Transaction.StockTransferRequest;
@@ -74,6 +76,8 @@ public static class BlazorServerHandlersDI
         services.TryAddTransient<IInventoryTransferRequestHandler, InventoryTransferRequestHandler>();
         services.TryAddTransient<IStockTransferRequestPackingHandler, StockTransferRequestPackingHandler>();
         services.TryAddTransient<IItemReceiptPackingHandler, ItemReceiptPackingHandler>();
+        services.TryAddTransient<IReturnPackingHandler, ReturnPackingHandler>();
+        services.TryAddTransient<IReturnsItemReceiptPackingHandler, ReturnsItemReceiptPackingHandler>();
 
         if (environment.IsDevelopment())
         {

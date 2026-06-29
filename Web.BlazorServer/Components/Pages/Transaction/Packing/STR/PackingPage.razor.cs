@@ -19,7 +19,11 @@ partial class PackingPage
     protected override void OnParametersSet()
     {
         base.OnParametersSet();
-        SelectedTab = 0;
+        SelectedTab = Tab?.ToLowerInvariant() switch
+        {
+            "returns" => 1,
+            _ => 0
+        };
     }
 
     #endregion Overrides
@@ -27,7 +31,11 @@ partial class PackingPage
     #region Custom Functions
     void TabChanged()
     {
-        Tab = "stocktransferrequest";
+        Tab = SelectedTab switch
+        {
+            1 => "returns",
+            _ => "stocktransferrequest"
+        };
         NavManager.NavigateTo($"{PackingRoutes.Root}?tab={Tab}");
     }
     #endregion Custom Functions
