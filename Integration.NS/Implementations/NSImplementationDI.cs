@@ -48,6 +48,7 @@ public static class NSImplementationDI
         services.TryAddTransient<INetSuiteApiClientService, NetSuiteApiClientService>();
         services.TryAddTransient<IStockTransferRequestPackingIntegration, StockTransferRequestPackingIntegration>();
         services.TryAddTransient<IReturnPackingIntegration, ReturnPackingIntegration>();
+        services.TryAddTransient<IVendorReturnAuthorizationPackingIntegration, VendorReturnAuthorizationPackingIntegration>();
 
         // TODO FOR REMOVAL
         services.TryAddTransient<ITransactionTypeIntegration, TransactionTypeIntegration>();

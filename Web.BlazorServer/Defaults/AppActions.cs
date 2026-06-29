@@ -211,6 +211,8 @@ public enum AppActions
     #endregion Transaction - Packing
 
     #region Transaction - Vendor Return Authorization
+    [Description("Get All Packing Vendor Return Authorizations")]
+    GetAllPackingVendorReturnAuthorizations,
     #endregion Transaction - Vendor Return Authorization
 
     #region Transaction - Returns

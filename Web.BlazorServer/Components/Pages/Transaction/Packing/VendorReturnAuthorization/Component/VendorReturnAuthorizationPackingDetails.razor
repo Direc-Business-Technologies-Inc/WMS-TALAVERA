@@ -1,0 +1,98 @@
+@using Web.BlazorServer.Components.Pages.Transaction.Packing
+@using Web.BlazorServer.Components.Shared.Skeletons
+@using Web.BlazorServer.ViewModels.Transaction.Packing.VendorReturnAuthorization
+@using global::Shared.Entities
+
+@inherits BaseComponent
+
+<RadzenStack Gap="1rem" Visible="@ErrorState">
+    <p>@ErrorMessage</p>
+</RadzenStack>
+
+@if (!IsDataLoaded)
+{
+    <AppFormSkeleton TItem="VendorReturnAuthorizationLinePackingVM" Loading="@true" />
+}
+else
+{
+    <RadzenStack class="rz-p-5">
+        <RadzenStack Visible="@(IsDataLoaded && !ErrorState)"
+                     Orientation="Orientation.Horizontal"
+                     AlignItems="AlignItems.Center"
+                     JustifyContent="JustifyContent.End"
+                     Gap="32px"
+                     class="rz-mb-0 rz-mt-2">
+            <AppContentBadge Title="Doc" Content="@Model.ReferenceNumber" />
+            <AppContentBadge Title="Doc Date" Content="@Model.Date.ToString("MM-dd-yy")" ChildBadgeStyle="BadgeStyle.Secondary" ChildShade="Shade.Default" />
+        </RadzenStack>
+
+        <RadzenStack Gap="0.5em" Visible="@(IsDataLoaded && !ErrorState)" class="rz-p-3">
+            <RadzenFieldset Text="Details" AllowCollapse>
+                <ChildContent>
+                    <RadzenStack Gap="0.5rem">
+                        <RadzenRow Gap="1rem">
+                            <RadzenColumn SizeMD="6">
+                                <RadzenFormField Text="Reference Number" class="rz-w-100" AllowFloatingLabel="false">
+                                    <RadzenTextBox ReadOnly Value="@Model.ReferenceNumber" />
+                                </RadzenFormField>
+                            </RadzenColumn>
+                            <RadzenColumn SizeMD="6">
+                                <RadzenFormField Text="Date" class="rz-w-100" AllowFloatingLabel="false">
+                                    <RadzenDatePicker ReadOnly TValue="DateTime" Value="@Model.Date" />
+                                </RadzenFormField>
+                            </RadzenColumn>
+
+                            <RadzenColumn SizeMD="6">
+                                <RadzenFormField Text="From Subsidiary" class="rz-w-100" AllowFloatingLabel="false">
+                                    <RadzenTextBox ReadOnly Value="@Model.FromSubsidiary" />
+                                </RadzenFormField>
+                            </RadzenColumn>
+                            <RadzenColumn SizeMD="6">
+                                <RadzenFormField Text="To Subsidiary" class="rz-w-100" AllowFloatingLabel="false">
+                                    <RadzenTextBox ReadOnly Value="@Model.ToSubsidiary" />
+                                </RadzenFormField>
+                            </RadzenColumn>
+
+                            <RadzenColumn SizeMD="6">
+                                <RadzenFormField Text="Source Warehouse" class="rz-w-100" AllowFloatingLabel="false">
+                                    <RadzenTextBox ReadOnly Value="@Model.SourceWarehouse" />
+                                </RadzenFormField>
+                            </RadzenColumn>
+                            <RadzenColumn SizeMD="6">
+                                <RadzenFormField Text="Destination Warehouse" class="rz-w-100" AllowFloatingLabel="false">
+                                    <RadzenTextBox ReadOnly Value="@Model.DestinationWarehouse" />
+                                </RadzenFormField>
+                            </RadzenColumn>
+
+                            <RadzenColumn SizeMD="6">
+                                <RadzenFormField Text="Prepared By" class="rz-w-100" AllowFloatingLabel="false">
+                                    <RadzenTextBox ReadOnly Value="@Model.PreparedBy" />
+                                </RadzenFormField>
+                            </RadzenColumn>
+                            <RadzenColumn SizeMD="6">
+                                <RadzenFormField Text="Received By" class="rz-w-100" AllowFloatingLabel="false">
+                                    <RadzenTextBox ReadOnly Value="@Model.ReceivedBy" />
+                                </RadzenFormField>
+                            </RadzenColumn>
+                        </RadzenRow>
+                    </RadzenStack>
+                </ChildContent>
+            </RadzenFieldset>
+            <RadzenFieldset Text="Lines" AllowCollapse>
+                <AppDataGrid @ref="@DataGrid" TItem="VendorReturnAuthorizationLinePackingVM" DataGetter="@LoadDataAsync" GridSettings="@DataGridSettings" @bind-GridSettingsLoaded="@GridSettingsLoaded" ActionName="@ActionGetLines" DataGridSelectionMode="DataGridSelectionMode.Single">
+                    <GridColumns>
+                        <RadzenDataGridColumn TItem="VendorReturnAuthorizationLinePackingVM" Property="@nameof(VendorReturnAuthorizationLinePackingVM.ItemCode)" Type="@typeof(string)" Title="Item Code" />
+                        <RadzenDataGridColumn TItem="VendorReturnAuthorizationLinePackingVM" Property="@nameof(VendorReturnAuthorizationLinePackingVM.ItemDescription)" Type="@typeof(string)" Title="Item Description" />
+                        <RadzenDataGridColumn TItem="VendorReturnAuthorizationLinePackingVM" Property="@nameof(VendorReturnAuthorizationLinePackingVM.UoM)" Type="@typeof(string)" Title="UoM" Width="125px" />
+                        <RadzenDataGridColumn TItem="VendorReturnAuthorizationLinePackingVM" Property="@nameof(VendorReturnAuthorizationLinePackingVM.Warehouse)" Type="@typeof(string)" Title="Warehouse" Width="125px" />
+                        <RadzenDataGridColumn TItem="VendorReturnAuthorizationLinePackingVM" Property="@nameof(VendorReturnAuthorizationLinePackingVM.QuantityPlanned)" Type="@typeof(string)" Title="Planned Quantity" Width="125px" />
+                    </GridColumns>
+                </AppDataGrid>
+            </RadzenFieldset>
+            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween">
+                <RadzenButton ButtonType="ButtonType.Button" ButtonStyle="ButtonStyle.Light" Text="Return" Click="@(_ => NavManager.NavigateTo($"{PackingRoutes.Root}?tab=vendorreturnauthorization"))" />
+                <RadzenButton ButtonType="ButtonType.Button" ButtonStyle="ButtonStyle.Success" Text="Fulfill Item Receipt" Click="@(_ => NavManager.NavigateTo($"{PackingRoutes.CreateVendorReturnAuthorizationItemReceipt}?ref={Model.ReferenceNumber}"))" />
+            </RadzenStack>
+        </RadzenStack>
+    </RadzenStack>
+}

@@ -1,6 +1,7 @@
 @using Web.BlazorServer.Components.Pages.Transaction.Packing
 @using Web.BlazorServer.Components.Pages.Transaction.Packing.STR.Component
 @using Web.BlazorServer.Components.Pages.Transaction.Packing.Returns.Component
+@using Web.BlazorServer.Components.Pages.Transaction.Packing.VendorReturnAuthorization.Component
 @using Web.BlazorServer.Components.Security
 
 @inherits BaseComponent
@@ -22,6 +23,9 @@
             </RadzenTabsItem>
             <RadzenTabsItem Text="Returns">
                 <ReturnsPackingDataGrid />
+            </RadzenTabsItem>
+            <RadzenTabsItem Text="Vendor Return Authorization">
+                <VendorReturnAuthorizationPackingDataGrid />
             </RadzenTabsItem>
         </Tabs>
     </RadzenTabs>
