@@ -1,5 +1,5 @@
 ﻿using Application.DataTransferObjects.Transactions.Commons.NS.Request;
-using Application.UseCases.Queries.Others;
+using Application.UseCases.Queries.Others.NS;
 using Mapster;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;

@@ -16,12 +16,13 @@ public partial class CreateTripTicketView : IAsyncDisposable
     List<ItemFulfillmentVM> Data { get; set; } = [];
 
     AppAction<List<ItemFulfillmentVM>> ActionGetItemFulfillments;
-    AppAction ActionSaveScan { get; set; }
+    AppAction<bool> ActionSaveScan { get; set; }
 
     List<ItemFulfillmentVM> ScannedItemFulfillments { get; set; } = new();
 
-    bool isViewScannedList = false;
-    bool MoveOn = false;
+    int ActiveTabIndex { get; set; } = 0;
+
+    bool MoveOn => ActiveTabIndex == 1;
 
     protected override async Task OnInitializedAsync()
     {
@@ -41,17 +42,23 @@ public partial class CreateTripTicketView : IAsyncDisposable
             }
         };
 
-        ActionSaveScan = new AppAction
+        ActionSaveScan = new AppAction<bool>
         {
             Name = "SaveTripTicketScan",
             TaskAsync = async () =>
             {
                 await InvokeAsync(StateHasChanged);
-                var res = await Client.Post("/TripTicket/SaveScan", TripTicket);
+                var res = await Client.Post<bool>("/TripTicket/SaveScan", TripTicket);
                 return res;
             },
             OnSuccess = async (result) =>
             {
+                if (!result.Success)
+                {
+                    await Toast.Error(result.ErrorMessage);
+                    return;
+                }
+
                 await Toast.Success("Scanned items saved sucessfully");
                 NavManager.NavigateTo("/");
             }
@@ -141,24 +148,17 @@ public partial class CreateTripTicketView : IAsyncDisposable
 
     async Task SaveScan()
     {
-        try
+        var result = await Dialog.OpenAsync<TripTicketDetailsView>(
+            "TripTicket Details",
+            new Dictionary<string, object>(),
+            new DialogOptions());
+
+        if (result is not TripTicketVM detail)
         {
-            var result = await Dialog.OpenAsync<TripTicketDetailsView>(
-                "TripTicket Details",
-                new Dictionary<string, object>(),
-                new DialogOptions());
-
-            if (result is TripTicketVM detail)
-            {
-                TripTicket = detail;
-
-                await InvokeAsync(StateHasChanged);
-            }
+            return;
         }
-        finally
-        {
 
-        }
+        TripTicket = detail;
 
         if (ScannedItemFulfillments == null || !ScannedItemFulfillments.Any())
         {
@@ -170,12 +170,6 @@ public partial class CreateTripTicketView : IAsyncDisposable
 
         await ActionFactory.ExecuteAppActionAsync(ActionSaveScan, confirm: true, showToast: true);
         await InvokeAsync(StateHasChanged);
-    }
-
-    async void ViewScannedIF()
-    {
-        isViewScannedList = !isViewScannedList;
-        MoveOn = isViewScannedList;
     }
 
     public async ValueTask DisposeAsync()

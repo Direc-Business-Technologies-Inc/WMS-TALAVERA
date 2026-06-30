@@ -1,5 +1,6 @@
 ﻿using Application.DataTransferObjects.Transactions.Packing.NS;
 using Application.DataTransferObjects.Transactions.Packing.NS.Request;
+using Application.UseCases.Commands.Transaction.Packing.NS.TransferOrder;
 using Application.UseCases.Commands.Transaction.Packing.NS.VendorReturnAuthorization;
 using Application.UseCases.Queries.Transaction.Packing.NS.VendorReturnAuthorization;
 using Mapster;
@@ -35,10 +36,10 @@ public class VendorReturnAuthorizationController(ISender Sender) : ControllerBas
     }
 
     [HttpPost("SaveScan")]
-    public async Task<ApiResult> VendorReturnAuthorizationSaveScan(List<PostVendorReturnAuthorizationDTO> req)
+    public async Task<IActionResult> VendorReturnAuthorizationSaveScan(List<PostVendorReturnAuthorizationDTO> req)
     {
-        await Sender.Send(new PostVendorReturnAuthorizationIFCmd(req));
+        ApiResult<bool> result = await Sender.Send(new PostVendorReturnAuthorizationIFCmd(req));
 
-        return ApiResult.Succeeded();
+        return StatusCode(result.StatusCode, result);
     }
 }

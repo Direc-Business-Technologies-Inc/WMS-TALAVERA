@@ -17,7 +17,7 @@ public partial class ReturnsItemView : IAsyncDisposable
     AppAction<List<ReturnsLineVM>> ActionGetReturnsItems { get; set; }
     AppAction<List<ItemBarcodesPerUoMVM>> ActionGetItemBarcodes { get; set; }
     AppAction ActionUpdateStartTime { get; set; }
-    AppAction ActionSaveScan { get; set; }
+    AppAction<bool> ActionSaveScan { get; set; }
 
     List<ReturnsLineVM> ReturnsItems = [];
     List<ItemBarcodesPerUoMVM> ItemBarcodes = [];
@@ -102,17 +102,23 @@ public partial class ReturnsItemView : IAsyncDisposable
             },
         };
 
-        ActionSaveScan = new AppAction
+        ActionSaveScan = new AppAction<bool>
         {
             Name = "SaveReturnsScan",
             TaskAsync = async () =>
             {
                 await InvokeAsync(StateHasChanged);
-                var res = await Client.Post("/Receiving/Returns/SaveScan", ReturnsItems);
+                var res = await Client.Post<bool>("/Receiving/Returns/SaveScan", ReturnsItems);
                 return res;
             },
             OnSuccess = async (result) =>
             {
+                if (!result.Success)
+                {
+                    await Toast.Error(result.ErrorMessage);
+                    return;
+                }
+
                 await Toast.Success("Scanned items saved sucessfully");
                 NavManager.NavigateTo("/receiving");
             }
@@ -129,7 +135,7 @@ public partial class ReturnsItemView : IAsyncDisposable
 
             ItemRequest = ReturnsItems.Select(i => new BarcodeRequestVM
             {
-                MaterialInternalId = i.NetsuiteMaterialInternalId,
+                NetsuiteMaterialInternalId = i.NetsuiteMaterialInternalId,
             }).ToList();
 
             await ActionFactory.ExecuteAppActionAsync(ActionGetItemBarcodes);
@@ -175,6 +181,12 @@ public partial class ReturnsItemView : IAsyncDisposable
             if (string.IsNullOrWhiteSpace(scanned))
                 return;
 
+            if (NegateQuantity)
+            {
+                await NegateScannedItem(scanned);
+                return;
+            }
+
             var barcode = ItemBarcodes.FirstOrDefault(x =>
                 !string.IsNullOrWhiteSpace(x.MaterialBarcode) &&
                 x.MaterialBarcode.Equals(scanned, StringComparison.OrdinalIgnoreCase));
@@ -186,7 +198,7 @@ public partial class ReturnsItemView : IAsyncDisposable
             }
 
             var line = ReturnsItems.FirstOrDefault(x =>
-                    x.NetsuiteMaterialInternalId == barcode.MaterialInternalId &&
+                    x.NetsuiteMaterialInternalId == barcode.NetsuiteMaterialInternalId &&
                     (SelectedLine == null ||
                      x.LineSequenceNumber == SelectedLine.LineSequenceNumber));
 
@@ -218,38 +230,91 @@ public partial class ReturnsItemView : IAsyncDisposable
 
             decimal? weight = null;
 
-            if (ChangeWeight.HasValue)
+            if (IsWeightDialogOpen)
             {
-                weight = ChangeWeight;
+                return;
             }
-            else if (!line.DefaultWeight.HasValue)
+
+            weight = await GetWeightAsync(barcode.MaterialName, barcode.UoMName);
+
+            if (!weight.HasValue || weight.Value == 0m)
             {
-                if (IsWeightDialogOpen)
-                {
-                    return;
-                }
-
-                weight = await GetWeightAsync(barcode.MaterialName);
-
-                if (!weight.HasValue || weight.Value == 0m)
-                {
-                    await Toast.Warning("Scan cancelled - no weight entered");
-                    return;
-                }
-
-                line.DefaultWeight = weight;
-            }
-            else
-            {
-                weight = line.DefaultWeight;
+                await Toast.Warning("Scan cancelled - no weight entered");
+                return;
             }
 
             line.ScannedQuantity += barcode.UoMRate / line.UoMRate;
-            line.ScannedWeight += barcode.UoMRate * (weight ?? 0m);
+            line.ScannedWeight += weight ?? 0m;
             line.ScanCount++;
 
             ScanCount++;
             ChangeWeight = null; // reset the ChangeWeight after each scan
+
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (Exception e)
+        {
+            await Toast.Error(e.Message);
+        }
+    }
+
+    async Task NegateScannedItem(string scanned)
+    {
+        try
+        {
+            var barcode = ItemBarcodes.FirstOrDefault(x =>
+                !string.IsNullOrWhiteSpace(x.MaterialBarcode) &&
+                x.MaterialBarcode.Equals(scanned, StringComparison.OrdinalIgnoreCase));
+
+            if (barcode is null)
+            {
+                await Toast.Warning($"Unknown barcode: {scanned}");
+                return;
+            }
+
+            var line = ReturnsItems.FirstOrDefault(x =>
+                    x.NetsuiteMaterialInternalId == barcode.NetsuiteMaterialInternalId &&
+                    (SelectedLine == null ||
+                     x.LineSequenceNumber == SelectedLine.LineSequenceNumber));
+
+            if (line is null)
+            {
+                await Toast.Warning("Item not found in this Returns.");
+                return;
+            }
+
+            var isOverScan = line.ScannedQuantity >= line.NSLineQuantityReceived;
+
+            if (isOverScan)
+            {
+                await Toast.Warning($"Over-scanning item: {line.MaterialCode}.");
+                return;
+            }
+
+            var scanQty = barcode.UoMRate / line.UoMRate;
+
+            var remainingQty = line.NSLineQuantityReceived - line.ScannedQuantity;
+
+            bool isExceed = scanQty > remainingQty;
+
+            if (isExceed)
+            {
+                await Toast.Warning($"Scan quantity exceeds remaining quantity for item: {line.MaterialCode}.");
+                return;
+            }
+
+            decimal? weight = null;
+
+            weight = await GetWeightAsync(barcode.MaterialName, barcode.UoMName);
+
+            if (!weight.HasValue || weight.Value == 0m)
+            {
+                await Toast.Warning("Scan cancelled - no weight entered");
+                return;
+            }
+
+            line.ScannedQuantity -= barcode.UoMRate / line.UoMRate;
+            line.ScannedWeight -= weight ?? 0m;
 
             await InvokeAsync(StateHasChanged);
         }
@@ -307,17 +372,10 @@ public partial class ReturnsItemView : IAsyncDisposable
 
     async void ToggleWeight()
     {
-        ChangeWeight = await Dialog.OpenAsync<WeightInputDialog>(
-                    "Weight Input",
-                    new Dictionary<string, object>
-                    {
-                        { "ItemName", "" }
-                    },
-                    new DialogOptions()
-                );
+        ChangeWeight = await GetWeightAsync("", "");
     }
 
-    private async Task<decimal?> GetWeightAsync(string itemName)
+    private async Task<decimal?> GetWeightAsync(string itemName, string uomName)
     {
         IsWeightDialogOpen = true;
 
@@ -327,7 +385,8 @@ public partial class ReturnsItemView : IAsyncDisposable
                 "Weight Input",
                 new Dictionary<string, object>
                 {
-                { "ItemName", itemName }
+                    { "ItemName", itemName },
+                    { "UomName", uomName }
                 },
                 new DialogOptions());
         }
@@ -335,6 +394,19 @@ public partial class ReturnsItemView : IAsyncDisposable
         {
             IsWeightDialogOpen = false;
         }
+    }
+
+
+    private bool IsActionPanelCollapsed;
+    private void ToggleActionPanel()
+    {
+        IsActionPanelCollapsed = !IsActionPanelCollapsed;
+    }
+
+    private bool NegateQuantity;
+    private void ToggleNegateQuantity()
+    {
+        NegateQuantity = !NegateQuantity;
     }
 
     public async ValueTask DisposeAsync()

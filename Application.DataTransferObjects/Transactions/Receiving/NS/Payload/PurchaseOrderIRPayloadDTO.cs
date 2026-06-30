@@ -50,16 +50,14 @@ public class PurchaseOrderIRPayloadDTO
                                     {
                                         InventoryStatus = new ReferenceValue
                                         {
-                                            Id = line.IsBad ? "3" : "1"
+                                            Id = "1"
                                         },
-                                        BinNumber = new ReferenceValue
+                                        BinNumber = line.IsLocationUsedBin ? new ReferenceValue
                                         {
-                                            Id = line.IsLocationUsedBin
-                                                ? (line.VendorBinAssignmentId != 0
+                                            Id = line.VendorBinAssignmentId != 0
                                                         ? line.VendorBinAssignmentId.ToString()
-                                                        : line.NetsuiteMaterialPrefferedBinId.ToString())
-                                                : null
-                                        },
+                                                        : line.NetsuiteMaterialPrefferedBinId.ToString()
+                                        } : null,
                                         Quantity = line.ScannedQuantity
                                     }
                                 }

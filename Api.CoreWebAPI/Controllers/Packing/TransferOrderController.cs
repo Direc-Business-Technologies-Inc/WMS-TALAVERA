@@ -1,6 +1,7 @@
 ﻿using Application.DataTransferObjects.Transactions.Commons.NS;
 using Application.DataTransferObjects.Transactions.Commons.NS.Request;
 using Application.UseCases.Commands.Transaction.Packing.NS.TransferOrder;
+using Application.UseCases.Commands.Transaction.Receiving.NS.TransferOrder;
 using Application.UseCases.Queries.Transaction.Packing.NS.TransferOrder;
 using Mapster;
 using MediatR;
@@ -36,10 +37,10 @@ public class TransferOrderController(ISender Sender) : ControllerBase
     }
 
     [HttpPost("SaveScan")]
-    public async Task<ApiResult> TransferOrderSaveScan(List<PostTransferOrderDTO> req)
+    public async Task<IActionResult> TransferOrderSaveScan(List<PostTransferOrderDTO> req)
     {
-        await Sender.Send(new PostTransferOrderIFCmd(req));
+        ApiResult<bool> result = await Sender.Send(new PostTransferOrderIFCmd(req));
 
-        return ApiResult.Succeeded();
+        return StatusCode(result.StatusCode, result);
     }
 }

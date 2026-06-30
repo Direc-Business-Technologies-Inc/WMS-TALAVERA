@@ -2,5 +2,5 @@
 
 public class ItemBarcodesRequestDTO
 {
-    public int MaterialInternalId { get; set; }
+    public int NetsuiteMaterialInternalId { get; set; }
 }

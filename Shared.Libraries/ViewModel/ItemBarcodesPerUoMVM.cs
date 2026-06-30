@@ -1,12 +1,13 @@
-﻿namespace Shared.Libraries.ViewModel;
+﻿using Shared.Libraries.ViewModel.Common;
 
-public class ItemBarcodesPerUoMVM
+namespace Shared.Libraries.ViewModel;
+
+public class ItemBarcodesPerUoMVM : InventoryItemVM
 {
-    public int MaterialInternalId { get; set; }
-    public string MaterialCode { get; set; }
-    public string MaterialName { get; set; }
-    public string MaterialBarcode { get; set; }
+    public string MaterialBarcode { get; set; } = string.Empty;
 
-    public string UoMName { get; set; }
+    public string UoMName { get; set; } = string.Empty;
     public int UoMRate { get; set; }
+
+    public decimal? DefaultWeight;
 }

@@ -1,6 +1,7 @@
 ﻿using Application.DataTransferObjects.Transactions.Commons.NS;
 using Application.DataTransferObjects.Transactions.Commons.NS.Request;
 using Application.UseCases.Commands.Transaction.Packing.NS.Returns;
+using Application.UseCases.Commands.Transaction.Receiving.NS.TransferOrder;
 using Application.UseCases.Queries.Transaction.Packing.NS.Returns;
 using Mapster;
 using MediatR;
@@ -40,10 +41,10 @@ public class ReturnsController(ISender Sender) : ControllerBase
     }
 
     [HttpPost("SaveScan")]
-    public async Task<ApiResult> ReturnsSaveScan(List<PostReturnsDTO> req)
+    public async Task<IActionResult> ReturnsSaveScan(List<PostReturnsDTO> req)
     {
-        await Sender.Send(new PostReturnsIFCmd(req));
+        ApiResult<bool> result = await Sender.Send(new PostReturnsIFCmd(req));
 
-        return ApiResult.Succeeded();
+        return StatusCode(result.StatusCode, result);
     }
 }

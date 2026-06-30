@@ -1,0 +1,49 @@
+﻿@page "/inventorycounting"
+@using Mobile.MAUI.Components.Base
+@using Shared.Libraries.ViewModel
+@using Shared.Libraries.ViewModel.InventoryCounting
+
+@inherits BaseComponent
+<PageHeading Title="Inventory Counting" BackPath="/" Click="LoadData" />
+<RadzenStack>
+    <RadzenStack class="mt-4">
+        <Loading IsLoading="@ActionGetInventoryCounting.Busy" Text="Loading Inventory Countings..">
+            <ChildContent>
+                <RadzenStack>
+                    <EmptyListTemplate ReloadCallback="LoadData" Visible="@(Data.Count == 0)" />
+                    <RadzenDataList Data="@(Data ?? Enumerable.Empty<InventoryCountingVM>())"
+                                    TItem="InventoryCountingVM"
+                                    class="trans-list">
+                        <Template Context="row">
+                            <RadzenStack class="trans-card"
+                                         @onclick="@(() => NavManager.NavigateTo($"/inventorycounting/{row.OrderNumber}"))"
+                                         Orientation="Orientation.Horizontal"
+                                         AlignItems="AlignItems.Center"
+                                         JustifyContent="JustifyContent.SpaceBetween">
+
+                                <RadzenStack Gap="4px">
+                                    <RadzenText Text="@($"IC-{row.OrderNumber}")"
+                                                class="trans-number" />
+
+                                    @* <RadzenText class="trans-detail"
+                                                Text="@($"Vendor: {row.CustomerName}")" /> *@
+
+                                    <RadzenText class="trans-detail"
+                                                Text="@($"Document Date: {row.NetsuiteOrderCreatedDate:MMMM d, yyyy}")" />
+                                </RadzenStack>
+
+                                <RadzenStack Orientation="Orientation.Horizontal" Gap="6px" class="trans-badges">
+                                    <RadzenBadge Text="@row.GetName(row.OrderStatus)" class="trans-status-badge" />
+                                </RadzenStack>
+                            </RadzenStack>
+                        </Template>
+                    </RadzenDataList>
+                </RadzenStack>
+            </ChildContent>
+        </Loading>
+    </RadzenStack>
+</RadzenStack>
+
+
+
+

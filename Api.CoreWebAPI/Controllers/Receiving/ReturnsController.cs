@@ -1,5 +1,6 @@
 ﻿using Application.DataTransferObjects.Transactions.Commons.NS;
 using Application.DataTransferObjects.Transactions.Commons.NS.Request;
+using Application.UseCases.Commands.Transaction.Receiving.NS.PurchaseOrder;
 using Application.UseCases.Commands.Transaction.Receiving.NS.Returns;
 using Application.UseCases.Queries.Transaction.Receiving.NS.Returns;
 using Mapster;
@@ -7,6 +8,7 @@ using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Shared.Libraries.Entities;
 using Shared.Libraries.ViewModel.Returns;
+using Sprache;
 
 namespace Api.CoreWebAPI.Controllers.Receiving;
 
@@ -40,10 +42,10 @@ public class ReturnsController(ISender Sender) : ControllerBase
     }
 
     [HttpPost("SaveScan")]
-    public async Task<ApiResult> ReturnsSaveScan(List<PostReturnsDTO> req)
+    public async Task<IActionResult> ReturnsSaveScan(List<PostReturnsDTO> req)
     {
-        await Sender.Send(new PostReturnsIRCmd(req));
+        ApiResult<bool> result = await Sender.Send(new PostReturnsIRCmd(req));
 
-        return ApiResult.Succeeded();
+        return StatusCode(result.StatusCode, result);
     }
 }

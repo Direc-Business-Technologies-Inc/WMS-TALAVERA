@@ -16,7 +16,7 @@ public static class WebApplicationService
         #region Infrastructure Configuration
         builder.Services.AddDatabaseMsSqlServices();
         builder.Services.AddDatabaseLibrariesServices();
-        builder.Services.AddSAPServicesIntegraton();
+        //builder.Services.AddSAPServicesIntegraton();
         builder.Services.AddNSServicesIntegraton();
         #endregion Infrastructure Configuration
 

@@ -1,12 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using Shared.Libraries.ViewModel.Common;
 
 namespace Shared.Libraries.ViewModel;
 
-public class TransactionVM
+public class TransactionVM : InventoryItemVM
 {
     public int NetsuiteOrderInternalId { get; set; }
     public string OrderNumber { get; set; } = string.Empty;
@@ -22,11 +18,6 @@ public class TransactionVM
 
     public int LineSequenceNumber { get; set; }
     public string TransactionLineType { get; set; } = string.Empty;
-
-    public int NetsuiteMaterialInternalId { get; set; }
-    public string MaterialCode { get; set; } = string.Empty;
-    public string MaterialName { get; set; } = string.Empty;
-    public decimal MaterialWeight { get; set; }
 
     public decimal LineQuantity { get; set; }
     public decimal LineQuantityReceived { get; set; }
@@ -44,7 +35,7 @@ public class TransactionVM
 
     public decimal? DefaultWeight;
 
-    public decimal TotalWeight => LineQuantity * MaterialWeight; // Record Weight
+    public decimal TotalWeight => ScannedQuantity * MaterialWeight; // Record Weight
 
     public decimal NSLineQuantityReceived => (LineQuantity - LineQuantityReceived) / UoMRate;
     public decimal NSLineQuantityPacked => (LineQuantity - LineQuantityPacked) / UoMRate;
