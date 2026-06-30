@@ -329,7 +329,7 @@ public class ReceivingIntegration(
                 ("loc.usebins", "LocationUsesBins"),
                 ("item.displayname", "ItemDescription"),
                 ("pb.bin", "PrefferedBinAssignmentId"),
-                ("tl.custcol_dbti_record_weight", nameof(ItemReceiptLineDTO.WeightRecord)),
+                ("(item.weight * (tl.quantity - tl.quantityshiprecv))", nameof(ItemReceiptLineDTO.WeightRecord)),
                 ("tl.custcol_dbti_actual_weight", nameof(ItemReceiptLineDTO.WeightActual)),
                 ("(tl.quantity / uom.conversionrate)", "QuantityPlanned"),
                 ("(tl.quantity - tl.quantityshiprecv) / uom.conversionrate", "QuantityOpen"),
@@ -374,36 +374,30 @@ public class ReceivingIntegration(
 
         List<Exception> exceptions = [];
 
-        if (dto.Lines.Any(x => x.QuantityGood > 0))
+        try
         {
-            try
+            if (dto.SourceType.Equals(ItemReceiptDTO.SourceTypes.PurchaseOrder))
             {
-                _ = dto.SourceType.Equals(ItemReceiptDTO.SourceTypes.TransferOrder) ?
-                    await netsuiteService.MakeRequestOAuth1<object>(uri, goodPayload) :
-                    await netsuiteService.MakeRequest<object>(uri, goodPayload, HttpMethod.Post);
+                List<Task> tasks = [];
+                if (dto.Lines.Any(x => x.QuantityGood > 0)) tasks.Add(netsuiteService.MakeRequest<object>(uri, goodPayload, HttpMethod.Post));
+                if (dto.Lines.Any(x => x.QuantityBad > 0)) tasks.Add(netsuiteService.MakeRequest<object>(uri, badPayload, HttpMethod.Post));
+
+                await Task.WhenAll(tasks);
             }
-            catch (Exception ex)
+            else
             {
-                if (!ex.Message.Equals("Empty response from NetSuite API", StringComparison.OrdinalIgnoreCase))
-                    exceptions.Add(new Exception("Error posting good items: " + ex.Message));
+                List<Task> tasks = [];
+                if (dto.Lines.Any(x => x.QuantityGood > 0)) tasks.Add(netsuiteService.MakeRequestOAuth1<object>(uri, goodPayload));
+                if (dto.Lines.Any(x => x.QuantityBad > 0)) tasks.Add(netsuiteService.MakeRequestOAuth1<object>(uri, badPayload));
+
+                await Task.WhenAll(tasks);
             }
         }
-
-        if (dto.Lines.Any(x => x.QuantityBad > 0))
+        catch (Exception ex)
         {
-            try
-            {
-                _ = dto.SourceType.Equals(ItemReceiptDTO.SourceTypes.TransferOrder) ?
-                    await netsuiteService.MakeRequestOAuth1<object>(uri, badPayload) :
-                    await netsuiteService.MakeRequest<object>(uri, badPayload, HttpMethod.Post);
-            }
-            catch (Exception ex)
-            {
-                if (!ex.Message.Equals("Empty response from NetSuite API", StringComparison.OrdinalIgnoreCase))
-                    exceptions.Add(new Exception("Error posting bad items: " + ex.Message));
-            }
+            if (!ex.Message.Equals("Empty response from NetSuite API", StringComparison.OrdinalIgnoreCase))
+                exceptions.Add(new Exception("Error posting good items: " + ex.Message));
         }
-
 
         if (exceptions.Count > 0) throw new Exception(string.Join("\n\n", exceptions.Select(ex => ex.Message)));
         return true;
@@ -415,7 +409,7 @@ public class ReceivingIntegration(
         {
             transferOrderId = dto.SourceInternalId,
             transferCategory = isGood ? 1 : 2,
-            lines = dto.Lines.Where(x => x.QuantityGood > 0).Select(line =>
+            lines = dto.Lines.Where(x => (isGood ? x.QuantityGood : x.QuantityBad) > 0).Select(line =>
             {
                 return new
                 {
@@ -449,7 +443,7 @@ public class ReceivingIntegration(
                 {
                     decimal lineQuantity = isGood ? line.QuantityGood : line.QuantityBad;
                     bool isItemReceived = line.IsReceived && lineQuantity > 0;
-                    string? preferredBin = line.IsLocationBinUsed ? (isGood ? (dto.VendorPrefferedBin != 0 ? $"{dto.VendorPrefferedBin}" : $"{line.PrefferedBinAssignmentId}") : "5") : null;
+                    string? preferredBin = line.IsLocationBinUsed ? (dto.VendorPrefferedBin != 0 ? $"{dto.VendorPrefferedBin}" : $"{line.PrefferedBinAssignmentId}") : null;
                     return new
                     {
                         itemreceive = isItemReceived,
