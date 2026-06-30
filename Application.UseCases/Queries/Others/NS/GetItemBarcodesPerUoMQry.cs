@@ -4,7 +4,7 @@ using Application.UseCases.Repositories.Integration.Others;
 using Mapster;
 using MediatR;
 
-namespace Application.UseCases.Queries.Others;
+namespace Application.UseCases.Queries.Others.NS;
 
 public record GetItemBarcodesPerUoMQry(List<ItemBarcodesRequestDTO> items) : IRequest<IEnumerable<ItemBarcodesPerUoMDTO>>;
 
@@ -18,7 +18,7 @@ public class GetItemBarcodesPerUoMQryHandler(
     {
         var parameters = new Dictionary<string, string>
         {
-            ["items"] = string.Join(",", request.items.Select(x => x.MaterialInternalId))
+            ["items"] = string.Join(",", request.items.Select(x => x.NetsuiteMaterialInternalId))
         };
 
         var Data = await netSuiteApiClientService.NetsuiteQuery<ItemBarcodesPerUoMDTO>("NS_Item_Get_Barcodes", parameters);

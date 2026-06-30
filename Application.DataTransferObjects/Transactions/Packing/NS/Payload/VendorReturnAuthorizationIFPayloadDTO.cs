@@ -39,27 +39,28 @@ public class VendorReturnAuthorizationIFPayloadDTO
                             Quantity = line.ScannedQuantity,
                             InventoryDetail = new InventoryDetail
                             {
-                                InventoryAssignment = new InventoryAssignment
+                                InventoryAssignmentList = new InventoryAssignmentList
                                 {
-                                    Items = new List<InventoryAssignmentItem>
-                                {
-                                    new()
+                                    InventoryAssignment = new InventoryAssignment
                                     {
-                                        InventoryStatus = new ReferenceValue
+                                        Items = new List<InventoryAssignmentItem>
                                         {
-                                            Id = line.IsBad ? "3" : "1"
-                                        },
-                                        BinNumber = new ReferenceValue
-                                        {
-                                            Id = line.IsLocationUsedBin
-                                                ? (line.VendorBinAssignmentId != 0
-                                                        ? line.VendorBinAssignmentId.ToString()
-                                                        : line.NetsuiteMaterialPrefferedBinId.ToString())
-                                                : null
-                                        },
-                                        Quantity = line.ScannedQuantity
+                                            new()
+                                            {
+                                                InventoryStatus = new ReferenceValue
+                                                {
+                                                    Id = line.IsBad ? "3" : "1"
+                                                },
+                                                BinNumber = line.IsLocationUsedBin ? new ReferenceValue
+                                                {
+                                                    Id = line.VendorBinAssignmentId != 0
+                                                                ? line.VendorBinAssignmentId.ToString()
+                                                                : line.NetsuiteMaterialPrefferedBinId.ToString()
+                                                } : null,
+                                                Quantity = line.ScannedQuantity
+                                            }
+                                        }
                                     }
-                                }
                                 }
                             }
                         };

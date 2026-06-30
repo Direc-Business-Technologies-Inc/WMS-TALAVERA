@@ -1,5 +1,6 @@
 ﻿using Application.DataTransferObjects.Transactions.Receiving.NS;
 using Application.DataTransferObjects.Transactions.TripTicket.NS;
+using Application.UseCases.Commands.Transaction.Packing.NS.VendorReturnAuthorization;
 using Application.UseCases.Commands.Transaction.Receiving.NS.PurchaseOrder;
 using Application.UseCases.Commands.Transaction.TripTicket.NS;
 using Application.UseCases.Queries.Transaction.TripTicket.NS;
@@ -26,10 +27,10 @@ public class TripTicketController(ISender Sender) : ControllerBase
     }
 
     [HttpPost("SaveScan")]
-    public async Task<ApiResult> TripTicketSaveScan(PostTripTicketDTO req)
+    public async Task<IActionResult> TripTicketSaveScan(PostTripTicketDTO req)
     {
-        await Sender.Send(new PostTripTicketCmd(req));
+        ApiResult<bool> result = await Sender.Send(new PostTripTicketCmd(req));
 
-        return ApiResult.Succeeded();
+        return StatusCode(result.StatusCode, result);
     }
 }

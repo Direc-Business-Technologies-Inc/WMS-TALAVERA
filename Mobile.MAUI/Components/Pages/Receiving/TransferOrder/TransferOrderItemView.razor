@@ -109,18 +109,101 @@
                         </RadzenTabsItem>
                     </Tabs>
                 </RadzenTabs>
-                <RadzenCard Style="position:fixed; bottom:50px; right:10px; z-index:1000;" class="rz-p-2 rz-border-radius-6 rz-w-fit-content">
-                    <RadzenStack Gap="16px" Orientation="Orientation.Horizontal">
-                        @* <RadzenButton Click="AutofillScan" class="rz-border-radius-5" Icon="check" ButtonStyle="ButtonStyle.Success" /> *@
-                        <RadzenButton class="rz-border-radius-5" Icon="@(NextScanIsBad ? "block" : "check")" ButtonStyle="@(NextScanIsBad? ButtonStyle.Danger: ButtonStyle.Success)"
-                                      Size="ButtonSize.Small" Click="@(args => ToggleQuality())" Disabled="@(ActionSaveScan.Busy || MoveOn)" />
+                <RadzenCard class="floating-scan-actions rz-p-2 rz-border-radius-6">
+                    <RadzenStack Gap="8px" Orientation="Orientation.Vertical">
 
-                        <RadzenButton class="rz-border-radius-5" Icon="@(MoveOn ? "block" : "move_item")" ButtonStyle="@(MoveOn? ButtonStyle.Danger: ButtonStyle.Success)"
-                                      Size="ButtonSize.Small" Click="@(args => ToggleMove())" Disabled="@ActionSaveScan.Busy" />
+                        <RadzenStack Orientation="Orientation.Horizontal"
+                                     AlignItems="AlignItems.Center"
+                                     JustifyContent="JustifyContent.SpaceBetween"
+                                     Gap="8px">
 
-                        <RadzenButton class="rz-border-radius-5" Icon="weight" ButtonStyle="ButtonStyle.Base" Size="ButtonSize.Small" Click="@(args => ToggleWeight())" Disabled="@ActionSaveScan.Busy" />
-                        <RadzenButton class="rz-border-radius-5" Click="@(async () => await SaveScan())" Disabled="@(SaveBtnDisabled || ActionSaveScan.Busy)"
-                                      ButtonStyle="ButtonStyle.Success" Icon="@(ActionSaveScan.Busy ? "schedule" : "save")" />
+                            @if (!IsActionPanelCollapsed)
+                            {
+                                <RadzenText TextStyle="TextStyle.Caption" class="rz-m-0">
+                                    Scan Actions
+                                </RadzenText>
+                            }
+
+                            <RadzenButton Icon="@(IsActionPanelCollapsed ? "keyboard_arrow_up" : "keyboard_arrow_down")"
+                                          Size="ButtonSize.Small"
+                                          ButtonStyle="ButtonStyle.Base"
+                                          Variant="Variant.Flat"
+                                          Click="@ToggleActionPanel" />
+                        </RadzenStack>
+
+                        @if (!IsActionPanelCollapsed)
+                        {
+                            <RadzenStack Gap="14px" Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center">
+
+                                <RadzenStack Gap="4px" Orientation="Orientation.Vertical" AlignItems="AlignItems.Center" class="scan-action-item">
+                                    <RadzenButton Class="rz-border-radius-5"
+                                                  Icon="@ScanStateIcon"
+                                                  ButtonStyle="@ScanStateButtonStyle"
+                                                  Size="ButtonSize.Small"
+                                                  Click="@ToggleScanState"
+                                                  Disabled="@ActionSaveScan.Busy" />
+
+                                    <RadzenText TextStyle="TextStyle.Caption"
+                                                Class="scan-action-label rz-m-0">
+                                        @ScanStateLabel
+                                    </RadzenText>
+                                </RadzenStack>
+
+                                <RadzenStack Gap="4px" Orientation="Orientation.Vertical" AlignItems="AlignItems.Center" class="scan-action-item">
+                                    <RadzenButton class="rz-border-radius-5"
+                                                  Icon="move_item"
+                                                  ButtonStyle="@(MoveOn ? ButtonStyle.Success : ButtonStyle.Base)"
+                                                  Size="ButtonSize.Small"
+                                                  Click="@(args => ToggleMove())"
+                                                  Disabled="@(ActionSaveScan.Busy || NegateQuantity)" />
+
+                                    <RadzenText TextStyle="TextStyle.Caption" class="scan-action-label rz-m-0">
+                                        Move
+                                    </RadzenText>
+                                </RadzenStack>
+
+                                <RadzenStack Gap="4px" Orientation="Orientation.Vertical" AlignItems="AlignItems.Center" class="scan-action-item">
+                                    <RadzenButton class="rz-border-radius-5"
+                                                  Icon="remove"
+                                                  ButtonStyle="@(NegateQuantity ? ButtonStyle.Success : ButtonStyle.Base)"
+                                                  Size="ButtonSize.Small"
+                                                  Click="@(args => ToggleNegateQuantity())"
+                                                  Disabled="@(ActionSaveScan.Busy || MoveOn)" />
+
+                                    <RadzenText TextStyle="TextStyle.Caption" class="scan-action-label rz-m-0">
+                                        Remove
+                                    </RadzenText>
+                                </RadzenStack>
+
+                                <RadzenStack Gap="4px" Orientation="Orientation.Vertical" AlignItems="AlignItems.Center" class="scan-action-item">
+                                    <RadzenButton class="rz-border-radius-5"
+                                                  Icon="balance"
+                                                  ButtonStyle="ButtonStyle.Base"
+                                                  Size="ButtonSize.Small"
+                                                  Click="@(args => ToggleWeight())"
+                                                  Disabled="@ActionSaveScan.Busy" />
+
+                                    <RadzenText TextStyle="TextStyle.Caption" class="scan-action-label rz-m-0">
+                                        Weight
+                                    </RadzenText>
+                                </RadzenStack>
+
+                                <RadzenStack Gap="4px" Orientation="Orientation.Vertical" AlignItems="AlignItems.Center" class="scan-action-item">
+                                    <RadzenButton class="rz-border-radius-5"
+                                                  Icon="@(ActionSaveScan.Busy ? "schedule" : "save")"
+                                                  ButtonStyle="ButtonStyle.Success"
+                                                  Size="ButtonSize.Small"
+                                                  Click="@(async () => await SaveScan())"
+                                                  Disabled="@(SaveBtnDisabled || ActionSaveScan.Busy)" />
+
+                                    <RadzenText TextStyle="TextStyle.Caption" class="scan-action-label rz-m-0">
+                                        Save
+                                    </RadzenText>
+                                </RadzenStack>
+
+                            </RadzenStack>
+                        }
+
                     </RadzenStack>
                 </RadzenCard>
             </RadzenStack>

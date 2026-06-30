@@ -15,7 +15,7 @@ SELECT
 
     loc.name AS LocationName,
     loc.usebins AS IsLocationUsedBin,
-
+        
     tl.id AS LineSequenceNumber,
     tl.transactionlinetype AS TransactionLineType,
 

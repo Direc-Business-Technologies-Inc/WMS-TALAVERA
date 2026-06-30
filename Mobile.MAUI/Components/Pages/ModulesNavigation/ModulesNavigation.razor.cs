@@ -29,6 +29,12 @@ public partial class ModulesNavigation
             case ModuleNavigation.TripTicket:
                 NavManager.NavigateTo("/tripticket/create", true, true);
                 break;
+            case ModuleNavigation.InventoryCounting:
+                NavManager.NavigateTo("/inventorycounting", true, true);
+                break;
+            case ModuleNavigation.InventoryWorksheet:
+                NavManager.NavigateTo("/inventorycounting/worksheet", true, true);
+                break;
         }
     }
 }

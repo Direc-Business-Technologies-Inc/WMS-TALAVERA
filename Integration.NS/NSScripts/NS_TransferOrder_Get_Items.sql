@@ -59,7 +59,7 @@ LEFT JOIN (
 	SELECT 
 		x.transaction,
 		x.item,
-		x.quantityshiprecv,
+		x.quantityshiprecv
 	FROM transactionline x
 	WHERE x.transactionlinetype = 'SHIPPING'
 ) tls ON tls.transaction = tl.transaction

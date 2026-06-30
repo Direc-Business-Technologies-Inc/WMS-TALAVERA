@@ -1,5 +1,5 @@
 SELECT 
-	i.id as MaterialInternalId,
+	i.id as NetsuiteMaterialInternalId,
 	i.itemid as MaterialCode,
 	i.displayname as MaterialName,
 	bc.name as MaterialBarcode,

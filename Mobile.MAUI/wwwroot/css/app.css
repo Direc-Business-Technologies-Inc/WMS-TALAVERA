@@ -284,3 +284,23 @@ div.rz-datalist-content ul.rz-datalist-data > li {
     border: 2px solid #28a745;
     border-radius: 6px;
 }
+
+
+.floating-scan-actions {
+    position: fixed;
+    bottom: 50px;
+    right: 10px;
+    z-index: 1000;
+    width: fit-content;
+}
+
+.scan-action-item {
+    min-width: 48px;
+    text-align: center;
+}
+
+.scan-action-label {
+    font-size: 11px;
+    line-height: 1;
+    white-space: nowrap;
+}

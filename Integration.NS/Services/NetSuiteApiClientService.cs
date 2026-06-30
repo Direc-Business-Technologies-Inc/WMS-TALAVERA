@@ -1,6 +1,8 @@
 ﻿using Application.DataTransferObjects.Others.NS;
 using Application.DataTransferObjects.Transactions.Commons.NS;
 using Application.DataTransferObjects.Transactions.Commons.NS.Payload;
+using Application.DataTransferObjects.Transactions.InventoryCounting.NS;
+using Application.DataTransferObjects.Transactions.InventoryCounting.NS.Payload;
 using Application.DataTransferObjects.Transactions.Packing.NS;
 using Application.DataTransferObjects.Transactions.Packing.NS.Payload;
 using Application.DataTransferObjects.Transactions.Receiving.NS;
@@ -36,6 +38,8 @@ namespace Integration.NS.Services
 
         private static readonly string PatchItemFulfillmentUrl = $"https://{AccountId}.suitetalk.api.netsuite.com/services/rest/record/v1/itemFulfillment/{{0}}";
 
+        private static readonly string PatchInventoryCountUrl = $"https://{AccountId}.suitetalk.api.netsuite.com/services/rest/record/v1/inventorycount/{{0}}";
+
         private static readonly string ItemReceiptUrl = $"https://{AccountId}.suitetalk.api.netsuite.com/services/rest/record/v1/{{0}}/{{1}}/!transform/itemReceipt";
 
         private static readonly string UpdateRecordUrl = $"https://{AccountId}.suitetalk.api.netsuite.com/services/rest/record/v1/{{0}}/{{1}}";
@@ -45,6 +49,8 @@ namespace Integration.NS.Services
         private static readonly string ItemReceiptRestletUrl = $"https://{AccountId}.restlets.api.netsuite.com/app/site/hosting/restlet.nl?script=1853&deploy=1";
 
         private static readonly string TripTicketRestletUrl = $"https://{AccountId}.restlets.api.netsuite.com/app/site/hosting/restlet.nl?script=1862&deploy=1";
+
+        private static readonly string InventoryWorksheetRestletUrl = $"https://{AccountId}.restlets.api.netsuite.com/app/site/hosting/restlet.nl?script=1878&deploy=1";
 
         private static readonly string ApiConsumerKey = Environment.GetEnvironmentVariable("NETSUITE_CONSUMER_KEY") ?? string.Empty;
 
@@ -217,58 +223,19 @@ namespace Integration.NS.Services
             {
                 var responseJson = await httpResponse.Content.ReadAsStringAsync();
                 //_logger.LogDebug("SuiteQLQuery Result: {@Result}", responseJson);
-                if (string.IsNullOrEmpty(responseJson)) throw new Exception("Empty response from NetSuite API");
+                if (string.IsNullOrWhiteSpace(responseJson))
+                {
+                    return default;
+                }
 
-                var response = JsonSerializer.Deserialize<T>(responseJson, JsonSerializerOption);
+                var response = JsonSerializer.Deserialize<T>(responseJson, JsonSerializerRequestOption);
                 if (response == null) throw new Exception("Bad response from NetSuite API");
                 return response;
-                T obj = System.Text.Json.JsonSerializer.Deserialize<T>(responseJson, JsonSerializerRequestOption);
-                return obj;
             }
 
             throw new Exception($"Request failed with status code: {httpResponse.StatusCode}");
         }
 
-        async Task<T> MakePatchRequest<T>(string url, string? reqBody)
-        {
-            if (_accessToken == null || DateTime.Now >= _tokenExpiryTime)
-                _accessToken = await GetAccessToken();
-
-            using var httpRequest = new HttpRequestMessage(HttpMethod.Patch, url);
-
-            httpRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _accessToken);
-
-            // Add other custom headers
-            httpRequest.Headers.Add("Prefer", "transient");
-
-            if (!string.IsNullOrEmpty(reqBody))
-            {
-                //_logger.LogDebug("SuiteQLQuery Request: {@Request}", reqBody);
-                httpRequest.Content = new StringContent(reqBody, Encoding.UTF8, "application/json");
-            }
-
-            var httpResponse = await _httpClient.SendAsync(httpRequest);
-
-            if (httpResponse.IsSuccessStatusCode)
-            {
-                var responseJson = await httpResponse.Content.ReadAsStringAsync();
-                //_logger.LogDebug("SuiteQLQuery Result: {@Result}", responseJson);
-                if (string.IsNullOrEmpty(responseJson))
-                {
-                    return default(T);
-                }
-
-                T obj = System.Text.Json.JsonSerializer.Deserialize<T>(responseJson, JsonSerializerRequestOption);
-                return obj;
-            }
-            var errorBody = await httpResponse.Content.ReadAsStringAsync();
-            throw new Exception($"Request failed with status code: {httpResponse.StatusCode}\n Error Message: {errorBody}");
-        }
-        async Task<T> MakeRequest<T>(string url, string? reqBody = null)
-        {
-            return await MakeRequest<T>(url, reqBody, HttpMethod.Post);
-        }
-        
         public async Task<T> MakeRequestOAuth1<T>(string url, string? reqBody)
         {
             string consumerKey = Environment.GetEnvironmentVariable("OAUTH1_CONSUMER_KEY") ?? "";
@@ -372,7 +339,7 @@ namespace Integration.NS.Services
                 return System.Text.Json.JsonSerializer.Deserialize<T>(responseJson);
             }
 
-            var errorMessage = await  httpResponse.Content.ReadAsStringAsync();
+            var errorMessage = await httpResponse.Content.ReadAsStringAsync();
             throw new Exception($"Request failed with status code: {httpResponse.StatusCode}");
         }
 
@@ -415,7 +382,7 @@ namespace Integration.NS.Services
                 q = FormatQuery(query)
             });
 
-            var result = await MakeRequest<NetSuiteResponse<T>>(url, jsonBody);
+            var result = await MakeRequest<NetSuiteResponse<T>>(url, jsonBody, HttpMethod.Post);
 
             return result.items;
         }
@@ -430,58 +397,65 @@ namespace Integration.NS.Services
 
             var jsonBody = JsonSerializer.Serialize(new { q = query });
 
-            return await MakeRequest<NetSuiteResponse<T>>(url, jsonBody);
+            return await MakeRequest<NetSuiteResponse<T>>(url, jsonBody, HttpMethod.Post);
         }
 
         #region Receiving
         public async Task<bool> SavePOItemReceipt(List<PostPurchaseOrderDTO> Data)
         {
-            try
+
+            var orderId = Data.Select(x => x.NetsuiteOrderInternalId).FirstOrDefault();
+            string url = string.Format(ItemReceiptUrl, "purchaseOrder", orderId);
+
+            var badPO = Data.Where(x => x.IsBad).ToList();
+
+            if (badPO.Any(x => x.ScannedQuantity > 0))
             {
-                var orderId = Data.Select(x => x.NetsuiteOrderInternalId).FirstOrDefault();
-                string url = string.Format(ItemReceiptUrl, "purchaseOrder", orderId);
-
-                var badPO = Data.Where(x => x.IsBad).ToList();
-
-                if (badPO.Any(x => x.ScannedQuantity > 0))
+                try
                 {
                     var payloadBad = PurchaseOrderIRPayloadDTO.CreateForItemReceipt(badPO, 2);
 
                     var jsonStringBad = JsonSerializer.Serialize(payloadBad, JsonSerializerOption);
 
-                    await MakeRequest<object>(url, jsonStringBad);
+                    await MakeRequest<object>(url, jsonStringBad, HttpMethod.Post);
                 }
+                catch (Exception ex)
+                {
+                    throw new Exception($"Error while posting BAD PO Item Receipt. {ex.Message}", ex);
+                }
+            }
 
-                var goodPO = Data.Where(x => !x.IsBad).ToList();
+            var goodPO = Data.Where(x => !x.IsBad).ToList();
 
-                if (goodPO.Any())
+            if (goodPO.Any())
+            {
+                try
                 {
                     var payloadGood = PurchaseOrderIRPayloadDTO.CreateForItemReceipt(goodPO, 1);
 
                     var jsonStringGood = JsonSerializer.Serialize(payloadGood, JsonSerializerOption);
 
-                    await MakeRequest<object>(url, jsonStringGood);
+                    await MakeRequest<object>(url, jsonStringGood, HttpMethod.Post);
                 }
-
-                return true;
-
+                catch (Exception ex)
+                {
+                    throw new Exception($"Error while posting GOOD PO Item Receipt. {ex.Message}", ex);
+                }
             }
-            catch (Exception ex)
-            {
-                throw new Exception("An error occurred in saving Purchase Order");
-            }
+
+            return true;
         }
 
         public async Task<bool> SaveTOItemReceipt(List<PostTransferOrderDTO> Data)
         {
-            try
+            var orderId = Data.Select(x => x.NetsuiteOrderInternalId).FirstOrDefault();
+            string url = ItemReceiptRestletUrl;
+
+            var badTO = Data.Where(x => x.IsBad).ToList();
+
+            if (badTO.Any(x => x.ScannedQuantity > 0))
             {
-                var orderId = Data.Select(x => x.NetsuiteOrderInternalId).FirstOrDefault();
-                string url = ItemReceiptRestletUrl;
-
-                var badTO = Data.Where(x => x.IsBad).ToList();
-
-                if (badTO.Any(x => x.ScannedQuantity > 0))
+                try
                 {
                     var payloadBad = TransferOrderIRRestletPayloadDTO.CreateForItemReceiptRestlet(badTO, orderId, 3);
 
@@ -489,10 +463,17 @@ namespace Integration.NS.Services
 
                     await MakeRequestOAuth1<object>(url, jsonStringBad);
                 }
+                catch (Exception ex)
+                {
+                    throw new Exception($"Error while posting BAD TO Item Receipt. {ex.Message}", ex);
+                }
+            }
 
-                var goodTO = Data.Where(x => !x.IsBad).ToList();
+            var goodTO = Data.Where(x => !x.IsBad).ToList();
 
-                if (goodTO.Any())
+            if (goodTO.Any())
+            {
+                try
                 {
                     var payloadGood = TransferOrderIRRestletPayloadDTO.CreateForItemReceiptRestlet(goodTO, orderId, 1);
 
@@ -500,22 +481,22 @@ namespace Integration.NS.Services
 
                     await MakeRequestOAuth1<object>(url, jsonStringGood);
                 }
-                return true;
+                catch (Exception ex)
+                {
+                    throw new Exception($"Error while posting GOOD TO Item Receipt. {ex.Message}", ex);
+                }
+            }
 
-            }
-            catch (Exception ex)
-            {
-                throw new Exception("An error occurred in saving Transfer Order");
-            }
+            return true;
         }
 
         public async Task<bool> SaveReturnsItemReceipt(List<PostReturnsDTO> Data)
         {
+            var orderId = Data.Select(x => x.NetsuiteOrderInternalId).FirstOrDefault();
+            string url = string.Format(ItemReceiptUrl, "transferOrder", orderId);
+
             try
             {
-                var orderId = Data.Select(x => x.NetsuiteOrderInternalId).FirstOrDefault();
-                string url = string.Format(ItemReceiptUrl, "transferOrder", orderId);
-
                 var transferCategory = (TransferCategory)Data.Select(x => x.TransferCategory).FirstOrDefault();
 
                 var receivingCategory = transferCategory == TransferCategory.GoodItems ? 1 : 2;
@@ -524,111 +505,123 @@ namespace Integration.NS.Services
 
                 var jsonStringGood = JsonSerializer.Serialize(payloadGood, JsonSerializerOption);
 
-                await MakeRequest<object>(url, jsonStringGood);
-
-                return true;
+                await MakeRequest<object>(url, jsonStringGood, HttpMethod.Post);
             }
             catch (Exception ex)
             {
-                throw new Exception("An error occurred in saving Returns");
+                throw new Exception($"Error while posting Returns Item Receipt. {ex.Message}", ex);
             }
+
+            return true;
         }
         #endregion
 
         #region Itemfulfillment
         public async Task<bool> SaveTOItemFulfillment(List<PostTransferOrderDTO> Data)
         {
-            try
+            var orderId = Data.Select(x => x.NetsuiteOrderInternalId).FirstOrDefault();
+            string url = string.Format(ItemFulfillmentUrl, "transferOrder", orderId);
+
+            var badTO = Data.Where(x => x.IsBad).ToList();
+
+            if (badTO.Any(x => x.ScannedQuantity > 0))
             {
-                var orderId = Data.Select(x => x.NetsuiteOrderInternalId).FirstOrDefault();
-                string url = string.Format(ItemFulfillmentUrl, "transferOrder", orderId);
-
-                var badTO = Data.Where(x => x.IsBad).ToList();
-
-                if (badTO.Any(x => x.ScannedQuantity > 0))
+                try
                 {
                     var payloadBad = TransferOrderIFPayloadDTO.CreateForItemFulfillment(badTO, "B");
 
                     var jsonStringBad = JsonSerializer.Serialize(payloadBad, JsonSerializerOption);
 
-                    await MakeRequest<object>(url, jsonStringBad);
+                    await MakeRequest<object>(url, jsonStringBad, HttpMethod.Post);
                 }
+                catch (Exception ex)
+                {
+                    throw new Exception($"Error while posting BAD TO Item Fulfillment. {ex.Message}", ex);
+                }
+            }
 
-                var goodTO = Data.Where(x => !x.IsBad).ToList();
+            var goodTO = Data.Where(x => !x.IsBad).ToList();
 
-                if (goodTO.Any())
+            if (goodTO.Any())
+            {
+                try
                 {
                     var payloadGood = TransferOrderIFPayloadDTO.CreateForItemFulfillment(goodTO, "B");
 
                     var jsonStringGood = JsonSerializer.Serialize(payloadGood, JsonSerializerOption);
 
-                    await MakeRequest<object>(url, jsonStringGood);
+                    await MakeRequest<object>(url, jsonStringGood, HttpMethod.Post);
                 }
-                return true;
-
+                catch (Exception ex)
+                {
+                    throw new Exception($"Error while posting GOOD TO Item Fulfillment. {ex.Message}", ex);
+                }
             }
-            catch (Exception ex)
-            {
-                throw new Exception("An error occurred in saving ItemFulfillment Transfer Order", ex);
-            }
+            return true;
         }
 
         public async Task<bool> SaveReturnsItemFulfillment(List<PostReturnsDTO> Data)
         {
+            var orderId = Data.Select(x => x.NetsuiteOrderInternalId).FirstOrDefault();
+            string url = string.Format(ItemFulfillmentUrl, "transferOrder", orderId);
+
             try
             {
-                var orderId = Data.Select(x => x.NetsuiteOrderInternalId).FirstOrDefault();
-                string url = string.Format(ItemFulfillmentUrl, "transferOrder", orderId);
-
                 ReturnsIFPayloadDTO payloadGood = ReturnsIFPayloadDTO.CreateForItemFulfillment(Data, "B");
 
                 var jsonStringGood = JsonSerializer.Serialize(payloadGood, JsonSerializerOption);
 
-                await MakeRequest<object>(url, jsonStringGood);
-
-                return true;
+                await MakeRequest<object>(url, jsonStringGood, HttpMethod.Post);
             }
             catch (Exception ex)
             {
-                throw new Exception("An error occurred in saving ItemFulfillment Returns", ex);
+                throw new Exception($"Error while posting Returns Item Fulfillment. {ex.Message}", ex);
             }
+
+            return true;
         }
 
         public async Task<bool> SaveVRAItemFulfillment(List<PostVendorReturnAuthorizationDTO> Data)
         {
-            try
+            var orderId = Data.Select(x => x.NetsuiteOrderInternalId).FirstOrDefault();
+            string url = string.Format(ItemFulfillmentUrl, "vendorReturnAuthorization", orderId);
+
+            var badTO = Data.Where(x => x.IsBad).ToList();
+
+            if (badTO.Any(x => x.ScannedQuantity > 0))
             {
-                var orderId = Data.Select(x => x.NetsuiteOrderInternalId).FirstOrDefault();
-                string url = string.Format(ItemFulfillmentUrl, "vendorReturnAuthorization", orderId);
-
-                var badTO = Data.Where(x => x.IsBad).ToList();
-
-                if (badTO.Any(x => x.ScannedQuantity > 0))
+                try
                 {
                     var payloadBad = VendorReturnAuthorizationIFPayloadDTO.CreateForItemFulfillment(badTO, "B");
 
                     var jsonStringBad = JsonSerializer.Serialize(payloadBad, JsonSerializerOption);
 
-                    await MakeRequest<object>(url, jsonStringBad);
+                    await MakeRequest<object>(url, jsonStringBad, HttpMethod.Post);
                 }
+                catch (Exception ex)
+                {
+                    throw new Exception($"Error while posting BAD VRA Item Fulfillment. {ex.Message}", ex);
+                }
+            }
 
-                var goodTO = Data.Where(x => !x.IsBad).ToList();
+            var goodTO = Data.Where(x => !x.IsBad).ToList();
 
-                if (goodTO.Any())
+            if (goodTO.Any())
+            {
+                try
                 {
                     var payloadGood = VendorReturnAuthorizationIFPayloadDTO.CreateForItemFulfillment(goodTO, "B");
 
                     var jsonStringGood = JsonSerializer.Serialize(payloadGood, JsonSerializerOption);
 
-                    await MakeRequest<object>(url, jsonStringGood);
+                    await MakeRequest<object>(url, jsonStringGood, HttpMethod.Post);
                 }
-                return true;
-
+                catch (Exception ex)
+                {
+                    throw new Exception($"Error while posting GOOD VRA Item Fulfillment. {ex.Message}", ex);
+                }
             }
-            catch (Exception ex)
-            {
-                throw new Exception("An error occurred in saving ItemFulfillment Vendor Return Authorization", ex);
-            }
+            return true;
         }
         #endregion
 
@@ -641,17 +634,24 @@ namespace Integration.NS.Services
 
                 string url = TripTicketRestletUrl;
 
-                TripTicketPayloadDTO payload = TripTicketPayloadDTO.CreateTripTicket(Data);
+                try
+                {
+                    TripTicketPayloadDTO payload = TripTicketPayloadDTO.CreateTripTicket(Data);
 
-                var jsonStringGood = JsonSerializer.Serialize(payload, JsonSerializerOption);
+                    var jsonStringGood = JsonSerializer.Serialize(payload, JsonSerializerOption);
 
-                await MakeRequestOAuth1<object>(url, jsonStringGood);
+                    await MakeRequestOAuth1<object>(url, jsonStringGood);
+                }
+                catch (Exception ex)
+                {
+                    throw new Exception($"Error while posting Trip Ticket. {ex.Message}", ex);
+                }
 
                 return true;
             }
             catch (Exception ex)
             {
-                throw new Exception("An error occurred in saving TripTicket", ex);
+                throw;
             }
         }
 
@@ -659,7 +659,7 @@ namespace Integration.NS.Services
         {
             try
             {
-                foreach(var itemfulfillments in Data.ItemFulfillments)
+                foreach (var itemfulfillments in Data.ItemFulfillments)
                 {
                     string url = string.Format(PatchItemFulfillmentUrl, itemfulfillments.NetsuiteOrderInternalId);
 
@@ -667,7 +667,7 @@ namespace Integration.NS.Services
 
                     var jsonStringGood = JsonSerializer.Serialize(payload, JsonSerializerOption);
 
-                    await MakePatchRequest<object>(url, jsonStringGood);
+                    await MakeRequest<object>(url, jsonStringGood, HttpMethod.Patch);
                 }
 
                 return true;
@@ -680,6 +680,65 @@ namespace Integration.NS.Services
 
         public string GetRestAPIURI => RestApiRoot;
         public string GetRestletURI => $"https://{AccountId}.restlets.api.netsuite.com/app/site/hosting/restlet.nl";
+        #endregion
+
+        #region Inventory Counting
+        public async Task<bool> PatchInventoryCounting(List<PatchInventoryCountingDTO> Data)
+        {
+            var orderId = Data.Select(x => x.NetsuiteOrderInternalId).FirstOrDefault();
+            string url = string.Format(PatchInventoryCountUrl, orderId);
+
+            //var badPO = Data.Where(x => x.IsBad).ToList();
+
+            //if (badPO.Any(x => x.ScannedQuantity > 0))
+            //{
+            //    var payloadBad = PurchaseOrderIRPayloadDTO.CreateForItemReceipt(badPO, 2);
+
+            //    var jsonStringBad = JsonSerializer.Serialize(payloadBad, JsonSerializerOption);
+
+            //    await MakeRequest<object>(url, jsonStringBad);
+            //}
+
+            var goodIC = Data.Where(x => !x.IsBad).ToList();
+
+            if (goodIC.Any())
+            {
+                try
+                {
+                    var payloadGood = PatchInventoryCountingPayloadDTO.PatchInventoryCounting(goodIC);
+
+                    var jsonStringGood = JsonSerializer.Serialize(payloadGood, JsonSerializerOption);
+
+                    await MakeRequest<object>(url, jsonStringGood, HttpMethod.Patch);
+                }
+                catch (Exception ex)
+                {
+                    throw new Exception($"Error while posting GOOD Inventory Counting. {ex.Message}", ex);
+                }
+            }
+
+            return true;
+        }
+
+        public async Task<bool> PostInventoryWorksheet(List<InventoryWorksheetLineDTO> Data, int Location)
+        {
+            string url = InventoryWorksheetRestletUrl;
+
+            try
+            {
+                var payloadGood = PostInventoryWorksheetPayload.PostInventoryWorksheet(Data, Location);
+
+                var jsonStringGood = JsonSerializer.Serialize(payloadGood, JsonSerializerOption);
+
+                await MakeRequestOAuth1<object>(url, jsonStringGood);
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Error while posting Inventory Worksheet. {ex.Message}", ex);
+            }
+
+            return true;
+        }
         #endregion
     }
 }

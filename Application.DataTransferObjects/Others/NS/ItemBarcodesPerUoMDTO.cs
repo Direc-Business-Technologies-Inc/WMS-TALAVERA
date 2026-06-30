@@ -1,10 +1,9 @@
-﻿namespace Application.DataTransferObjects.Others.NS;
+﻿using Application.DataTransferObjects.Transactions.Commons.NS;
 
-public class ItemBarcodesPerUoMDTO
+namespace Application.DataTransferObjects.Others.NS;
+
+public class ItemBarcodesPerUoMDTO : InventoryItemDTO
 {
-    public int MaterialInternalId { get; set; }
-    public string MaterialCode { get; set; }
-    public string MaterialName { get; set; }
     public string MaterialBarcode { get; set; }
 
     public string UoMName { get; set; }

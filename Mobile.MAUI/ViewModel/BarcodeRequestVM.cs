@@ -2,5 +2,5 @@
 
 public class BarcodeRequestVM
 {
-    public int MaterialInternalId { get; set; }
+    public int NetsuiteMaterialInternalId { get; set; }
 }

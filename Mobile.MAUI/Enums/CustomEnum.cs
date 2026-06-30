@@ -24,5 +24,16 @@ public class CustomEnum
         Packing = 2,
         [Description("TripTicket")]
         TripTicket = 3,
+        [Description("InventoryCounting")]
+        InventoryCounting = 4,
+        [Description("InventoryWorksheet")]
+        InventoryWorksheet = 5,
+    }
+
+    public enum ToggleState
+    {
+        Base = 0,
+        Good = 1,
+        Bad = 2
     }
 }

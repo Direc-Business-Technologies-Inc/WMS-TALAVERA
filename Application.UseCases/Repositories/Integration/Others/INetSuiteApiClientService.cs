@@ -1,7 +1,8 @@
 ﻿using Application.DataTransferObjects.Others.NS;
-using Application.DataTransferObjects.Transactions.Receiving;
 ﻿using Application.DataTransferObjects.Transactions.Commons.NS;
+using Application.DataTransferObjects.Transactions.InventoryCounting.NS;
 using Application.DataTransferObjects.Transactions.Packing.NS;
+using Application.DataTransferObjects.Transactions.Receiving;
 using Application.DataTransferObjects.Transactions.Receiving.NS;
 using Application.DataTransferObjects.Transactions.TripTicket.NS;
 using System.ComponentModel;
@@ -29,4 +30,7 @@ public interface INetSuiteApiClientService : INotifyPropertyChanged
     Task<bool> SaveVRAItemFulfillment(List<PostVendorReturnAuthorizationDTO> Data);
 
     Task<bool> SaveTripTicket(PostTripTicketDTO Data);
+
+    Task<bool> PatchInventoryCounting(List<PatchInventoryCountingDTO> Data);
+    Task<bool> PostInventoryWorksheet(List<InventoryWorksheetLineDTO> Data, int Location);
 }

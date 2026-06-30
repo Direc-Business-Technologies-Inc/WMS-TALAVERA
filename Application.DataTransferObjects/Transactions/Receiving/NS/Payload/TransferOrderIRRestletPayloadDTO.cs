@@ -27,6 +27,8 @@ public class TransferOrderIRRestletPayloadDTO
                 OrderLine = line.LineSequenceNumber,
                 Quantity = line.ScannedQuantity,
                 Rate = line.IsBad ? 0 : null,
+                RecordWeight = line.TotalWeight,
+                ActualWeight = line.ScannedWeight,
 
                 InventoryDetail = new List<LinesInventoryDetail>
                 {
@@ -47,6 +49,12 @@ public class TransferOrderIRRestletPayloadDTO
 
         [JsonPropertyName("quantity")]
         public decimal? Quantity { get; set; }
+
+        [JsonPropertyName("recWeight")]
+        public decimal? RecordWeight { get; set; }
+
+        [JsonPropertyName("actualWeight")]
+        public decimal? ActualWeight { get; set; }
 
         [JsonPropertyName("rate")]
         public decimal? Rate { get; set; }

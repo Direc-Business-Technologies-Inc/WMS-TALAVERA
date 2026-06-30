@@ -7,6 +7,7 @@ using static Mobile.MAUI.MauiProgram;
 using AppAction = Mobile.MAUI.Services.AppAction;
 using Radzen.Blazor;
 using Shared.Libraries.ViewModel.VendorReturnAuthorization;
+using static Mobile.MAUI.Enums.CustomEnum;
 
 namespace Mobile.MAUI.Components.Pages.Packing.VendorReturnAuthorization;
 
@@ -20,7 +21,7 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
     AppAction<List<VendorReturnAuthorizationLineVM>> ActionGetVRAItems { get; set; }
     AppAction<List<ItemBarcodesPerUoMVM>> ActionGetItemBarcodes { get; set; }
     AppAction ActionUpdateStartTime { get; set; }
-    AppAction ActionSaveScan { get; set; }
+    AppAction<bool> ActionSaveScan { get; set; }
 
     List<VendorReturnAuthorizationLineVM> GoodVRAItems = [];
     List<VendorReturnAuthorizationLineVM> BadVRAItems = [];
@@ -31,7 +32,6 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
 
     VendorReturnAuthorizationLineVM? GoodSelectedLine;
     VendorReturnAuthorizationLineVM? BadSelectedLine;
-    //VRALineVM? LastScanned => VRAItems.OrderByDescending(x => x.ScanCount).FirstOrDefault();
 
     int ScanCount { get; set; }
     int ActiveTabIndex { get; set; } = 0;
@@ -39,11 +39,13 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
     bool SaveBtnDisabled => ScanCount == 0;
     bool NextScanIsBad = false;
     bool MoveOn = false;
-    bool IsWeightDialogOpen = false;
+    //bool IsWeightDialogOpen = false; // Commented out: Weighing feature
 
-    decimal? ChangeWeight = null;
+    //decimal? ChangeWeight = null; // Commented out: Weighing feature
+
     protected override async Task OnInitializedAsync()
     {
+        // ... (no weighing logic here)
         ActionGetVRAItems = new AppAction<List<VendorReturnAuthorizationLineVM>>
         {
             Name = "GetVRAItems",
@@ -150,17 +152,23 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
             },
         };
 
-        ActionSaveScan = new AppAction
+        ActionSaveScan = new AppAction<bool>
         {
             Name = "SavePurchaseOrderScan",
             TaskAsync = async () =>
             {
                 await InvokeAsync(StateHasChanged);
-                var res = await Client.Post("/Packing/VendorReturnAuthorization/SaveScan", VRAItems);
+                var res = await Client.Post<bool>("/Packing/VendorReturnAuthorization/SaveScan", VRAItems);
                 return res;
             },
             OnSuccess = async (result) =>
             {
+                if (!result.Success)
+                {
+                    await Toast.Error(result.ErrorMessage);
+                    return;
+                }
+
                 await Toast.Success("Scanned items saved sucessfully");
                 NavManager.NavigateTo("/packing");
             }
@@ -177,7 +185,7 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
 
             ItemRequest = GoodVRAItems.Select(i => new BarcodeRequestVM
             {
-                MaterialInternalId = i.NetsuiteMaterialInternalId,
+                NetsuiteMaterialInternalId = i.NetsuiteMaterialInternalId,
             }).ToList();
 
             await ActionFactory.ExecuteAppActionAsync(ActionGetItemBarcodes);
@@ -238,6 +246,8 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
     {
         try
         {
+            if (ScanState == ToggleState.Base && !MoveOn && !NegateQuantity) return;
+
             VendorReturnAuthorizationLineVM? badLine;
 
             var scanned = message?.Trim();
@@ -248,6 +258,12 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
             if (MoveOn)
             {
                 await MoveScan(scanned);
+                return;
+            }
+
+            if (NegateQuantity)
+            {
+                await NegateScannedItem(scanned);
                 return;
             }
 
@@ -262,7 +278,7 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
             }
 
             var goodLine = GoodVRAItems.FirstOrDefault(x =>
-                    x.NetsuiteMaterialInternalId == barcode.MaterialInternalId &&
+                    x.NetsuiteMaterialInternalId == barcode.NetsuiteMaterialInternalId &&
                     (GoodSelectedLine == null ||
                      x.LineSequenceNumber == GoodSelectedLine.LineSequenceNumber));
 
@@ -270,14 +286,14 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
             if (NextScanIsBad)
             {
                 badLine = BadVRAItems.FirstOrDefault(x =>
-                    x.NetsuiteMaterialInternalId == barcode.MaterialInternalId &&
+                    x.NetsuiteMaterialInternalId == barcode.NetsuiteMaterialInternalId &&
                     (GoodSelectedLine == null ||
                      x.LineSequenceNumber == GoodSelectedLine.LineSequenceNumber));
             }
             else
             {
                 badLine = BadVRAItems.FirstOrDefault(x =>
-                    x.NetsuiteMaterialInternalId == barcode.MaterialInternalId &&
+                    x.NetsuiteMaterialInternalId == barcode.NetsuiteMaterialInternalId &&
                     (BadSelectedLine == null ||
                      x.LineSequenceNumber == BadSelectedLine.LineSequenceNumber));
             }
@@ -311,57 +327,57 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
                 return;
             }
 
-            if (IsWeightDialogOpen)
-            {
-                return;
-            }
+            //if (IsWeightDialogOpen)
+            //{
+            //    return;
+            //}
 
             if (NextScanIsBad)
             {
-                ChangeWeight = await GetWeightAsync(barcode.MaterialName);
+                //ChangeWeight = await GetWeightAsync(barcode.MaterialName, barcode.UoMName);
 
-                if (!ChangeWeight.HasValue || ChangeWeight.Value == 0m)
-                {
-                    await Toast.Warning("Scan cancelled - no weight entered");
-                    return;
-                }
+                //if (!ChangeWeight.HasValue || ChangeWeight.Value == 0m)
+                //{
+                //    await Toast.Warning("Scan cancelled - no weight entered");
+                //    return;
+                //}
 
                 badLine.ScannedQuantity += barcode.UoMRate / badLine.UoMRate;
-                badLine.ScannedWeight += barcode.UoMRate * (ChangeWeight ?? 0m);
+                //badLine.ScannedWeight += ChangeWeight ?? 0m;
                 badLine.ScanCount++;
             }
             else
             {
-                decimal? weight = null;
+                //decimal? weight = null;
 
-                if (ChangeWeight.HasValue)
-                {
-                    weight = ChangeWeight;
-                }
-                else if (!goodLine.DefaultWeight.HasValue)
-                {
-                    weight = await GetWeightAsync(barcode.MaterialName);
+                //if (ChangeWeight.HasValue)
+                //{
+                //    weight = ChangeWeight;
+                //}
+                //else if (!goodLine.DefaultWeight.HasValue)
+                //{
+                //    weight = await GetWeightAsync(barcode.MaterialName, barcode.UoMName);
 
-                    if (!weight.HasValue || weight.Value == 0m)
-                    {
-                        await Toast.Warning("Scan cancelled - no weight entered");
-                        return;
-                    }
+                //    if (!weight.HasValue || weight.Value == 0m)
+                //    {
+                //        await Toast.Warning("Scan cancelled - no weight entered");
+                //        return;
+                //    }
 
-                    goodLine.DefaultWeight = weight;
-                }
-                else
-                {
-                    weight = goodLine.DefaultWeight;
-                }
+                //    goodLine.DefaultWeight = weight;
+                //}
+                //else
+                //{
+                //    weight = goodLine.DefaultWeight;
+                //}
 
                 goodLine.ScannedQuantity += barcode.UoMRate / goodLine.UoMRate;
-                goodLine.ScannedWeight += barcode.UoMRate * (weight ?? 0m);
+                //goodLine.ScannedWeight += weight ?? 0m;
                 goodLine.ScanCount++;
             }
 
             ScanCount++;
-            ChangeWeight = null; // reset the ChangeWeight after each scan
+            //ChangeWeight = null; // reset the ChangeWeight after each scan
 
             await InvokeAsync(StateHasChanged);
         }
@@ -430,9 +446,22 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
         InvokeAsync(StateHasChanged);
     }
 
-    async void ToggleWeight()
+    private bool NegateQuantity;
+    private void ToggleNegateQuantity()
     {
-        ChangeWeight = await GetWeightAsync("");
+        NegateQuantity = !NegateQuantity;
+        MoveOn = false;
+    }
+
+    //async void ToggleWeight()
+    //{
+    //    ChangeWeight = await GetWeightAsync("", "");
+    //}
+
+    private bool IsActionPanelCollapsed;
+    private void ToggleActionPanel()
+    {
+        IsActionPanelCollapsed = !IsActionPanelCollapsed;
     }
 
     async Task MoveScan(string scanned)
@@ -455,25 +484,25 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
             if (ActiveTabIndex == 1)
             {
                 goodLine = GoodVRAItems.FirstOrDefault(x =>
-                x.NetsuiteMaterialInternalId == barcode.MaterialInternalId &&
+                x.NetsuiteMaterialInternalId == barcode.NetsuiteMaterialInternalId &&
                 (BadSelectedLine == null ||
                  x.LineSequenceNumber == BadSelectedLine.LineSequenceNumber));
 
                 badLine = BadVRAItems.FirstOrDefault(x =>
-                    x.NetsuiteMaterialInternalId == barcode.MaterialInternalId &&
+                    x.NetsuiteMaterialInternalId == barcode.NetsuiteMaterialInternalId &&
                     (BadSelectedLine == null ||
                      x.LineSequenceNumber == BadSelectedLine.LineSequenceNumber));
             }
             else
             {
                 goodLine = GoodVRAItems.FirstOrDefault(x =>
-                x.NetsuiteMaterialInternalId == barcode.MaterialInternalId &&
+                x.NetsuiteMaterialInternalId == barcode.NetsuiteMaterialInternalId &&
                 (GoodSelectedLine == null ||
                  x.LineSequenceNumber == GoodSelectedLine.LineSequenceNumber));
 
 
                 badLine = BadVRAItems.FirstOrDefault(x =>
-                    x.NetsuiteMaterialInternalId == barcode.MaterialInternalId &&
+                    x.NetsuiteMaterialInternalId == barcode.NetsuiteMaterialInternalId &&
                     (GoodSelectedLine == null ||
                      x.LineSequenceNumber == GoodSelectedLine.LineSequenceNumber));
             }
@@ -487,10 +516,10 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
             var badlineTotal = badLine.ScannedQuantity;
             var goodLineTotal = goodLine.ScannedQuantity;
 
-            if (IsWeightDialogOpen)
-            {
-                return;
-            }
+            //if (IsWeightDialogOpen)
+            //{
+            //    return;
+            //}
 
             if (ActiveTabIndex == 1)
             {
@@ -500,16 +529,16 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
                     return;
                 }
 
-                ChangeWeight = await GetWeightAsync(barcode.MaterialName);
+                //ChangeWeight = await GetWeightAsync(barcode.MaterialName, barcode.UoMName);
 
-                if (!ChangeWeight.HasValue || ChangeWeight.Value == 0m)
-                {
-                    await Toast.Warning("Scan cancelled - no weight entered");
-                    return;
-                }
+                //if (!ChangeWeight.HasValue || ChangeWeight.Value == 0m)
+                //{
+                //    await Toast.Warning("Scan cancelled - no weight entered");
+                //    return;
+                //}
 
                 var badScannedQuantity = barcode.UoMRate / badLine.UoMRate;
-                var badScannedWeight = barcode.UoMRate * (ChangeWeight ?? 0m);
+                //var badScannedWeight = ChangeWeight ?? 0m;
 
                 if (badLine.ScannedQuantity < badScannedQuantity)
                 {
@@ -518,10 +547,10 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
                 }
 
                 badLine.ScannedQuantity -= badScannedQuantity;
-                badLine.ScannedWeight -= badScannedWeight;
+                //badLine.ScannedWeight -= badScannedWeight;
 
                 goodLine.ScannedQuantity += badScannedQuantity;
-                goodLine.ScannedWeight += badScannedWeight;
+                //goodLine.ScannedWeight += badScannedWeight;
 
                 badLine.ScanCount++;
             }
@@ -533,16 +562,16 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
                     return;
                 }
 
-                decimal? weight = await GetWeightAsync(barcode.MaterialName);
+                //decimal? weight = await GetWeightAsync(barcode.MaterialName, barcode.UoMName);
 
-                if (!weight.HasValue || weight.Value == 0m)
-                {
-                    await Toast.Warning("Scan cancelled - no weight entered");
-                    return;
-                }
+                //if (!weight.HasValue || weight.Value == 0m)
+                //{
+                //    await Toast.Warning("Scan cancelled - no weight entered");
+                //    return;
+                //}
 
                 var goodScannedQuantity = barcode.UoMRate / goodLine.UoMRate;
-                var goodScannedWeight = barcode.UoMRate * (weight ?? 0m);
+                //var goodScannedWeight = weight ?? 0m;
 
                 if (goodLine.ScannedQuantity < goodScannedQuantity)
                 {
@@ -551,16 +580,16 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
                 }
 
                 goodLine.ScannedQuantity -= goodScannedQuantity;
-                goodLine.ScannedWeight -= goodScannedWeight;
+                //goodLine.ScannedWeight -= goodScannedWeight;
 
                 badLine.ScannedQuantity += goodScannedQuantity;
-                badLine.ScannedWeight += goodScannedWeight;
+                //badLine.ScannedWeight += goodScannedWeight;
 
                 goodLine.ScanCount++;
             }
 
             ScanCount++;
-            ChangeWeight = null; // reset the ChangeWeight after each scan
+            //ChangeWeight = null; // reset the ChangeWeight after each scan
 
             await InvokeAsync(StateHasChanged);
         }
@@ -570,25 +599,152 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
         }
     }
 
-    private async Task<decimal?> GetWeightAsync(string itemName)
+    async Task NegateScannedItem(string scanned)
     {
-        IsWeightDialogOpen = true;
-
         try
         {
-            return await Dialog.OpenAsync<WeightInputDialog>(
-                "Weight Input",
-                new Dictionary<string, object>
+            VendorReturnAuthorizationLineVM? badLine;
+            VendorReturnAuthorizationLineVM? goodLine;
+
+            var barcode = ItemBarcodes.FirstOrDefault(x =>
+                !string.IsNullOrWhiteSpace(x.MaterialBarcode) &&
+                x.MaterialBarcode.Equals(scanned, StringComparison.OrdinalIgnoreCase));
+
+            if (barcode is null)
+            {
+                await Toast.Warning($"Unknown barcode: {scanned}");
+                return;
+            }
+
+            if (ActiveTabIndex == 1)
+            {
+                goodLine = GoodVRAItems.FirstOrDefault(x =>
+                x.NetsuiteMaterialInternalId == barcode.NetsuiteMaterialInternalId &&
+                (BadSelectedLine == null ||
+                 x.LineSequenceNumber == BadSelectedLine.LineSequenceNumber));
+
+                badLine = BadVRAItems.FirstOrDefault(x =>
+                    x.NetsuiteMaterialInternalId == barcode.NetsuiteMaterialInternalId &&
+                    (BadSelectedLine == null ||
+                     x.LineSequenceNumber == BadSelectedLine.LineSequenceNumber));
+            }
+            else
+            {
+                goodLine = GoodVRAItems.FirstOrDefault(x =>
+                x.NetsuiteMaterialInternalId == barcode.NetsuiteMaterialInternalId &&
+                (GoodSelectedLine == null ||
+                 x.LineSequenceNumber == GoodSelectedLine.LineSequenceNumber));
+
+
+                badLine = BadVRAItems.FirstOrDefault(x =>
+                    x.NetsuiteMaterialInternalId == barcode.NetsuiteMaterialInternalId &&
+                    (GoodSelectedLine == null ||
+                     x.LineSequenceNumber == GoodSelectedLine.LineSequenceNumber));
+            }
+
+            if (goodLine is null)
+            {
+                await Toast.Warning("Item not found in this VRA.");
+                return;
+            }
+
+            var badlineTotal = badLine.ScannedQuantity;
+            var goodLineTotal = goodLine.ScannedQuantity;
+
+            //if (IsWeightDialogOpen)
+            //{
+            //    return;
+            //}
+
+            if (ActiveTabIndex == 1)
+            {
+                if (badLine.ScannedQuantity == 0)
                 {
-                { "ItemName", itemName }
-                },
-                new DialogOptions());
+                    await Toast.Warning("No scanned quantity to move for this item.");
+                    return;
+                }
+
+                //ChangeWeight = await GetWeightAsync(barcode.MaterialName, barcode.UoMName);
+
+                //if (!ChangeWeight.HasValue || ChangeWeight.Value == 0m)
+                //{
+                //    await Toast.Warning("Scan cancelled - no weight entered");
+                //    return;
+                //}
+
+                var badScannedQuantity = barcode.UoMRate / badLine.UoMRate;
+                //var badScannedWeight = ChangeWeight ?? 0m;
+
+                if (badLine.ScannedQuantity < badScannedQuantity)
+                {
+                    await Toast.Warning("Not enough scanned quantity to move.");
+                    return;
+                }
+
+                badLine.ScannedQuantity -= badScannedQuantity;
+                //badLine.ScannedWeight -= badScannedWeight;
+
+                badLine.ScanCount++;
+            }
+            else
+            {
+                if (goodLine.ScannedQuantity == 0)
+                {
+                    await Toast.Warning("No scanned quantity to move for this item.");
+                    return;
+                }
+
+                //decimal? weight = await GetWeightAsync(barcode.MaterialName, barcode.UoMName);
+
+                //if (!weight.HasValue || weight.Value == 0m)
+                //{
+                //    await Toast.Warning("Scan cancelled - no weight entered");
+                //    return;
+                //}
+
+                var goodScannedQuantity = barcode.UoMRate / goodLine.UoMRate;
+                //var goodScannedWeight = weight ?? 0m;
+
+                if (goodLine.ScannedQuantity < goodScannedQuantity)
+                {
+                    await Toast.Warning("Not enough scanned quantity to move.");
+                    return;
+                }
+
+                goodLine.ScannedQuantity -= goodScannedQuantity;
+                //goodLine.ScannedWeight -= goodScannedWeight;
+
+                goodLine.ScanCount++;
+            }
+
+            await InvokeAsync(StateHasChanged);
         }
-        finally
+        catch (Exception e)
         {
-            IsWeightDialogOpen = false;
+            await Toast.Error(e.Message);
         }
     }
+
+    //private async Task<decimal?> GetWeightAsync(string itemName, string uomName)
+    //{
+    //    IsWeightDialogOpen = true;
+
+    //    try
+    //    {
+    //        return await Dialog.OpenAsync<WeightInputDialog>(
+    //            "Weight Input",
+    //            new Dictionary<string, object>
+    //            {
+    //                { "ItemName", itemName },
+    //                { "UomName", uomName }
+    //            },
+    //            new DialogOptions());
+    //    }
+    //    finally
+    //    {
+    //        IsWeightDialogOpen = false;
+    //    }
+    //}
 
     public async ValueTask DisposeAsync()
     {
@@ -615,4 +771,53 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
             }
         }
     }
+
+    #region Button States
+    private ToggleState ScanState { get; set; } = ToggleState.Base;
+
+    private string ScanStateIcon => ScanState switch
+    {
+        ToggleState.Base => "check",
+        ToggleState.Good => "check",
+        ToggleState.Bad => "block",
+        _ => "check"
+    };
+
+    private string ScanStateLabel => ScanState switch
+    {
+        ToggleState.Base => "Good",
+        ToggleState.Good => "Good",
+        ToggleState.Bad => "Bad",
+        _ => "Good"
+    };
+
+    private ButtonStyle ScanStateButtonStyle => ScanState switch
+    {
+        ToggleState.Base => ButtonStyle.Base,
+        ToggleState.Good => ButtonStyle.Success,
+        ToggleState.Bad => ButtonStyle.Danger,
+        _ => ButtonStyle.Base
+    };
+
+    private void ToggleScanState()
+    {
+        ScanState = ScanState switch
+        {
+            ToggleState.Base => ToggleState.Good,
+            ToggleState.Good => ToggleState.Bad,
+            ToggleState.Bad => ToggleState.Base,
+            _ => ToggleState.Base
+        };
+
+        NextScanIsBad = ScanState switch
+        {
+            ToggleState.Base => false,
+            ToggleState.Good => false,
+            ToggleState.Bad => true,
+            _ => false
+        };
+
+        InvokeAsync(StateHasChanged);
+    }
+    #endregion
 }
