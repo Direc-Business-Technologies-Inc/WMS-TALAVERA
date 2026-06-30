@@ -19,7 +19,8 @@ public class SuiteQLQueryBuilderFactoryService
 
 public class SuiteQLQueryBuilder
 {
-    const string DATETIME_FORMAT_STRING = "YYYY-MM-DDTHH:mm:ss";
+    const string DATETIME_FORMAT_STRING = "yyyy-MM-ddTHH:mm:ss";
+    const string NETSUITE_DATETIME_FORMAT_STRING = "YYYY-MM-DD\"T\"HH24:MI:SS";
     public int? Take { get; set; }
     public int? Skip { get; set; }
     public List<AppFilterDescriptor> Filters { get; set; } = [];
@@ -205,7 +206,7 @@ public class SuiteQLQueryBuilder
         if (value is null) throw new InvalidOperationException($"no value given for {prop}");
 
         prop = propertyMap != null && propertyMap.ContainsKey(prop) ? propertyMap[prop] : prop;
-
+        if (value is DateTime dtVal) return $"TO_DATE({prop}, '{NETSUITE_DATETIME_FORMAT_STRING}') {op} TO_DATE({_stringifyValue(dtVal)}, '{NETSUITE_DATETIME_FORMAT_STRING}')";
         return $"{prop} {op} {_stringifyValue(value)}";
     }
 
