@@ -1,4 +1,5 @@
-﻿using Application.DataTransferObjects.Others.Inventory;
+﻿using Application.DataTransferObjects.Others;
+using Application.DataTransferObjects.Others.Inventory;
 using Application.UseCases.Repositories.Integration.Others;
 using Integration.NS.Helpers;
 using Integration.NS.Services;
@@ -18,11 +19,13 @@ public class InventoryIntegration(
 {
     public async Task<(IEnumerable<InventoryBalanceDTO>, int)> GetInventoryBalance(DataGridIntent intent)
     {
-
         var query = builderFactory.Create()
             .Select(
                 ("ib.item", nameof(InventoryBalanceNSDTO.ItemId)),
-                ("ib.binnumber", nameof(InventoryBalanceNSDTO.BinNumber)),
+                ("ib.binnumber", nameof(InventoryBalanceNSDTO.BinId)),
+                ("b.binnumber", nameof(InventoryBalanceNSDTO.BinName)),
+                ("ib.location", nameof(InventoryBalanceNSDTO.LocationId)),
+                ("loc.name", nameof(InventoryBalanceNSDTO.LocationName)),
                 ("ib.quantityonhand", nameof(InventoryBalanceNSDTO.QuantityOnHand)),
                 ("ib.quantitypicked", nameof(InventoryBalanceNSDTO.QuantityCommited)),
                 ("is.name", nameof(InventoryBalanceNSDTO.StatusName)),
@@ -30,6 +33,8 @@ public class InventoryIntegration(
             )
             .From("inventorybalance ib")
             .Join("inventorystatus is", "ib.inventorystatus = is.id")
+            .Join("location loc", "ib.location = is.id")
+            .LeftJoin("bin b", "b.id = ib.binnumber")
             .WithDatagridIntent(intent)
             .Build();
         var response = await query.ExecuteWithPaging<InventoryBalanceNSDTO>(netsuiteService);
@@ -57,14 +62,27 @@ public class InventoryIntegration(
         {
             Name = nsdto.StatusName,
             Id = nsdto.StatusId
-        }
+        },
+        Bin = new LocationBinDTO
+        {
+            Id = nsdto.BinId,
+            BinNumber = nsdto.BinName
+        },
+        Location = new LocationDTO
+        {
+            Id = nsdto.LocationId,
+            Name = nsdto.LocationName
+        },
     });
 
     private class InventoryBalanceNSDTO
     {
 
         public int ItemId { get; set; }
-        public int BinNumber { get; set; }
+        public int BinId { get; set; }
+        public string BinName { get; set; } = string.Empty;
+        public int LocationId { get; set; }
+        public string LocationName { get; set; } = string.Empty;
         public string StatusName { get; set; } = string.Empty;
         public int StatusId { get; set; }
         public decimal QuantityOnHand { get; set; }
