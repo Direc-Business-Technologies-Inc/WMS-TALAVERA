@@ -9,7 +9,8 @@ namespace Application.DataTransferObjects.Others.Inventory;
 public class InventoryBalanceDTO
 {
     public int ItemId { get; set; }
-    public int BinNumber { get; set; }
+    public LocationBinDTO? Bin { get; set; }
+    public LocationDTO? Location { get; set; }
     public InventoryStatusDTO? Status { get; set; }
     public decimal QuantityOnHand { get; set; }
     public decimal QuantityCommited { get; set; }
