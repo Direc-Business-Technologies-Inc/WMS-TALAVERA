@@ -12,6 +12,7 @@ public static class SuiteQLQueryExtensions
 {
     public static async Task<NetSuiteResponse<T>> ExecuteWithPaging<T>(this SuiteQLQuery query, INetSuiteApiClientService netsuiteService)
     {
+        if (query.Limit < 0) { query.Limit = null; }
         if (query.Offset is null || query.Limit is null)
         {
             return await netsuiteService.ExecuteSuiteQLQuery<T>(query.Query, query.Limit, query.Offset);
