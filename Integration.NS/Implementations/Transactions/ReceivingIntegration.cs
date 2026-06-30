@@ -409,7 +409,7 @@ public class ReceivingIntegration(
         {
             transferOrderId = dto.SourceInternalId,
             transferCategory = isGood ? 1 : 2,
-            lines = dto.Lines.Where(x => x.QuantityGood > 0).Select(line =>
+            lines = dto.Lines.Where(x => (isGood ? x.QuantityGood : x.QuantityBad) > 0).Select(line =>
             {
                 return new
                 {
