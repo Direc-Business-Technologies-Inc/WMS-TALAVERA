@@ -10,10 +10,12 @@ public class NavRoutesRepository
     public static NavRoutesRepository Instance => _instance.Value;
 
     public List<NavigationRouteVM> Roots = [];
+    private NavigationRouteVM DashboardRoute;
 
-    Dictionary<string, NavigationRouteVM> navDict = new();
+    Dictionary<string, NavigationRouteVM> navRoutes = new();
     private NavRoutesRepository() 
     {
+        DashboardRoute = new() { Name = "Dashboard", Icon = "dashboard", Protected = true, Uri="/dashboard" };
         initRoutes();
     }
 
@@ -22,7 +24,6 @@ public class NavRoutesRepository
     {
         NavigationRouteVM admin = new() { Name = "Administration", Icon = "discover_tune", Protected = false  };
         NavigationRouteVM transactions = new() { Name = "Transaction", Icon = "contract", Protected = false  };
-        NavigationRouteVM dash = new() { Name = "Dashboard", Icon = "dashboard", Protected = true, Uri="/dashboard" };
 
         var adminSubroutes = initAdminRoutes();
         admin.Children.AddRange(adminSubroutes);
@@ -32,7 +33,7 @@ public class NavRoutesRepository
         transactions.Children.AddRange(transactionsSubroutes);
         transactionsSubroutes.ForEach(x => x.Parent = transactions);
 
-        Roots = [dash, admin, transactions];
+        Roots = [DashboardRoute, admin, transactions];
     }
 
     private List<NavigationRouteVM> initAdminRoutes()
@@ -63,12 +64,12 @@ public class NavRoutesRepository
         NavigationRouteVM inventory = new() { Name = "Inventory", Icon = "inventory_2", Protected = false };
 
         List<NavigationRouteVM> inventorySubroutes = [
-            new() {Name = "Stock Transfer Request", Icon="battery_android_share", Protected=true, Uri = STRRoutes.Root },
-            new() {Name = "Inventory Adjustment", Icon="swap_vert", Protected=true, Uri = InventoryAdjustmentRoutes.INDEX },
+            Register("OSTR", new() {Name = "Stock Transfer Request", Icon="battery_android_share", Protected=true, Uri = STRRoutes.Root }),
+            Register("OIAJ", new() {Name = "Inventory Adjustment", Icon="swap_vert", Protected=true, Uri = InventoryAdjustmentRoutes.INDEX }),
         ];
 
         List<NavigationRouteVM> purchaseSubroutes = [
-            new() {Name = "Receiving", Icon="stacked_inbox", Protected=true, Uri = "/transactions/purchasing/receiving" },
+            Register("ORCV", new() {Name = "Receiving", Icon="stacked_inbox", Protected=true, Uri = "/transactions/purchasing/receiving" }),
         ];
 
         purchaseSubroutes.ForEach(x => x.Parent = purchase);
@@ -80,4 +81,27 @@ public class NavRoutesRepository
         return [purchase, inventory];
     }
 
+    public List<NavigationRouteVM> GetPath(string moduleCode)
+    {
+        if (!navRoutes.ContainsKey(moduleCode)) return [DashboardRoute];
+        List<NavigationRouteVM> result = [navRoutes[moduleCode]];
+        bool dashIncluded = false;
+        while (result[0].Parent != null)
+        {
+            var top = result[0].Parent!;
+            result.Insert(0, top);
+            dashIncluded = dashIncluded || top == DashboardRoute;
+        }
+
+        if (!dashIncluded) result.Insert(0, DashboardRoute);
+        
+
+        return result;
+    }
+
+    private NavigationRouteVM Register(string moduleCode, NavigationRouteVM navRoute)
+    {
+        navRoutes.TryAdd(moduleCode, navRoute);
+        return navRoute;
+    }
 }
