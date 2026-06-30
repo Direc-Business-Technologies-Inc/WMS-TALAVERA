@@ -70,6 +70,8 @@
                         <QuickVirtualizedDropdown Visible="@(!ReadOnly)" ActionName="@ActionGetItemUnits" TItem="ItemUnitVM" @bind-Value="@data.UoM" DataGetter="@(intent => UnitsProvider(data.ItemId, intent))" TextProperty="@nameof(ItemUnitVM.Name)" />
                     </Template>
                 </RadzenDataGridColumn>
+                <RadzenDataGridColumn Visible="@ReadOnly" TItem="InventoryAdjustmentLineVM" Property="@nameof(InventoryAdjustmentLineVM.QuantityOld)" Title="On hand Quantity" />
+                <RadzenDataGridColumn Visible="@(!ReadOnly)" TItem="InventoryAdjustmentLineVM" Property="@nameof(InventoryAdjustmentLineVM.QuantityOnHand)" Title="On hand Quantity" />
                 <RadzenDataGridColumn TItem="InventoryAdjustmentLineVM" Property="@nameof(InventoryAdjustmentLineVM.QuantityAlloted)" Title="Alloted Quantity">
                     <Template Context="data">
                         <RadzenFormField Text="@(data.Type == InventoryAdjustmentLineVM.Types.Issue ? "Issue" : "Receipt")">
@@ -96,7 +98,8 @@
                         </RadzenFormField>
                     </Template>
                 </RadzenDataGridColumn>
-                <RadzenDataGridColumn TItem="InventoryAdjustmentLineVM" Property="@nameof(InventoryAdjustmentLineVM.QuantityOnHand)" Title="On hand Quantity" />
+                <RadzenDataGridColumn Visible="@ReadOnly" TItem="InventoryAdjustmentLineVM" Property="@nameof(InventoryAdjustmentLineVM.QuantityOnHand)" Title="New Quantity" />
+                <RadzenDataGridColumn Visible="@(!ReadOnly)" TItem="InventoryAdjustmentLineVM" Property="@nameof(InventoryAdjustmentLineVM.QuantityNew)" Title="New Quantity" />
                 @if (!ReadOnly)
                 {
                     <RadzenDataGridColumn TItem="InventoryAdjustmentLineVM"
