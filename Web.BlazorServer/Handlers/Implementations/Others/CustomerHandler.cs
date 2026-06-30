@@ -1,4 +1,4 @@
-﻿using Application.UseCases.Queries.Others;
+﻿using Application.UseCases.Queries.Others.Customers;
 using Mapster;
 using MediatR;
 using Shared.Entities;

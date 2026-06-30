@@ -35,6 +35,26 @@ public class SubsidiaryIntegration(
         return (result.items, result.totalResults);
     }
 
+    public async Task<(IEnumerable<SubsidiaryDTO> Data, int Count)> GetSubsidiariesByCustomerAsync(DataGridIntent intent, int customerId)
+    {
+        var query = builderFactory.Create()
+            .Select(
+                ("s.id", nameof(SubsidiaryDTO.Id)),
+                ("s.externalid", nameof(SubsidiaryDTO.SubsidiaryNumber)),
+                ("s.BUILTIN.DF(mainaddress)", nameof(SubsidiaryDTO.Address)),
+                ("s.name", nameof(SubsidiaryDTO.Name)),
+                ("s.email", nameof(SubsidiaryDTO.Email))
+            )
+            .From("subsidiary s")
+            .Join("customersubsidiaryrelationship csr", "s.id = csr.subsidiary")
+            .WithDatagridIntent(intent)
+            .WithFilters(DataGridFilterUtilities.Equal("csr.entity", customerId))
+            .Build();
+
+        var result = await query.ExecuteWithPaging<SubsidiaryDTO>(netsuiteService);
+        return (result.items, result.totalResults);
+    }
+    
     public async Task<(IEnumerable<SubsidiaryDTO> Data, int Count)> GetSubsidiariesByVendorAsync(DataGridIntent intent, int vendorId)
     {
         var query = builderFactory.Create()

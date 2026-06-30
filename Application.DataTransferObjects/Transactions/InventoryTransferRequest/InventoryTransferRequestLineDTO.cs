@@ -15,5 +15,8 @@ public class InventoryTransferRequestLineDTO
     public ItemUnitDTO? UoM { get; set; }
     public LocationDTO? Location { get; set; }
     public decimal QuantityOnHand { get; set; }
+    public decimal Rate { get; set; }
     public decimal QuantityAlloted { get; set; }
+
+    public List<InventoryDetailDTO> InventoryDetails { get; set; } = [];
 }

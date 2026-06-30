@@ -1,4 +1,5 @@
-﻿using Application.DataTransferObjects.Transactions.InventoryTransferRequest;
+﻿using Application.DataTransferObjects.Transactions.Commons.NS.Payload;
+using Application.DataTransferObjects.Transactions.InventoryTransferRequest;
 using Application.UseCases.Repositories.Integration.Others;
 using Application.UseCases.Repositories.Integration.Transaction.InventoryTransferRequest;
 using Integration.NS.DataTransferObjects.InventoryAdjustment;
@@ -31,8 +32,10 @@ public class InventoryTransferRequestIntegration(
                 ("t.tranid", nameof(InventoryTransferRequestNSDTO.ReferenceNumber)),
                 ("BUILTIN.DF(tl.location)", nameof(InventoryTransferRequestNSDTO.SourceLocationName)),
                 ("BUILTIN.DF(t.subsidiary)", nameof(InventoryTransferRequestNSDTO.SubsidiaryName)),
+                ("BUILTIN.DF(t.entity)", nameof(InventoryTransferRequestNSDTO.CustomerName)),
                 ("t.subsidiary", nameof(InventoryTransferRequestNSDTO.SubsidiaryId)),
                 ("tl.location", nameof(InventoryTransferRequestNSDTO.SourceLocationId)),
+                ("tl.entity", nameof(InventoryTransferRequestNSDTO.CustomerId)),
                 ("BUILTIN.DF(t.custbody_dbti_itr_to_location)", nameof(InventoryTransferRequestNSDTO.DestinationLocationName)),
                 ("t.custbody_dbti_itr_to_location", nameof(InventoryTransferRequestNSDTO.DestinationLocationId)),
                 ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(InventoryTransferRequestNSDTO.Date))
@@ -114,12 +117,13 @@ public class InventoryTransferRequestIntegration(
 
     public async Task<bool> CreateInventoryTransferRequest(InventoryTransferRequestDTO data)
     {
-        var url = netsuiteService.GetRestAPIURI + "/record/v1/CUSTOMSALE_DBTI_INV_TRANSFER_REQ";
+        var url = netsuiteService.GetRestletURI + "?script=1886&deploy=1";
         var payload = CreatePayload(data);
 
         try
         {
-            _ = await netsuiteService.MakeRequest<object>(url, payload, HttpMethod.Post);
+            //_ = await netsuiteService.MakeRequest<object>(url, payload, HttpMethod.Post);
+            _ = await netsuiteService.MakeRequestOAuth1<object>(url, payload);
         }
         catch (Exception ex) when (ex.Message.Equals("Empty response from NetSuite API", StringComparison.OrdinalIgnoreCase))
         {
@@ -133,20 +137,27 @@ public class InventoryTransferRequestIntegration(
     {
         var anon = new
         {
+            entity = data.Customer?.Id ?? null,
             subsidiary = data.Subsidiary?.Id ?? null,
             location = data.SourceLocation?.Id ?? null,
             custbody_dbti_itr_to_location = data.DestinationLocation?.Id ?? null,
             memo = data.Memo,
-            date = data.Date,
-            item = new
+            trandate = data.Date,
+            Class = 1,
+            department = 4,
+            lines = data.Lines.Select(x => new
             {
-                items = data.Lines.Select(x => new
+                item = x.ItemID,
+                quantity = x.QuantityAlloted,
+                rate = x.Rate,
+                units = x.UoM?.Id.ToString() ?? null,
+                inventoryDetail = x.InventoryDetails.Count > 0 ? x.InventoryDetails.Select(y => new
                 {
-                    item = x.ItemID,
-                    quantity = x.QuantityAlloted,
-                    units = x.UoM?.Id.ToString() ?? null
-                })
-            }
+                    bin = y.Bin?.BinNumber ?? null,
+                    status = 1,
+                    quantity = y.QuantityAlloted
+                }): null
+            })
         };
 
         return JsonSerializer.Serialize(anon, jsonOpts);
@@ -155,7 +166,7 @@ public class InventoryTransferRequestIntegration(
 
     readonly JsonSerializerOptions jsonOpts = new JsonSerializerOptions
     {
-        PropertyNamingPolicy = null,
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
         WriteIndented = true
     };

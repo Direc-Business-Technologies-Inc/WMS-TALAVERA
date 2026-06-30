@@ -14,6 +14,7 @@ public class InventoryTransferRequestDTO
     public SubsidiaryDTO? Subsidiary { get; set; }
     public LocationDTO? SourceLocation { get; set; } 
     public LocationDTO? DestinationLocation { get; set; }
+    public CustomerDTO? Customer { get; set; }
     public string PreparedBy { get; set; } = string.Empty;
     public string Memo { get; set; } = string.Empty;
     public DateTime Date { get; set; }
