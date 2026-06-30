@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Components;
-using Web.BlazorServer.Components.Pages.Transaction.Packing;
 
-namespace Web.BlazorServer.Components.Pages.Transaction.Packing.STR;
+namespace Web.BlazorServer.Components.Pages.Transaction.Packing;
 
 partial class PackingPage
 {
