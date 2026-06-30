@@ -11,10 +11,6 @@
     </HeaderTemplate>
     <GridColumns>
         <RadzenDataGridColumn TItem="TripTicketDataGridVM"
-                              Property="@nameof(TripTicketDataGridVM.NetsuiteTripTicketInternalId)"
-                              Type="@typeof(int)"
-                              Title="TTX No." />
-        <RadzenDataGridColumn TItem="TripTicketDataGridVM"
                               Property="@nameof(TripTicketDataGridVM.Name)"
                               Type="@typeof(string)"
                               Title="Name" />
@@ -27,6 +23,10 @@
             </Template>
         </RadzenDataGridColumn>
         <RadzenDataGridColumn TItem="TripTicketDataGridVM"
+                              Property="@nameof(TripTicketDataGridVM.Location)"
+                              Type="@typeof(string)"
+                              Title="Origin Location" />
+        <RadzenDataGridColumn TItem="TripTicketDataGridVM"
                               Property="@nameof(TripTicketDataGridVM.Destination)"
                               Type="@typeof(string)"
                               Title="Destination" />
@@ -34,10 +34,6 @@
                               Property="@nameof(TripTicketDataGridVM.Driver)"
                               Type="@typeof(string)"
                               Title="Driver" />
-        <RadzenDataGridColumn TItem="TripTicketDataGridVM"
-                              Property="@nameof(TripTicketDataGridVM.Location)"
-                              Type="@typeof(string)"
-                              Title="Origin Location" />
         <RadzenDataGridColumn TItem="TripTicketDataGridVM"
                               Frozen
                               FrozenPosition="FrozenColumnPosition.Right"

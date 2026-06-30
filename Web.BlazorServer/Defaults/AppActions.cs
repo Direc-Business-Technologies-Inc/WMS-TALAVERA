@@ -227,5 +227,15 @@ public enum AppActions
     ViewTripTicket,
     [Description("Create Trip Ticket")]
     CreateTripTicket,
+    [Description("Get Packed Trip Ticket Fulfillments")]
+    GetPackedTripTicketFulfillments,
+    [Description("Get Trip Ticket Drivers")]
+    GetTripTicketDrivers,
+    [Description("Get Trip Ticket Helpers")]
+    GetTripTicketHelpers,
+    [Description("Get Trip Ticket Locations")]
+    GetTripTicketLocations,
+    [Description("Get Trip Ticket Truck Plate Numbers")]
+    GetTripTicketTruckPlateNumbers,
     #endregion Transaction - Trip Ticket
 }

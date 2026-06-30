@@ -10,6 +10,7 @@ public class ItemFulfillmentVM
 {
     public int NetsuiteOrderInternalId { get; set; }
     public string OrderNumber { get; set; }
+    public string DestinationLocation { get; set; } = string.Empty;
     public string OrderStatus { get; set; }
     public string OrderType { get; set; }
     public DateTime NetsuiteOrderCreatedDate { get; set; }

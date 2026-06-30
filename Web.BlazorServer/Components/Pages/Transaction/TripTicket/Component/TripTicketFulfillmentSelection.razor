@@ -1,0 +1,65 @@
+@using global::Shared.Libraries.ViewModel.TripTicket
+
+@inherits BaseComponent
+
+<RadzenStack Gap="2rem">
+    <AppDataGrid @ref="@FulfillmentsDataGrid"
+                 Id="trip_ticket_fulfillment_selection_grid"
+                 TItem="ItemFulfillmentVM"
+                 GridSettingsLoaded="@GridSettingsLoaded"
+                 DataGetter="@LoadDataAsync"
+                 ActionName="@ActionGetFulfillments"
+                 SelectedItems="@SelectedFulfillments"
+                 DataGridSelectionMode="DataGridSelectionMode.Multiple"
+                 OnRowSelect="@OnRowSelect"
+                 OnRowDeselect="@OnRowDeselect">
+        <HeaderTemplate>
+            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" AlignItems="AlignItems.Center" Gap="8px">
+                <RadzenButton Icon="settings" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@OpenTableSettings" />
+            </RadzenStack>
+        </HeaderTemplate>
+        <GridColumns>
+            <RadzenDataGridColumn TItem="ItemFulfillmentVM"
+                                  Width="45px" TextAlign="TextAlign.Center"
+                                  Frozen FrozenPosition="FrozenColumnPosition.Left"
+                                  Filterable="false" Sortable="false" Pickable="false">
+                <Template Context="data">
+                    <RadzenCheckBox Value="@(SelectedFulfillments.Any(si => si.NetsuiteOrderInternalId == data.NetsuiteOrderInternalId))" />
+                </Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn TItem="ItemFulfillmentVM"
+                                  Title="Fulfillment No."
+                                  Property="@nameof(ItemFulfillmentVM.OrderNumber)"
+                                  Type="@typeof(string)" />
+            <RadzenDataGridColumn TItem="ItemFulfillmentVM"
+                                  Title="Status"
+                                  Property="@nameof(ItemFulfillmentVM.OrderStatus)"
+                                  Type="@typeof(string)">
+                <Template Context="line">
+                    @line.GetName(line.OrderStatus)
+                </Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn TItem="ItemFulfillmentVM"
+                                  Title="Created Date"
+                                  Property="@nameof(ItemFulfillmentVM.NetsuiteOrderCreatedDate)"
+                                  Type="@typeof(DateTime)">
+                <Template Context="line">
+                    @line.NetsuiteOrderCreatedDate.ToString("MM/dd/yyyy")
+                </Template>
+            </RadzenDataGridColumn>
+        </GridColumns>
+    </AppDataGrid>
+</RadzenStack>
+
+@code {
+    async Task OpenTableSettings()
+    {
+        await DialogService.OpenAsync(
+            "Table Settings",
+            ds => @<AppGridSettings TItem="ItemFulfillmentVM"
+                                    @bind-Grid=@FulfillmentsDataGrid.DataGrid
+                                    @bind-GridSettings=@FulfillmentsDataGridSettings />,
+            options: GridSettingsService.GetDialogOptions());
+        await FulfillmentsDataGrid.DataGrid.Reload();
+    }
+}

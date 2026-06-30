@@ -38,6 +38,30 @@ public class TripTicketIntegration(
         return response.items.FirstOrDefault();
     }
 
+    public async Task<IEnumerable<TripTicketFulfillmentDTO>> GetTripTicketFulfillmentsAsync(int id)
+    {
+        var query = builderFactory.Create()
+            .Select(
+                ("tt.id", nameof(TripTicketFulfillmentDTO.NetsuiteTripTicketInternalId)),
+                ("t.id", nameof(TripTicketFulfillmentDTO.NetsuiteOrderInternalId)),
+                ("t.tranid", nameof(TripTicketFulfillmentDTO.OrderNumber)),
+                ("BUILTIN.DF(t.transferlocation)", nameof(TripTicketFulfillmentDTO.DestinationLocation)))
+            .From("customrecord_dbti_trip_ticket tt")
+            .Join("customrecord_dbti_trip_ticket_if ttif", on: "tt.id = ttif.custrecord_dbti_ttf_trip_ticket_num")
+            .Join("transaction t", on: "ttif.custrecord_dbti_ttf_item_fulfillment_num = t.id")
+            .WithFilters(
+                Equal("t.type", "ItemShip"),
+                Equal("tt.id", id))
+            .Build();
+
+        var response = await netsuiteService.ExecuteSuiteQLQuery<TripTicketFulfillmentDTO>(
+            query.Query,
+            query.Limit,
+            query.Offset);
+
+        return response.items;
+    }
+
     private SuiteQLQueryBuilder CreateTripTicketListQuery()
     {
         return builderFactory.Create()

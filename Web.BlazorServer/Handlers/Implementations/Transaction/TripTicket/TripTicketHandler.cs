@@ -1,10 +1,13 @@
 using Application.DataTransferObjects.Transactions.TripTicket;
 using Application.DataTransferObjects.Transactions.TripTicket.NS;
 using Application.UseCases.Commands.Transaction.TripTicket.NS;
+using Application.UseCases.Queries.Others.NS;
 using Application.UseCases.Queries.Transaction.TripTicket;
+using Application.UseCases.Queries.Transaction.TripTicket.NS;
 using Mapster;
 using MediatR;
 using Shared.Entities;
+using Shared.Libraries.ViewModel;
 using Shared.Libraries.ViewModel.TripTicket;
 using Web.BlazorServer.Handlers.Repositories.Transaction.TripTicket;
 using Web.BlazorServer.ViewModels.Transaction.TripTicket;
@@ -20,11 +23,65 @@ public class TripTicketHandler(ISender Sender) : ITripTicketHandler
         return (Data.Adapt<IEnumerable<TripTicketDataGridVM>>(), Count);
     }
 
-    public async Task<TripTicketDataGridVM?> GetTripTicketAsync(int id)
+    public async Task<TripTicketVM?> GetTripTicketAsync(int id)
     {
         GetTripTicketQry qry = new(id);
         TripTicketDataGridDTO? response = await Sender.Send(qry);
-        return response.Adapt<TripTicketDataGridVM?>();
+
+        if (response is null)
+            return null;
+
+        return new TripTicketVM
+        {
+            Id = response.NetsuiteTripTicketInternalId,
+            TripDate = response.TripDate,
+            Destinations = string.IsNullOrWhiteSpace(response.Destination)
+                ? []
+                : [new LocationVM { LocationName = response.Destination }],
+            Driver = string.IsNullOrWhiteSpace(response.Driver)
+                ? null
+                : new DriverVM { FirstName = response.Driver },
+            OriginLocation = string.IsNullOrWhiteSpace(response.Location)
+                ? null
+                : new LocationVM { LocationName = response.Location },
+            ItemFulfillments = [.. await GetTripTicketFulfillmentsAsync(id)]
+        };
+    }
+
+    public async Task<IEnumerable<ItemFulfillmentVM>> GetTripTicketFulfillmentsAsync(int id)
+    {
+        var response = await Sender.Send(new GetTripTicketFulfillmentsQry(id));
+        return response.Adapt<IEnumerable<ItemFulfillmentVM>>();
+    }
+
+    public async Task<IEnumerable<ItemFulfillmentVM>> GetPackedItemFulfillmentsAsync()
+    {
+        var response = await Sender.Send(new GetPackedItemFulfillmentsQry());
+        return response.Adapt<IEnumerable<ItemFulfillmentVM>>();
+    }
+
+    public async Task<IEnumerable<DriverVM>> GetDriversAsync()
+    {
+        var response = await Sender.Send(new GetDriversQry());
+        return response.Adapt<IEnumerable<DriverVM>>();
+    }
+
+    public async Task<IEnumerable<HelperVM>> GetHelpersAsync()
+    {
+        var response = await Sender.Send(new GetHelpersQry());
+        return response.Adapt<IEnumerable<HelperVM>>();
+    }
+
+    public async Task<IEnumerable<LocationVM>> GetLocationsAsync()
+    {
+        var response = await Sender.Send(new GetLocationsQry());
+        return response.Adapt<IEnumerable<LocationVM>>();
+    }
+
+    public async Task<IEnumerable<TruckPlateNumberVM>> GetTruckPlateNumbersAsync()
+    {
+        var response = await Sender.Send(new GetTruckPlateNumbersQry());
+        return response.Adapt<IEnumerable<TruckPlateNumberVM>>();
     }
 
     public async Task<bool> PostTripTicketAsync(TripTicketVM data)
