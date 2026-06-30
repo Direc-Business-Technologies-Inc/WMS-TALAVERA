@@ -1,5 +1,4 @@
-﻿using Application.DataTransferObjects.Transactions.Commons.NS.Payload;
-using Application.DataTransferObjects.Transactions.InventoryTransferRequest;
+﻿using Application.DataTransferObjects.Transactions.InventoryTransferRequest;
 using Application.UseCases.Repositories.Integration.Others;
 using Application.UseCases.Repositories.Integration.Transaction.InventoryTransferRequest;
 using Integration.NS.DataTransferObjects.InventoryAdjustment;
