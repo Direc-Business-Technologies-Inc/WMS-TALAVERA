@@ -208,7 +208,8 @@
         </RadzenFieldset>
         <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween">
             <RadzenButton Text="@ReturnLabel" ButtonStyle="ButtonStyle.Light" ButtonType="ButtonType.Button" Click="@Return" />
-            <RadzenButton Text="@ActionLabel" ButtonStyle="ButtonStyle.Success" ButtonType="@(ReadOnly ? ButtonType.Button : ButtonType.Submit)" Click="@ActionClicked" />
+            <RadzenButton Visible="@(ReadOnly && !string.IsNullOrEmpty(ActionURI))" Text="@ActionLabel" ButtonStyle="ButtonStyle.Success" ButtonType="@(ButtonType.Button)" Click="@ActionClicked" />
+            <RadzenButton Visible="@(!ReadOnly)" Text="@ActionLabel" ButtonStyle="ButtonStyle.Success" ButtonType="@(ButtonType.Submit)" />
         </RadzenStack>
     </RadzenStack>
 </RadzenTemplateForm>

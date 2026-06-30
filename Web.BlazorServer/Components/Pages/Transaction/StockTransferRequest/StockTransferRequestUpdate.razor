@@ -62,7 +62,9 @@
             var response = await handler.GetStockTransferRequest(Ref);
 
             if (response is null) throw new Exception($"Stock transfer request \"{Ref}\" could not be found");
-
+            if (!response.Status.Id.Equals("C", StringComparison.OrdinalIgnoreCase))
+                throw new Exception($"Cannot update stock transfer request \"{Ref}\" ");
+                
             return response;
         }, AppActionOptionPresets.Loading(ActionGetStockTransferRequest));
 
@@ -74,7 +76,7 @@
 
         action.OnFailure(ex =>
         {
-            NavError(ex.Message);
+            NavManager.NavigateTo(STRRoutes.Root);
             return Task.CompletedTask;
         });
     }
@@ -92,19 +94,13 @@
             return Task.CompletedTask;
         });
 
-        action.OnFailure(ex =>
-        {
-            ToastService.Error(ex.Message);
-            return Task.CompletedTask;
-        });
-
         return true;
     }
 
     void NavError(string message)
     {
         ToastService.Error(message);
-        NavManager.NavigateTo(STRRoutes.Root, true);
+        NavManager.NavigateTo(STRRoutes.Root);
     }
 
 
