@@ -6,5 +6,7 @@ namespace Web.BlazorServer.Handlers.Repositories.Others;
 public interface ILocationHandler
 {
     Task<(IEnumerable<LocationVM> Data, int Count)> GetLocationsAsync(DataGridIntent intent);
+    Task<(IEnumerable<LocationBinVM> Data, int Count)> GetLocationBinsAsync(int locationId, DataGridIntent intent);
+    Task<(IEnumerable<InventoryBalanceVM> Data, int Count)> GetLocationInventoryBalanceAsync(int locationId, DataGridIntent intent);
 
 }

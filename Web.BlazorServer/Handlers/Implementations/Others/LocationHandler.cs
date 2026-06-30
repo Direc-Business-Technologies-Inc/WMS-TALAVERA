@@ -1,4 +1,5 @@
 ﻿using Application.UseCases.Queries.Others;
+using Application.UseCases.Queries.Others.Location;
 using Mapster;
 using MediatR;
 using Shared.Entities;
@@ -21,5 +22,11 @@ public class LocationHandler(ISender sender) : ILocationHandler
         GetLocationBinsQry query = new(locationId, intent);
         (var data, int count) = await sender.Send(query);
         return (data.Adapt<IEnumerable<LocationBinVM>>(), count);
+    }
+    public async Task<(IEnumerable<InventoryBalanceVM> Data, int Count)> GetLocationInventoryBalanceAsync(int locationId, DataGridIntent intent)
+    {
+        GetLocationInventoryBalanceQry query = new(intent, locationId);
+        (var data, int count) = await sender.Send(query);
+        return (data.Adapt<IEnumerable<InventoryBalanceVM>>(), count);
     }
 }
