@@ -1,0 +1,65 @@
+@using Web.BlazorServer.ViewModels.Transaction.TripTicket
+@inherits BaseComponent
+
+<AppDataGrid @ref="@TTDataGrid" Id="trip_ticket_grid" TItem="TripTicketDataGridVM" DataGetter="@LoadDataAsync" GridSettings="@TTDataGridSettings" @bind-GridSettingsLoaded="@GridSettingsLoaded" ActionName="@ActionGetTripTickets">
+    <HeaderTemplate>
+        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" AlignItems="AlignItems.Center" Gap="8px">
+            <RadzenButton Icon="settings" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@OpenTableSettings" />
+            <RadzenButton Icon="sync" Size="ButtonSize.Small" Click="TTDataGrid.ReloadDataAsync" />
+            <RadzenButton Icon="add" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Success" Click="@CreateTT" Visible="@(Can.Create("OTTX"))" />
+        </RadzenStack>
+    </HeaderTemplate>
+    <GridColumns>
+        <RadzenDataGridColumn TItem="TripTicketDataGridVM"
+                              Property="@nameof(TripTicketDataGridVM.NetsuiteTripTicketInternalId)"
+                              Type="@typeof(int)"
+                              Title="TTX No." />
+        <RadzenDataGridColumn TItem="TripTicketDataGridVM"
+                              Property="@nameof(TripTicketDataGridVM.Name)"
+                              Type="@typeof(string)"
+                              Title="Name" />
+        <RadzenDataGridColumn TItem="TripTicketDataGridVM"
+                              Property="@nameof(TripTicketDataGridVM.TripDate)"
+                              Type="@typeof(DateTime)"
+                              Title="Trip Date">
+            <Template>
+                @context.TripDate?.ToString("MM/dd/yyyy")
+            </Template>
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn TItem="TripTicketDataGridVM"
+                              Property="@nameof(TripTicketDataGridVM.Destination)"
+                              Type="@typeof(string)"
+                              Title="Destination" />
+        <RadzenDataGridColumn TItem="TripTicketDataGridVM"
+                              Property="@nameof(TripTicketDataGridVM.Driver)"
+                              Type="@typeof(string)"
+                              Title="Driver" />
+        <RadzenDataGridColumn TItem="TripTicketDataGridVM"
+                              Property="@nameof(TripTicketDataGridVM.Location)"
+                              Type="@typeof(string)"
+                              Title="Origin Location" />
+        <RadzenDataGridColumn TItem="TripTicketDataGridVM"
+                              Frozen
+                              FrozenPosition="FrozenColumnPosition.Right"
+                              Width="35px"
+                              Filterable="false" Sortable="false" Pickable="false">
+            <Template>
+                <RadzenButton Icon="arrow_right_alt" Size="ButtonSize.ExtraSmall" Click="() => ViewTT(context)" />
+            </Template>
+        </RadzenDataGridColumn>
+    </GridColumns>
+</AppDataGrid>
+
+@code {
+    async Task OpenTableSettings()
+    {
+        await DialogService.OpenAsync(
+            "Table Settings",
+            ds => @<AppGridSettings TItem="TripTicketDataGridVM"
+            @bind-Grid=@TTDataGrid.DataGrid
+            @bind-GridSettings=@TTDataGridSettings />,
+            options: GridSettingsService.GetDialogOptions());
+
+        await TTDataGrid.DataGrid.Reload();
+    }
+}

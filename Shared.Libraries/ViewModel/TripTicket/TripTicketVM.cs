@@ -2,6 +2,8 @@
 
 public class TripTicketVM
 {
+    public int Id { get; set; }
+
     public List<LocationVM> Destinations { get; set; } = [];
 
     public DriverVM? Driver { get; set; }

@@ -11,6 +11,7 @@ using Application.UseCases.Repositories.Integration.Transaction.Packing;
 using Application.UseCases.Repositories.Integration.Transaction.Receiving;
 using Application.UseCases.Repositories.Integration.Transaction.SalesReturn;
 using Application.UseCases.Repositories.Integration.Transaction.StockTransferRequest;
+using Application.UseCases.Repositories.Integration.Transaction.TripTicket;
 using Integration.NS.Implementations.Others;
 using Integration.NS.Implementations.Transactions;
 using Integration.NS.Implementations.Transactions.Packing;
@@ -44,6 +45,7 @@ public static class NSImplementationDI
         services.TryAddTransient<IVendorIntegration, VendorIntegration>();
         services.TryAddTransient<IBusinessAccountIntegration, BusinessAccountIntegration>();
         services.TryAddTransient<IInventoryAdjustmentIntegration, InventoryAdjustmentIntegration>();
+        services.TryAddTransient<ITripTicketIntegration, TripTicketIntegration>();
 
         services.TryAddTransient<INetSuiteApiClientService, NetSuiteApiClientService>();
         services.TryAddTransient<IStockTransferRequestPackingIntegration, StockTransferRequestPackingIntegration>();

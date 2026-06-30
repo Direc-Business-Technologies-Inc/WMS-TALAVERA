@@ -123,6 +123,13 @@ public static class WebStructure
             icon: "local_shipping",
             uri: "/transactions/delivery/packing"),
         NavigationRouteDEM.New(
+            name: "Trip Ticket",
+            protectedRoute : true,
+            position: 1,
+            parentId: SubRouteList1!.First(x => x.Name.Equals("Delivery")).Id,
+            icon: "transit_ticket",
+            uri: "/transactions/delivery/trip-ticket"),
+        NavigationRouteDEM.New(
             name: "Goods Issue",
             protectedRoute : true,
             position: 0,

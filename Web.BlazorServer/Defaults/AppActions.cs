@@ -219,4 +219,13 @@ public enum AppActions
     [Description("Get All Packing Returns")]
     GetAllPackingReturns,
     #endregion Transaction - Returns
+
+    #region Transaction - Trip Ticket
+    [Description("Get All Trip Ticket")]
+    GetAllTripTickets,
+    [Description("View Trip Ticket")]
+    ViewTripTicket,
+    [Description("Create Trip Ticket")]
+    CreateTripTicket,
+    #endregion Transaction - Trip Ticket
 }

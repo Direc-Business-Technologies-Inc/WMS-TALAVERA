@@ -106,6 +106,12 @@ internal static class AppDefaults
             root: false,
             navRouteId: WebStructure.SubRouteList2.First(x => x.Name.Equals("Packing")).Id,
             permissions: [AppDefaults.NewPermission("VIEW")]),
+        ModuleDEM.Create(
+            name: "Trip Ticket",
+            code: "OTTX",
+            root: false,
+            navRouteId: WebStructure.SubRouteList2.First(x => x.Name.Equals("Trip Ticket")).Id,
+            permissions: [AppDefaults.NewPermission("VIEW"), AppDefaults.NewPermission("CREATE")]),
     ];
 
     public static readonly IEnumerable<RoleDEM> Roles =
@@ -144,7 +150,7 @@ internal static class AppDefaults
         return role.Code switch
         {
             "SYS_ADMIN" => [.. ModuleList],
-            "WHS_STAFF" => [.. ModuleList.Where(m => m.Code is "ODSB" or "ORCV" or "OGRN" or "ODLV" or "OSRN" or "OGIS" or "OGRC" or "OITR" or "OICT" or "OPCK")],
+            "WHS_STAFF" => [.. ModuleList.Where(m => m.Code is "ODSB" or "ORCV" or "OGRN" or "ODLV" or "OSRN" or "OGIS" or "OGRC" or "OITR" or "OICT" or "OPCK" or "OTTX")],
             "FINANCE" => [.. ModuleList.Where(m => m.Code is "ODSB" or "ORCV" or "OGRN" or "ODLV" or "OSRN" or "OGIS" or "OGRC")],
             _ => []
         };
