@@ -44,6 +44,7 @@ public static class NSImplementationDI
         services.TryAddTransient<IBusinessAccountIntegration, BusinessAccountIntegration>();
         services.TryAddTransient<IInventoryTransferRequestIntegration, InventoryTransferRequestIntegration>();
         services.TryAddTransient<IInventoryAdjustmentIntegration, InventoryAdjustmentIntegration>();
+        services.TryAddTransient<IInventoryIntegration, InventoryIntegration>();
 
         services.TryAddTransient<INetSuiteApiClientService, NetSuiteApiClientService>();
 
