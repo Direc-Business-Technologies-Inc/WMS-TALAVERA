@@ -374,36 +374,30 @@ public class ReceivingIntegration(
 
         List<Exception> exceptions = [];
 
-        if (dto.Lines.Any(x => x.QuantityGood > 0))
+        try
         {
-            try
+            if (dto.SourceType.Equals(ItemReceiptDTO.SourceTypes.PurchaseOrder))
             {
-                _ = dto.SourceType.Equals(ItemReceiptDTO.SourceTypes.TransferOrder) ?
-                    await netsuiteService.MakeRequestOAuth1<object>(uri, goodPayload) :
-                    await netsuiteService.MakeRequest<object>(uri, goodPayload, HttpMethod.Post);
+                List<Task> tasks = [];
+                if (dto.Lines.Any(x => x.QuantityGood > 0)) tasks.Add(netsuiteService.MakeRequest<object>(uri, goodPayload, HttpMethod.Post));
+                if (dto.Lines.Any(x => x.QuantityBad > 0)) tasks.Add(netsuiteService.MakeRequest<object>(uri, badPayload, HttpMethod.Post));
+
+                await Task.WhenAll(tasks);
             }
-            catch (Exception ex)
+            else
             {
-                if (!ex.Message.Equals("Empty response from NetSuite API", StringComparison.OrdinalIgnoreCase))
-                    exceptions.Add(new Exception("Error posting good items: " + ex.Message));
+                List<Task> tasks = [];
+                if (dto.Lines.Any(x => x.QuantityGood > 0)) tasks.Add(netsuiteService.MakeRequestOAuth1<object>(uri, goodPayload));
+                if (dto.Lines.Any(x => x.QuantityBad > 0)) tasks.Add(netsuiteService.MakeRequestOAuth1<object>(uri, badPayload));
+
+                await Task.WhenAll(tasks);
             }
         }
-
-        if (dto.Lines.Any(x => x.QuantityBad > 0))
+        catch (Exception ex)
         {
-            try
-            {
-                _ = dto.SourceType.Equals(ItemReceiptDTO.SourceTypes.TransferOrder) ?
-                    await netsuiteService.MakeRequestOAuth1<object>(uri, badPayload) :
-                    await netsuiteService.MakeRequest<object>(uri, badPayload, HttpMethod.Post);
-            }
-            catch (Exception ex)
-            {
-                if (!ex.Message.Equals("Empty response from NetSuite API", StringComparison.OrdinalIgnoreCase))
-                    exceptions.Add(new Exception("Error posting bad items: " + ex.Message));
-            }
+            if (!ex.Message.Equals("Empty response from NetSuite API", StringComparison.OrdinalIgnoreCase))
+                exceptions.Add(new Exception("Error posting good items: " + ex.Message));
         }
-
 
         if (exceptions.Count > 0) throw new Exception(string.Join("\n\n", exceptions.Select(ex => ex.Message)));
         return true;
