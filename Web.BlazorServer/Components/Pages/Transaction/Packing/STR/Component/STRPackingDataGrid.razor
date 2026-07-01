@@ -1,0 +1,71 @@
+@using Web.BlazorServer.Components.Security
+@using Web.BlazorServer.ViewModels.Transaction.Packing.STR
+
+@inherits BaseComponent
+
+<AppDataGrid @ref="@DataGrid" Id="packing_str_grid" TItem="StockTransferRequestPackingDataGridVM" DataGetter="@LoadDataAsync" GridSettings="@DataGridSettings" @bind-GridSettingsLoaded="@GridSettingsLoaded" ActionName="@ActionGetStockTransferRequests">
+    <HeaderTemplate>
+        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" AlignItems="AlignItems.Center" Gap="8px">
+            <RadzenButton Icon="settings" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@OpenTableSettings" />
+            <RadzenButton Icon="sync" Size="ButtonSize.Small" Click="DataGrid.ReloadDataAsync" />
+        </RadzenStack>
+    </HeaderTemplate>
+    <GridColumns>
+        <RadzenDataGridColumn TItem="StockTransferRequestPackingDataGridVM"
+                              Property="@nameof(StockTransferRequestPackingDataGridVM.ReferenceNumber)"
+                              Type="@typeof(string)"
+                              Title="Reference Number" />
+        <RadzenDataGridColumn TItem="StockTransferRequestPackingDataGridVM"
+                              Property="@nameof(StockTransferRequestPackingDataGridVM.Date)"
+                              Type="@typeof(DateTime)"
+                              FormatString="{0:yyyy-MM-dd}"
+                              Title="Transfer Order Date" />
+        <RadzenDataGridColumn TItem="StockTransferRequestPackingDataGridVM"
+                              Property="@nameof(StockTransferRequestPackingDataGridVM.SourceSubsidiary)"
+                              Type="@typeof(string)"
+                              Title="From Subsidiary" />
+        <RadzenDataGridColumn TItem="StockTransferRequestPackingDataGridVM"
+                              Property="@nameof(StockTransferRequestPackingDataGridVM.DestinationSubsidiary)"
+                              Type="@typeof(string)"
+                              Title="To Subsidiary" />
+        <RadzenDataGridColumn TItem="StockTransferRequestPackingDataGridVM"
+                              Property="@nameof(StockTransferRequestPackingDataGridVM.Location)"
+                              Type="@typeof(string)"
+                              Title="Source Warehouse" />
+        <RadzenDataGridColumn TItem="StockTransferRequestPackingDataGridVM"
+                              Property="@nameof(StockTransferRequestPackingDataGridVM.TransferLocation)"
+                              Type="@typeof(string)"
+                              Title="Destination Warehouse" />
+        <RadzenDataGridColumn TItem="StockTransferRequestPackingDataGridVM"
+                              Property="@nameof(StockTransferRequestPackingDataGridVM.Status)"
+                              Type="@typeof(string)"
+                              Title="Status" />
+        <RadzenDataGridColumn TItem="StockTransferRequestPackingDataGridVM"
+                              Property="@nameof(StockTransferRequestPackingDataGridVM.Remarks)"
+                              Type="@typeof(string)"
+                              Title="Remarks" />
+        <RadzenDataGridColumn TItem="StockTransferRequestPackingDataGridVM"
+                              Frozen
+                              FrozenPosition="FrozenColumnPosition.Right"
+                              Pickable="false" Sortable="false" Filterable="false"
+                              Width="35px">
+            <Template>
+                <RadzenButton Icon="arrow_right_alt" Size="ButtonSize.ExtraSmall" Click="() => ViewSTR(context)" />
+            </Template>
+        </RadzenDataGridColumn>
+    </GridColumns>
+</AppDataGrid>
+
+@code {
+    async Task OpenTableSettings()
+    {
+        await DialogService.OpenAsync(
+            "Table Settings",
+            ds => @<AppGridSettings TItem="StockTransferRequestPackingDataGridVM"
+                                    @bind-Grid=@DataGrid.DataGrid
+                                    @bind-GridSettings=@DataGridSettings />,
+            options: GridSettingsService.GetDialogOptions());
+
+        await DataGrid.DataGrid.Reload();
+    }
+}

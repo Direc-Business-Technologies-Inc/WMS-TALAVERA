@@ -85,6 +85,10 @@ public class MappingRegistration : IRegister
                 dto.HashedPassword,
                 dto.LockoutEnabled,
                 dto.Locked));
+        config.NewConfig<EmployeeNsVO, EmployeeNsDTO>()
+            .Map(d => d.NsId, s => s.NsId ?? 0)
+            .Map(d => d.NsDepartmentId, s => s.NsDepartmentId ?? 0)
+            .Map(d => d.NsSubsidiaryId, s => s.NsSubsidiaryId ?? 0);
 
         #endregion User Management
 

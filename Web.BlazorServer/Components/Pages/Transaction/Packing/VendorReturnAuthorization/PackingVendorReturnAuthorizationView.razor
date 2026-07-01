@@ -1,0 +1,21 @@
+@using Web.BlazorServer.Components.Pages.Transaction.Packing
+@using Web.BlazorServer.Components.Pages.Transaction.Packing.VendorReturnAuthorization.Component
+@using Web.BlazorServer.Components.Security
+
+@layout ProtectedLayout
+@attribute [AppAuthorizationAttribute("VIEW", "OPCK")]
+@attribute [Route(PackingRoutes.VendorReturnAuthorizationView)]
+
+<PageTitle>Packing Vendor Return Authorization</PageTitle>
+
+<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" class="rz-mb-4">
+    <AppBreadCrumbs ModuleCode="OPCK" />
+</RadzenStack>
+
+<AppContent>
+    <VendorReturnAuthorizationPackingDetails Ref="@Ref" />
+</AppContent>
+
+@code {
+    [SupplyParameterFromQuery] public string? Ref { get; set; }
+}

@@ -1,0 +1,17 @@
+@using Web.BlazorServer.Components.Pages.Transaction.TripTicket.Component
+@using Web.BlazorServer.Components.Security
+
+@inherits BaseComponent
+@page "/transactions/delivery/trip-ticket"
+@layout ProtectedLayout
+@attribute [AppAuthorizationAttribute("VIEW", "OTTX")]
+
+<PageTitle>Trip Ticket</PageTitle>
+
+<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" class="rz-mb-4">
+    <AppBreadCrumbs ModuleCode="OTTX" />
+</RadzenStack>
+
+<AppContent>
+    <TripTicketDataGrid />
+</AppContent>

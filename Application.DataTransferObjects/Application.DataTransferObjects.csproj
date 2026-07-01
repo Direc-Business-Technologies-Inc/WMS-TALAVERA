@@ -17,6 +17,8 @@
 
   <ItemGroup>
     <Folder Include="Transactions\TripTicket\NS\Request\" />
+    <Folder Include="Transactions\Packing\Return\" />
+    <Folder Include="Transactions\Packing\VRA\" />
   </ItemGroup>
 
 </Project>

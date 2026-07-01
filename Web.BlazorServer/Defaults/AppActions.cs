@@ -1,4 +1,4 @@
-﻿using System.ComponentModel;
+using System.ComponentModel;
 
 namespace Web.BlazorServer.Defaults;
 
@@ -12,6 +12,8 @@ public enum AppActions
     #region Others
     [Description("Get Customers")]
     GetCustomers,
+    [Description("Get Employees")]
+    GetEmployees,
     [Description("Get Vendors")]
     GetVendors,
     [Description("Get TransactionTypes")]
@@ -204,4 +206,38 @@ public enum AppActions
     [Description("Get Warehouse Items for Counting")]
     GetWarehouseItemsForCounting,
     #endregion Transaction - Inventory Counting
+
+    #region Transaction - Packing
+    [Description("Get All Packing Stock Transfer Request")]
+    GetAllPackingStockTransferRequest,
+    #endregion Transaction - Packing
+
+    #region Transaction - Vendor Return Authorization
+    [Description("Get All Packing Vendor Return Authorizations")]
+    GetAllPackingVendorReturnAuthorizations,
+    #endregion Transaction - Vendor Return Authorization
+
+    #region Transaction - Returns
+    [Description("Get All Packing Returns")]
+    GetAllPackingReturns,
+    #endregion Transaction - Returns
+
+    #region Transaction - Trip Ticket
+    [Description("Get All Trip Ticket")]
+    GetAllTripTickets,
+    [Description("View Trip Ticket")]
+    ViewTripTicket,
+    [Description("Create Trip Ticket")]
+    CreateTripTicket,
+    [Description("Get Packed Trip Ticket Fulfillments")]
+    GetPackedTripTicketFulfillments,
+    [Description("Get Trip Ticket Drivers")]
+    GetTripTicketDrivers,
+    [Description("Get Trip Ticket Helpers")]
+    GetTripTicketHelpers,
+    [Description("Get Trip Ticket Locations")]
+    GetTripTicketLocations,
+    [Description("Get Trip Ticket Truck Plate Numbers")]
+    GetTripTicketTruckPlateNumbers,
+    #endregion Transaction - Trip Ticket
 }

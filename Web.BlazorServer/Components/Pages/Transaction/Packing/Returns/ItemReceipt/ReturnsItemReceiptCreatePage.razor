@@ -1,0 +1,25 @@
+@using Web.BlazorServer.Components.Pages.Transaction.Packing
+@using Web.BlazorServer.Components.Pages.Transaction.Packing.Returns.ItemReceipt.Components
+@using Web.BlazorServer.Components.Security
+@using Web.BlazorServer.Components.Shared.Skeletons
+@using Web.BlazorServer.ViewModels.Transaction.Packing.Returns
+
+@inherits BaseForm<ReturnsItemReceiptPackingVM>
+@layout ProtectedLayout
+@attribute [AppAuthorizationAttribute("VIEW", "OPCK")]
+@attribute [Route(PackingRoutes.CreateReturnsItemReceipt)]
+
+<PageTitle>Creating Returns Item Receipt</PageTitle>
+
+<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" class="rz-mb-4">
+    <AppBreadCrumbs ModuleCode="OPCK" />
+</RadzenStack>
+
+<AppContent>
+    <AppFormSkeleton TItem="ReturnsItemReceiptPackingVM" Loading="@IsLoadingData" />
+
+    @if (!IsLoadingData)
+    {
+        <ReturnsItemReceiptForm Data="@FormData" EditContext="@EditContext" OnValidSubmit="@OnValidSubmit" />
+    }
+</AppContent>

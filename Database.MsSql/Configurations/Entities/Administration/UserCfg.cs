@@ -57,6 +57,40 @@ internal class UserCfg : IEntityTypeConfiguration<UserDEM>
                 .HasMaxLength(100)
                 .IsRequired();
         });
+        builder.OwnsOne(u => u.EmployeeNs, employee =>
+        {
+            employee.Property(e => e.NsId)
+                .HasColumnName("NSEmployeeId")
+                .IsRequired(false);
+            employee.Property(e => e.EmployeeCode)
+                .HasColumnName("NSEmployeeCode")
+                .HasMaxLength(50)
+                .IsRequired(false);
+            employee.Property(e => e.FirstName)
+                .HasColumnName("NSEmployeeFirstName")
+                .HasMaxLength(100)
+                .IsRequired(false);
+            employee.Property(e => e.LastName)
+                .HasColumnName("NSEmployeeLastName")
+                .HasMaxLength(100)
+                .IsRequired(false);
+            employee.Property(e => e.NsDepartmentId)
+                .HasColumnName("NSDepartmentId")
+                .IsRequired(false);
+            employee.Property(e => e.DepartmentName)
+                .HasColumnName("NSDepartmentName")
+                .HasMaxLength(200)
+                .IsRequired(false);
+            employee.Property(e => e.NsSubsidiaryId)
+                .HasColumnName("NSSubsidiaryId")
+                .IsRequired(false);
+            employee.Property(e => e.SubsidiaryName)
+                .HasColumnName("NSSubsidiaryName")
+                .HasMaxLength(200)
+                .IsRequired(false);
+        });
+        builder.Navigation(u => u.EmployeeNs)
+            .IsRequired(false);
         builder.HasMany(u => u.Permissions)
             .WithOne()
             .HasForeignKey(p => p.UserId);

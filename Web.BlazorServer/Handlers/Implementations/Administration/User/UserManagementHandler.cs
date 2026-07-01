@@ -1,12 +1,15 @@
 ﻿using Application.DataTransferObjects.Administration.User;
+using Application.DataTransferObjects.Others;
 using Application.UseCases.Commands.Administration.User;
 using Application.UseCases.Commands.Transaction.Administration.User;
 using Application.UseCases.Queries.Administration.User;
+using Application.UseCases.Queries.Others;
 using Mapster;
 using MediatR;
 using Shared.Entities;
 using Web.BlazorServer.Handlers.Repositories.Administration.User;
 using Web.BlazorServer.ViewModels.Administration.User;
+using Web.BlazorServer.ViewModels.Others;
 
 namespace Web.BlazorServer.Handlers.Implementations.Administration.User;
 
@@ -22,6 +25,13 @@ public class UserManagementHandler(
         await Sender.Send(cmd);
 
         return true;
+    }
+
+    public async Task<(IEnumerable<EmployeeNsVM> data, int count)> GetAllEmployeesAsync(DataGridIntent intent)
+    {
+        GetAllEmployeesQry qry = new(intent);
+        (IEnumerable<EmployeeNsDTO> Data, int Count) = await Sender.Send(qry);
+        return (Data.Adapt<IEnumerable<EmployeeNsVM>>(), Count);
     }
 
     public async Task<(IEnumerable<UserDataGridVM> data, int count)> GetAllUsersAsync(DataGridIntent intent)

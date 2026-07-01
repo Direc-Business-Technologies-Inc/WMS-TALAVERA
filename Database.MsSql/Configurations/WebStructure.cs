@@ -1,4 +1,4 @@
-﻿using Domain.Entities.System;
+using Domain.Entities.System;
 
 namespace Database.MsSql.Configurations;
 
@@ -46,8 +46,13 @@ public static class WebStructure
             icon: "unarchive",
             parentId: ParentRouteList!.First(x => x.Name.Equals("Transaction")).Id),
         NavigationRouteDEM.New(
-            name: "Inventory",
+            name: "Delivery",
             position: 2,
+            icon: "local_shipping",
+            parentId: ParentRouteList!.First(x => x.Name.Equals("Transaction")).Id),
+        NavigationRouteDEM.New(
+            name: "Inventory",
+            position: 3,
             icon: "inventory_2",
             parentId: ParentRouteList!.First(x => x.Name.Equals("Transaction")).Id),
     ];
@@ -63,35 +68,35 @@ public static class WebStructure
             uri: "/administration/user/user-management"),
         NavigationRouteDEM.New(
             name: "User Roles",
-            protectedRoute : true, 
+            protectedRoute : true,
             position: 1,
             parentId: SubRouteList1!.First(x => x.Name.Equals("User")).Id,
             icon: "groups",
             uri: "/administration/user/role-management"),
         NavigationRouteDEM.New(
             name: "User Authorization",
-            protectedRoute : true, 
+            protectedRoute : true,
             position: 2,
             parentId: SubRouteList1!.First(x => x.Name.Equals("User")).Id,
             icon: "admin_panel_settings",
             uri: "/administration/user/authorization-management"),
         NavigationRouteDEM.New(
             name: "System Configuration",
-            protectedRoute : true, 
+            protectedRoute : true,
             position: 0,
             parentId: SubRouteList1!.First(x => x.Name.Equals("Settings")).Id,
             icon: "build_circle",
             uri: "/administration/settings/system-configuration"),
         NavigationRouteDEM.New(
             name: "Receiving",
-            protectedRoute : true, 
+            protectedRoute : true,
             position: 0,
             parentId: SubRouteList1!.First(x => x.Name.Equals("Purchasing A/P")).Id,
             icon: "stacked_inbox",
             uri: "/transactions/purchasing/receiving"),
         NavigationRouteDEM.New(
             name: "Goods Return",
-            protectedRoute : true, 
+            protectedRoute : true,
             position: 1,
             parentId: SubRouteList1!.First(x => x.Name.Equals("Purchasing A/P")).Id,
             icon: "outbox",
@@ -110,6 +115,20 @@ public static class WebStructure
             parentId: SubRouteList1!.First(x => x.Name.Equals("Sales A/R")).Id,
             icon: "pallet",
             uri: "/transactions/sales/sales-return"),
+        NavigationRouteDEM.New(
+            name: "Packing",
+            protectedRoute : true,
+            position: 0,
+            parentId: SubRouteList1!.First(x => x.Name.Equals("Delivery")).Id,
+            icon: "local_shipping",
+            uri: "/transactions/delivery/packing"),
+        NavigationRouteDEM.New(
+            name: "Trip Ticket",
+            protectedRoute : true,
+            position: 1,
+            parentId: SubRouteList1!.First(x => x.Name.Equals("Delivery")).Id,
+            icon: "transit_ticket",
+            uri: "/transactions/delivery/trip-ticket"),
         NavigationRouteDEM.New(
             name: "Goods Issue",
             protectedRoute : true,

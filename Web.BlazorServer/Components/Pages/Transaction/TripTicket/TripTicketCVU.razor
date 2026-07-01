@@ -1,0 +1,302 @@
+@using global::Shared.Libraries.ViewModel
+@using global::Shared.Libraries.ViewModel.TripTicket
+@using Web.BlazorServer.Components.Pages.Transaction.TripTicket.Component
+@using Web.BlazorServer.Components.Security
+@using Web.BlazorServer.Components.Shared.Skeletons
+@using Web.BlazorServer.Extensions
+
+@inherits BaseForm<TripTicketVM>
+@attribute [Route(TripTicketRoutes.Create)]
+@attribute [Route(TripTicketRoutes.View)]
+@layout ProtectedLayout
+@attribute [AppAuthorizationAttribute("VIEW", "OTTX")]
+
+<PageTitle>@(Creating ? "New Trip Ticket" : $"Trip Ticket {FormData.Id}")</PageTitle>
+
+<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" class="rz-mb-4">
+    <AppBreadCrumbs ModuleCode="OTTX" AdditionalRoutes="@AdditionalRoutes" />
+</RadzenStack>
+
+<AppContent>
+    <AppFormSkeleton TItem="TripTicketVM" Loading="@IsLoadingData" />
+
+    <RadzenStack Visible="@(Viewing && !IsLoadingData)"
+                 Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
+                 JustifyContent="JustifyContent.End" Gap="1rem" class="rz-mb-2">
+        <AppContentBadge Title="TTX No." Content="@FormData.Id.ToString()" />
+    </RadzenStack>
+
+    <RadzenTemplateForm Visible="@(!IsLoadingData)" @ref="@TemplateForm"
+                        TItem="TripTicketVM" @bind-Data="@FormData"
+                        EditContext="@EditContext" Submit="@HandleSubmit">
+        <RadzenStack Gap="1rem">
+            <RadzenFieldset AllowCollapse Text="Details">
+                <ChildContent>
+                    <RadzenStack Gap="0.5rem">
+                        <RadzenRow Gap="1rem">
+                            <RadzenColumn Size="12" SizeMD="4">
+                                <RadzenFormField Text="Trip Date" class="rz-w-100" AllowFloatingLabel="false">
+                                    <ChildContent>
+                                        <RadzenTextBox Visible="@Viewing" ReadOnly
+                                                       Value="@FormData.TripDate?.ToString("MM/dd/yyyy")"
+                                                       class="rz-w-100" />
+                                        <RadzenDatePicker Visible="@Creating"
+                                                          @bind-Value="@FormData.TripDate"
+                                                          Change="(args) => OnFieldChanged(nameof(FormData.TripDate))"
+                                                          Name="tt_trip_date"
+                                                          DateFormat="MM/dd/yyyy"
+                                                          class="rz-w-100" />
+                                    </ChildContent>
+                                    <Helper>
+                                        <RadzenCustomValidator Visible="@Creating" Component="tt_trip_date" Popup
+                                                               Validator="() => FormData.TripDate.HasValue"
+                                                               Text="Trip Date is required" />
+                                    </Helper>
+                                </RadzenFormField>
+                            </RadzenColumn>
+                            <RadzenColumn Size="12" SizeMD="4">
+                                <RadzenFormField Text="Driver" class="rz-w-100" AllowFloatingLabel="false">
+                                    <ChildContent>
+                                        <RadzenTextBox Visible="@Viewing" ReadOnly
+                                                       Value="@GetEmployeeName(FormData.Driver)"
+                                                       Placeholder="No Driver Selected"
+                                                       class="rz-w-100" />
+                                        <RadzenDropDown Visible="@Creating"
+                                                        @bind-Value="@FormData.Driver"
+                                                        Change="(args) => OnFieldChanged(nameof(FormData.Driver))"
+                                                        Data="@Drivers"
+                                                        AllowClear
+                                                        AllowFiltering
+                                                        Name="tt_driver"
+                                                        TextProperty="@nameof(DriverVM.FullName)"
+                                                        Placeholder="Select Driver"
+                                                        class="rz-w-100" />
+                                    </ChildContent>
+                                    <Helper>
+                                        <RadzenCustomValidator Visible="@Creating" Component="tt_driver" Popup
+                                                               Validator="() => FormData.Driver is not null && FormData.Driver.NetsuiteEmployeeInternalId > 0"
+                                                               Text="Driver is required" />
+                                    </Helper>
+                                </RadzenFormField>
+                            </RadzenColumn>
+                            <RadzenColumn Size="12" SizeMD="4">
+                                <RadzenFormField Text="Helper" class="rz-w-100" AllowFloatingLabel="false">
+                                    <ChildContent>
+                                        <RadzenTextBox Visible="@Viewing" ReadOnly
+                                                       Value="@GetEmployeeName(FormData.Helper)"
+                                                       Placeholder="No Helper Selected"
+                                                       class="rz-w-100" />
+                                        <RadzenDropDown Visible="@Creating"
+                                                        @bind-Value="@FormData.Helper"
+                                                        Change="(args) => OnFieldChanged(nameof(FormData.Helper))"
+                                                        Data="@Helpers"
+                                                        AllowClear
+                                                        AllowFiltering
+                                                        Name="tt_helper"
+                                                        TextProperty="@nameof(HelperVM.FullName)"
+                                                        Placeholder="Select Helper"
+                                                        class="rz-w-100" />
+                                    </ChildContent>
+                                    <Helper>
+                                        <RadzenCustomValidator Visible="@Creating" Component="tt_helper" Popup
+                                                               Validator="() => FormData.Helper is not null && FormData.Helper.NetsuiteEmployeeInternalId > 0"
+                                                               Text="Helper is required" />
+                                    </Helper>
+                                </RadzenFormField>
+                            </RadzenColumn>
+                        </RadzenRow>
+
+                        <RadzenRow Gap="1rem">
+                            <RadzenColumn Size="12" SizeMD="4">
+                                <RadzenFormField Text="Destination" class="rz-w-100" AllowFloatingLabel="false">
+                                    <ChildContent>
+                                        <RadzenTextBox Visible="@Viewing" ReadOnly
+                                                       Value="@GetDestinationsText()"
+                                                       Placeholder="No Destination Selected"
+                                                       class="rz-w-100" />
+                                        <RadzenDropDown Visible="@Creating"
+                                                        Multiple
+                                                        @bind-Value="@FormData.Destinations"
+                                                        Change="(args) => OnFieldChanged(nameof(FormData.Destinations))"
+                                                        Data="@Locations"
+                                                        AllowClear
+                                                        AllowFiltering
+                                                        Name="tt_destinations"
+                                                        TextProperty="@nameof(LocationVM.LocationName)"
+                                                        Placeholder="Select Destination"
+                                                        class="rz-w-100" />
+                                    </ChildContent>
+                                    <Helper>
+                                        <RadzenCustomValidator Visible="@Creating" Component="tt_destinations" Popup
+                                                               Validator="() => FormData.Destinations.Any(x => x.NetsuiteLocationInternalId > 0)"
+                                                               Text="Destination is required" />
+                                    </Helper>
+                                </RadzenFormField>
+                            </RadzenColumn>
+                            <RadzenColumn Size="12" SizeMD="4">
+                                <RadzenFormField Text="Location" class="rz-w-100" AllowFloatingLabel="false">
+                                    <ChildContent>
+                                        <RadzenTextBox Visible="@Viewing" ReadOnly
+                                                       Value="@GetLocationName(FormData.OriginLocation)"
+                                                       Placeholder="No Location Selected"
+                                                       class="rz-w-100" />
+                                        <RadzenDropDown Visible="@Creating"
+                                                        @bind-Value="@FormData.OriginLocation"
+                                                        Change="(args) => OnFieldChanged(nameof(FormData.OriginLocation))"
+                                                        Data="@Locations"
+                                                        AllowClear
+                                                        AllowFiltering
+                                                        Name="tt_origin_location"
+                                                        TextProperty="@nameof(LocationVM.LocationName)"
+                                                        Placeholder="Select Location"
+                                                        class="rz-w-100" />
+                                    </ChildContent>
+                                    <Helper>
+                                        <RadzenCustomValidator Visible="@Creating" Component="tt_origin_location" Popup
+                                                               Validator="() => FormData.OriginLocation is not null && FormData.OriginLocation.NetsuiteLocationInternalId > 0"
+                                                               Text="Location is required" />
+                                    </Helper>
+                                </RadzenFormField>
+                            </RadzenColumn>
+                            <RadzenColumn Size="12" SizeMD="4">
+                                <RadzenFormField Text="Truck Plate No." class="rz-w-100" AllowFloatingLabel="false">
+                                    <ChildContent>
+                                        <RadzenTextBox Visible="@Viewing" ReadOnly
+                                                       Value="@FormData.TruckPlateNumber?.TruckPlateNoName"
+                                                       Placeholder="No Truck Plate Selected"
+                                                       class="rz-w-100" />
+                                        <RadzenDropDown Visible="@Creating"
+                                                        @bind-Value="@FormData.TruckPlateNumber"
+                                                        Change="(args) => OnFieldChanged(nameof(FormData.TruckPlateNumber))"
+                                                        Data="@TruckPlateNumbers"
+                                                        AllowClear
+                                                        AllowFiltering
+                                                        Name="tt_truck_plate_no"
+                                                        TextProperty="@nameof(TruckPlateNumberVM.TruckPlateNoName)"
+                                                        Placeholder="Select Truck Plate No."
+                                                        class="rz-w-100" />
+                                    </ChildContent>
+                                    <Helper>
+                                        <RadzenCustomValidator Visible="@Creating" Component="tt_truck_plate_no" Popup
+                                                               Validator="() => FormData.TruckPlateNumber is not null && FormData.TruckPlateNumber.NetsuiteTruckPlateNoInternalId > 0"
+                                                               Text="Truck Plate No. is required" />
+                                    </Helper>
+                                </RadzenFormField>
+                            </RadzenColumn>
+                        </RadzenRow>
+                    </RadzenStack>
+                </ChildContent>
+            </RadzenFieldset>
+
+            <RadzenFieldset AllowCollapse Text="Fulfillments">
+                <ChildContent>
+                    <RadzenRow>
+                        <RadzenColumn>
+                            <AppTable Visible="@Creating"
+                                      @ref="@FulfillmentLinesTable"
+                                      ActionName="@ActionGetFulfillments"
+                                      Id="trip_ticket_fulfillments_create"
+                                      TItem="ItemFulfillmentVM"
+                                      @bind-GridSettingsLoaded="@GridSettingsLoaded"
+                                      Data="[..FormData.ItemFulfillments]">
+                                <HeaderTemplate>
+                                    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" AlignItems="AlignItems.Center" Gap="8px">
+                                        <RadzenButton Icon="settings" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@OpenFulfillmentTableSettings" />
+                                        <RadzenButton Icon="add" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Success"
+                                                      Disabled="@IsLoadingFulfillments"
+                                                      Click="@AddFulfillments" />
+                                    </RadzenStack>
+                                </HeaderTemplate>
+                                <Columns>
+                                    <RadzenDataGridColumn TItem="ItemFulfillmentVM"
+                                                          Property="@nameof(ItemFulfillmentVM.OrderNumber)"
+                                                          Title="Fulfillment No." Type="@typeof(string)" />
+                                    <RadzenDataGridColumn TItem="ItemFulfillmentVM"
+                                                          Property="@nameof(ItemFulfillmentVM.OrderStatus)"
+                                                          Title="Status" Type="@typeof(string)">
+                                        <Template Context="line">
+                                            @line.GetName(line.OrderStatus)
+                                        </Template>
+                                    </RadzenDataGridColumn>
+                                    <RadzenDataGridColumn TItem="ItemFulfillmentVM"
+                                                          Property="@nameof(ItemFulfillmentVM.NetsuiteOrderCreatedDate)"
+                                                          Title="Created Date" Type="@typeof(DateTime)">
+                                        <Template Context="line">
+                                            @line.NetsuiteOrderCreatedDate.ToString("MM/dd/yyyy")
+                                        </Template>
+                                    </RadzenDataGridColumn>
+                                    <RadzenDataGridColumn TItem="ItemFulfillmentVM"
+                                                          Frozen FrozenPosition="FrozenColumnPosition.Right"
+                                                          Width="45px" MaxWidth="45px"
+                                                          Pickable="false" Sortable="false" Filterable="false">
+                                        <Template Context="line">
+                                            <RadzenButton Icon="delete" Size="ButtonSize.ExtraSmall"
+                                                          ButtonStyle="ButtonStyle.Danger"
+                                                          Click="() => RemoveFulfillment(line)" />
+                                        </Template>
+                                    </RadzenDataGridColumn>
+                                </Columns>
+                            </AppTable>
+
+                            <RadzenDataGrid Visible="@Viewing"
+                                            TItem="ItemFulfillmentVM"
+                                            Data="@FormData.ItemFulfillments"
+                                            AllowPaging ShowPagingSummary>
+                                <Columns>
+                                    <RadzenDataGridColumn TItem="ItemFulfillmentVM"
+                                                          Property="@nameof(ItemFulfillmentVM.OrderNumber)"
+                                                          Title="Fulfillment No." Type="@typeof(string)" />
+                                    <RadzenDataGridColumn TItem="ItemFulfillmentVM"
+                                                          Property="@nameof(ItemFulfillmentVM.DestinationLocation)"
+                                                          Title="Destination Location" Type="@typeof(string)" />
+                                </Columns>
+                            </RadzenDataGrid>
+                        </RadzenColumn>
+                    </RadzenRow>
+                </ChildContent>
+            </RadzenFieldset>
+
+            <RadzenRow>
+                <RadzenColumn>
+                    <RadzenStack class="rz-mt-4" Orientation="Orientation.Horizontal"
+                                 AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
+                        <RadzenButton Text="Back" ButtonStyle="ButtonStyle.Base" Click="@GoBack" />
+                        <RadzenButton Visible="@Creating"
+                                      ButtonStyle="ButtonStyle.Success"
+                                      ButtonType="ButtonType.Submit"
+                                      IsBusy="@AppBusyService.IsBusy(ActionCreate)">
+                            Submit
+                        </RadzenButton>
+                    </RadzenStack>
+                </RadzenColumn>
+            </RadzenRow>
+        </RadzenStack>
+    </RadzenTemplateForm>
+</AppContent>
+
+@code {
+    async Task AddFulfillments()
+    {
+        await DialogService.OpenAsync(
+            "Fulfillment Selection",
+            ds => @<TripTicketFulfillmentSelection @bind-Document="@FormData"
+                                                   Fulfillments="@PackedFulfillments" />,
+            options: GridSettingsService.GetDialogOptions().MaximizedMode());
+
+        OnFieldChanged(nameof(FormData.ItemFulfillments));
+
+        if (FulfillmentLinesTable is not null)
+            await FulfillmentLinesTable.DataGrid.Reload();
+    }
+
+    async Task OpenFulfillmentTableSettings()
+    {
+        await DialogService.OpenAsync(
+            "Table Settings",
+            ds => @<AppGridSettings TItem="ItemFulfillmentVM"
+                                    @bind-Grid=@FulfillmentLinesTable.DataGrid
+                                    @bind-GridSettings=@FulfillmentLinesTableSettings />,
+            options: GridSettingsService.GetDialogOptions());
+        await FulfillmentLinesTable.DataGrid.Reload();
+    }
+}

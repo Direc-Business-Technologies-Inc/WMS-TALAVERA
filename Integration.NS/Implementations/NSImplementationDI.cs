@@ -1,4 +1,4 @@
-﻿using Application.UseCases.Repositories.Integration.Others;
+using Application.UseCases.Repositories.Integration.Others;
 using Application.UseCases.Repositories.Integration.Transaction.Delivery;
 using Application.UseCases.Repositories.Integration.Transaction.GoodsIssue;
 using Application.UseCases.Repositories.Integration.Transaction.GoodsReceipt;
@@ -6,11 +6,15 @@ using Application.UseCases.Repositories.Integration.Transaction.GoodsReturn;
 using Application.UseCases.Repositories.Integration.Transaction.InventoryAdjustment;
 using Application.UseCases.Repositories.Integration.Transaction.InventoryCounting;
 using Application.UseCases.Repositories.Integration.Transaction.InventoryTransfer;
+// using Application.UseCases.Repositories.Integration.Transaction.InventoryTransferRequest;
+using Application.UseCases.Repositories.Integration.Transaction.Packing;
 using Application.UseCases.Repositories.Integration.Transaction.Receiving;
 using Application.UseCases.Repositories.Integration.Transaction.SalesReturn;
 using Application.UseCases.Repositories.Integration.Transaction.StockTransferRequest;
+using Application.UseCases.Repositories.Integration.Transaction.TripTicket;
 using Integration.NS.Implementations.Others;
 using Integration.NS.Implementations.Transactions;
+using Integration.NS.Implementations.Transactions.Packing;
 using Integration.NS.Implementations.Vestigial;
 using Integration.NS.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -41,8 +45,13 @@ public static class NSImplementationDI
         services.TryAddTransient<IVendorIntegration, VendorIntegration>();
         services.TryAddTransient<IBusinessAccountIntegration, BusinessAccountIntegration>();
         services.TryAddTransient<IInventoryAdjustmentIntegration, InventoryAdjustmentIntegration>();
+        services.TryAddTransient<ITripTicketIntegration, TripTicketIntegration>();
+        services.TryAddTransient<IEmployeeIntegration, EmployeeIntegration>();
 
         services.TryAddTransient<INetSuiteApiClientService, NetSuiteApiClientService>();
+        services.TryAddTransient<IStockTransferRequestPackingIntegration, StockTransferRequestPackingIntegration>();
+        services.TryAddTransient<IReturnPackingIntegration, ReturnPackingIntegration>();
+        services.TryAddTransient<IVendorReturnAuthorizationPackingIntegration, VendorReturnAuthorizationPackingIntegration>();
 
         // TODO FOR REMOVAL
         services.TryAddTransient<ITransactionTypeIntegration, TransactionTypeIntegration>();
