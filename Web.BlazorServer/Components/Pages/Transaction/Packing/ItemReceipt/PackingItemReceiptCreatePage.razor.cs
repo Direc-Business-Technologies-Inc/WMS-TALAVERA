@@ -12,7 +12,7 @@ partial class PackingItemReceiptCreatePage
     [Inject] IItemReceiptPackingHandler ItemReceiptPackingHandler { get; set; } = default!;
 
     readonly string ActionGetItemReceiptSource = "Get Packing Item Receipt Source";
-    readonly string ActionCreateItemReceipt = "Create Packing Item Receipt";
+    readonly string ActionFulfillItem = "Fulfill Packing Item";
 
     bool IsLoadingData => AppBusyService.IsBusy(ActionGetItemReceiptSource);
 
@@ -56,13 +56,13 @@ partial class PackingItemReceiptCreatePage
 
     async Task OnValidSubmit(ItemReceiptPackingVM model)
     {
-        AppBusyService.SetBusy(ActionCreateItemReceipt, true);
+        AppBusyService.SetBusy(ActionFulfillItem, true);
         await InvokeAsync(StateHasChanged);
 
         var action = await AppActionFactory.RunAsync(async () =>
         {
-            await ItemReceiptPackingHandler.PostItemReceipt(model);
-        }, AppActionOptionPresets.Loading(ActionCreateItemReceipt));
+            await ItemReceiptPackingHandler.PostItemFulfillment(model);
+        }, AppActionOptionPresets.Loading(ActionFulfillItem));
 
         action.OnSuccess(() =>
         {
@@ -70,7 +70,7 @@ partial class PackingItemReceiptCreatePage
             return Task.CompletedTask;
         });
 
-        AppBusyService.SetBusy(ActionCreateItemReceipt, false);
+        AppBusyService.SetBusy(ActionFulfillItem, false);
     }
 
     protected override Task CancelEditing() => throw new NotImplementedException();

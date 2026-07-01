@@ -5,5 +5,5 @@ namespace Web.BlazorServer.Handlers.Repositories.Transaction.Packing.ItemReceipt
 public interface IItemReceiptPackingHandler
 {
     Task<ItemReceiptPackingVM?> GetItemReceiptSourceAsync(string docEntry);
-    Task<bool> PostItemReceipt(ItemReceiptPackingVM data);
+    Task<bool> PostItemFulfillment(ItemReceiptPackingVM data);
 }

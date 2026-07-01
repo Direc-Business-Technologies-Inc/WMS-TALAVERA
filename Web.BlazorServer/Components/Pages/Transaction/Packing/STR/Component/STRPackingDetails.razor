@@ -91,7 +91,7 @@ else
             </RadzenFieldset>
             <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween">
                 <RadzenButton ButtonType="ButtonType.Button" ButtonStyle="ButtonStyle.Light" Text="Return" Click="@(_ => NavManager.NavigateTo($"{PackingRoutes.Root}?tab=stocktransferrequest"))" />
-                <RadzenButton ButtonType="ButtonType.Button" ButtonStyle="ButtonStyle.Success" Text="Fulfill Item Receipt" Click="@(_ => NavManager.NavigateTo($"{PackingRoutes.CreateItemReceipt}?ref={Model.ReferenceNumber}"))" />
+                <RadzenButton ButtonType="ButtonType.Button" ButtonStyle="ButtonStyle.Success" Text="Fulfill Item" Click="@(_ => NavManager.NavigateTo($"{PackingRoutes.CreateItemReceipt}?ref={Model.ReferenceNumber}"))" />
             </RadzenStack>
         </RadzenStack>
     </RadzenStack>

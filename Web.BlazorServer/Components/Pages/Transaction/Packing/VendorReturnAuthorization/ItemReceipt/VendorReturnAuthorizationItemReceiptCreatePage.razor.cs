@@ -12,7 +12,7 @@ public partial class VendorReturnAuthorizationItemReceiptCreatePage
     [Inject] IVendorReturnAuthorizationItemReceiptPackingHandler ItemReceiptPackingHandler { get; set; } = default!;
 
     readonly string ActionGetItemReceiptSource = "Get Vendor Return Authorization Item Receipt Source";
-    readonly string ActionCreateItemReceipt = "Create Vendor Return Authorization Item Receipt";
+    readonly string ActionFulfillItem = "Fulfill Vendor Return Authorization Item";
 
     bool IsLoadingData => AppBusyService.IsBusy(ActionGetItemReceiptSource);
 
@@ -56,13 +56,13 @@ public partial class VendorReturnAuthorizationItemReceiptCreatePage
 
     async Task OnValidSubmit(VendorReturnAuthorizationItemReceiptPackingVM model)
     {
-        AppBusyService.SetBusy(ActionCreateItemReceipt, true);
+        AppBusyService.SetBusy(ActionFulfillItem, true);
         await InvokeAsync(StateHasChanged);
 
         var action = await AppActionFactory.RunAsync(async () =>
         {
-            await ItemReceiptPackingHandler.PostItemReceipt(model);
-        }, AppActionOptionPresets.Loading(ActionCreateItemReceipt));
+            await ItemReceiptPackingHandler.PostItemFulfillment(model);
+        }, AppActionOptionPresets.Loading(ActionFulfillItem));
 
         action.OnSuccess(() =>
         {
@@ -70,7 +70,7 @@ public partial class VendorReturnAuthorizationItemReceiptCreatePage
             return Task.CompletedTask;
         });
 
-        AppBusyService.SetBusy(ActionCreateItemReceipt, false);
+        AppBusyService.SetBusy(ActionFulfillItem, false);
     }
 
     protected override Task CancelEditing() => throw new NotImplementedException();

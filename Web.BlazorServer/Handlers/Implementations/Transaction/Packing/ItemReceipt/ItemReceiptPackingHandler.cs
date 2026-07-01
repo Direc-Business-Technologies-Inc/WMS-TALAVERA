@@ -1,6 +1,8 @@
-using Application.DataTransferObjects.Transactions.Receiving;
-using Application.UseCases.Commands.Transaction.Receiving;
-using Application.UseCases.Queries.Transaction.Receiving;
+using Application.DataTransferObjects.Transactions.Commons.NS;
+using Application.DataTransferObjects.Transactions.Commons.NS.Request;
+using Application.UseCases.Commands.Transaction.Packing.NS.TransferOrder;
+using Application.UseCases.Queries.Transaction.Packing.NS.TransferOrder;
+using Application.UseCases.Queries.Transaction.Packing.STR;
 using MediatR;
 using Web.BlazorServer.Handlers.Repositories.Transaction.Packing.ItemReceipt;
 using Web.BlazorServer.ViewModels.Transaction.Packing.ItemReceipt;
@@ -11,114 +13,152 @@ public class ItemReceiptPackingHandler(ISender sender) : IItemReceiptPackingHand
 {
     public async Task<ItemReceiptPackingVM?> GetItemReceiptSourceAsync(string docEntry)
     {
-        var dto = await sender.Send(new GetItemReceiptSourceQry(docEntry));
-        if (dto is null) return null;
+        var header = await sender.Send(new GetPackingStockTransferRequestQry(docEntry));
+        if (header is null) return null;
 
-        return MapToVm(dto);
-    }
+        var lines = (await sender.Send(new GetTransferOrderLineQry(new TransferOrderLineRequestDTO
+        {
+            OrderNumber = docEntry
+        }))).ToList();
 
-    public async Task<bool> PostItemReceipt(ItemReceiptPackingVM data)
-    {
-        var dto = MapToDto(data);
-        return await sender.Send(new CreateItemReceiptCmd(dto));
-    }
-
-    private static ItemReceiptPackingVM MapToVm(ItemReceiptDTO dto)
-    {
         return new()
         {
-            SourceType = dto.Type.ToLowerInvariant() switch
+            SourceType = ItemReceiptPackingVM.SourceTypes.TransferOrder,
+            CreatedFrom = header.ReferenceNumber,
+            Department = "Operations",
+            ReceivedBy = header.ReceivedBy,
+            Location = header.Location,
+            TransferLocation = header.TransferLocation,
+            Subsidiary = header.FromSubsidiary,
+            ToSubsidiary = header.ToSubsidiary,
+            Date = header.Date,
+            SourceInternalId = lines.FirstOrDefault()?.NetsuiteOrderInternalId ?? header.Id,
+            Lines = [.. lines.Select(MapToVm)]
+        };
+    }
+
+    public async Task<bool> PostItemFulfillment(ItemReceiptPackingVM data)
+    {
+        var sourceLines = (await sender.Send(new GetTransferOrderLineQry(new TransferOrderLineRequestDTO
+        {
+            OrderNumber = data.CreatedFrom
+        }))).Where(line => GetOpenQuantity(line.LineQuantity, line.LineQuantityPacked, line.UoMRate) > 0).ToList();
+
+        var submittedLines = data.Lines.ToDictionary(line => line.LineNumber);
+        var dto = sourceLines
+            .SelectMany(line =>
             {
-                "trnfrord" => ItemReceiptPackingVM.SourceTypes.TransferOrder,
-                "purchord" => ItemReceiptPackingVM.SourceTypes.PurchaseOrder,
-                _ => ItemReceiptPackingVM.SourceTypes.Returns
-            },
-            CreatedFrom = dto.CreatedFrom,
-            Department = dto.Department,
-            Vendor = dto.Vendor,
-            ReceivedBy = dto.ReceivedBy,
-            Location = dto.Location,
-            TransferLocation = dto.TransferLocation,
-            Subsidiary = dto.Subsidiary,
-            ToSubsidiary = dto.ToSubsidiary,
-            Date = DateTime.Now,
-            SourceInternalId = dto.SourceInternalId,
-            DefaultBO = dto.DefaultBO,
-            VendorPrefferedBin = dto.VendorPrefferedBin,
-            Lines = [.. dto.Lines.Select(MapToVm)]
+                submittedLines.TryGetValue(line.LineSequenceNumber, out var submittedLine);
+
+                return new[]
+                {
+                    MapToDto(line, submittedLine, isBad: false),
+                    MapToDto(line, submittedLine, isBad: true)
+                };
+            })
+            .ToList();
+
+        if (!dto.Any(line => line.ScannedQuantity > 0))
+        {
+            throw new InvalidOperationException("Please enter at least one quantity to fulfill.");
+        }
+
+        var result = await sender.Send(new PostTransferOrderIFCmd(dto));
+        if (!result.Success)
+        {
+            throw new Exception(result.ErrorMessage);
+        }
+
+        return result.Data == true;
+    }
+
+    private static ItemReceiptLinePackingVM MapToVm(TransferOrderLineDTO dto)
+    {
+        var quantityPlanned = ConvertQuantity(dto.LineQuantity, dto.UoMRate);
+        var quantityOpen = GetOpenQuantity(dto.LineQuantity, dto.LineQuantityPacked, dto.UoMRate);
+        var quantityPacked = ConvertQuantity(dto.LineQuantityPacked, dto.UoMRate);
+
+        return new()
+        {
+            IsReceived = true,
+            IsLocationBinUsed = IsNetSuiteTrue(dto.LocationUsedBin),
+            LineNumber = dto.LineSequenceNumber,
+            PrefferedBinAssignmentId = dto.NetsuiteMaterialPrefferedBinId,
+            ItemCode = dto.MaterialCode,
+            ItemDescription = dto.MaterialName,
+            UoM = dto.UoMName,
+            Department = "Operations",
+            Location = dto.LocationName,
+            WeightRecord = dto.MaterialWeight * quantityOpen,
+            QuantityPlanned = quantityPlanned,
+            QuantityOpen = quantityOpen,
+            QuantityReceived = quantityPacked
         };
     }
 
-    private static ItemReceiptLinePackingVM MapToVm(ItemReceiptLineDTO dto)
+    private static PostTransferOrderDTO MapToDto(TransferOrderLineDTO dto, ItemReceiptLinePackingVM? submittedLine, bool isBad)
     {
+        var scannedQuantity = submittedLine is not null && submittedLine.IsReceived
+            ? isBad ? submittedLine.QuantityBad : submittedLine.QuantityGood
+            : 0;
+
+        var quantityPlanned = ConvertQuantity(dto.LineQuantity, dto.UoMRate);
+        var quantityPacked = ConvertQuantity(dto.LineQuantityPacked, dto.UoMRate);
+        var quantityOpen = GetOpenQuantity(dto.LineQuantity, dto.LineQuantityPacked, dto.UoMRate);
+
         return new()
         {
-            IsReceived = dto.IsReceived,
-            IsLocationBinUsed = dto.IsLocationBinUsed,
-            LineNumber = dto.LineNumber,
-            PrefferedBinAssignmentId = dto.PrefferedBinAssignmentId,
-            ItemCode = dto.ItemCode,
-            ItemDescription = dto.ItemDescription,
-            UoM = dto.UoM,
-            Department = dto.Department,
-            Location = dto.Location,
-            //WeightActual = dto.WeightActual,
-            //WeightRecord = dto.WeightRecord,
-            QuantityPlanned = dto.QuantityPlanned,
-            QuantityOpen = dto.QuantityOpen,
-            QuantityReceived = dto.QuantityReceived,
-            QuantityBad = dto.QuantityBad,
-            QuantityGood = dto.QuantityGood
+            NetsuiteOrderInternalId = dto.NetsuiteOrderInternalId,
+            OrderNumber = dto.OrderNumber,
+            OrderType = dto.OrderType,
+            OrderStatus = dto.OrderStatus,
+            TransferCategory = dto.TransferCategory,
+            NetsuiteFromLocationInternalId = dto.NetsuiteFromLocationInternalId,
+            NetsuiteToLocationInternalId = dto.NetsuiteToLocationInternalId,
+            NetsuiteFromSubsidiaryInternalId = dto.NetsuiteFromSubsidiaryInternalId,
+            NetsuiteSubsidiaryDefaultBOInternalId = dto.NetsuiteSubsidiaryDefaultBOInternalId,
+            NetsuitePrefferedBadBinId = dto.NetsuitePrefferedBadBinId,
+            NetsuiteToSubsidiaryInternalId = dto.NetsuiteToSubsidiaryInternalId,
+            NetsuiteSubsidiaryInternalId = dto.NetsuiteSubsidiaryInternalId,
+            NetsuiteLocationInternalId = dto.NetsuiteLocationInternalId,
+            LocationName = dto.LocationName,
+            LocationUsedBin = dto.LocationUsedBin,
+            IsLocationUsedBin = IsNetSuiteTrue(dto.LocationUsedBin),
+            LineSequenceNumber = dto.LineSequenceNumber,
+            TransactionLineType = dto.TransactionLineType,
+            NetsuiteMaterialInternalId = dto.NetsuiteMaterialInternalId,
+            MaterialCode = dto.MaterialCode,
+            MaterialName = dto.MaterialName,
+            MaterialWeight = dto.MaterialWeight,
+            NetsuiteMaterialPrefferedBinId = dto.NetsuiteMaterialPrefferedBinId,
+            NetsuiteMaterialVendorAssignedBin = dto.NetsuiteMaterialVendorAssignedBin,
+            LineQuantity = dto.LineQuantity,
+            LineQuantityPacked = dto.LineQuantityPacked,
+            NetsuiteUoMInternalId = dto.NetsuiteUoMInternalId,
+            UoMName = dto.UoMName,
+            UoMRate = dto.UoMRate,
+            NetsuiteOrderCreatedDate = dto.NetsuiteOrderCreatedDate,
+            NSLineQuantity = quantityPlanned,
+            NSLineQuantityPacked = quantityOpen,
+            NSLineQuantityShipped = quantityPacked,
+            ScanCount = scannedQuantity > 0 ? 1 : 0,
+            ScannedQuantity = scannedQuantity,
+            ScannedWeight = submittedLine?.WeightActual ?? 0,
+            TotalWeight = scannedQuantity * dto.MaterialWeight,
+            TotalQuantity = quantityOpen,
+            IsBad = isBad,
+            AlreadyFulfilled = scannedQuantity == quantityOpen,
+            OverScanned = scannedQuantity > quantityOpen
         };
     }
 
-    private static ItemReceiptDTO MapToDto(ItemReceiptPackingVM vm)
-    {
-        return new()
-        {
-            SourceType = vm.SourceType switch
-            {
-                ItemReceiptPackingVM.SourceTypes.PurchaseOrder => ItemReceiptDTO.SourceTypes.PurchaseOrder,
-                ItemReceiptPackingVM.SourceTypes.Returns => ItemReceiptDTO.SourceTypes.Returns,
-                ItemReceiptPackingVM.SourceTypes.TransferOrder => ItemReceiptDTO.SourceTypes.TransferOrder,
-                _ => throw new NotImplementedException()
-            },
-            SourceInternalId = vm.SourceInternalId,
-            VendorPrefferedBin = vm.VendorPrefferedBin,
-            DefaultBO = vm.DefaultBO,
-            CreatedFrom = vm.CreatedFrom,
-            Department = vm.Department,
-            Vendor = vm.Vendor,
-            ReceivedBy = vm.ReceivedBy,
-            Location = vm.Location,
-            TransferLocation = vm.TransferLocation,
-            Subsidiary = vm.Subsidiary,
-            ToSubsidiary = vm.ToSubsidiary,
-            Date = vm.Date,
-            Lines = [.. vm.Lines.Select(MapToDto)]
-        };
-    }
+    private static decimal ConvertQuantity(decimal quantity, decimal uoMRate) =>
+        uoMRate == 0 ? quantity : quantity / uoMRate;
 
-    private static ItemReceiptLineDTO MapToDto(ItemReceiptLinePackingVM vm)
-    {
-        return new()
-        {
-            IsReceived = vm.IsReceived,
-            IsLocationBinUsed = vm.IsLocationBinUsed,
-            LineNumber = vm.LineNumber,
-            PrefferedBinAssignmentId = vm.PrefferedBinAssignmentId,
-            ItemCode = vm.ItemCode,
-            ItemDescription = vm.ItemDescription,
-            UoM = vm.UoM,
-            Department = vm.Department,
-            Location = vm.Location,
-            //WeightActual = vm.WeightActual,
-            //WeightRecord = vm.WeightRecord,
-            QuantityPlanned = vm.QuantityPlanned,
-            QuantityOpen = vm.QuantityOpen,
-            QuantityReceived = vm.QuantityReceived,
-            QuantityBad = vm.QuantityBad,
-            QuantityGood = vm.QuantityGood
-        };
-    }
+    private static decimal GetOpenQuantity(decimal quantity, decimal fulfilledQuantity, decimal uoMRate) =>
+        Math.Max(0, ConvertQuantity(quantity - fulfilledQuantity, uoMRate));
+
+    private static bool IsNetSuiteTrue(string value) =>
+        value.Equals("T", StringComparison.OrdinalIgnoreCase) ||
+        value.Equals("true", StringComparison.OrdinalIgnoreCase);
 }
