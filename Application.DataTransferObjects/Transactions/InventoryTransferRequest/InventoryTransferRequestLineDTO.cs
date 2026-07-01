@@ -1,4 +1,5 @@
 ﻿using Application.DataTransferObjects.Others;
+using Application.DataTransferObjects.Transactions.Commons.NS.Payload;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -18,5 +19,6 @@ public class InventoryTransferRequestLineDTO
     public decimal Rate { get; set; }
     public decimal QuantityAlloted { get; set; }
 
+    public bool IsAllAssigned => InventoryDetails.Sum(x => x.QuantityAlloted) == QuantityAlloted;
     public List<InventoryDetailDTO> InventoryDetails { get; set; } = [];
 }

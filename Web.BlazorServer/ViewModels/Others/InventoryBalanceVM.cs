@@ -11,4 +11,6 @@ public class InventoryBalanceVM
     public InventoryStatusVM? Status { get; set; }
     public decimal QuantityOnHand { get; set; }
     public decimal QuantityCommited { get; set; }
+    public decimal QuantityAvailable => QuantityOnHand - QuantityCommited;
+    public string StatusName => Status?.Name ?? "NONE";
 }

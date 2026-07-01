@@ -1,0 +1,61 @@
+﻿@using Web.BlazorServer.Components.Custom
+@using Web.BlazorServer.ViewModels.Others
+@inherits BaseComponent
+
+<RadzenStack> 
+    <RadzenFieldset Text="Inventory Details">
+        <RadzenTable GridLines="DataGridGridLines.Horizontal" AllowAlternatingRows>
+            <RadzenTableHeader>
+                <RadzenTableHeaderRow>
+                    <RadzenTableHeaderCell>Bin</RadzenTableHeaderCell>
+                    <RadzenTableHeaderCell>Status</RadzenTableHeaderCell>
+                    <RadzenTableHeaderCell>On-hand Quantity</RadzenTableHeaderCell>
+                    <RadzenTableHeaderCell>Commited Quantity</RadzenTableHeaderCell>
+                    <RadzenTableHeaderCell>Available Quantity</RadzenTableHeaderCell>
+                    <RadzenTableHeaderCell>Alloted Quantity</RadzenTableHeaderCell>
+                </RadzenTableHeaderRow>
+            </RadzenTableHeader>
+            <RadzenTableBody>
+                @foreach (var selection in Details)
+                {
+                    <RadzenTableRow>
+                        <RadzenTableCell>
+                            <RadzenFormField class="rz-w-100">
+                                <QuickVirtualizedDropdown @bind-Value:get="selection.Bin" @bind-Value:set="value => BinSet(selection, value)" TItem="LocationBinVM" DataGetter="@BinProvider" TextProperty="@nameof(LocationBinVM.BinNumber)" />
+                            </RadzenFormField>
+                        </RadzenTableCell>
+                        <RadzenTableCell>
+                            <RadzenFormField class="rz-w-100">
+                                <QuickVirtualizedDropdown @ref="selection.BalanceDropdown" Disabled="@(selection.Bin is null)" @bind-Value="selection.Balance" TItem="InventoryBalanceVM" DataGetter="@(intent => InventoryBalanceProvider(intent, selection.Bin?.Id ?? -1))" TextProperty="@nameof(InventoryBalanceVM.StatusName)" />
+                            </RadzenFormField>
+                        </RadzenTableCell>
+                        <RadzenTableCell>
+                            <RadzenText TextStyle="TextStyle.Body2">@selection.QuantityOnHand</RadzenText>
+                        </RadzenTableCell>
+                        <RadzenTableCell>
+                            <RadzenText TextStyle="TextStyle.Body2">@selection.QuantityCommited</RadzenText>
+                        </RadzenTableCell>
+                        <RadzenTableCell>
+                            <RadzenText TextStyle="TextStyle.Body2">@selection.QuantityAvailable</RadzenText>
+                        </RadzenTableCell>
+                        <RadzenTableCell>
+                            <RadzenFormField class="rz-w-100">
+                                <RadzenNumeric class="rz-w-100" @bind-Value="selection.QuantityAlloted" Min="0" Max="@(selection.Bin is null ? 0 : null)"/>
+                            </RadzenFormField>
+                        </RadzenTableCell>
+                    </RadzenTableRow>
+                }
+            </RadzenTableBody>
+        </RadzenTable>
+        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" class="rz-w-100">
+            <RadzenStack>
+                <RadzenText class="rz-w-100 rz-p-0 rz-m-0" TextAlign="TextAlign.Right" TextStyle="TextStyle.Body2">Total: @CurrentCount</RadzenText>
+                <RadzenText class="rz-w-100 rz-p-0 rz-m-0" TextAlign="TextAlign.Right" TextStyle="TextStyle.Body2">Expected Total: @TotalQuantity</RadzenText>
+            </RadzenStack>
+        </RadzenStack>
+        <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5em" JustifyContent="JustifyContent.End" class="rz-mt-3">
+            <RadzenButton ButtonType="ButtonType.Button" Text="Add" Click="AddLine" />
+            <RadzenButton Disabled="!IsFull" ButtonType="ButtonType.Button" Text="Save" Click="Save" ButtonStyle="ButtonStyle.Success" />
+        </RadzenStack>
+    </RadzenFieldset>
+</RadzenStack>

@@ -41,4 +41,18 @@ public class LocationHandler(ISender sender) : ILocationHandler
         (var data, int count) = await sender.Send(query);
         return (data.Adapt<IEnumerable<InventoryBalanceVM>>(), count);
     }
+
+    public async Task<LocationVM?> GetParentLocation(LocationVM location)
+    {
+        GetParentLocationQry query = new(location.Id);
+        var data = await sender.Send(query);
+        return data?.Adapt<LocationVM>();
+    }
+
+    public async Task<LocationVM?> GetLocation(int locationId)
+    {
+        GetLocationQry query = new(locationId);
+        var data = await sender.Send(query);
+        return data?.Adapt<LocationVM>();
+    }
 }

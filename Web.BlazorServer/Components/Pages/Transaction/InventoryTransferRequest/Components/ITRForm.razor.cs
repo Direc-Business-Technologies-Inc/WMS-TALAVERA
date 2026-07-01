@@ -30,6 +30,8 @@ public partial class ITRForm
     QuickVirtualizedDropdown<LocationVM> DestinationLocationDropdown { get; set; } = default!;
     QuickVirtualizedDropdown<SubsidiaryVM> SubsidiaryDropdown { get; set; } = default!;
 
+    Task<LocationVM?>? ParentLocationTask = null;
+
     async Task<(IEnumerable<CustomerVM>, int)> CustomerProvider(DataGridIntent intent)
     {
         return await customerHandler.GetCustomersListAsync(intent);
@@ -47,9 +49,12 @@ public partial class ITRForm
     }
     async Task<(IEnumerable<LocationVM>, int)> DestinationLocationProvider(DataGridIntent intent)
     {
-        if (Model.SourceLocation is null) return ([], 0);
+        if (Model.SourceLocation is null || ParentLocationTask is null) return ([], 0);
 
-        return await locationHandler.GetSublocationsOfLocationAsync(intent, Model.SourceLocation.Id);
+        LocationVM? parent = await ParentLocationTask;
+        if (parent is null) return ([], 0);
+
+        return await locationHandler.GetSublocationsOfLocationAsync(intent, parent.Id);
     }
     async Task<(IEnumerable<ItemUnitVM>, int)> ItemUnitProvider(DataGridIntent intent, int itemId)
     {
@@ -129,6 +134,7 @@ public partial class ITRForm
         Model.DestinationLocation = null;
         Model.SourceLocation = value;
 
+        ParentLocationTask = value is null ? null : locationHandler.GetParentLocation(value);
         DestinationLocationDropdown.Reset();
 
         await InvokeAsync(StateHasChanged);

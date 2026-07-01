@@ -19,4 +19,11 @@ public class InventoryTransferRequestDTO
     public string Memo { get; set; } = string.Empty;
     public DateTime Date { get; set; }
     public List<InventoryTransferRequestLineDTO> Lines { get; set; } = [];
+    public InventoryTransferRequestStatusDTO? Status { get; set; } 
+}
+
+public class InventoryTransferRequestStatusDTO
+{
+    public string Id { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
 }

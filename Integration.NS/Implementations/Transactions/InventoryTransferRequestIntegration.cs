@@ -37,10 +37,14 @@ public class InventoryTransferRequestIntegration(
                 ("tl.entity", nameof(InventoryTransferRequestNSDTO.CustomerId)),
                 ("BUILTIN.DF(t.custbody_dbti_itr_to_location)", nameof(InventoryTransferRequestNSDTO.DestinationLocationName)),
                 ("t.custbody_dbti_itr_to_location", nameof(InventoryTransferRequestNSDTO.DestinationLocationId)),
+                ("t.status", nameof(InventoryTransferRequestNSDTO.StatusId)),
+                ("s.name", nameof(InventoryTransferRequestNSDTO.StatusName)),
                 ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(InventoryTransferRequestNSDTO.Date))
             )
             .From("transaction t")
             .Join("transactionline tl", "tl.transaction = t.id AND tl.mainline='T'")
+            .LeftJoin("CustomTransactionType ct", "ct.scriptid = t.recordtype")
+            .LeftJoin("transactionstatus s", "s.trantype = 'CuTrSale' AND t.status = s.id AND s.trancustomtype = ct.id")
             .WithFilters(
                 DataGridFilterUtilities.Equal("t.recordtype", "customsale_dbti_inv_transfer_req"),
                 DataGridFilterUtilities.Equal("t.tranid", Ref)
@@ -55,7 +59,8 @@ public class InventoryTransferRequestIntegration(
         {
             SourceLocation = new() { Id = result.SourceLocationId, Name = result.SourceLocationName },
             DestinationLocation = new() { Id = result.DestinationLocationId, Name = result.DestinationLocationName },
-            Subsidiary = new() { Id = result.SubsidiaryId, Name = result.SubsidiaryName }
+            Subsidiary = new() { Id = result.SubsidiaryId, Name = result.SubsidiaryName },
+            Status = new() { Id = result.StatusId, Name = result.StatusName }
         });
     }
 
@@ -65,7 +70,7 @@ public class InventoryTransferRequestIntegration(
             .Select(
                 ("item.itemId", nameof(InventoryTransferRequestLineNSDTO.ItemCode)),
                 ("item.displayname", nameof(InventoryTransferRequestLineNSDTO.ItemDescription)),
-                ("tl.quantity", nameof(InventoryTransferRequestLineNSDTO.QuantityAlloted)),
+                ("(tl.quantity / uom.conversionrate)", nameof(InventoryTransferRequestLineNSDTO.QuantityAlloted)),
                 ("BUILTIN.DF(tl.units)", nameof(InventoryTransferRequestLineNSDTO.UoMName)),
                 ("tl.units", nameof(InventoryTransferRequestLineNSDTO.UoMId)),
                 ("uom.conversionrate", nameof(InventoryTransferRequestLineNSDTO.UoMRate)),
@@ -98,12 +103,15 @@ public class InventoryTransferRequestIntegration(
                 ("t.tranid", nameof(InventoryTransferRequestDataGridDTO.ReferenceNumber)),
                 ("BUILTIN.DF(tl.location)", nameof(InventoryTransferRequestDataGridDTO.SourceLocation)),
                 ("BUILTIN.DF(t.subsidiary)", nameof(InventoryTransferRequestDataGridDTO.SubsidiaryName)),
+                ("s.name", nameof(InventoryTransferRequestDataGridDTO.StatusName)),
                 ("BUILTIN.DF(t.custbody_dbti_prepared_by)", nameof(InventoryTransferRequestDataGridDTO.PreparedBy)),
                 ("BUILTIN.DF(t.custbody_dbti_itr_to_location)", nameof(InventoryTransferRequestDataGridDTO.DestinationLocation)),
                 ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(InventoryTransferRequestDataGridDTO.Date))
             )
             .From("transaction t")
             .Join("transactionline tl", "tl.transaction = t.id AND tl.mainline='T'")
+            .LeftJoin("CustomTransactionType ct", "ct.scriptid = t.recordtype")
+            .LeftJoin("transactionstatus s", "s.trantype = 'CuTrSale' AND t.status = s.id AND s.trancustomtype = ct.id")
             .WithFilters(
                 DataGridFilterUtilities.Equal("t.recordtype", "customsale_dbti_inv_transfer_req")
             )
@@ -111,6 +119,24 @@ public class InventoryTransferRequestIntegration(
             .Build();
 
         var response = await netsuiteService.ExecuteSuiteQLQuery<InventoryTransferRequestDataGridDTO>(query.Query, query.Limit, query.Offset);
+        return (response.items, response.totalResults);
+    }
+
+    public async Task<(IEnumerable<InventoryTransferRequestStatusDTO>, int)> GetStatusTypesAsync(DataGridIntent intent)
+    {
+        var query = builderFactory.Create()
+            .Select(
+                ("s.id", nameof(InventoryTransferRequestStatusDTO.Id)),
+                ("s.name", nameof(InventoryTransferRequestStatusDTO.Name))
+            )
+            .From("CustomTransactionType ct")
+            .Join("transactionstatus s", "s.trantype = 'CuTrSale' AND s.trancustomtype = ct.id")
+            .WithDatagridIntent(intent)
+            .WithFilter(
+               DataGridFilterUtilities.Equal("ct.scriptid", "customsale_dbti_inv_transfer_req")
+            )
+            .Build();
+        var response = await netsuiteService.ExecuteSuiteQLQuery<InventoryTransferRequestStatusDTO>(query.Query, query.Limit, query.Offset);
         return (response.items, response.totalResults);
     }
 
@@ -144,16 +170,16 @@ public class InventoryTransferRequestIntegration(
             trandate = data.Date,
             Class = 1,
             department = 4,
-            lines = data.Lines.Select(x => new
+            lines = data.Lines.Where(x => x.QuantityAlloted > 0).Select(x => new
             {
                 item = x.ItemID,
                 quantity = x.QuantityAlloted,
                 rate = x.Rate,
                 units = x.UoM?.Id.ToString() ?? null,
-                inventoryDetail = x.InventoryDetails.Count > 0 ? x.InventoryDetails.Select(y => new
+                inventoryDetail = x.IsAllAssigned ? x.InventoryDetails.Select(y => new
                 {
-                    bin = y.Bin?.BinNumber ?? null,
-                    status = 1,
+                    bin = y.Bin?.Id ?? null,
+                    status = y.Status?.Id ?? null,
                     quantity = y.QuantityAlloted
                 }): null
             })
