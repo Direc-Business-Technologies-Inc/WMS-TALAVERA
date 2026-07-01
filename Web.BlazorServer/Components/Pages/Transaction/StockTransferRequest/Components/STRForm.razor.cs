@@ -62,6 +62,13 @@ public partial class STRForm
 
     private List<TransferCategory> ReturnCategories = [.. TransferCategory.ReturnCategories];
 
+    public string ReferenceString => string.IsNullOrEmpty(Model.ReferenceNumber) ? 
+        ReadOnly ? "N/A" : "Auto-Generated" : 
+        Model.ReferenceNumber;
+    public string StatusString => Model.Status is null ?
+        ReadOnly ? "N/A" : "To be submitted" :
+        string.IsNullOrEmpty(Model.Status.Name) ? "---" : Model.Status.Name;
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         await base.OnAfterRenderAsync(firstRender);
