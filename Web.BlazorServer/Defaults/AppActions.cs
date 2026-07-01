@@ -191,6 +191,10 @@ public enum AppActions
     CreateInventoryCountingDocument,
     [Description("View Inventory Counting Document")]
     ViewInventoryCountingDocument,
+    [Description("Get Inventory Counting Lines")]
+    GetInventoryCountingLines,
+    [Description("Patch Inventory Counting")]
+    PatchInventoryCounting,
     [Description("Save Inventory Counting Document")]
     SaveInventoryCountingDocument,
     [Description("Post Inventory Counting Document")]

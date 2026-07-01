@@ -233,7 +233,11 @@ namespace Integration.NS.Services
                 return response;
             }
 
-            throw new Exception($"Request failed with status code: {httpResponse.StatusCode}");
+            throw new Exception($"""
+Request failed with status code: {(int)httpResponse.StatusCode} ({httpResponse.StatusCode})
+
+{await httpResponse.Content.ReadAsStringAsync()}
+""");
         }
 
         public async Task<T> MakeRequestOAuth1<T>(string url, string? reqBody)
@@ -687,17 +691,6 @@ namespace Integration.NS.Services
         {
             var orderId = Data.Select(x => x.NetsuiteOrderInternalId).FirstOrDefault();
             string url = string.Format(PatchInventoryCountUrl, orderId);
-
-            //var badPO = Data.Where(x => x.IsBad).ToList();
-
-            //if (badPO.Any(x => x.ScannedQuantity > 0))
-            //{
-            //    var payloadBad = PurchaseOrderIRPayloadDTO.CreateForItemReceipt(badPO, 2);
-
-            //    var jsonStringBad = JsonSerializer.Serialize(payloadBad, JsonSerializerOption);
-
-            //    await MakeRequest<object>(url, jsonStringBad);
-            //}
 
             var goodIC = Data.Where(x => !x.IsBad).ToList();
 

@@ -1,11 +1,11 @@
-@using Domain.Entities.Enums.Transaction.InventoryCounting
-@using Web.BlazorServer.ViewModels.Transaction.InventoryCounting
+@using global::Shared.Entities
+@using global::Shared.Libraries.ViewModel.InventoryCounting
 
 @inherits BaseComponent
 
 <AppDataGrid @ref="@DataGrid"
              Id="inventory_counting_open_grid"
-             TItem="InventoryCountingDataGridVM"
+             TItem="InventoryCountingVM"
              DataGetter="@LoadDataAsync"
              GridSettings="@GridSettings"
              @bind-GridSettingsLoaded="@GridSettingsLoaded"
@@ -14,50 +14,42 @@
         <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" AlignItems="AlignItems.Center" Gap="8px">
             <RadzenButton Icon="settings" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@OpenTableSettings" />
             <RadzenButton Icon="sync" Size="ButtonSize.Small" Click="DataGrid.ReloadDataAsync" />
-            <RadzenButton Icon="add" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Success" Click="@CreateDocument" />
         </RadzenStack>
     </HeaderTemplate>
     <GridColumns>
-        <RadzenDataGridColumn TItem="InventoryCountingDataGridVM"
-                              Property="@nameof(InventoryCountingDataGridVM.AppDocNum)"
-                              Title="Doc #"
-                              Type="@typeof(string)" />
-        <RadzenDataGridColumn TItem="InventoryCountingDataGridVM"
-                              Property="@nameof(InventoryCountingDataGridVM.Warehouse)"
-                              Title="Warehouse"
-                              Type="@typeof(string)" />
-        <RadzenDataGridColumn TItem="InventoryCountingDataGridVM"
-                              Property="@nameof(InventoryCountingDataGridVM.CycleType)"
-                              Title="Cycle Type">
+        <RadzenDataGridColumn TItem="InventoryCountingVM"
+                              Property="@nameof(InventoryCountingVM.NetsuiteOrderInternalId)"
+                              Title="NetSuite ID"
+                              Width="120px"
+                              Type="@typeof(int)" />
+        <RadzenDataGridColumn TItem="InventoryCountingVM"
+                              Property="@nameof(InventoryCountingVM.OrderNumber)"
+                              Title="Document"
+                              Type="@typeof(string)">
             <Template>
-                @context.CycleType.ToString()
+                @($"IC-{context.OrderNumber}")
             </Template>
         </RadzenDataGridColumn>
-        <RadzenDataGridColumn TItem="InventoryCountingDataGridVM"
-                              Property="@nameof(InventoryCountingDataGridVM.Status)"
+        <RadzenDataGridColumn TItem="InventoryCountingVM"
+                              Property="@nameof(InventoryCountingVM.OrderStatus)"
                               Title="Status">
             <Template>
-                <AppContentBadge Title="" Content="@context.Status.ToString()"
-                                 ChildBadgeStyle="@(context.Status switch {
-                                     InventoryCountingDocumentStatus.Open => BadgeStyle.Success,
-                                     InventoryCountingDocumentStatus.Recount => BadgeStyle.Warning,
-                                     _ => BadgeStyle.Light
-                                 })" />
+                <AppContentBadge Title="" Content="@context.GetName(context.OrderStatus)" ChildBadgeStyle="BadgeStyle.Success" />
             </Template>
         </RadzenDataGridColumn>
-        <RadzenDataGridColumn TItem="InventoryCountingDataGridVM"
-                              Property="@nameof(InventoryCountingDataGridVM.CreatedBy)"
-                              Title="Created By"
+        <RadzenDataGridColumn TItem="InventoryCountingVM"
+                              Property="@nameof(InventoryCountingVM.OrderType)"
+                              Title="Order Type"
                               Type="@typeof(string)" />
-        <RadzenDataGridColumn TItem="InventoryCountingDataGridVM"
-                              Property="@nameof(InventoryCountingDataGridVM.CreatedDate)"
+        <RadzenDataGridColumn TItem="InventoryCountingVM"
+                              Property="@nameof(InventoryCountingVM.NetsuiteOrderCreatedDate)"
                               Title="Created Date"
                               Type="@typeof(DateTime)">
             <Template>
-                @context.CreatedDate.ToString("MM/dd/yyyy")
+                @context.NetsuiteOrderCreatedDate.ToString("MM/dd/yyyy")
             </Template>
         </RadzenDataGridColumn>
-        <RadzenDataGridColumn TItem="InventoryCountingDataGridVM"
+        <RadzenDataGridColumn TItem="InventoryCountingVM"
                               Frozen FrozenPosition="FrozenColumnPosition.Right"
                               Width="35px" Filterable="false" Sortable="false" Pickable="false">
             <Template>
@@ -72,7 +64,7 @@
     {
         await DialogService.OpenAsync(
             "Table Settings",
-            ds => @<AppGridSettings TItem="InventoryCountingDataGridVM"
+            ds => @<AppGridSettings TItem="InventoryCountingVM"
                                     @bind-Grid=@DataGrid.DataGrid
                                     @bind-GridSettings=@GridSettings />,
             options: GridSettingsService.GetDialogOptions());
