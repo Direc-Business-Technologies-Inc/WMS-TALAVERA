@@ -11,4 +11,7 @@ public class InventoryTransferRequestLineVM
     public LocationVM? Location { get; set; }
     public decimal QuantityOnHand { get; set; }
     public decimal QuantityAlloted { get; set; }
+
+    public bool IsAllAssigned => InventoryDetails.Sum(x => x.QuantityAlloted) == QuantityAlloted;
+    public List<InventoryDetailVM> InventoryDetails { get; set; } = [];
 }

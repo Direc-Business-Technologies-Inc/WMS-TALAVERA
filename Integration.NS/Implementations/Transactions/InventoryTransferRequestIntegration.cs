@@ -145,16 +145,16 @@ public class InventoryTransferRequestIntegration(
             trandate = data.Date,
             Class = 1,
             department = 4,
-            lines = data.Lines.Select(x => new
+            lines = data.Lines.Where(x => x.QuantityAlloted > 0).Select(x => new
             {
                 item = x.ItemID,
                 quantity = x.QuantityAlloted,
                 rate = x.Rate,
                 units = x.UoM?.Id.ToString() ?? null,
-                inventoryDetail = x.InventoryDetails.Count > 0 ? x.InventoryDetails.Select(y => new
+                inventoryDetail = x.IsAllAssigned ? x.InventoryDetails.Select(y => new
                 {
-                    bin = y.Bin?.BinNumber ?? null,
-                    status = 1,
+                    bin = y.Bin?.Id ?? null,
+                    status = y.Status?.Id ?? null,
                     quantity = y.QuantityAlloted
                 }): null
             })
