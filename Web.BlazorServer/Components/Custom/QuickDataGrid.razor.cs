@@ -86,5 +86,7 @@ public partial class QuickDataGrid<TItem> : BaseComponent where TItem : class
         return DataGridResultVM<TItem>.New(action.Result.Data ?? [], action.Result.Count);
     }
 
+    public Task Reload() => DataGrid.DataGrid.Reload();
+
     public delegate Task<(IEnumerable<TItem> Data, int Count)> DataDelegate(DataGridIntent intent);
 }
