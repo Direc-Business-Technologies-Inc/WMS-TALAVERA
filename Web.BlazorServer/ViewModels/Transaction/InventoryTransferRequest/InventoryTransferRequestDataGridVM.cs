@@ -8,6 +8,7 @@ public class InventoryTransferRequestDataGridVM
     public int Id { get; set; }
     [QuickDataGridTitle("Reference Number")]
     public string ReferenceNumber { get; set; } = string.Empty;
+    public DateTime Date { get; set; }
     [QuickDataGridTitle("Subsidiary")]
     public string SubsidiaryName { get; set; } = string.Empty;
     [QuickDataGridTitle("From Warehouse")]
@@ -16,6 +17,8 @@ public class InventoryTransferRequestDataGridVM
     public string DestinationLocation { get; set; } = string.Empty;
     [QuickDataGridTitle("Prepared By")]
     public string PreparedBy { get; set; } = string.Empty;
+    [QuickDataGridTitle("Status")]
+    public string StatusName { get; set; } = string.Empty;
     [QuickDataGridTitle("Remarks")]
     public string Memo { get; set; } = string.Empty;
 }

@@ -21,6 +21,8 @@ public class InventoryTransferRequestNSDTO
     public string Memo { get; set; } = string.Empty;
     public string CustomerName { get; set; } = string.Empty;
     public int CustomerId { get; set; }
+    public string StatusId { get; set; } = string.Empty;
+    public string StatusName { get; set; } = string.Empty;
 
     public DateTime Date { get; set; }
 }

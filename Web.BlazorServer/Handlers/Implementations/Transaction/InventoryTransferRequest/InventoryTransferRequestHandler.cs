@@ -29,6 +29,15 @@ public class InventoryTransferRequestHandler(ISender sender) : IInventoryTransfe
 
         return (data.Adapt<IEnumerable<InventoryTransferRequestDataGridVM>>(), count);
     }
+
+    public async Task<(IEnumerable<InventoryTransferRequestStatusVM> Data, int Count)> GetInventoryTransferRequestsStatusesAsync(DataGridIntent intent)
+    {
+        GetInventoryTransferRequestStatusesQry query = new(intent);
+
+        (var data, int count) = await sender.Send(query);
+
+        return (data.Adapt<IEnumerable<InventoryTransferRequestStatusVM>>(), count);
+    }
     public async Task<bool> CreateInventoryTransferRequest(InventoryTransferRequestVM data)
     {
         CreateInventoryTransferRequestCmd cmd = new(data.Adapt<InventoryTransferRequestDTO>());
