@@ -15,7 +15,7 @@
                 TextProperty="@TextProperty"
                 ValueProperty="@ValueProperty"
                 AllowFiltering="@AllowFiltering" >
-    <HeaderTemplate>
+    <FooterTemplate>
         @if (ShowLoadingIndicator && IsBusy)
         {
             if (LoadingIndicator is not null)
@@ -27,7 +27,7 @@
                 <RadzenProgressBar Mode="ProgressBarMode.Indeterminate" Value="100" ShowValue="false" class="rz-w-100" Style="height: 6px" />
             }
         }
-    </HeaderTemplate>
+    </FooterTemplate>
     <EmptyTemplate>
         @if (ShowEmptyTemplate)
         {
