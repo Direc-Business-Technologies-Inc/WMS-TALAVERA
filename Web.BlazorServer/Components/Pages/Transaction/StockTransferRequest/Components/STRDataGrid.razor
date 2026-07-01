@@ -11,7 +11,7 @@
         <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center" Gap="8px">
             <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Start" AlignItems="AlignItems.Center" Gap="8px">
                 <RadzenFormField Text="Filter By Status">
-                    <QuickVirtualizedDropdown TItem="TransferOrderStatusVM" ActionName="@ActionGetTranferOrderStatuses" DataGetter="@TranferOrderStatusProvider" TextProperty="@nameof(TransferOrderStatusVM.Name)" @bind-Value:get="@StatusFilter" @bind-Value:set="@StatusFilterChanged" Placeholder="Filter by status" />
+                    <QuickVirtualizedDropdown TItem="TransferOrderStatusVM" ActionName="@ActionGetTranferOrderStatuses" DataGetter="@TranferOrderStatusProvider" TextProperty="@nameof(TransferOrderStatusVM.Name)" @bind-Value:get="@StatusFilter" @bind-Value:set="@StatusFilterChanged" />
                 </RadzenFormField>
             </RadzenStack>
             <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" AlignItems="AlignItems.Center" Gap="8px">
