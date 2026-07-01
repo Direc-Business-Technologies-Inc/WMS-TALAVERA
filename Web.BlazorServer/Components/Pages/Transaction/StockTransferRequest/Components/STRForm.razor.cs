@@ -150,11 +150,26 @@ public partial class STRForm
 
     async Task OnSubsidiaryChanged(SubsidiaryVM? value)
     {
+        var originalValue = Model.Subsidiary;
+        Model.Subsidiary = value;
+
+        if (SameSubsidiary(value, Model.ToSubsidiary))
+        {
+            ToastService.Warning("\"Subsidiary\" cannot be the same as \"To Subsidiary\"");
+            await Task.Yield();
+            Model.Subsidiary = originalValue;
+            return;
+        }
 
         if (Model.Lines.Any())
         {
             var confirm = await DialogService.Confirm(message: "Changing subsidiaries will clear added items") ?? false;
-            if (!confirm) return;
+            if (!confirm)
+            {
+                await Task.Yield();
+                Model.Subsidiary = originalValue;
+                return;
+            }
         }
         if (value != Model.Subsidiary)
         {
@@ -175,19 +190,36 @@ public partial class STRForm
 
     async Task OnLocationChanged(LocationVM? value)
     {
+        var originalValue = Model.SourceLocation;
+        Model.SourceLocation = value;
+
         if (Model.Lines.Any())
         {
             var confirm = await DialogService.Confirm(message: "Changing source warehouse will clear added items") ?? false;
-            if (!confirm) return;
+            if (!confirm)
+            {
+                await Task.Yield();
+                Model.SourceLocation = originalValue;
+                return;
+            }
         }
-        Model.Lines.Clear();
-        Model.SourceLocation = value;
 
         await InvokeAsync(StateHasChanged);
     }
 
     async Task OnToSubsidiaryChanged(SubsidiaryVM? value)
     {
+        var originalValue = Model.ToSubsidiary;
+        Model.ToSubsidiary = value;
+
+        if (SameSubsidiary(value, Model.Subsidiary))
+        {
+            ToastService.Warning("\"To Subsidiary\" cannot be the same as \"Subsidiary\"");
+            await Task.Yield();
+            Model.ToSubsidiary = originalValue;
+            return;
+        }
+
         Model.ToSubsidiary = value;
         Model.DestinationLocation = null;
         Model.Vendor = null;
@@ -199,6 +231,12 @@ public partial class STRForm
     {
         Model.Lines.Remove(line);
         await LinesTable.DataGrid.Reload();
+    }
+
+    bool SameSubsidiary(SubsidiaryVM? a, SubsidiaryVM? b)
+    {
+        if (a is null && b is null) return false;
+        return a?.Id == b?.Id;
     }
 
     void Return()
