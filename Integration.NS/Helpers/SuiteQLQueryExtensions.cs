@@ -12,28 +12,32 @@ public static class SuiteQLQueryExtensions
 {
     public static async Task<NetSuiteResponse<T>> ExecuteWithPaging<T>(this SuiteQLQuery query, INetSuiteApiClientService netsuiteService)
     {
-        int? origLimit = null;
-        int? origOffset = null;
-        int? limit = query.Limit;
-        int? offset = query.Offset;
-        if (offset != null && limit != null)
+        if (query.Limit < 0) { query.Limit = null; }
+        if (query.Offset is null || query.Limit is null)
         {
-            if (query.Offset < 0) throw new InvalidOperationException("Cannot offset by a negative number");
-            int remainder = (int)(offset % limit);
-            if (remainder != 0)
-            {
-                origLimit = query.Limit;
-                origOffset = query.Offset;
-                offset = offset - remainder;
-                limit *= 2;
-            }
+            return await netsuiteService.ExecuteSuiteQLQuery<T>(query.Query, query.Limit, query.Offset);
         }
 
-        var response = await netsuiteService.ExecuteSuiteQLQuery<T>(query.Query, limit, offset);
-        if (origLimit is null || origOffset is null) return response;
+        int modulos = (int)query.Offset % (int)query.Limit;
+        if (modulos == 0)
+        {
+            return await netsuiteService.ExecuteSuiteQLQuery<T>(query.Query, query.Limit, query.Offset);
+        }
 
-        response.items = [.. response.items.Skip((int)origOffset - (offset ?? 0)).Take((int)origLimit)];
-        response.count = response.items.Count;
-        return response;
+        int nearestMultiple = (int)query.Offset - modulos;
+
+        var responses = await Task.WhenAll(
+                netsuiteService.ExecuteSuiteQLQuery<T>(query.Query, query.Limit, nearestMultiple),
+                netsuiteService.ExecuteSuiteQLQuery<T>(query.Query, query.Limit, nearestMultiple + query.Limit)
+            );
+
+        List<T> itemsStitched = [
+           .. responses[0].items.Skip(modulos),
+            .. responses[1].items.Take(modulos)
+           ];
+
+        responses[0].items = itemsStitched;
+        responses[0].count = itemsStitched.Count;
+        return responses[0];
     }
 }

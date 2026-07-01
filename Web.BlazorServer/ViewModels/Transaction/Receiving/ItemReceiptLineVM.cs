@@ -27,8 +27,8 @@ public class ItemReceiptLineVM
     public string UoM { get; set; } = string.Empty;
     public string Department { get; set; } = string.Empty;
     public string Location { get; set; } = string.Empty;
-    public decimal WeightReceived { get; set; }
-    public decimal WeightTotal { get; set; }
+    public decimal WeightActual { get; set; }
+    public decimal WeightRecord { get; set; }
     public decimal QuantityPlanned { get; set; }
     public decimal QuantityOpen { get; set; }
     public decimal QuantityReceived { get; set; }

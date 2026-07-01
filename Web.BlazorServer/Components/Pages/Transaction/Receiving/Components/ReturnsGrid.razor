@@ -20,7 +20,7 @@
                               Property="@nameof(ReturnsDataGridVM.Date)"
                               Type="@typeof(DateTime)"
                               FormatString="{0:yyyy-MM-dd}"
-                              Title="Purchase Order Date" />
+                              Title="Transfer Order Date" />
         <RadzenDataGridColumn TItem="ReturnsDataGridVM"
                               Property="@nameof(ReturnsDataGridVM.Vendor)"
                               Type="@typeof(string)"
@@ -42,12 +42,17 @@
                               Type="@typeof(string)"
                               Title="Destination Warehouse" />
         <RadzenDataGridColumn TItem="ReturnsDataGridVM"
+                              Property="@nameof(ReturnsDataGridVM.Status)"
+                              Type="@typeof(string)"
+                              Title="Status" />
+        <RadzenDataGridColumn TItem="ReturnsDataGridVM"
                               Property="@nameof(ReturnsDataGridVM.Remarks)"
                               Type="@typeof(string)"
                               Title="Remarks" />
         <RadzenDataGridColumn TItem="ReturnsDataGridVM"
                               Frozen
                               FrozenPosition="FrozenColumnPosition.Right"
+                              Pickable="false" Sortable="false" Filterable="false"
                               Width="35px">
             <Template>
                 <RadzenButton Icon="arrow_right_alt" Size="ButtonSize.ExtraSmall" Click="() => ViewItem(context)" />

@@ -21,7 +21,7 @@
 <AppFormSkeleton TItem="StockTransferRequestInfoVM" Loading="@IsLoadingData"/>
 @if (!IsLoadingData)
 {
-    <STRForm Model="@FormData" EditContext="@EditContext" ReadOnly ActionURI="@(STRRoutes.Update + $"?ref={Ref}")" ActionLabel="Edit" ReturnURI="@STRRoutes.Root"/>
+    <STRForm Model="@FormData" EditContext="@EditContext" ReadOnly ActionURI="@(ActionURI)" ActionLabel="Edit" ReturnURI="@STRRoutes.Root"/>
 }
 </AppContent>
 
@@ -34,6 +34,7 @@
     bool IsLoadingData => AppBusyService.IsBusy(ActionGetStockTransferRequest);
 
     readonly string ActionGetStockTransferRequest = "Get Stock Transfer Request";
+    string? ActionURI = null;
 
     protected override void OnParametersSet()
     {
@@ -69,11 +70,15 @@
         {
             res.Adapt(FormData);
             FormData.Category = res.Category;
+            ActionURI = res.Status?.Id.Equals("C", StringComparison.OrdinalIgnoreCase) ?? false ?
+                STRRoutes.Update + $"?ref={Ref}" :
+                null;
             await InvokeAsync(StateHasChanged);
         });
 
         action.OnFailure(ex =>
         {
+            ActionURI = null;
             NavError(ex.Message);
             return Task.CompletedTask;
         });
@@ -82,7 +87,7 @@
     void NavError(string message)
     {
         ToastService.Error(message);
-        NavManager.NavigateTo(STRRoutes.Root, true);
+        NavManager.NavigateTo(STRRoutes.Root);
     }
 
 

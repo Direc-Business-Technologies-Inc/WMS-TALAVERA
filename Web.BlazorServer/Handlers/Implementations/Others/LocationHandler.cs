@@ -1,4 +1,5 @@
 ﻿using Application.UseCases.Queries.Others;
+using Application.UseCases.Queries.Others.Location;
 using Mapster;
 using MediatR;
 using Shared.Entities;
@@ -15,6 +16,12 @@ public class LocationHandler(ISender sender) : ILocationHandler
         (var data, int count) = await sender.Send(query);
         return (data.Adapt<IEnumerable<LocationVM>>(), count);
     }
+    public async Task<(IEnumerable<LocationVM> Data, int Count)> GetSublocationsOfLocationAsync(DataGridIntent intent, int location)
+    {
+        GetLocationSubLocationsQry query = new(intent, location);
+        (var data, int count) = await sender.Send(query);
+        return (data.Adapt<IEnumerable<LocationVM>>(), count);
+    }
 
     public async Task<(IEnumerable<LocationBinVM> Data, int Count)> GetLocationBinsAsync(int locationId, DataGridIntent intent)
     {
@@ -27,5 +34,25 @@ public class LocationHandler(ISender sender) : ILocationHandler
         GetLocationsBySubsidiaryQry query = new(intent, subsidiaryId);
         (var data, int count) = await sender.Send(query);
         return (data.Adapt<IEnumerable<LocationVM>>(), count);
+    }
+    public async Task<(IEnumerable<InventoryBalanceVM> Data, int Count)> GetLocationInventoryBalanceAsync(int locationId, DataGridIntent intent)
+    {
+        GetLocationInventoryBalanceQry query = new(intent, locationId);
+        (var data, int count) = await sender.Send(query);
+        return (data.Adapt<IEnumerable<InventoryBalanceVM>>(), count);
+    }
+
+    public async Task<LocationVM?> GetParentLocation(LocationVM location)
+    {
+        GetParentLocationQry query = new(location.Id);
+        var data = await sender.Send(query);
+        return data?.Adapt<LocationVM>();
+    }
+
+    public async Task<LocationVM?> GetLocation(int locationId)
+    {
+        GetLocationQry query = new(locationId);
+        var data = await sender.Send(query);
+        return data?.Adapt<LocationVM>();
     }
 }

@@ -23,6 +23,8 @@ public class InventoryAdjustmentLineVM
     public List<InventoryDetailVM> InventoryDetails { get; set; } = [];
 
     public decimal QuantityAssignedToBins => InventoryDetails.Sum(x => x.QuantityAlloted);
+    public decimal QuantityNew => Type == Types.Issue ? QuantityOnHand - QuantityAlloted : QuantityOnHand + QuantityAlloted;
+    public decimal QuantityOld => Type == Types.Issue ? QuantityOnHand + QuantityAlloted : QuantityOnHand - QuantityAlloted;
     public bool IsAllAssignedToBins => QuantityAssignedToBins == QuantityAlloted;
 
     public Types Type { get; set; } = Types.Receipt;

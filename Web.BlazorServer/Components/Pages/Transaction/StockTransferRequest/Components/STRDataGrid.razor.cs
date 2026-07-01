@@ -84,6 +84,7 @@ partial class STRDataGrid
     async Task LoadGridSettings()
     {
         await GridSettingsService.SetGridSettings(DataGrid.DataGrid, settings => DataGridSettings = settings ?? new());
+        DataGridSettings.CurrentPage = null;
         GridSettingsLoaded = true;
 
         await DataGrid.DataGrid.ReloadSettings();

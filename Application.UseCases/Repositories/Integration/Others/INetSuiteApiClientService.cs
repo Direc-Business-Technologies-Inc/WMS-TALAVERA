@@ -1,12 +1,10 @@
 ﻿using Application.DataTransferObjects.Others.NS;
-﻿using Application.DataTransferObjects.Transactions.Commons.NS;
+using Application.DataTransferObjects.Transactions.Commons.NS;
 using Application.DataTransferObjects.Transactions.InventoryCounting.NS;
 using Application.DataTransferObjects.Transactions.Packing.NS;
-using Application.DataTransferObjects.Transactions.Receiving;
 using Application.DataTransferObjects.Transactions.Receiving.NS;
 using Application.DataTransferObjects.Transactions.TripTicket.NS;
 using System.ComponentModel;
-
 namespace Application.UseCases.Repositories.Integration.Others;
 
 public interface INetSuiteApiClientService : INotifyPropertyChanged
@@ -16,11 +14,6 @@ public interface INetSuiteApiClientService : INotifyPropertyChanged
     Task<T> MakeRequest<T>(string url, string? reqBody, HttpMethod method);
     Task<T> MakeRequestOAuth1<T>(string url, string? reqBody);
 
-
-    Task<bool> SavePOItemReceipt(List<PostPurchaseOrderDTO> Data);
-    Task<bool> SaveTOItemReceipt(List<PostTransferOrderDTO> Data);
-    Task<bool> SaveReturnsItemReceipt(List<PostReturnsDTO> Data);
-    
     string GetRestAPIURI { get; }
     string GetRestletURI { get; }
 
@@ -30,6 +23,10 @@ public interface INetSuiteApiClientService : INotifyPropertyChanged
     Task<bool> SaveVRAItemFulfillment(List<PostVendorReturnAuthorizationDTO> Data);
 
     Task<bool> SaveTripTicket(PostTripTicketDTO Data);
+
+    Task<bool> SavePOItemReceipt(List<PostPurchaseOrderDTO> Data);
+    Task<bool> SaveTOItemReceipt(List<PostTransferOrderDTO> Data);
+    Task<bool> SaveReturnsItemReceipt(List<PostReturnsDTO> Data);
 
     Task<bool> PatchInventoryCounting(List<PatchInventoryCountingDTO> Data);
     Task<bool> PostInventoryWorksheet(List<InventoryWorksheetLineDTO> Data, int Location);

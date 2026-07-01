@@ -17,6 +17,7 @@ using Microsoft.IdentityModel.Tokens;
 using System.ComponentModel;
 using System.IdentityModel.Tokens.Jwt;
 using System.Net.Http.Headers;
+using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -223,9 +224,9 @@ namespace Integration.NS.Services
             {
                 var responseJson = await httpResponse.Content.ReadAsStringAsync();
                 //_logger.LogDebug("SuiteQLQuery Result: {@Result}", responseJson);
-                if (string.IsNullOrWhiteSpace(responseJson))
+                if (string.IsNullOrEmpty(responseJson))
                 {
-                    return default;
+                    return default(T);
                 }
 
                 var response = JsonSerializer.Deserialize<T>(responseJson, JsonSerializerRequestOption);
@@ -233,9 +234,15 @@ namespace Integration.NS.Services
                 return response;
             }
 
-            throw new Exception($"Request failed with status code: {httpResponse.StatusCode}");
+            var errorBody = await httpResponse.Content.ReadFromJsonAsync<NetSuiteErrorResponse>();
+            throw new Exception(errorBody?.DisplayString ?? $"Request failed with status code: {httpResponse.StatusCode}");
         }
 
+        async Task<T> MakeRequest<T>(string url, string? reqBody = null)
+        {
+            return await MakeRequest<T>(url, reqBody, HttpMethod.Post);
+        }
+        
         public async Task<T> MakeRequestOAuth1<T>(string url, string? reqBody)
         {
             string consumerKey = Environment.GetEnvironmentVariable("OAUTH1_CONSUMER_KEY") ?? "";
@@ -740,5 +747,6 @@ namespace Integration.NS.Services
             return true;
         }
         #endregion
+        
     }
 }

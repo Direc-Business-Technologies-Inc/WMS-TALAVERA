@@ -1,9 +1,10 @@
 ﻿using Web.BlazorServer.Components.Pages.Transaction.InventoryAdjustment;
-//using Web.BlazorServer.Components.Pages.Transaction.InventoryTransferRequest;
 using Web.BlazorServer.Components.Pages.Transaction.Packing;
 using Web.BlazorServer.Components.Pages.Transaction.StockTransferRequest;
 using Web.BlazorServer.Components.Pages.Transaction.TripTicket;
-//using Web.BlazorServer.Components.Pages.Transaction.SupplierReturn;
+using Web.BlazorServer.Components.Pages.Transaction.InventoryTransferRequest;
+using Web.BlazorServer.Components.Pages.Transaction.StockTransferRequest;
+using Web.BlazorServer.Components.Pages.Transaction.SupplierReturn;
 using Web.BlazorServer.ViewModels.System;
 
 namespace Web.BlazorServer.Helpers;
@@ -70,12 +71,12 @@ public class NavRoutesRepository
         List<NavigationRouteVM> inventorySubroutes = [
             new() {Name = "Stock Transfer Request", Icon="battery_android_share", Protected=true, Uri = STRRoutes.Root },
             new() {Name = "Inventory Adjustment", Icon="swap_vert", Protected=true, Uri = InventoryAdjustmentRoutes.INDEX },
-            //new() {Name = "Inventory Transfer Request", Icon="warehouse", Protected=true, Uri = ITRRoutes.INDEX },
+            new() {Name = "Inventory Transfer Request", Icon="warehouse", Protected=true, Uri = ITRRoutes.INDEX },
         ];
 
         List<NavigationRouteVM> purchaseSubroutes = [
             new() {Name = "Receiving", Icon="stacked_inbox", Protected=true, Uri = "/transactions/purchasing/receiving" },
-            //new() {Name = "Return to Supplier", Icon="assignment_return", Protected=true, Uri = SupplierReturnRoutes.INDEX },
+            new() {Name = "Return to Supplier", Icon="assignment_return", Protected=true, Uri = SupplierReturnRoutes.INDEX },
         ];
 
         List<NavigationRouteVM> deliverySubroutes = [

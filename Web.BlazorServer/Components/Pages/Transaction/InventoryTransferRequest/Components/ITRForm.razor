@@ -1,0 +1,122 @@
+﻿@using Web.BlazorServer.Components.Custom
+@using Web.BlazorServer.ViewModels.Others
+@using Web.BlazorServer.ViewModels.Transaction.InventoryTransferRequest
+@inherits BaseComponent
+
+<RadzenTemplateForm TItem="InventoryTransferRequestVM" Data="@Model" EditContext="@EditContext" Submit="@Submit">
+    <RadzenStack Gap="0.5em">
+        <RadzenFieldset Text="Details">
+            <RadzenRow>
+                <RadzenColumn SizeMD="6">
+                    <RadzenFormField AllowFloatingLabel="false" Text="Reference Number" class="rz-w-100">
+                        <RadzenTextBox ReadOnly Value="@Model.ReferenceNumber" Placeholder="@(ReadOnly ? "-" : "Auto-Generated")" />
+                    </RadzenFormField>
+                </RadzenColumn>
+                <RadzenColumn SizeMD="6">
+                    <RadzenFormField Text="Date" class="rz-w-100">
+                        <RadzenDatePicker DateFormat="MMMM dd, yyyy" TValue="DateTime" Value="@Model.Date" />
+                    </RadzenFormField>
+                </RadzenColumn>
+                <RadzenColumn SizeMD="3" SizeSM="6">
+                    <RadzenFormField Text="Customer" class="rz-w-100">
+                        <RadzenTextBox Visible="@ReadOnly" ReadOnly Value="@Model.Customer?.Name" Placeholder="No customer given" />
+                        <QuickVirtualizedDropdown Visible="@(!ReadOnly)" TItem="CustomerVM" DataGetter="@CustomerProvider" TextProperty="@nameof(CustomerVM.Name)" @bind-Value:get="@Model.Customer" @bind-Value:set="CustomerSet" />
+                    </RadzenFormField>
+                </RadzenColumn>
+                <RadzenColumn SizeMD="3" SizeSM="6">
+                    <RadzenFormField Text="Subsidiary" class="rz-w-100">
+                        <RadzenTextBox Visible="@ReadOnly" ReadOnly Value="@Model.Subsidiary?.Name" Placeholder="No subsidiary given" />
+                        <QuickVirtualizedDropdown @ref="@SubsidiaryDropdown" Visible="@(!ReadOnly)" Disabled="@(Model.Customer is null)" TItem="SubsidiaryVM" DataGetter="@SubsidiaryProvider" TextProperty="@nameof(SubsidiaryVM.Name)" @bind-Value:get="@Model.Subsidiary" @bind-Value:set="SubsidiarySet" />
+                    </RadzenFormField>
+                </RadzenColumn>
+                <RadzenColumn SizeMD="3" SizeSM="6">
+                    <RadzenFormField Text="From Warehouse" class="rz-w-100">
+                        <RadzenTextBox Visible="@ReadOnly" ReadOnly Value="@Model.SourceLocation?.Name" Placeholder="No source location given" />
+                        <QuickVirtualizedDropdown @ref="@SourceLocationDropdown" Disabled="@(Model.Subsidiary is null)" Visible="@(!ReadOnly)" TItem="LocationVM" DataGetter="@SourceLocationProvider" TextProperty="@nameof(LocationVM.Name)" @bind-Value:get="@Model.SourceLocation" @bind-Value:set="LocationSet" />
+                    </RadzenFormField>
+                </RadzenColumn>
+                <RadzenColumn SizeMD="3" SizeSM="6">
+                    <RadzenFormField Text="To Warehouse" class="rz-w-100">
+                        <RadzenTextBox Visible="@ReadOnly" ReadOnly Value="@Model.DestinationLocation?.Name" Placeholder="No destination location given" />
+                        <QuickVirtualizedDropdown @ref="@DestinationLocationDropdown" Disabled="@(Model.SourceLocation is null)" Visible="@(!ReadOnly)" TItem="LocationVM" DataGetter="@DestinationLocationProvider" TextProperty="@nameof(LocationVM.Name)" @bind-Value="@Model.DestinationLocation" />
+                    </RadzenFormField>
+                </RadzenColumn>
+            </RadzenRow>
+        </RadzenFieldset>
+        <RadzenFieldset Text="Lines">
+            <AppTableWithSettings Id="inventory_transfer_request_lines_table" Data="@Model.Lines">
+                <HeaderTemplate>
+                    <RadzenButton Icon="add" Disabled="@(Model.SourceLocation is null)" ButtonStyle="ButtonStyle.Success" Click="(() => OpenItemDialog())" Size="ButtonSize.Small"/> 
+                </HeaderTemplate>
+                <Columns>
+                    <RadzenDataGridColumn TItem="InventoryTransferRequestLineVM" Property="@nameof(InventoryTransferRequestLineVM.ItemCode)" Title="Item Code" />
+                    <RadzenDataGridColumn TItem="InventoryTransferRequestLineVM" Property="@nameof(InventoryTransferRequestLineVM.ItemDescription)" Title="Item Description" />
+                    <RadzenDataGridColumn TItem="InventoryTransferRequestLineVM" Title="UoM">
+                        <Template Context="data">
+                            <RadzenFormField>
+                                <RadzenTextBox Visible="@ReadOnly" ReadOnly Value="@data.UoM?.Name" Placeholder="No item unit given" />
+                                <QuickVirtualizedDropdown Visible="@(!ReadOnly)" TItem="ItemUnitVM" DataGetter="@(intent => ItemUnitProvider(intent, data.ItemID))" TextProperty="@nameof(ItemUnitVM.Name)" @bind-Value="@data.UoM" />
+                            </RadzenFormField>
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="InventoryTransferRequestLineVM" Property="@nameof(InventoryTransferRequestLineVM.QuantityOnHand)" Title="On Hand Quantity" />
+                    <RadzenDataGridColumn TItem="InventoryTransferRequestLineVM" Title="Alloted Quantity">
+                        <Template Context="data">
+                            <RadzenFormField>
+                                <ChildContent>
+                                    <RadzenNumeric ReadOnly="@ReadOnly" @bind-Value="@data.QuantityAlloted" Min="0" />
+                                </ChildContent>
+                                <End>
+                                    <RadzenButton Visible="@(!ReadOnly)" Icon="@(data.IsAllAssigned ? "assignment_turned_in" : "assignment_returned")" Size="ButtonSize.ExtraSmall" Click="() => OpenInventoryDetailDialog(data, data.ItemID, data.QuantityAlloted)" />
+                                </End>
+                            </RadzenFormField>
+                        </Template>
+                    </RadzenDataGridColumn>
+                </Columns>
+            </AppTableWithSettings>
+        </RadzenFieldset>
+        <RadzenFieldset Text="Additional Details">
+            <RadzenRow>
+                <RadzenColumn SizeMD="4">
+                    <RadzenFormField Text="Remarks" class="rz-w-100">
+                        <RadzenTextArea ReadOnly="@ReadOnly" @bind-Value="@Model.Memo" />
+                    </RadzenFormField>
+                </RadzenColumn>
+                <RadzenColumn SizeMD="4" OffsetMD="4">
+                    <RadzenFormField AllowFloatingLabel="false" Text="Prepared By" class="rz-w-100">
+                        <RadzenTextBox ReadOnly Value="@Model.PreparedBy" Placeholder="@(ReadOnly ? "-" : "Auto-Generated")" />
+                    </RadzenFormField>
+                </RadzenColumn>
+            </RadzenRow>
+        </RadzenFieldset>
+        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween">
+            <RadzenButton Visible="@OnReturn.HasDelegate" ButtonType="ButtonType.Button" Text="@ReturnLabel" Click="@Return"/>
+            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5em">
+                <RadzenButton Visible="@OnSecondaryAction.HasDelegate" ButtonType="ButtonType.Button" Text="@SecondaryActionLabel" Click="@SecondaryAction" />
+                <RadzenButton Visible="@OnSubmit.HasDelegate" ButtonType="ButtonType.Submit" ButtonStyle="ButtonStyle.Success" Text="@SubmitLabel" />
+            </RadzenStack>
+        </RadzenStack>
+    </RadzenStack>
+</RadzenTemplateForm>
+
+@code {
+    async Task OpenItemDialog()
+    {
+        List<ItemsVM> items = await DialogService.OpenAsync(
+            "Select Items",
+            ds => @<ItemSelectionDialog Location="@(Model.SourceLocation?.Id ?? null)" />,
+    options: GridSettingsService.GetDialogOptions());
+
+        if (items is not null) await AddItems(items);
+    }
+   
+    async Task OpenInventoryDetailDialog(InventoryTransferRequestLineVM line, int itemId, decimal totalQuantity) {
+        List<InventoryDetailVM> details = await DialogService.OpenAsync(
+            "Enter Inventory Details",
+            ds => @<InventoryDetailsDialog Location="@(Model.SourceLocation ?? new())" ItemId="itemId" TotalQuantity="totalQuantity" />,
+            options: GridSettingsService.GetDialogOptions()
+        );
+
+        if (details is not null) line.InventoryDetails = [.. details];
+    }
+}
