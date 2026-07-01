@@ -13,8 +13,8 @@
              JustifyContent="JustifyContent.End"
              Gap="32px"
              class="rz-mb-0 rz-mt-2">
-    <AppContentBadge Visible="@(Model.Status is not null)" Title="Status" Content="@(Model.Status?.Name ?? "-")"/>
-    <AppContentBadge Title="Doc" Content="@Model.ReferenceNumber" />
+    <AppContentBadge Title="Status" Content="@(StatusString)" />
+    <AppContentBadge Title="Doc" Content="@ReferenceString" />
     <AppContentBadge Title="Doc Date" Content="@Model.Date.ToString("MM-dd-yy")" ChildBadgeStyle="BadgeStyle.Secondary" ChildShade="Shade.Default" />
 </RadzenStack>
 
