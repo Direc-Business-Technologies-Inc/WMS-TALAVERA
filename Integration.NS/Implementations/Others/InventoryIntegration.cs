@@ -33,7 +33,7 @@ public class InventoryIntegration(
             )
             .From("inventorybalance ib")
             .Join("inventorystatus is", "ib.inventorystatus = is.id")
-            .Join("location loc", "ib.location = is.id")
+            .Join("location loc", "ib.location = loc.id")
             .LeftJoin("bin b", "b.id = ib.binnumber")
             .WithDatagridIntent(intent)
             .Build();
