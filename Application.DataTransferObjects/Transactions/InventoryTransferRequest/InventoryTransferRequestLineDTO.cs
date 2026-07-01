@@ -1,5 +1,4 @@
 ﻿using Application.DataTransferObjects.Others;
-using Application.DataTransferObjects.Transactions.Commons.NS.Payload;
 using System;
 using System.Collections.Generic;
 using System.Linq;
