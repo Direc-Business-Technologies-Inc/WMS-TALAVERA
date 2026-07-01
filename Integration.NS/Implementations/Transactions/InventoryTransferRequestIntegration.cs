@@ -71,7 +71,7 @@ public class InventoryTransferRequestIntegration(
             .Select(
                 ("item.itemId", nameof(InventoryTransferRequestLineNSDTO.ItemCode)),
                 ("item.displayname", nameof(InventoryTransferRequestLineNSDTO.ItemDescription)),
-                ("tl.quantity", nameof(InventoryTransferRequestLineNSDTO.QuantityAlloted)),
+                ("(tl.quantity / uom.conversionrate)", nameof(InventoryTransferRequestLineNSDTO.QuantityAlloted)),
                 ("BUILTIN.DF(tl.units)", nameof(InventoryTransferRequestLineNSDTO.UoMName)),
                 ("tl.units", nameof(InventoryTransferRequestLineNSDTO.UoMId)),
                 ("uom.conversionrate", nameof(InventoryTransferRequestLineNSDTO.UoMRate)),

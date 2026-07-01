@@ -67,7 +67,7 @@
                                     <RadzenNumeric ReadOnly="@ReadOnly" @bind-Value="@data.QuantityAlloted" Min="0" />
                                 </ChildContent>
                                 <End>
-                                    <RadzenButton Icon="@(data.IsAllAssigned ? "assignment_turned_in" : "assignment_returned")" Size="ButtonSize.ExtraSmall" Click="() => OpenInventoryDetailDialog(data, data.ItemID, data.QuantityAlloted)" />
+                                    <RadzenButton Visible="@(!ReadOnly)" Icon="@(data.IsAllAssigned ? "assignment_turned_in" : "assignment_returned")" Size="ButtonSize.ExtraSmall" Click="() => OpenInventoryDetailDialog(data, data.ItemID, data.QuantityAlloted)" />
                                 </End>
                             </RadzenFormField>
                         </Template>
