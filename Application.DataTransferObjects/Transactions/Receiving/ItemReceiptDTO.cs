@@ -12,6 +12,7 @@ public class ItemReceiptDTO
     public int SourceInternalId { get; set; }
     public int VendorPrefferedBin { get; set; }
     public int DefaultBO { get; set; }
+    public int? PreparedById { get; set; }
 
     public string Type { get; set; } = string.Empty;
     public string CreatedFrom { get; set; } = string.Empty;
@@ -22,6 +23,7 @@ public class ItemReceiptDTO
     public string TransferLocation { get; set; } = string.Empty;
     public string Subsidiary { get; set; } = string.Empty;
     public string ToSubsidiary { get; set; } = string.Empty;
+    public string PreparedBy { get; set; } = string.Empty;
 
     public DateTime Date { get; set; } = DateTime.Now;
 
