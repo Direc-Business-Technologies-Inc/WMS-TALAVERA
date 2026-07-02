@@ -15,10 +15,10 @@ public class InventoryAdjustmentVM
     public DateTime Date { get; set; }
     public List<InventoryAdjustmentLineVM> Lines { get; set; } = [];
     public int IssueLinesCount => Lines.Count(x => x.Type == InventoryAdjustmentLineVM.Types.Issue);
-    public int ReceiptLinesCount => Lines.Count(x => x.Type == InventoryAdjustmentLineVM.Types.Issue);
+    public int ReceiptLinesCount => Lines.Count(x => x.Type == InventoryAdjustmentLineVM.Types.Receipt);
     public bool IsIndeterminate => Lines.Count == 0 || (IsIssue && IsReceipt);
     public bool IsIssue => IssueLinesCount > 0;
-    public bool IsReceipt => IssueLinesCount > 0;
+    public bool IsReceipt => ReceiptLinesCount > 0;
     public string TypeString
     {
         get
