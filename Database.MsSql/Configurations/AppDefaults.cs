@@ -89,6 +89,18 @@ internal static class AppDefaults
             navRouteId: WebStructure.SubRouteList2.First(x => x.Name.Equals("Goods Receipt")).Id,
             permissions: [AppDefaults.NewPermission("VIEW"), AppDefaults.NewPermission("CREATE"), AppDefaults.NewPermission("UPDATE")]),
         ModuleDEM.Create(
+            name: "Inventory Adjustment",
+            code: "OIAJ",
+            root: false,
+            navRouteId: WebStructure.SubRouteList2.First(x => x.Name.Equals("Goods Receipt")).Id,
+            permissions: [AppDefaults.NewPermission("VIEW"), AppDefaults.NewPermission("CREATE"), AppDefaults.NewPermission("UPDATE")]),
+        ModuleDEM.Create(
+            name: "Stock Transfer Request",
+            code: "OSTR",
+            root: false,
+            navRouteId: WebStructure.SubRouteList2.First(x => x.Name.Equals("Goods Receipt")).Id,
+            permissions: [AppDefaults.NewPermission("VIEW"), AppDefaults.NewPermission("CREATE"), AppDefaults.NewPermission("UPDATE")]),
+        ModuleDEM.Create(
             name: "Inventory Transfer",
             code: "OITR",
             root: false,
