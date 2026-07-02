@@ -10,6 +10,7 @@ namespace Application.DataTransferObjects.Transactions.InventoryAdjustment;
 public class InventoryAdjustmentDTO
 {
     public int Id { get; set; }
+    public int PreparedById { get; set; }
     public string ReferenceNumber { get; set; } = string.Empty;
     public SubsidiaryDTO? Subsidiary { get; set; }
     public LocationDTO? Location { get; set; }

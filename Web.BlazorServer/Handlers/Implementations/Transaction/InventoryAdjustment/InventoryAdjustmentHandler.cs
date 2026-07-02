@@ -4,12 +4,15 @@ using Application.UseCases.Queries.Transaction.InventoryAdjustment;
 using Mapster;
 using MediatR;
 using Shared.Entities;
+using Web.BlazorServer.Components.Security;
 using Web.BlazorServer.Handlers.Repositories.Transaction.InventoryAdjustment;
 using Web.BlazorServer.ViewModels.Transaction.InventoryAdjustment;
 
 namespace Web.BlazorServer.Handlers.Implementations.Transaction.InventoryAdjustment;
 
-public class InventoryAdjustmentHandler(ISender sender) : IInventoryAdjustmentHandler
+public class InventoryAdjustmentHandler(
+    AppAuthenticationService authService,
+    ISender sender) : IInventoryAdjustmentHandler
 {
     public async Task<InventoryAdjustmentVM?> GetInventoryAdjustmentAsync(string id)
     {
@@ -69,6 +72,11 @@ public class InventoryAdjustmentHandler(ISender sender) : IInventoryAdjustmentHa
                 -line.QuantityAlloted :
                 line.QuantityAlloted;
             dto.Lines.Add(dtoline);
+        }
+
+        if (int.TryParse(authService.GetClaimValue("com.direcbusiness.wms.nsEmployeeId"), out int employeeId))
+        {
+            dto.PreparedById = employeeId;
         }
 
         CreateInventoryAdjustmentCmd cmd = new(dto);

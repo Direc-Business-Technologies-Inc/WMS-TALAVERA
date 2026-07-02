@@ -199,6 +199,7 @@ public class InventoryAdjustmentIntegration(
             adjLocation = new { id = dto.Location!.Id },
             department = new { id = 4 },
             custbody_atlas_inv_adj_reason = dto.Reason?.Id ?? null,
+            custbody_dbti_prepared_by = dto.PreparedById,
             Class = 1,
             inventory = new
             {

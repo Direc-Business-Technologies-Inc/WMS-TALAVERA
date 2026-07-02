@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Components;
+using Web.BlazorServer.Components.Security;
 using Web.BlazorServer.Handlers.Repositories.Transaction.InventoryAdjustment;
 using Web.BlazorServer.Helpers;
 using Web.BlazorServer.ViewModels.Transaction.InventoryAdjustment;
@@ -8,6 +9,7 @@ namespace Web.BlazorServer.Components.Pages.Transaction.InventoryAdjustment;
 public partial class InventoryAdjustmentCreatePage
 {
     [Inject] public IInventoryAdjustmentHandler? inventoryAdjustmentHandler { get; set; }
+    [Inject] public AppAuthenticationService authService { get; set; } = default!;
     [SupplyParameterFromQuery] public string? Type { get; set; }
     bool IsIssue => Type is not null && Type.Equals("issue", StringComparison.OrdinalIgnoreCase);
     readonly string ActionCreateInventoryAdjustment = "Create Inventory Adjustment";
@@ -35,6 +37,9 @@ public partial class InventoryAdjustmentCreatePage
         {
             FormData.Date = DateTime.Now;
             FormData.Memo = "Created via WMS";
+            var nsEmployee = authService.GetClaimValue("com.direcbusiness.wms.nsEmployeeName");
+            FormData.PreparedBy = string.IsNullOrEmpty(nsEmployee) ? "No Netsuite Account Registered" : nsEmployee;
+
             await InvokeAsync(StateHasChanged);
         }
     }
