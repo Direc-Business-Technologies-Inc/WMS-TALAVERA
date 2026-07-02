@@ -100,6 +100,7 @@ public partial class InventoryAdjustmentForm
                 ItemId = x.Id,
                 Type = Issue ? InventoryAdjustmentLineVM.Types.Issue : InventoryAdjustmentLineVM.Types.Receipt,
                 ItemCode = x.ItemNumber,
+                UsesBins = x.UsesBins,
                 ItemDescription = x.Name,
                 UoM = x.StockUnit,
                 Location = Model.Location,

@@ -1,9 +1,5 @@
 ﻿@using Web.BlazorServer.Components.Custom
-@using Web.BlazorServer.Components.Pages.Transaction.Receiving.Components
 @using Web.BlazorServer.Components.Security
-@using Web.BlazorServer.ViewModels.Administration.User
-@using Web.BlazorServer.ViewModels.Transaction.InventoryAdjustment
-@using Web.BlazorServer.ViewModels.Transaction.Receiving
 
 @inherits BaseComponent
 @layout ProtectedLayout
@@ -18,13 +14,30 @@
 </RadzenStack>
 
 <AppContent>
-    <QuickDataGrid DataGetter="@LoadDataAsync" ActionName="@ActionGetInventoryAdjustment" Id="inventory_adjustment_datagrid" >
-        <HeaderEnd>
-            <RadzenButton ButtonStyle="ButtonStyle.Success" Size="ButtonSize.Small" Icon="call_received" Text="Create Receipt" Click="@(() => NavManager.NavigateTo(InventoryAdjustmentRoutes.CREATE + "?type=receipt"))" />
-            <RadzenButton ButtonStyle="ButtonStyle.Success" Size="ButtonSize.Small" Icon="call_made" Text="Create Issue" Click="@(() => NavManager.NavigateTo(InventoryAdjustmentRoutes.CREATE + "?type=issue"))" />
-        </HeaderEnd>
-        <RowActions >
-            <RadzenButton Icon="arrow_right_alt" Size="ButtonSize.ExtraSmall" Click="() => ViewInventoryAdjustment(context)" />
-        </RowActions>
-    </QuickDataGrid>
+    <RadzenTabs @bind-SelectedIndex="@TabIndex" @bind-SelectedIndex:after="@OnTabChanged">
+        <Tabs>
+            <RadzenTabsItem Text="Goods Receipts">
+                <QuickDataGrid DataGetter="@ReceiptsProvider" ActionName="@ActionGetInventoryAdjustment" Id="inventory_adjustment_receipt_datagrid">
+                    <HeaderEnd>
+                        <RadzenButton ButtonStyle="ButtonStyle.Success" Size="ButtonSize.Small" Icon="call_received" Text="Create Receipt" Click="@(() => NavManager.NavigateTo(InventoryAdjustmentRoutes.CREATE + "?type=receipt"))" />
+                        <RadzenButton ButtonStyle="ButtonStyle.Success" Size="ButtonSize.Small" Icon="call_made" Text="Create Issue" Click="@(() => NavManager.NavigateTo(InventoryAdjustmentRoutes.CREATE + "?type=issue"))" />
+                    </HeaderEnd>
+                    <RowActions>
+                        <RadzenButton Icon="arrow_right_alt" Size="ButtonSize.ExtraSmall" Click="() => ViewInventoryAdjustment(context)" />
+                    </RowActions>
+                </QuickDataGrid>
+            </RadzenTabsItem>
+            <RadzenTabsItem Text="Goods Issues">
+                <QuickDataGrid DataGetter="@IssuesProvider" ActionName="@ActionGetInventoryAdjustment" Id="inventory_adjustment_issue_datagrid">
+                    <HeaderEnd>
+                        <RadzenButton ButtonStyle="ButtonStyle.Success" Size="ButtonSize.Small" Icon="call_received" Text="Create Receipt" Click="@(() => NavManager.NavigateTo(InventoryAdjustmentRoutes.CREATE + "?type=receipt"))" />
+                        <RadzenButton ButtonStyle="ButtonStyle.Success" Size="ButtonSize.Small" Icon="call_made" Text="Create Issue" Click="@(() => NavManager.NavigateTo(InventoryAdjustmentRoutes.CREATE + "?type=issue"))" />
+                    </HeaderEnd>
+                    <RowActions>
+                        <RadzenButton Icon="arrow_right_alt" Size="ButtonSize.ExtraSmall" Click="() => ViewInventoryAdjustment(context)" />
+                    </RowActions>
+                </QuickDataGrid>
+            </RadzenTabsItem>
+        </Tabs>
+    </RadzenTabs>
 </AppContent>
