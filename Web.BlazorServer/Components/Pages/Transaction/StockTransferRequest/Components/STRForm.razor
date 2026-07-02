@@ -110,12 +110,12 @@
                                                       @bind-Value:get="Model.SourceLocation"
                                                       @bind-Value:set="@OnLocationChanged"
                                                       TextProperty="@nameof(LocationVM.Name)"
-                                                      Name="str_to_location"
+                                                      Name="str_from_location"
                                                       AllowClear
                                                       AllowFiltering />
                         </ChildContent>
                         <Helper>
-                            <RadzenRequiredValidator Visible="@(!ReadOnly)" Component="str_to_location" />
+                            <RadzenRequiredValidator Visible="@(!ReadOnly)" Component="str_from_location" />
                         </Helper>
                     </RadzenFormField>
                 </RadzenColumn>
