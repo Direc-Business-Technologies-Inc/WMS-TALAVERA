@@ -43,11 +43,12 @@ partial class ItemDataGrid
         {
             AppBusyService.SetBusy(ActionGetItems, true);
 
+            if (Filters.Count > 0) intent.Filters.AddRange(Filters);
+
             var response = LocationId is null ?
                 await ItemsHandler.GetItemsDataGridAsync(intent) :
                 await ItemsHandler.GetItemsAtLocationDataGridAsync(intent, (int)LocationId);
 
-            if (Filters.Count > 0) intent.Filters.AddRange(Filters);
 
             if (Filters.Count > 0) intent.Filters.AddRange(Filters);
 
