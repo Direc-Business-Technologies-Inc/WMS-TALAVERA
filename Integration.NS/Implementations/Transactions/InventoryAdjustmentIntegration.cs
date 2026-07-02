@@ -15,6 +15,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using static System.Runtime.InteropServices.JavaScript.JSType;
 
@@ -106,9 +107,6 @@ public class InventoryAdjustmentIntegration(
 
     public async Task<(IEnumerable<InventoryAdjustmentDataGridDTO> Data, int Count)> GetInventoryAdjustmentsAsync(DataGridIntent intent)
     {
-        var receiptQuery = "SELECT SUM(quantity) FROM transactionline rtl WHERE rtl.transaction = tl.transaction AND rtl.quantity >= 0 AND rtl.mainline = 'F'";
-        var issueQuery = "SELECT SUM(-quantity) FROM transactionline itl WHERE itl.transaction = tl.transaction AND itl.quantity < 0 AND itl.mainline = 'F'";
-
         var query = builderFactory.Create()
             .Select(
                 ("t.id", nameof(InventoryAdjustmentDataGridDTO.Id)),
@@ -119,12 +117,14 @@ public class InventoryAdjustmentIntegration(
                 ("BUILTIN.DF(t.account)", nameof(InventoryAdjustmentDataGridDTO.Account)),
                 ("BUILTIN.DF(t.subsidiary)", nameof(InventoryAdjustmentDataGridDTO.Subsidiary)),
                 ("iar.name", nameof(InventoryAdjustmentDataGridDTO.AdjustmentReason)),
-                ($"({receiptQuery})", nameof(InventoryAdjustmentDataGridDTO.QuantityReceivedTotal)),
-                ($"({issueQuery})", nameof(InventoryAdjustmentDataGridDTO.QuantityIssuedTotal))
+                ("NVL(receipt.total, 0)", nameof(InventoryAdjustmentDataGridDTO.QuantityReceivedTotal)),
+                ("NVL(issue.total, 0)", nameof(InventoryAdjustmentDataGridDTO.QuantityIssuedTotal))
             )
             .From("transaction t")
             .Join("transactionline tl", on:"tl.transaction = t.id")
             .LeftJoin("CUSTOMRECORD_ATLAS_INV_ADJ_REASN iar", on: "iar.id = t.custbody_atlas_inv_adj_reason")
+            .LeftJoin($"({ReceiptQuery}) receipt", on: "receipt.transactionid = t.id")
+            .LeftJoin($"({IssueQuery}) issue", on: "issue.transactionid = t.id")
             .WithFilters(
                 DataGridFilterUtilities.Equal("t.recordtype", "inventoryadjustment"),
                 DataGridFilterUtilities.Equal("tl.mainline", "T")
@@ -138,16 +138,21 @@ public class InventoryAdjustmentIntegration(
     public Task<(IEnumerable<InventoryAdjustmentDataGridDTO> Data, int Count)> GetReceiptsAdjustmentsAsync(DataGridIntent intent)
     {
         DataGridIntent newIntent = intent.Adapt<DataGridIntent>();
-        newIntent.Filters.Add(DataGridFilterUtilities.GreaterThanOrEqual(nameof(InventoryAdjustmentDataGridDTO.QuantityReceivedTotal), 0));
+        newIntent.Filters.AddRange([
+            DataGridFilterUtilities.GreaterThan(nameof(InventoryAdjustmentDataGridDTO.QuantityReceivedTotal), 0),
+            DataGridFilterUtilities.LessThanOrEqual(nameof(InventoryAdjustmentDataGridDTO.QuantityIssuedTotal), 0),
+        ]);
         return GetInventoryAdjustmentsAsync(newIntent);
     }
     public Task<(IEnumerable<InventoryAdjustmentDataGridDTO> Data, int Count)> GetIssuesAdjustmentsAsync(DataGridIntent intent)
     {
         DataGridIntent newIntent = intent.Adapt<DataGridIntent>();
-        newIntent.Filters.Add(DataGridFilterUtilities.GreaterThanOrEqual(nameof(InventoryAdjustmentDataGridDTO.QuantityIssuedTotal), 0));
+        newIntent.Filters.AddRange([
+            DataGridFilterUtilities.GreaterThan(nameof(InventoryAdjustmentDataGridDTO.QuantityIssuedTotal), 0),
+            DataGridFilterUtilities.LessThanOrEqual(nameof(InventoryAdjustmentDataGridDTO.QuantityReceivedTotal), 0),
+        ]);
         return GetInventoryAdjustmentsAsync(newIntent);
     }
-
 
     public async Task<(IEnumerable<InventoryAdjustmentReasonDTO> Data, int Count)> GetInventoryAdjustmentReasonsAsync(DataGridIntent intent)
     {
@@ -246,4 +251,33 @@ public class InventoryAdjustmentIntegration(
         };
         return dto;
     }
+
+
+    readonly string IssueQuery = """
+            SELECT
+                SUM(- itl.quantity) AS total,
+                itl.transaction AS transactionid
+            FROM
+                transactionline itl
+                JOIN transaction it ON it.recordtype = 'inventoryadjustment'
+                AND it.id = itl.transaction
+            WHERE
+                itl.quantity <= 0
+                AND itl.mainline = 'F'
+            GROUP BY itl.transaction 
+        """;
+
+    readonly string ReceiptQuery = """
+            SELECT
+                SUM(rtl.quantity) AS total,
+                rtl.transaction AS transactionid
+            FROM
+                transactionline rtl
+                JOIN transaction rt ON rt.recordtype = 'inventoryadjustment'
+                AND rt.id = rtl.transaction
+            WHERE
+                rtl.quantity >= 0
+                AND rtl.mainline = 'F'
+            GROUP BY rtl.transaction 
+        """;
 }
