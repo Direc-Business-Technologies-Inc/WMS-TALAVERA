@@ -24,6 +24,7 @@
 
 @code {
     [Inject] IStockTransferRequestHandler handler { get; set; } = default!;
+    [Inject] AppAuthenticationService authService { get; set; } = default!;
 
     [SupplyParameterFromQuery]
     public string? Ref { get; set; }
@@ -52,6 +53,9 @@
         }
         FormData.Date = DateTime.Now;
         FormData.Remarks = "Created via WMS";
+        var nsemployee = authService.GetClaimValue("com.direcbusiness.wms.nsEmployeeName");
+        FormData.PreparedBy = string.IsNullOrEmpty(nsemployee) ? "No Netsuite Account Registered" : nsemployee;
+
         await InvokeAsync(StateHasChanged);
     }
 
