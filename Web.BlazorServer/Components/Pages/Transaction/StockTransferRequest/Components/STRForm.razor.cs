@@ -56,8 +56,8 @@ public partial class STRForm
     readonly string ActionGetVendors = "Get Vendors";
     readonly string ActionGetItemUnits = "Get Item Units";
 
-    private QuickVirtualizedDropdown<LocationVM> SourceLocationDropdown { get; set; } = default!;
-    private QuickVirtualizedDropdown<LocationVM> DestinationLocationDropdown { get; set; } = default!;
+    private QuickVirtualizedDropdown<LocationVM>? SourceLocationDropdown { get; set; }
+    private QuickVirtualizedDropdown<LocationVM>? DestinationLocationDropdown { get; set; }
     private QuickVirtualizedDropdown<VendorVM>? VendorDropdown { get; set; }
 
     private List<TransferCategory> ReturnCategories = [.. TransferCategory.ReturnCategories];
@@ -160,7 +160,7 @@ public partial class STRForm
         var originalValue = Model.Subsidiary;
         Model.Subsidiary = value;
 
-        if (SameSubsidiary(value, Model.ToSubsidiary))
+        if (Model.IsIntercompany && SameSubsidiary(value, Model.ToSubsidiary))
         {
             ToastService.Warning("\"Subsidiary\" cannot be the same as \"To Subsidiary\"");
             await Task.Yield();
@@ -178,20 +178,16 @@ public partial class STRForm
                 return;
             }
         }
-        if (value != Model.Subsidiary)
+
+        Model.Lines.Clear();
+
+        await OnLocationChanged(null);
+        if (!Model.IsIntercompany)
         {
-            Model.Lines.Clear();
-            Model.Subsidiary = value;
-            Model.SourceLocation = null;
-            if (!Model.IsIntercompany)
-            {
-                Model.ToSubsidiary = value;
-                Model.DestinationLocation = null;
-                DestinationLocationDropdown.Reset();
-            }
-            SourceLocationDropdown.Reset();
-            await InvokeAsync(StateHasChanged);
+            await OnToSubsidiaryChanged(value);
         }
+        SourceLocationDropdown?.Reset();
+        await InvokeAsync(StateHasChanged);
     }
 
 
@@ -219,7 +215,7 @@ public partial class STRForm
         var originalValue = Model.ToSubsidiary;
         Model.ToSubsidiary = value;
 
-        if (SameSubsidiary(value, Model.Subsidiary))
+        if (Model.IsIntercompany && SameSubsidiary(value, Model.Subsidiary))
         {
             ToastService.Warning("\"To Subsidiary\" cannot be the same as \"Subsidiary\"");
             await Task.Yield();
@@ -227,10 +223,9 @@ public partial class STRForm
             return;
         }
 
-        Model.ToSubsidiary = value;
         Model.DestinationLocation = null;
         Model.Vendor = null;
-        DestinationLocationDropdown.Reset();
+        DestinationLocationDropdown?.Reset();
         VendorDropdown?.Reset();
     }
 
