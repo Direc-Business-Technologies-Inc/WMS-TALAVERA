@@ -79,6 +79,9 @@ public partial class TransferOrderItemView : IAsyncDisposable
                     MaterialName = line.MaterialName,
                     MaterialWeight = line.MaterialWeight,
 
+                    NetsuiteMaterialPrefferedBinId = line.NetsuiteMaterialPrefferedBinId,
+                    NetsuiteMaterialVendorAssignedBin = line.NetsuiteMaterialVendorAssignedBin,
+
                     LineQuantity = line.LineQuantity,
                     LineQuantityPacked = line.LineQuantityPacked,
 
@@ -116,6 +119,9 @@ public partial class TransferOrderItemView : IAsyncDisposable
                     MaterialCode = line.MaterialCode,
                     MaterialName = line.MaterialName,
                     MaterialWeight = line.MaterialWeight,
+
+                    NetsuiteMaterialPrefferedBinId = line.NetsuiteMaterialPrefferedBinId,
+                    NetsuiteMaterialVendorAssignedBin = line.NetsuiteMaterialVendorAssignedBin,
 
                     LineQuantity = line.LineQuantity,
                     LineQuantityPacked = line.LineQuantityPacked,
@@ -414,6 +420,9 @@ public partial class TransferOrderItemView : IAsyncDisposable
                 MaterialCode = x.MaterialCode,
                 MaterialName = x.MaterialName,
                 MaterialWeight = x.MaterialWeight,
+
+                NetsuiteMaterialPrefferedBinId = x.NetsuiteMaterialPrefferedBinId,
+                NetsuiteMaterialVendorAssignedBin = x.NetsuiteMaterialVendorAssignedBin,
 
                 LineQuantity = x.LineQuantity,
                 LineQuantityPacked = x.LineQuantityPacked,

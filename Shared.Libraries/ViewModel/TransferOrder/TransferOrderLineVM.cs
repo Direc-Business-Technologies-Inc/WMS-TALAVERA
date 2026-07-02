@@ -10,4 +10,5 @@ public class TransferOrderLineVM : TransactionVM
     public int NetsuiteToSubsidiaryInternalId { get; set; }
 
     public int NetsuiteMaterialPrefferedBinId { get; set; }
+    public int NetsuiteMaterialVendorAssignedBin { get; set; }
 }
