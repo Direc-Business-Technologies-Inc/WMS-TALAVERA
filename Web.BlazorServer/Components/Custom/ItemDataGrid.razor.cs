@@ -18,6 +18,7 @@ partial class ItemDataGrid
     [Parameter] public int? LocationId { get; set; }
     [Parameter] public EventCallback<List<ItemsVM>> OnItemsSelected { get; set; }
     [Parameter] public SelectionModes SelectionMode { get; set; } = SelectionModes.Single;
+    [Parameter] public List<AppFilterDescriptor> Filters { get; set; } = [];
     [Inject] IGridSettingsService GridSettingsService { get; set; } = default!;
     [Inject] IItemsHandler ItemsHandler { get; set; } = default!;
 
@@ -45,6 +46,8 @@ partial class ItemDataGrid
             var response = LocationId is null ?
                 await ItemsHandler.GetItemsDataGridAsync(intent) :
                 await ItemsHandler.GetItemsAtLocationDataGridAsync(intent, (int)LocationId);
+
+            if (Filters.Count > 0) intent.Filters.AddRange(Filters);
 
             return response;
 
