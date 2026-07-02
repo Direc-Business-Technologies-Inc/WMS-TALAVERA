@@ -71,9 +71,18 @@ partial class ItemDataGrid
 
     async Task SelectItem(ItemsVM item)
     {
-        if (SelectionMode == SelectionModes.Single) SelectedItems.Clear();
-        SelectedItems.Add(item);
-        if (SelectionMode == SelectionModes.Single) await Submit();
+        if (SelectionMode == SelectionModes.Single) { 
+            SelectedItems.Clear(); 
+            SelectedItems.Add(item);
+            await Submit();
+        }
+        else if (SelectionMode == SelectionModes.Multiple)
+        {
+            if (!SelectedItems.Remove(item))
+            {
+                SelectedItems.Add(item);
+            } 
+        }
     }
 
     public enum SelectionModes
