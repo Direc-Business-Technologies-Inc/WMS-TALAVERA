@@ -62,12 +62,15 @@
                     <RadzenDataGridColumn TItem="InventoryTransferRequestLineVM" Property="@nameof(InventoryTransferRequestLineVM.QuantityOnHand)" Title="On Hand Quantity" />
                     <RadzenDataGridColumn TItem="InventoryTransferRequestLineVM" Title="Alloted Quantity">
                         <Template Context="data">
-                            <RadzenFormField>
+                            <RadzenFormField class="rz-w-100">
                                 <ChildContent>
                                     <RadzenNumeric ReadOnly="@ReadOnly" @bind-Value="@data.QuantityAlloted" Min="0" />
                                 </ChildContent>
                                 <End>
-                                    <RadzenButton Visible="@(!ReadOnly)" Icon="@(data.IsAllAssigned ? "assignment_turned_in" : "assignment_returned")" Size="ButtonSize.ExtraSmall" Click="() => OpenInventoryDetailDialog(data, data.ItemID, data.QuantityAlloted)" />
+                                    <RadzenButton Visible="@(!ReadOnly && data.UsesBins)" 
+                                                  Icon="@(data.IsAllAssigned ? "assignment_turned_in" : "assignment_returned")" 
+                                                  ButtonStyle="@(data.IsAllAssigned ? ButtonStyle.Success : ButtonStyle.Warning)" 
+                                                  Size="ButtonSize.ExtraSmall" Click="() => OpenInventoryDetailDialog(data, data.ItemID, data.QuantityAlloted)" />
                                 </End>
                             </RadzenFormField>
                         </Template>

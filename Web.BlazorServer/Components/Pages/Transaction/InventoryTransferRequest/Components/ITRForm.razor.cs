@@ -68,6 +68,7 @@ public partial class ITRForm
             ItemID = x.Id,
             ItemCode = x.Name,
             ItemDescription = x.Description,
+            UsesBins = x.UsesBins,
             UoM = x.StockUnit,
             QuantityOnHand = x.QuantityOnHand,
             Location = Model.SourceLocation
