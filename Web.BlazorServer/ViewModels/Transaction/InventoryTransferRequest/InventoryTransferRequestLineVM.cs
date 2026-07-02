@@ -12,6 +12,7 @@ public class InventoryTransferRequestLineVM
     public decimal QuantityOnHand { get; set; }
     public decimal QuantityAlloted { get; set; }
 
-    public bool IsAllAssigned => InventoryDetails.Sum(x => x.QuantityAlloted) == QuantityAlloted;
+    public bool UsesBins { get; set; }
+    public bool IsAllAssigned => !UsesBins || InventoryDetails.Sum(x => x.QuantityAlloted) == QuantityAlloted;
     public List<InventoryDetailVM> InventoryDetails { get; set; } = [];
 }
