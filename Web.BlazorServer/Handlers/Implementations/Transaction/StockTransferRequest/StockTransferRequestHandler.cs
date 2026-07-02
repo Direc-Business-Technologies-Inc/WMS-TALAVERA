@@ -4,12 +4,15 @@ using Application.UseCases.Queries.Transaction.StockTransferRequest;
 using Mapster;
 using MediatR;
 using Shared.Entities;
+using Web.BlazorServer.Components.Security;
 using Web.BlazorServer.Handlers.Repositories.Transaction.StockTransferRequest;
 using Web.BlazorServer.ViewModels.Transaction.StockTransferRequest;
 
 namespace Web.BlazorServer.Handlers.Implementations.Transaction.StockTransferRequest;
 
-public class StockTransferRequestHandler(ISender sender) : IStockTransferRequestHandler
+public class StockTransferRequestHandler(
+    AppAuthenticationService authService,
+    ISender sender) : IStockTransferRequestHandler
 {
     public async Task<(IEnumerable<StockTransferRequestDataGridVM> data, int count)> GetInterCompanyTransferOrdersList(DataGridIntent intent)
     {
@@ -72,6 +75,10 @@ public class StockTransferRequestHandler(ISender sender) : IStockTransferRequest
     {
         var dto = data.Adapt<StockTransferRequestInfoDTO>();
         dto.TransferCategory = data.Category;
+        if (int.TryParse(authService.GetClaimValue("com.direcbusiness.wms.nsEmployeeId"), out int employeeId))
+        {
+            dto.PreparedById = employeeId;
+        }
         CreateStockTransferRequestCmd cmd = new(dto);
 
         await sender.Send(cmd);

@@ -22,4 +22,5 @@ public class StockTransferRequestInfoDTO
     public TransferCategory TransferCategory { get; set; } = TransferCategory.Transfer;
     public DateTime Date { get; set;}
     public List<StockTransferRequestLineDTO> Lines { get; set; } = [];
+    public int? PreparedById { get; set; }
 }
