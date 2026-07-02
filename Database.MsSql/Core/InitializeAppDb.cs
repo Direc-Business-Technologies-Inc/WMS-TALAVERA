@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace Database.MsSql.Core;
 
@@ -9,12 +10,17 @@ public class InitializeAppDb
 		try
 		{
 			using IServiceScope Scope = serviceProvider.CreateScope();
-			AppDbContext AppDbContext = Scope.ServiceProvider.GetService<AppDbContext>()
+
+            AppDbContext AppDbContext = Scope.ServiceProvider.GetService<AppDbContext>()
                 ?? throw new Exception("AppDbContext was not registered in the services");
 
-			await AppDbContext!.Database.EnsureDeletedAsync();
-			//await AppDbContext!.Database.EnsureCreatedAsync();
-			await AppDbMigration.MigrateAsync(AppDbContext);
+            ILogger<InitializeAppDb> logger = Scope.ServiceProvider
+                .GetRequiredService<ILogger<InitializeAppDb>>();
+
+            //await AppDbContext!.Database.EnsureDeletedAsync();
+            //await AppDbContext!.Database.EnsureCreatedAsync();
+            await AppDbSeeding.SeedStoredProcedures(AppDbContext, logger, CancellationToken.None);
+            await AppDbMigration.MigrateAsync(AppDbContext);
 
 			await AppDbSeeding.SeedData(AppDbContext, CancellationToken.None);
 		}
