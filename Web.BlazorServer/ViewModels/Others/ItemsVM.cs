@@ -12,4 +12,5 @@ public class ItemsVM
     public ItemUnitVM PurchaseUnit { get; set; } = new();
     public ItemUnitVM StockUnit { get; set; } = new(); 
     public ItemUnitVM SaleUnit { get; set; } = new();
+    public bool UsesBins { get; set; }
 }
