@@ -101,6 +101,12 @@ internal static class AppDefaults
             navRouteId: WebStructure.SubRouteList2.First(x => x.Name.Equals("Inventory Counting")).Id,
             permissions: [AppDefaults.NewPermission("VIEW"), AppDefaults.NewPermission("CREATE"), AppDefaults.NewPermission("UPDATE")]),
         ModuleDEM.Create(
+            name: "Inventory Worksheet",
+            code: "OICT",
+            root: false,
+            navRouteId: WebStructure.SubRouteList2.First(x => x.Name.Equals("Inventory Worksheet")).Id,
+            permissions: [AppDefaults.NewPermission("VIEW"), AppDefaults.NewPermission("CREATE"), AppDefaults.NewPermission("UPDATE")]),
+        ModuleDEM.Create(
             name: "Packing",
             code: "OPCK",
             root: false,

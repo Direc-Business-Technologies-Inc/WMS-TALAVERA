@@ -136,5 +136,12 @@ public static class WebStructure
             parentId: SubRouteList1!.First(x => x.Name.Equals("Inventory")).Id,
             icon: "home_storage",
             uri: "/transactions/inventory/inventory-counting"),
+        NavigationRouteDEM.New(
+            name: "Inventory Worksheet",
+            protectedRoute : true,
+            position: 1,
+            parentId: SubRouteList1!.First(x => x.Name.Equals("Inventory")).Id,
+            icon: "home_storage",
+            uri: "/transactions/inventory/inventory-worksheet"),
     ];
 }

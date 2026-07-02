@@ -100,7 +100,8 @@ internal class StockTransferRequestPackingIntegration(
             In("t.recordtype", new string[] { "intercompanytransferorder", "transferorder" }),
             In("t.custbody_dbti_transfer_category", new string[] { "1", "2" }),
             Equal("t.ordpicked", "F"),
-            In("t.status", new string[] { "B", "D", "E" })
+            In("t.status", new string[] { "B", "D", "E" }),
+            Equal("tl.transactionlinetype", "SHIPPING")
         ];
     }
 
