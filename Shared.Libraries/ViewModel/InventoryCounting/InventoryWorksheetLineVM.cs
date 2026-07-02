@@ -9,5 +9,7 @@ public class InventoryWorksheetLineVM : InventoryItemVM
     public decimal GoodScannedQuantity { get; set; }
     public decimal BadScannedQuantity { get; set; }
 
+    public int NetsuiteBinInternalId { get; set; }
+
     public int ScanCount { get; set; }
 }

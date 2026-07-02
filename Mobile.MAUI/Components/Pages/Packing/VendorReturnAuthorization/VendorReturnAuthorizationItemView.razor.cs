@@ -81,8 +81,13 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
                     MaterialCode = line.MaterialCode,
                     MaterialName = line.MaterialName,
                     MaterialWeight = line.MaterialWeight,
+
+                    NetsuiteMaterialPrefferedBinId = line.NetsuiteMaterialPrefferedBinId,
+                    NetsuiteMaterialVendorAssignedBin = line.NetsuiteMaterialVendorAssignedBin,
+
                     LineQuantity = line.LineQuantity,
                     LineQuantityReceived = line.LineQuantityReceived,
+
                     NetsuiteUoMInternalId = line.NetsuiteUoMInternalId,
                     UoMName = line.UoMName,
                     UoMRate = line.UoMRate,
@@ -117,6 +122,9 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
                     MaterialCode = line.MaterialCode,
                     MaterialName = line.MaterialName,
                     MaterialWeight = line.MaterialWeight,
+
+                    NetsuiteMaterialPrefferedBinId = line.NetsuiteMaterialPrefferedBinId,
+                    NetsuiteMaterialVendorAssignedBin = line.NetsuiteMaterialVendorAssignedBin,
 
                     LineQuantity = line.LineQuantity,
                     LineQuantityPacked = line.LineQuantityPacked,
@@ -415,8 +423,13 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
                 MaterialCode = x.MaterialCode,
                 MaterialName = x.MaterialName,
                 MaterialWeight = x.MaterialWeight,
+
+                NetsuiteMaterialPrefferedBinId = x.NetsuiteMaterialPrefferedBinId,
+                NetsuiteMaterialVendorAssignedBin = x.NetsuiteMaterialVendorAssignedBin,
+
                 LineQuantity = x.LineQuantity,
                 LineQuantityReceived = x.LineQuantityReceived,
+
                 NetsuiteUoMInternalId = x.NetsuiteUoMInternalId,
                 UoMName = x.UoMName,
                 UoMRate = x.UoMRate,

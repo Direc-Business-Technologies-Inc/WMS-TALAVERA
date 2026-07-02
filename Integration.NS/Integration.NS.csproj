@@ -49,6 +49,8 @@
   </ItemGroup>
 	
   <ItemGroup>
+    <Content Update="NSScripts\NS_Get_Locations.sql" Link="Scripts\NS_Get_Locations.sql" />
+    <Content Update="NSScripts\NS_Bin_Get_Locations.sql" Link="Scripts\NS_Bin_Get_Locations.sql" />
     <Content Update="NSScripts\NS_PurchaseOrder_GetAll.sql" Link="Scripts\NS_PurchaseOrder_Get_Pending.sql" />
     <Content Update="NSScripts\NS_PurchaseOrder_Get_PendingReceipt.sql" Link="Scripts\NS_PurchaseOrder_Get_PendingReceipt.sql" />
   </ItemGroup>

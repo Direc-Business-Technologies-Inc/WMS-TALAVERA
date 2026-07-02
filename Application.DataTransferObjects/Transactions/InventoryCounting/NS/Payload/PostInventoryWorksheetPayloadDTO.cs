@@ -39,6 +39,8 @@ public class PostInventoryWorksheetPayload
 
     public class InventoryWorksheetInventoryDetail
     {
+        [JsonPropertyName("bin")]
+        public int? Bin { get; set; }
         [JsonPropertyName("inventorystatus")]
         public int InventoryStatus { get; set; }
 
@@ -47,46 +49,66 @@ public class PostInventoryWorksheetPayload
     }
 
     public static PostInventoryWorksheetPayload PostInventoryWorksheet(
-    List<InventoryWorksheetLineDTO> lines,
+    List<InventoryWorksheetLineDTO> icItems,
     int location)
     {
+        var lines = icItems
+            .Where(x => x.GoodScannedQuantity > 0 || x.BadScannedQuantity > 0)
+            .GroupBy(x => x.NetsuiteMaterialInternalId)
+            .Select(itemGroup =>
+            {
+                var inventoryDetails = itemGroup
+                    .SelectMany(line =>
+                    {
+                        var details = new List<InventoryWorksheetInventoryDetail>();
+
+                        if (line.GoodScannedQuantity > 0)
+                        {
+                            details.Add(new InventoryWorksheetInventoryDetail
+                            {
+                                Bin = line.NetsuiteBinInternalId != 0
+                                    ? line.NetsuiteBinInternalId
+                                    : null,
+                                InventoryStatus = 1, // Good
+                                Quantity = line.GoodScannedQuantity
+                            });
+                        }
+
+                        if (line.BadScannedQuantity > 0)
+                        {
+                            details.Add(new InventoryWorksheetInventoryDetail
+                            {
+                                Bin = line.NetsuiteBinInternalId != 0
+                                    ? line.NetsuiteBinInternalId
+                                    : null,
+                                InventoryStatus = 3, // Bad
+                                Quantity = line.BadScannedQuantity
+                            });
+                        }
+
+                        return details;
+                    })
+                    .ToList();
+
+                return new InventoryWorksheetLine
+                {
+                    ItemId = itemGroup.Key,
+                    NewQuantity = inventoryDetails.Sum(x => x.Quantity),
+                    InventoryDetail = inventoryDetails
+                };
+            })
+            .Where(x => x.InventoryDetail.Count != 0)
+            .ToList();
+
         return new PostInventoryWorksheetPayload
         {
-            Subsidiary = 2,
+            Subsidiary = 1,
             Account = 1,
             LastInDay = "T",
             Location = location,
             Department = 15,
             Class = 2,
-            Lines = lines.Select(line =>
-            {
-                var details = new List<InventoryWorksheetInventoryDetail>();
-
-                if (line.GoodScannedQuantity > 0)
-                {
-                    details.Add(new InventoryWorksheetInventoryDetail
-                    {
-                        InventoryStatus = 1,
-                        Quantity = line.GoodScannedQuantity
-                    });
-                }
-
-                if (line.BadScannedQuantity > 0)
-                {
-                    details.Add(new InventoryWorksheetInventoryDetail
-                    {
-                        InventoryStatus = 3,
-                        Quantity = line.BadScannedQuantity
-                    });
-                }
-
-                return new InventoryWorksheetLine
-                {
-                    ItemId = line.NetsuiteMaterialInternalId,
-                    NewQuantity = line.GoodScannedQuantity + line.BadScannedQuantity,
-                    InventoryDetail = details
-                };
-            }).ToList()
+            Lines = lines
         };
     }
 }

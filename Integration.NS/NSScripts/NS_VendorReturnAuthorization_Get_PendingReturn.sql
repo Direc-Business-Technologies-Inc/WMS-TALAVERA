@@ -13,4 +13,4 @@ JOIN
 	entity e ON t.entity = e.id
 WHERE
 	t.recordtype = 'vendorreturnauthorization'
-	AND t.status IN ('B')
+	AND t.status IN ('B', 'E')

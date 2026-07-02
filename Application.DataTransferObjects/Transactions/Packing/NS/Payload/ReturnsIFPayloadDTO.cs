@@ -32,11 +32,51 @@ public class ReturnsIFPayloadDTO
                     }
                     else
                     {
+                        var assignment = new InventoryAssignment
+                        {
+                            Items =
+                            [
+                                new InventoryAssignmentItem
+                                {
+                                    InventoryStatus = new ReferenceValue
+                                    {
+                                        Id = /*line.IsBad ? "3" :*/ "1"
+                                    },
+                                    Quantity = line.ScannedQuantity,
+                                    BinNumber = line.NetsuiteMaterialVendorAssignedBin != 0
+                                        ? new ReferenceValue
+                                        {
+                                            Id = line.NetsuiteMaterialVendorAssignedBin.ToString()
+                                        }
+                                        : line.NetsuiteMaterialPrefferedBinId != 0
+                                        ? new ReferenceValue
+                                        {
+                                            Id = line.NetsuiteMaterialPrefferedBinId.ToString()
+                                        }
+                                        : null
+                                }
+                            ]
+                        };
+
+                        var inventoryDetail = line.NetsuiteMaterialPrefferedBinId != 0
+                        ? new InventoryDetail
+                        {
+                            InventoryAssignmentList = new InventoryAssignmentList
+                            {
+                                InventoryAssignment = assignment
+                            }
+                        }
+                        : new InventoryDetail
+                        {
+                            InventoryAssignment = assignment
+                        };
+
                         return new OrderLineItem
                         {
                             OrderLine = line.LineSequenceNumber,
                             isReceived = true,
                             Quantity = line.ScannedQuantity,
+                            InventoryDetail = inventoryDetail
                         };
                     }
                 }).ToList()

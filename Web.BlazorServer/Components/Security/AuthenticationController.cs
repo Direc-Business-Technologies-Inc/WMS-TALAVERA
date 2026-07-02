@@ -67,6 +67,12 @@ public class AuthenticationController(
             new Claim("Permissions", permissionString)
         ];
 
+        if (loginResponse.User?.EmployeeNs is not null) //claims for ns
+        {
+            claims.Add(new Claim("com.direcbusiness.wms.nsEmployeeId", loginResponse.User.EmployeeNs.NsId.ToString()));
+            claims.Add(new Claim("com.direcbusiness.wms.nsEmployeeName", loginResponse.User.EmployeeNs.FirstName + " " + loginResponse.User.EmployeeNs.LastName));
+        }
+
         await HttpContextAccessor!.HttpContext!.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme)));
 
         AppAuthenticationState.NotifyAuthenticationStateChanged();
