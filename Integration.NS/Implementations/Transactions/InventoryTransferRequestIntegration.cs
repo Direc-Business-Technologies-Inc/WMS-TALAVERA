@@ -167,6 +167,7 @@ public class InventoryTransferRequestIntegration(
             subsidiary = data.Subsidiary?.Id ?? null,
             location = data.SourceLocation?.Id ?? null,
             custbody_dbti_itr_to_location = data.DestinationLocation?.Id ?? null,
+            custbody_dbti_prepared_by = data.PreparedById,
             memo = data.Memo,
             trandate = data.Date,
             Class = 1,
