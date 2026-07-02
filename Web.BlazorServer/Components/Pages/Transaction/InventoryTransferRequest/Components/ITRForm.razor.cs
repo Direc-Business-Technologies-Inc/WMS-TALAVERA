@@ -92,28 +92,34 @@ public partial class ITRForm
 
     async Task CustomerSet(CustomerVM? value)
     {
+        var oldValue = Model.Customer;
+        Model.Customer = value;
 
         if (Model.Lines.Count > 0)
         {
             var response = await AlertService.PromptAsync("Changing customers will clear added items", "Change Customers?");
+            await Task.Yield();
+            Model.Customer = oldValue;
             if (!response) return;
         }
 
-        Model.Customer = value;
         Model.Lines.Clear();
         await SubsidiarySet(null);
         SubsidiaryDropdown.Reset();
     }
     async Task SubsidiarySet(SubsidiaryVM? value)
     {
+        var oldValue = Model.Subsidiary;
+        Model.Subsidiary = value;
         if (Model.Lines.Count > 0)
         {
             var response = await AlertService.PromptAsync("Changing subsidiaries will clear added items", "Change Subsidiaries?");
+            await Task.Yield();
+            Model.Subsidiary = oldValue;
             if (!response) return;
         }
 
         Model.Lines.Clear();
-        Model.Subsidiary = value;
         Model.SourceLocation = null;
         Model.DestinationLocation = null;
 
@@ -125,15 +131,18 @@ public partial class ITRForm
 
     async Task LocationSet(LocationVM? value)
     {
+        var oldValue = Model.SourceLocation;
+        Model.SourceLocation = value;
 
         if (Model.Lines.Count > 0)
         {
             var response = await AlertService.PromptAsync("Changing source location will clear added items", "Change Source Location?");
+            await Task.Yield();
+            Model.SourceLocation = oldValue;
             if (!response) return;
         }
         Model.Lines.Clear();
         Model.DestinationLocation = null;
-        Model.SourceLocation = value;
 
         ParentLocationTask = value is null ? null : locationHandler.GetParentLocation(value);
         DestinationLocationDropdown.Reset();
