@@ -12,6 +12,7 @@ public class PostVendorReturnAuthorizationDTO : TransactionDTO
     public int VendorBinAssignmentId { get; set; }
 
     public int NetsuiteMaterialPrefferedBinId { get; set; }
+    public int NetsuiteMaterialVendorAssignedBin { get; set; }
 
     public decimal TotalWeight { get; set; }
 

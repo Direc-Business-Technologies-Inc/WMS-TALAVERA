@@ -6,4 +6,5 @@ public class VendorReturnAuthorizationLineVM : TransactionVM
     public int VendorBinAssignmentId { get; set; }
 
     public int NetsuiteMaterialPrefferedBinId { get; set; }
+    public int NetsuiteMaterialVendorAssignedBin { get; set; }
 }

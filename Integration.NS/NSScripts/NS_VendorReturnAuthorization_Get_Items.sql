@@ -17,7 +17,7 @@ SELECT
 
 	t.entity AS NetsuiteVendorInternalId,
 	e.fullname AS VendorName,
-	ba.custrecord_dbti_vba_assigned_bin AS VendorBinAssignmentId,
+	ba.custrecord_dbti_vba_assigned_bin AS NetsuiteMaterialVendorAssignedBin,
 
 	i.id AS NetsuiteMaterialInternalId,
 	i.itemid as MaterialCode,
@@ -25,7 +25,7 @@ SELECT
 	b.id AS NetsuiteMaterialPrefferedBinId,
 	i.weight AS MaterialWeight,
 	ABS(tl.quantity) AS LineQuantity,
-	tl.quantityshiprecv AS LineQuantityReceived,
+	tl.quantityshiprecv AS LineQuantityPacked,
 	tl.units AS NetsuiteUoMInternalId,
 	uom.unitname AS UoMName,
 	uom.conversionrate AS UoMRate,
@@ -36,10 +36,11 @@ FROM item i
     JOIN transactionline tl ON i.id = tl.item
     JOIN transaction t ON tl.transaction = t.id
 	JOIN entity e ON t.entity = e.id
-	JOIN customrecord_dbti_vendor_bin_assignment ba ON t.entity = ba.custrecord_dbti_vba_vendor
     JOIN subsidiary s ON t.subsidiary = s.id
     JOIN location loc ON tl.location = loc.id
 	JOIN unitstypeuom uom ON tl.units = uom.internalid
+
+	LEFT JOIN customrecord_dbti_vendor_bin_assignment ba ON t.entity = ba.custrecord_dbti_vba_vendor
 
     LEFT JOIN (
 	   SELECT
@@ -54,5 +55,5 @@ FROM item i
 	LEFT JOIN bin b ON b.id = ibq.bin
 WHERE
 	t.recordtype = 'vendorreturnauthorization'
-	AND t.status IN ('B')
+	AND t.status IN ('B', 'E')
 	AND t.tranid = @tranid
