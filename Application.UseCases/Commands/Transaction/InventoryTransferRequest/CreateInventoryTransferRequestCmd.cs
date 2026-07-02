@@ -17,6 +17,8 @@ public class CreateInventoryTransferRequestCmdHandler(
 {
     public async Task<bool> Handle(CreateInventoryTransferRequestCmd request, CancellationToken cancellationToken)
     {
+        
+
         return await integration.CreateInventoryTransferRequest(request.data);
     }
 }

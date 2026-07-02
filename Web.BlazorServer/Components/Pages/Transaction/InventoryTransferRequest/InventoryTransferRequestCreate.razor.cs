@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Components;
 using Web.BlazorServer.Components.Base;
+using Web.BlazorServer.Components.Security;
 using Web.BlazorServer.Handlers.Repositories.Transaction.InventoryTransferRequest;
 using Web.BlazorServer.Helpers;
 using Web.BlazorServer.ViewModels.Transaction.InventoryTransferRequest;
@@ -9,6 +10,7 @@ namespace Web.BlazorServer.Components.Pages.Transaction.InventoryTransferRequest
 public partial class InventoryTransferRequestCreate : BaseForm<InventoryTransferRequestVM>
 {
     [Inject] IInventoryTransferRequestHandler itrHandler { get; set; } = default!;
+    [Inject] AppAuthenticationService authService { get; set; } = default!;
 
     readonly string ActionCreate = "Create Inventory transfer request";
 
@@ -16,6 +18,8 @@ public partial class InventoryTransferRequestCreate : BaseForm<InventoryTransfer
     {
         FormData.Date = DateTime.Now;
         FormData.Memo = "Created via WMS";
+        var nameClaim = authService.GetClaimValue("com.direcbusiness.wms.nsEmployeeName");
+        FormData.PreparedBy = string.IsNullOrEmpty(nameClaim) ? "No Netsuite Account Registered" : nameClaim;
     }
     protected override Task CancelEditing()
     {

@@ -4,12 +4,15 @@ using Application.UseCases.Queries.Transaction.InventoryTransferRequests;
 using Mapster;
 using MediatR;
 using Shared.Entities;
+using Web.BlazorServer.Components.Security;
 using Web.BlazorServer.Handlers.Repositories.Transaction.InventoryTransferRequest;
 using Web.BlazorServer.ViewModels.Transaction.InventoryTransferRequest;
 
 namespace Web.BlazorServer.Handlers.Implementations.Transaction.InventoryTransferRequest;
 
-public class InventoryTransferRequestHandler(ISender sender) : IInventoryTransferRequestHandler
+public class InventoryTransferRequestHandler(
+    AppAuthenticationService authService,
+    ISender sender) : IInventoryTransferRequestHandler
 {
     public async Task<InventoryTransferRequestVM?> GetInventoryTransferRequestAsync(string Ref)
     {
@@ -40,7 +43,13 @@ public class InventoryTransferRequestHandler(ISender sender) : IInventoryTransfe
     }
     public async Task<bool> CreateInventoryTransferRequest(InventoryTransferRequestVM data)
     {
-        CreateInventoryTransferRequestCmd cmd = new(data.Adapt<InventoryTransferRequestDTO>());
+        var dto = data.Adapt<InventoryTransferRequestDTO>();
+        if (int.TryParse(authService.GetClaimValue("com.direcbusiness.wms.nsEmployeeId"), out int employeeId))
+        {
+            dto.PreparedById = employeeId;
+        }
+
+        CreateInventoryTransferRequestCmd cmd = new(dto);
 
         return await sender.Send(cmd);
     }
