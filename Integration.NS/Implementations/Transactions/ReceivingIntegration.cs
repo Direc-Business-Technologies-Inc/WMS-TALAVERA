@@ -408,6 +408,7 @@ public class ReceivingIntegration(
         var obj = new
         {
             custbody_dbti_receiving_category = isGood ? 1 : 2,
+            custbody_dbti_prepared_by = dto.PreparedById,
             item = new
             {
                 items = dto.Lines.Select(line =>

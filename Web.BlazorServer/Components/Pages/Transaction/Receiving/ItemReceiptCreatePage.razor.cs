@@ -1,4 +1,6 @@
-﻿using Microsoft.AspNetCore.Components;
+﻿using Mapster;
+using Microsoft.AspNetCore.Components;
+using Web.BlazorServer.Components.Security;
 using Web.BlazorServer.Defaults;
 using Web.BlazorServer.Handlers.Implementations.Transaction.Receiving;
 using Web.BlazorServer.Handlers.Repositories.Transaction.Receiving;
@@ -10,6 +12,7 @@ partial class ItemReceiptCreatePage
 {
     [SupplyParameterFromQuery] public string? Ref { get; set; }
     [Inject] IReceivingHandler? receivingHandler { get; set; }
+    [Inject] AppAuthenticationService authService { get; set; } = default!;
 
     readonly string ActionGetItemReceiptSource = "Get Item Receipt Source";
     readonly string ActionCreateItemReceipt = "Create Item Receipt";
@@ -46,7 +49,10 @@ partial class ItemReceiptCreatePage
 
         action.OnSuccess(res =>
         {
-            FormData = res;
+            res.Adapt(FormData);
+            var nsEmployee = authService.GetClaimValue("com.direcbusiness.wms.nsEmployeeName");
+            FormData.PreparedBy = string.IsNullOrEmpty(nsEmployee) ? "No Netsuite Account Registered" : nsEmployee;
+
             return Task.CompletedTask;
         });
 

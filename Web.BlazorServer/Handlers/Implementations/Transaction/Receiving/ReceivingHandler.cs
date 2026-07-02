@@ -5,12 +5,14 @@ using Mapster;
 using MediatR;
 using Microsoft.EntityFrameworkCore.Scaffolding.Metadata;
 using Shared.Entities;
+using Web.BlazorServer.Components.Security;
 using Web.BlazorServer.Handlers.Repositories.Transaction.Receiving;
 using Web.BlazorServer.ViewModels.Transaction.Receiving;
 
 namespace Web.BlazorServer.Handlers.Implementations.Transaction.Receiving;
 
 public class ReceivingHandler(
+    AppAuthenticationService authService,
     ISender Sender) 
     : IReceivingHandler
 {
@@ -174,6 +176,11 @@ public class ReceivingHandler(
             _ => throw new NotImplementedException(),
         };
         dto.Category = data.IsBad ? ItemReceiptDTO.ReceivingCategory.Confiscated : ItemReceiptDTO.ReceivingCategory.Good;
+
+        if (int.TryParse(authService.GetClaimValue("com.direcbusiness.wms.nsEmployeeId"), out int nsId))
+        {
+            dto.PreparedById = nsId;
+        }
 
         var cmd = new CreateItemReceiptCmd(dto);
         return await Sender.Send(cmd);
