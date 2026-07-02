@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Components;
+using Web.BlazorServer.Components.Security;
 using Web.BlazorServer.Handlers.Repositories.Transaction.SupplierReturn;
 using Web.BlazorServer.Helpers;
 using Web.BlazorServer.ViewModels.Transaction.SupplierReturn;
@@ -8,6 +9,7 @@ namespace Web.BlazorServer.Components.Pages.Transaction.SupplierReturn;
 public partial class SupplierReturnCreate
 {
     [Inject] ISupplierReturnHandler returnHandler { get; set; } = default!;
+    [Inject] AppAuthenticationService authService { get; set; } = default!;
 
     readonly string ActionCreateSupplierReturn = "Create Return to Supplier";
 
@@ -16,6 +18,8 @@ public partial class SupplierReturnCreate
         base.OnParametersSet();
         FormData.Memo = "Created via WMS";
         FormData.Date = DateTime.Now;
+        var employeeName = authService.GetClaimValue("com.direcbusiness.wms.nsEmployeeName");
+        FormData.PreparedBy = string.IsNullOrEmpty(employeeName) ? "No Netsuite Account Registered" : employeeName;
     }
     protected override Task CancelEditing()
     {
