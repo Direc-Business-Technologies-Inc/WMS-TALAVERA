@@ -209,6 +209,14 @@ public enum AppActions
     SyncInventoryCountingSheet,
     [Description("Get Warehouse Items for Counting")]
     GetWarehouseItemsForCounting,
+    [Description("Get Inventory Worksheet Items")]
+    GetInventoryWorksheetItems,
+    [Description("Get Inventory Worksheet Locations")]
+    GetInventoryWorksheetLocations,
+    [Description("Get Inventory Worksheet Item Barcodes")]
+    GetInventoryWorksheetItemBarcodes,
+    [Description("Post Inventory Worksheet")]
+    PostInventoryWorksheet,
     #endregion Transaction - Inventory Counting
 
     #region Transaction - Packing

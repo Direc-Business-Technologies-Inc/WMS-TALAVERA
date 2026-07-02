@@ -1,0 +1,154 @@
+@using global::Shared.Libraries.ViewModel
+@using global::Shared.Libraries.ViewModel.Common
+@using Web.BlazorServer.Components.Custom
+@using Web.BlazorServer.Components.Pages.Transaction.InventoryCounting.Components
+@using Web.BlazorServer.Components.Security
+@using Web.BlazorServer.Components.Shared.Skeletons
+@using Web.BlazorServer.ViewModels.Transaction.InventoryCounting
+
+@inherits BaseComponent
+@page "/transactions/inventory/inventory-worksheet"
+@layout ProtectedLayout
+@attribute [AppAuthorizationAttribute("CREATE", "OICT")]
+
+<PageTitle>Inventory Worksheet</PageTitle>
+
+<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" class="rz-mb-4">
+    <AppBreadCrumbs ModuleCode="OICT" />
+</RadzenStack>
+
+<AppContent>
+    <AppFormSkeleton TItem="InventoryWorksheetCreateVM" Loading="@IsLoadingData" />
+
+    <RadzenTemplateForm Visible="@(!IsLoadingData)"
+                        TItem="InventoryWorksheetCreateVM"
+                        Data="@FormData"
+                        Submit="@PostWorksheetAsync">
+        <RadzenStack Gap="1rem">
+            <RadzenFieldset Text="Details" AllowCollapse>
+                <RadzenRow Gap="1rem">
+                    <RadzenColumn Size="12" SizeMD="4">
+                        <RadzenFormField Text="Location" class="rz-w-100" AllowFloatingLabel="false">
+                            <ChildContent>
+                                <RadzenDropDown TValue="LocationVM"
+                                                Data="@Locations"
+                                                @bind-Value="@FormData.Location"
+                                                Change="@OnLocationChanged"
+                                                AllowClear
+                                                AllowFiltering
+                                                TextProperty="@nameof(LocationVM.LocationName)"
+                                                Name="worksheet_location"
+                                                Placeholder="Select location"
+                                                class="rz-w-100" />
+                            </ChildContent>
+                            <Helper>
+                                <RadzenCustomValidator Component="worksheet_location"
+                                                       Popup
+                                                       Validator="@(() => FormData.Location is not null && FormData.Location.NetsuiteLocationInternalId > 0)"
+                                                       Text="Location is required" />
+                            </Helper>
+                        </RadzenFormField>
+                    </RadzenColumn>
+                    <RadzenColumn Size="12" SizeMD="4">
+                        <RadzenFormField Text="Bin Required" class="rz-w-100" AllowFloatingLabel="false">
+                            <RadzenTextBox Value="@GetBinRequirementText()" ReadOnly class="rz-w-100" />
+                        </RadzenFormField>
+                    </RadzenColumn>
+                </RadzenRow>
+            </RadzenFieldset>
+
+            <RadzenFieldset Text="Lines" AllowCollapse>
+                <AppTableWithSettings @ref="@WorksheetTable"
+                                      Data="@FormData.Lines"
+                                      Id="inventory_worksheet_lines">
+                    <HeaderTemplate>
+                        <RadzenButton Text="Add Line"
+                                      Icon="add"
+                                      Size="ButtonSize.Small"
+                                      ButtonStyle="ButtonStyle.Primary"
+                                      Click="@AddLine" />
+                    </HeaderTemplate>
+                    <Columns>
+                        <RadzenDataGridColumn TItem="InventoryWorksheetCreateLineVM"
+                                              Property="@nameof(InventoryWorksheetCreateLineVM.MaterialCode)"
+                                              Title="Item Code"
+                                              Width="220px"
+                                              Type="@typeof(string)">
+                            <Template Context="line">
+                                <RadzenDropDown TValue="InventoryItemVM"
+                                                Data="@InventoryItems"
+                                                @bind-Value="@line.SelectedItem"
+                                                Change="@(_ => OnItemChanged(line))"
+                                                AllowClear
+                                                AllowFiltering
+                                                FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                                                TextProperty="@nameof(InventoryItemVM.MaterialCode)"
+                                                Placeholder="Select item"
+                                                class="rz-w-100" />
+                            </Template>
+                        </RadzenDataGridColumn>
+                        <RadzenDataGridColumn TItem="InventoryWorksheetCreateLineVM"
+                                              Property="@nameof(InventoryWorksheetCreateLineVM.MaterialName)"
+                                              Title="Item Name"
+                                              Type="@typeof(string)">
+                            <Template Context="line">
+                                @line.MaterialName
+                            </Template>
+                        </RadzenDataGridColumn>
+                        <RadzenDataGridColumn TItem="InventoryWorksheetCreateLineVM"
+                                              Property="@nameof(InventoryWorksheetCreateLineVM.TotalQuantity)"
+                                              Title="Total Quantity"
+                                              Width="170px"
+                                              Type="@typeof(decimal)">
+                            <Template Context="line">
+                                <RadzenNumeric TValue="decimal"
+                                               @bind-Value="@line.TotalQuantity"
+                                               Change="@((decimal _) => OnTotalQuantityChanged(line))"
+                                               Min="0"
+                                               ShowUpDown="false"
+                                               class="rz-w-100" />
+                            </Template>
+                        </RadzenDataGridColumn>
+                        <RadzenDataGridColumn TItem="InventoryWorksheetCreateLineVM"
+                                              Title="Allocated"
+                                              Width="120px"
+                                              Type="@typeof(decimal)">
+                            <Template Context="line">
+                                @line.AllocatedQuantity.ToString("N0")
+                            </Template>
+                        </RadzenDataGridColumn>
+                        <RadzenDataGridColumn TItem="InventoryWorksheetCreateLineVM"
+                                              Frozen
+                                              FrozenPosition="FrozenColumnPosition.Right"
+                                              Width="85px"
+                                              Filterable="false"
+                                              Sortable="false"
+                                              Pickable="false">
+                            <Template Context="line">
+                                <RadzenStack Orientation="Orientation.Horizontal" Gap="4px">
+                                    <RadzenButton Icon="rule"
+                                                  Size="ButtonSize.ExtraSmall"
+                                                  ButtonStyle="ButtonStyle.Primary"
+                                                  Disabled="@(line.NetsuiteMaterialInternalId <= 0 || line.TotalQuantity <= 0)"
+                                                  Click="@(() => OpenDetailsDialog(line))" />
+                                    <RadzenButton Icon="delete"
+                                                  Size="ButtonSize.ExtraSmall"
+                                                  ButtonStyle="ButtonStyle.Danger"
+                                                  Click="@(() => RemoveLine(line))" />
+                                </RadzenStack>
+                            </Template>
+                        </RadzenDataGridColumn>
+                    </Columns>
+                </AppTableWithSettings>
+            </RadzenFieldset>
+
+            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
+                <RadzenButton Text="Back" ButtonStyle="ButtonStyle.Base" ButtonType="ButtonType.Button" Click="@GoBack" />
+                <RadzenButton Text="Post Worksheet"
+                              ButtonStyle="ButtonStyle.Success"
+                              ButtonType="ButtonType.Submit"
+                              IsBusy="@AppBusyService.IsBusy(ActionPost)" />
+            </RadzenStack>
+        </RadzenStack>
+    </RadzenTemplateForm>
+</AppContent>

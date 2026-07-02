@@ -1,10 +1,13 @@
 using Application.DataTransferObjects.Others.SAP;
 using Application.DataTransferObjects.Others.NS;
+using Application.DataTransferObjects.Transactions.Commons.NS;
+using Application.DataTransferObjects.Transactions.Commons.NS.Request;
 using Application.DataTransferObjects.Transactions.InventoryCounting;
 using Application.DataTransferObjects.Transactions.InventoryCounting.NS;
 using Application.DataTransferObjects.Transactions.InventoryCounting.NS.Request;
 using Application.UseCases.Commands.Transaction.InventoryCounting;
 using Application.UseCases.Commands.Transaction.InventoryCounting.NS;
+using Application.UseCases.Queries.Others.NS;
 using Application.UseCases.Queries.Transaction.InventoryCounting;
 using Application.UseCases.Queries.Transaction.InventoryCounting.NS;
 using Mapster;
@@ -12,8 +15,12 @@ using MediatR;
 using Shared.Entities;
 using Web.BlazorServer.Handlers.Repositories.Transaction.InventoryCounting;
 using Web.BlazorServer.ViewModels.Transaction.InventoryCounting;
+using SharedInventoryItemVM = Shared.Libraries.ViewModel.Common.InventoryItemVM;
 using SharedInventoryCountingLineVM = Shared.Libraries.ViewModel.InventoryCounting.InventoryCountingLineVM;
 using SharedInventoryCountingVM = Shared.Libraries.ViewModel.InventoryCounting.InventoryCountingVM;
+using SharedItemBarcodesPerUoMVM = Shared.Libraries.ViewModel.ItemBarcodesPerUoMVM;
+using SharedLocationVM = Shared.Libraries.ViewModel.LocationVM;
+using GetNSLocationsQry = Application.UseCases.Queries.Others.NS.GetLocationsQry;
 
 namespace Web.BlazorServer.Handlers.Implementations.Transaction.InventoryCounting;
 
@@ -60,6 +67,49 @@ public class InventoryCountingHandler(ISender Sender) : IInventoryCountingHandle
             return false;
 
         PatchInventoryCountingCmd cmd = new(patchLines);
+        var result = await Sender.Send(cmd);
+
+        return result.Success && result.Data == true;
+    }
+
+    public async Task<IEnumerable<SharedInventoryItemVM>> GetInventoryWorksheetItemsAsync()
+    {
+        IEnumerable<InventoryItemDTO> response = await Sender.Send(new GetInventoryItemsQry());
+        return response.Adapt<IEnumerable<SharedInventoryItemVM>>();
+    }
+
+    public async Task<IEnumerable<SharedLocationVM>> GetInventoryWorksheetLocationsAsync()
+    {
+        IEnumerable<LocationDTO> response = await Sender.Send(new GetNSLocationsQry());
+        return response.Adapt<IEnumerable<SharedLocationVM>>();
+    }
+
+    public async Task<IEnumerable<SharedItemBarcodesPerUoMVM>> GetInventoryWorksheetItemBarcodesAsync(IEnumerable<int> itemIds)
+    {
+        List<ItemBarcodesRequestDTO> request = [.. itemIds
+            .Distinct()
+            .Select(itemId => new ItemBarcodesRequestDTO
+            {
+                NetsuiteMaterialInternalId = itemId
+            })];
+
+        if (request.Count == 0)
+            return [];
+
+        IEnumerable<ItemBarcodesPerUoMDTO> response = await Sender.Send(new GetItemBarcodesPerUoMQry(request));
+        return response.Adapt<IEnumerable<SharedItemBarcodesPerUoMVM>>();
+    }
+
+    public async Task<bool> PostInventoryWorksheetAsync(IEnumerable<InventoryWorksheetDetailLineVM> lines, int locationId)
+    {
+        List<InventoryWorksheetLineDTO> worksheetLines = [.. lines
+            .Where(line => line.Quantity > 0)
+            .Select(CreateWorksheetLine)];
+
+        if (worksheetLines.Count == 0)
+            return false;
+
+        PostInventoryWorksheetCmd cmd = new(worksheetLines, locationId);
         var result = await Sender.Send(cmd);
 
         return result.Success && result.Data == true;
@@ -172,5 +222,19 @@ public class InventoryCountingHandler(ISender Sender) : IInventoryCountingHandle
             NetsuiteInventoryDetailInternalId = line.NetsuiteInventoryDetailInternalId,
             ScannedQuantity = line.ScannedQuantity,
             IsBad = false
+        };
+
+    static InventoryWorksheetLineDTO CreateWorksheetLine(InventoryWorksheetDetailLineVM line) =>
+        new()
+        {
+            NetsuiteInventoryDetailInternalId = line.NetsuiteInventoryDetailInternalId,
+            NetsuiteMaterialInternalId = line.NetsuiteMaterialInternalId,
+            MaterialCode = line.MaterialCode,
+            MaterialName = line.MaterialName,
+            MaterialWeight = line.MaterialWeight,
+            GoodScannedQuantity = line.Status == InventoryWorksheetDetailStatus.Good ? line.Quantity : 0,
+            BadScannedQuantity = line.Status == InventoryWorksheetDetailStatus.Bad ? line.Quantity : 0,
+            NetsuiteBinInternalId = line.NetsuiteBinInternalId,
+            ScanCount = line.ScanCount
         };
 }

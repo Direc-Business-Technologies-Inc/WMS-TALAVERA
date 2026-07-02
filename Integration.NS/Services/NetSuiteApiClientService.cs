@@ -344,7 +344,9 @@ Request failed with status code: {(int)httpResponse.StatusCode} ({httpResponse.S
             }
 
             var errorMessage = await httpResponse.Content.ReadAsStringAsync();
-            throw new Exception($"Request failed with status code: {httpResponse.StatusCode}");
+            throw new Exception(
+                $"Request failed with status code {(int)httpResponse.StatusCode} ({httpResponse.StatusCode}). " +
+                $"Response: {errorMessage}");
         }
 
         public async Task<IEnumerable<T>?> NetsuiteQuery<T>(
@@ -720,7 +722,6 @@ Request failed with status code: {(int)httpResponse.StatusCode} ({httpResponse.S
             try
             {
                 var payloadGood = PostInventoryWorksheetPayload.PostInventoryWorksheet(Data, Location);
-
                 var jsonStringGood = JsonSerializer.Serialize(payloadGood, JsonSerializerOption);
 
                 await MakeRequestOAuth1<object>(url, jsonStringGood);
