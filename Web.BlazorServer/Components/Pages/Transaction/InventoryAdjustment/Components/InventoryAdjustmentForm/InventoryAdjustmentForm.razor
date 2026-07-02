@@ -14,7 +14,7 @@
             </RadzenColumn>
             <RadzenColumn SizeMD="6">
                 <RadzenFormField Text="Date" class="rz-w-100">
-                    <RadzenDatePicker ShowTime="false" TValue="DateTime" ReadOnly Value="@Model.Date" />
+                    <RadzenDatePicker DateFormat="MMMM dd, yyyy" ShowTime="false" TValue="DateTime" ReadOnly Value="@Model.Date" />
                 </RadzenFormField>
             </RadzenColumn>
             <RadzenColumn SizeMD="6">
@@ -76,7 +76,7 @@
                     <Template Context="data">
                         <RadzenFormField Text="@(data.Type == InventoryAdjustmentLineVM.Types.Issue ? "Issue" : "Receipt")">
                             <ChildContent>
-                                <RadzenNumeric ReadOnly="@ReadOnly" Name="line_details" @bind-Value="@data.QuantityAlloted" class="rz-w-100" Min="0" Max="@(data.QuantityOnHand / (data.UoM?.ConversionRate ?? 1))" />
+                                <RadzenNumeric ReadOnly="@ReadOnly" Name="line_details" @bind-Value="@data.QuantityAlloted" class="rz-w-100" Min="0" Max="@(data.QuantityAllotedMax)" />
                             </ChildContent>
                             <End>
                                 <RadzenButton Visible="@(!ReadOnly)" Icon="inventory" ButtonStyle="@(data.IsAllAssignedToBins ? ButtonStyle.Success : ButtonStyle.Warning)" Size="ButtonSize.ExtraSmall" Click="_ => OpenInventoryDetailDialog(data)" />
@@ -144,7 +144,7 @@
     {
         List<ItemsVM> items = await DialogService.OpenAsync(
             "Select Items",
-            ds => @<ItemSelectionDialog Location="@(Model.Location?.Id ?? null)" />,
+            ds => @<ItemSelection Location="@(Model.Location?.Id ?? null)" IsReceipt="@(!Issue)" />,
     options: GridSettingsService.GetDialogOptions());
 
         if (items is not null) await AddItems(items);

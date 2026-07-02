@@ -40,6 +40,24 @@ public class InventoryAdjustmentHandler(ISender sender) : IInventoryAdjustmentHa
         return (data.Adapt<IEnumerable<InventoryAdjustmentDataGridVM>>(), count);
     }
 
+    public async Task<(IEnumerable<InventoryAdjustmentDataGridVM> Data, int Count)> GetIssuesDataGridAsync(DataGridIntent intent)
+    {
+        GetIssuesQry query = new(intent);
+
+        (var data, int count) = await sender.Send(query);
+
+        return (data.Adapt<IEnumerable<InventoryAdjustmentDataGridVM>>(), count);
+    }
+
+    public async Task<(IEnumerable<InventoryAdjustmentDataGridVM> Data, int Count)> GetReceiptsDataGridAsync(DataGridIntent intent)
+    {
+        GetReceiptsQry query = new(intent);
+
+        (var data, int count) = await sender.Send(query);
+
+        return (data.Adapt<IEnumerable<InventoryAdjustmentDataGridVM>>(), count);
+    }
+
     public async Task<bool> CreateInventoryAdjustmentAsync(InventoryAdjustmentVM vm)
     {
         var dto = vm.Adapt<InventoryAdjustmentDTO>();

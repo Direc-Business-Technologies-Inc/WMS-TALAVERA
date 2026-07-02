@@ -1,4 +1,5 @@
 ﻿using Application.DataTransferObjects.Others;
+using Application.DataTransferObjects.Others.NS;
 using Application.DataTransferObjects.Transactions.InventoryAdjustment;
 using Application.DataTransferObjects.Transactions.Receiving;
 using Application.UseCases.Repositories.Integration.Others;
@@ -15,6 +16,7 @@ using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace Integration.NS.Implementations.Transactions;
 
@@ -104,6 +106,9 @@ public class InventoryAdjustmentIntegration(
 
     public async Task<(IEnumerable<InventoryAdjustmentDataGridDTO> Data, int Count)> GetInventoryAdjustmentsAsync(DataGridIntent intent)
     {
+        var receiptQuery = "SELECT SUM(quantity) FROM transactionline rtl WHERE rtl.transaction = tl.transaction AND rtl.quantity >= 0 AND rtl.mainline = 'F'";
+        var issueQuery = "SELECT SUM(-quantity) FROM transactionline itl WHERE itl.transaction = tl.transaction AND itl.quantity < 0 AND itl.mainline = 'F'";
+
         var query = builderFactory.Create()
             .Select(
                 ("t.id", nameof(InventoryAdjustmentDataGridDTO.Id)),
@@ -113,7 +118,9 @@ public class InventoryAdjustmentIntegration(
                 ("BUILTIN.DF(tl.location)", nameof(InventoryAdjustmentDataGridDTO.Location)),
                 ("BUILTIN.DF(t.account)", nameof(InventoryAdjustmentDataGridDTO.Account)),
                 ("BUILTIN.DF(t.subsidiary)", nameof(InventoryAdjustmentDataGridDTO.Subsidiary)),
-                ("iar.name", nameof(InventoryAdjustmentDataGridDTO.AdjustmentReason))
+                ("iar.name", nameof(InventoryAdjustmentDataGridDTO.AdjustmentReason)),
+                ($"({receiptQuery})", nameof(InventoryAdjustmentDataGridDTO.QuantityReceivedTotal)),
+                ($"({issueQuery})", nameof(InventoryAdjustmentDataGridDTO.QuantityIssuedTotal))
             )
             .From("transaction t")
             .Join("transactionline tl", on:"tl.transaction = t.id")
@@ -128,6 +135,19 @@ public class InventoryAdjustmentIntegration(
         var response = await netsuiteService.ExecuteSuiteQLQuery<InventoryAdjustmentDataGridDTO>(query.Query, query.Limit, query.Offset);
         return (response.items, response.totalResults);
     }
+    public Task<(IEnumerable<InventoryAdjustmentDataGridDTO> Data, int Count)> GetReceiptsAdjustmentsAsync(DataGridIntent intent)
+    {
+        DataGridIntent newIntent = intent.Adapt<DataGridIntent>();
+        newIntent.Filters.Add(DataGridFilterUtilities.GreaterThanOrEqual(nameof(InventoryAdjustmentDataGridDTO.QuantityReceivedTotal), 0));
+        return GetInventoryAdjustmentsAsync(newIntent);
+    }
+    public Task<(IEnumerable<InventoryAdjustmentDataGridDTO> Data, int Count)> GetIssuesAdjustmentsAsync(DataGridIntent intent)
+    {
+        DataGridIntent newIntent = intent.Adapt<DataGridIntent>();
+        newIntent.Filters.Add(DataGridFilterUtilities.GreaterThanOrEqual(nameof(InventoryAdjustmentDataGridDTO.QuantityIssuedTotal), 0));
+        return GetInventoryAdjustmentsAsync(newIntent);
+    }
+
 
     public async Task<(IEnumerable<InventoryAdjustmentReasonDTO> Data, int Count)> GetInventoryAdjustmentReasonsAsync(DataGridIntent intent)
     {
@@ -201,7 +221,6 @@ public class InventoryAdjustmentIntegration(
 
         return JsonSerializer.Serialize(anon, jsonSerializerOptions);
     }
-
 
     private readonly JsonSerializerOptions jsonSerializerOptions = new()
     {

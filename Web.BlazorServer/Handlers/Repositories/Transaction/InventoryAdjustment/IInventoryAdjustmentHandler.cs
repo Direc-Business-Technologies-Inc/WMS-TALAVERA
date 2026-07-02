@@ -9,4 +9,6 @@ public interface IInventoryAdjustmentHandler
     Task<InventoryAdjustmentVM?> GetInventoryAdjustmentAsync(string id);
     Task<bool> CreateInventoryAdjustmentAsync(InventoryAdjustmentVM vm);
     Task<(IEnumerable<InventoryAdjustmentReasonVM> Data, int Count)> GetInventoryAdjustmentReasonsAsync(DataGridIntent intent);
+    Task<(IEnumerable<InventoryAdjustmentDataGridVM> Data, int Count)> GetIssuesDataGridAsync(DataGridIntent intent);
+    Task<(IEnumerable<InventoryAdjustmentDataGridVM> Data, int Count)> GetReceiptsDataGridAsync(DataGridIntent intent);
 }

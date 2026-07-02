@@ -48,6 +48,7 @@ partial class ItemDataGrid
                 await ItemsHandler.GetItemsDataGridAsync(intent) :
                 await ItemsHandler.GetItemsAtLocationDataGridAsync(intent, (int)LocationId);
 
+
             if (Filters.Count > 0) intent.Filters.AddRange(Filters);
 
             return response;

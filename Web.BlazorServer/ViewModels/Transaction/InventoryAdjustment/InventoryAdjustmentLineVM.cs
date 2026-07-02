@@ -22,10 +22,13 @@ public class InventoryAdjustmentLineVM
     public LocationVM? Location { get; set; } = null;
     public List<InventoryDetailVM> InventoryDetails { get; set; } = [];
 
+    public bool UsesBins { get; set; } = true;
+
+    public decimal? QuantityAllotedMax => Type == Types.Issue ? null : QuantityOnHand;
     public decimal QuantityAssignedToBins => InventoryDetails.Sum(x => x.QuantityAlloted);
     public decimal QuantityNew => Type == Types.Issue ? QuantityOnHand - QuantityAlloted : QuantityOnHand + QuantityAlloted;
     public decimal QuantityOld => Type == Types.Issue ? QuantityOnHand + QuantityAlloted : QuantityOnHand - QuantityAlloted;
-    public bool IsAllAssignedToBins => QuantityAssignedToBins == QuantityAlloted;
+    public bool IsAllAssignedToBins => !UsesBins || QuantityAssignedToBins == QuantityAlloted;
 
     public Types Type { get; set; } = Types.Receipt;
     public enum Types
