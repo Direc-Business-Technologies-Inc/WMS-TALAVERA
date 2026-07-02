@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
 using Shared.Entities;
+using Shared.Libraries.Utilities;
 using Web.BlazorServer.Components.Custom;
 using Web.BlazorServer.Handlers.Repositories.Others;
 using Web.BlazorServer.Services.Repositories;
@@ -31,6 +32,10 @@ public partial class ITRForm
     QuickVirtualizedDropdown<SubsidiaryVM> SubsidiaryDropdown { get; set; } = default!;
 
     Task<LocationVM?>? ParentLocationTask = null;
+
+    readonly List<AppFilterDescriptor> ItemFilters = [
+        DataGridFilterUtilities.GreaterThan("QuantityOnHand", 0)
+    ];
 
     async Task<(IEnumerable<CustomerVM>, int)> CustomerProvider(DataGridIntent intent)
     {

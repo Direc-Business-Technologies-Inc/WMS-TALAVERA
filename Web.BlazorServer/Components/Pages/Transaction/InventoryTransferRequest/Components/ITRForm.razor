@@ -107,7 +107,7 @@
     {
         List<ItemsVM> items = await DialogService.OpenAsync(
             "Select Items",
-            ds => @<ItemSelectionDialog Location="@(Model.SourceLocation?.Id ?? null)" />,
+            ds => @<ItemSelectionDialog Location="@(Model.SourceLocation?.Id ?? null)" Filters="@ItemFilters" />,
     options: GridSettingsService.GetDialogOptions());
 
         if (items is not null) await AddItems(items);
