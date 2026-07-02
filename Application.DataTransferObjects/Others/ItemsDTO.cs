@@ -18,4 +18,5 @@ public class ItemsDTO
     public ItemUnitDTO PurchaseUnit { get; set; } = new(); 
     public ItemUnitDTO StockUnit { get; set; } = new(); 
     public ItemUnitDTO SaleUnit { get; set; } = new(); 
+    public bool UsesBins { get; set; }
 }

@@ -18,6 +18,11 @@ public class ItemsNSDTO
     public string PurchaseUnitName { get; set; } = string.Empty;
     public string StockUnitName { get; set; } = string.Empty;
     public string SaleUnitName { get; set; } = string.Empty;
+    public string UseBins
+    {
+        get => UsesBins ? "T" : "F";
+        set => UsesBins = value == "T";
+    }
     public int PurchaseUnitId { get; set; }
     public int StockUnitId { get; set; }
     public int SaleUnitId { get; set; }
@@ -25,4 +30,5 @@ public class ItemsNSDTO
     public decimal StockUnitRate { get; set; }
     public decimal SaleUnitRate { get; set; }
     public decimal QuantityOnHand { get; set; }
+    public bool UsesBins { get; set; }
 }
