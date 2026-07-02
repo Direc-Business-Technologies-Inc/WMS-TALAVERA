@@ -292,6 +292,7 @@ public class SupplierReturnIntegration(
             department = 2,
             Class = 2,
             subsidiary = data.Subsidiary?.Id ?? null,
+            custbody_dbti_prepared_by = data.PreparedById,
             custbody_dbti_return_category = data.ReturnCategory?.Id ?? null,
             orderstatus = data.Status?.Id ?? null,
             memo = data.Memo,

@@ -4,17 +4,25 @@ using Application.UseCases.Queries.Transaction.SupplierReturn;
 using Mapster;
 using MediatR;
 using Shared.Entities;
+using Web.BlazorServer.Components.Security;
 using Web.BlazorServer.Handlers.Repositories.Transaction.SupplierReturn;
 using Web.BlazorServer.ViewModels.Transaction.Receiving;
 using Web.BlazorServer.ViewModels.Transaction.SupplierReturn;
 
 namespace Web.BlazorServer.Handlers.Implementations.Transaction.SupplierReturn;
 
-public class SupplierReturnHandler(ISender sender) : ISupplierReturnHandler
+public class SupplierReturnHandler(
+    AppAuthenticationService authService,
+    ISender sender) : ISupplierReturnHandler
 {
     public async Task<bool> CreateSupplierReturnAsync(SupplierReturnVM data)
     {
-        CreateSupplierReturnCmd cmd = new(data.Adapt<SupplierReturnDTO>());
+        var dto = data.Adapt<SupplierReturnDTO>();
+        if (int.TryParse(authService.GetClaimValue("com.direcbusiness.wms.nsEmployeeId"), out int employeeId))
+        {
+            dto.PreparedById = employeeId;
+        }
+        CreateSupplierReturnCmd cmd = new(dto);
         return await sender.Send(cmd); 
     }
 
