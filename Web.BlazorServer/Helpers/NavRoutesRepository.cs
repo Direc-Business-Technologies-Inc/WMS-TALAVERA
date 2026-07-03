@@ -3,7 +3,6 @@ using Web.BlazorServer.Components.Pages.Transaction.Packing;
 using Web.BlazorServer.Components.Pages.Transaction.StockTransferRequest;
 using Web.BlazorServer.Components.Pages.Transaction.TripTicket;
 using Web.BlazorServer.Components.Pages.Transaction.InventoryTransferRequest;
-using Web.BlazorServer.Components.Pages.Transaction.StockTransferRequest;
 using Web.BlazorServer.Components.Pages.Transaction.SupplierReturn;
 using Web.BlazorServer.ViewModels.System;
 
@@ -15,10 +14,12 @@ public class NavRoutesRepository
     public static NavRoutesRepository Instance => _instance.Value;
 
     public List<NavigationRouteVM> Roots = [];
+    private NavigationRouteVM DashboardRoute;
 
-    Dictionary<string, NavigationRouteVM> navDict = new();
+    Dictionary<string, NavigationRouteVM> navRoutes = new();
     private NavRoutesRepository() 
     {
+        DashboardRoute = new() { Name = "Dashboard", Icon = "dashboard", Protected = true, Uri="/dashboard" };
         initRoutes();
     }
 
@@ -27,7 +28,6 @@ public class NavRoutesRepository
     {
         NavigationRouteVM admin = new() { Name = "Administration", Icon = "discover_tune", Protected = false  };
         NavigationRouteVM transactions = new() { Name = "Transaction", Icon = "contract", Protected = false  };
-        NavigationRouteVM dash = new() { Name = "Dashboard", Icon = "dashboard", Protected = true, Uri="/dashboard" };
 
         var adminSubroutes = initAdminRoutes();
         admin.Children.AddRange(adminSubroutes);
@@ -37,7 +37,7 @@ public class NavRoutesRepository
         transactions.Children.AddRange(transactionsSubroutes);
         transactionsSubroutes.ForEach(x => x.Parent = transactions);
 
-        Roots = [dash, admin, transactions];
+        Roots = [DashboardRoute, admin, transactions];
     }
 
     private List<NavigationRouteVM> initAdminRoutes()
@@ -66,24 +66,25 @@ public class NavRoutesRepository
     {
         NavigationRouteVM purchase = new() { Name = "Purchasing A/P", Icon = "archive", Protected = false };
         NavigationRouteVM inventory = new() { Name = "Inventory", Icon = "inventory_2", Protected = false };
-        NavigationRouteVM delivery = new() { Name = "Delivery", Icon = "inventory_2", Protected = false };
+        NavigationRouteVM delivery = new() { Name = "Delivery", Icon = "local_shipping", Protected = false };
 
         List<NavigationRouteVM> inventorySubroutes = [
-            new() {Name = "Stock Transfer Request", Icon="battery_android_share", Protected=true, Uri = STRRoutes.Root },
-            new() {Name = "Inventory Adjustment", Icon="swap_vert", Protected=true, Uri = InventoryAdjustmentRoutes.INDEX },
-            new() {Name = "Inventory Transfer Request", Icon="warehouse", Protected=true, Uri = ITRRoutes.INDEX },
+            Register("OSTR", new() {Name = "Stock Transfer Request", Icon="battery_android_share", Protected=true, Uri = STRRoutes.Root }),
+            Register("OIAJ", new() {Name = "Inventory Adjustment", Icon="swap_vert", Protected=true, Uri = InventoryAdjustmentRoutes.INDEX }),
+            Register("OITR", new() {Name = "Inventory Transfer Request", Icon="warehouse", Protected=true, Uri = ITRRoutes.INDEX }),
+
         ];
 
         List<NavigationRouteVM> purchaseSubroutes = [
-            new() {Name = "Receiving", Icon="stacked_inbox", Protected=true, Uri = "/transactions/purchasing/receiving" },
-            new() {Name = "Return to Supplier", Icon="assignment_return", Protected=true, Uri = SupplierReturnRoutes.INDEX },
+            Register("ORCV", new() {Name = "Receiving", Icon="stacked_inbox", Protected=true, Uri = "/transactions/purchasing/receiving" }),
+            Register("ORDN",new() {Name = "Return to Supplier", Icon="assignment_return", Protected=true, Uri = SupplierReturnRoutes.INDEX })
         ];
 
         List<NavigationRouteVM> deliverySubroutes = [
-            new() {Name = "Packing", Icon="local_shipping", Protected=true, Uri = PackingRoutes.Root},
-            new() {Name = "Trip Ticket", Icon="transit_ticket", Protected=true, Uri = TripTicketRoutes.Root},
+            Register("OPCK", new() {Name = "Packing", Icon="package_2", Protected=true, Uri = PackingRoutes.Root}),
+            Register("OTTX", new() {Name = "Trip Ticket", Icon="transit_ticket", Protected=true, Uri = TripTicketRoutes.Root}),
         ];
-
+        
         purchaseSubroutes.ForEach(x => x.Parent = purchase);
         purchase.Children.AddRange(purchaseSubroutes);
 
@@ -96,4 +97,27 @@ public class NavRoutesRepository
         return [purchase, inventory, delivery];
     }
 
+    public List<NavigationRouteVM> GetPath(string moduleCode)
+    {
+        if (!navRoutes.ContainsKey(moduleCode)) return [DashboardRoute];
+        List<NavigationRouteVM> result = [navRoutes[moduleCode]];
+        bool dashIncluded = false;
+        while (result[0].Parent != null)
+        {
+            var top = result[0].Parent!;
+            result.Insert(0, top);
+            dashIncluded = dashIncluded || top == DashboardRoute;
+        }
+
+        if (!dashIncluded) result.Insert(0, DashboardRoute);
+        
+
+        return result;
+    }
+
+    private NavigationRouteVM Register(string moduleCode, NavigationRouteVM navRoute)
+    {
+        navRoutes.TryAdd(moduleCode, navRoute);
+        return navRoute;
+    }
 }

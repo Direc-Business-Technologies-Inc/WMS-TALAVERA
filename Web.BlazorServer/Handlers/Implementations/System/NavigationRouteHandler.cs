@@ -24,9 +24,6 @@ public class NavigationRouteHandler(
 
     public async Task<IEnumerable<NavigationRouteVM>> GetModuleNavigationRoutesAsync(string moduleCode)
     {
-        GetModuleNavigationRoutesQry qry = new(moduleCode);
-        var response = await Sender.Send(qry);
-
-        return response.Adapt<IEnumerable<NavigationRouteVM>>();
+        return NavRoutesRepository.Instance.GetPath(moduleCode);
     }
 }

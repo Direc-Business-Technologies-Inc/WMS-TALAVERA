@@ -18,6 +18,9 @@
 
 <PageTitle>Creating Stock Transfer Request</PageTitle>
 
+<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" class="rz-mb-4">
+    <AppBreadCrumbs ModuleCode="OSTR" />
+</RadzenStack>
 <AppContent>
 <STRForm OnSubmit="@Create" Model="@FormData" EditContext="@EditContext" ReturnURI="@STRRoutes.Root" />
 </AppContent>
