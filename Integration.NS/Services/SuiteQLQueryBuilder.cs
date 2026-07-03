@@ -1,4 +1,5 @@
 ﻿using Application.DataTransferObjects.Others.NS;
+using Mapster;
 using Microsoft.Net.Http.Headers;
 using Shared.Entities;
 using System.Collections;
@@ -31,6 +32,23 @@ public class SuiteQLQueryBuilder
     private string? _tableName;
     private List<string> _joins = [];
     private HashSet<string> _uniqueColumns = new();
+
+    public SuiteQLQueryBuilder() { }
+    public SuiteQLQueryBuilder(SuiteQLQueryBuilder source)
+    {
+        // TODO memory can be saved by usig a reference to the parent builder, but i doubt the query builder will take up too much memory so this is alright for now
+        // The code is way too patchwork already to do more stuff, do it later when refactoring
+        source.Filters.Adapt(Filters);
+        source.Sorts.Adapt(Sorts);
+        source.SelectColumns.Adapt(SelectColumns);
+        source._joins.Adapt(_joins);
+        PropertyMap = new Dictionary<string, string>(source.PropertyMap);
+
+        Take = source.Take;
+        Skip = source.Skip;
+
+        _tableName = source._tableName;
+    }
 
     public SuiteQLQueryBuilder WithDatagridIntent(DataGridIntent intent, Dictionary<string, string>? mapFields = null)
     {
@@ -136,15 +154,12 @@ public class SuiteQLQueryBuilder
                 return _binary(filter.Property, "<", filter.Value, propertyMap);
             case ComparisonOperatorEnum.LessThanOrEqual  :
                 return _binary(filter.Property, "<=", filter.Value, propertyMap);
-            case ComparisonOperatorEnum.Contains :
-                if (filter.Value is not string) throw new InvalidOperationException($"{filter.Property} is not a string and does not support the contains operation");
-                return _binary(filter.Property, "LIKE", $"%{filter.Value}%", propertyMap);
+            case ComparisonOperatorEnum.Contains:
+                return _stringOp(filter.Property, ComparisonOperatorEnum.Contains, filter.Value, propertyMap);
             case ComparisonOperatorEnum.StartsWith:
-                if (filter.Value is not string) throw new InvalidOperationException($"{filter.Property} is not a string and does not support the starts with operation");
-                return _binary(filter.Property, "LIKE", $"{filter.Value}%", propertyMap);
+                return _stringOp(filter.Property, ComparisonOperatorEnum.StartsWith, filter.Value, propertyMap);
             case ComparisonOperatorEnum.EndsWith:
-                if (filter.Value is not string) throw new InvalidOperationException($"{filter.Property} is not a string and does not support the ends with operation");
-                return _binary(filter.Property, "LIKE", $"%{filter.Value}", propertyMap);
+                return _stringOp(filter.Property, ComparisonOperatorEnum.EndsWith, filter.Value, propertyMap);
             case ComparisonOperatorEnum.In :
                 return _listOp(filter.Property, "IN", filter.Value, propertyMap);
             case ComparisonOperatorEnum.NotIn :
@@ -208,6 +223,22 @@ public class SuiteQLQueryBuilder
         prop = propertyMap != null && propertyMap.ContainsKey(prop) ? propertyMap[prop] : prop;
         if (value is DateTime dtVal) return $"TO_DATE({prop}, '{NETSUITE_DATETIME_FORMAT_STRING}') {op} TO_DATE({_stringifyValue(dtVal)}, '{NETSUITE_DATETIME_FORMAT_STRING}')";
         return $"{prop} {op} {_stringifyValue(value)}";
+    }
+
+    private string _stringOp(string prop, ComparisonOperatorEnum op, object? value, Dictionary<string, string>? propertyMap = null)
+    {
+        if (value is null) throw new InvalidOperationException($"no value given for {prop}");
+        if (value is not string strVal) throw new InvalidOperationException($"'{value}' is not a string and does not support {op}");
+
+        prop = propertyMap != null && propertyMap.ContainsKey(prop) ? propertyMap[prop] : prop;
+
+        return op switch
+        {
+            ComparisonOperatorEnum.Contains => $"LOWER({prop}) LIKE LOWER('%{strVal}%')",
+            ComparisonOperatorEnum.EndsWith => $"LOWER({prop}) LIKE LOWER('%{strVal}')",
+            ComparisonOperatorEnum.StartsWith => $"LOWER({prop}) LIKE LOWER('{strVal}%')",
+            _ => throw new NotImplementedException($"string operation {op} is not implemented in this version of wms")
+        };
     }
 
     private string _parseFilterGroup(AppFilterDescriptor filter, Dictionary<string, string>? propertyMap = null)
