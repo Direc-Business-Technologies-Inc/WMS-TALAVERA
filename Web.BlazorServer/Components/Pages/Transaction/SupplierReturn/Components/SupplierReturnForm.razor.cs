@@ -36,6 +36,7 @@ public partial class SupplierReturnForm
     QuickVirtualizedDropdown<LocationVM> LocationDropdown { get; set; } = default!;
     QuickVirtualizedDropdown<SubsidiaryVM> SubsidiaryDropdown { get; set; } = default!;
     QuickVirtualizedDropdown<ReturnStatusVM> StatusDropdown { get; set; } = default!;
+    QuickVirtualizedDropdown<PurchaseSubcategoryVM> PurchaseSubcategoryDropdown { get; set; } = default!;
 
     readonly string ActionGetPO = "Get Purchase Order";
     bool canSelectPO = true;
@@ -87,6 +88,26 @@ public partial class SupplierReturnForm
     async Task<(IEnumerable<ItemUnitVM>, int)> ItemUnitsProvider(DataGridIntent intent, int itemId)
     {
         return await itemsHandler.GetItemUnits(itemId,intent);
+    }
+
+    async Task<(IEnumerable<PurchaseCategoryVM>, int)> PurchaseCategoryProvider(DataGridIntent intent)
+    {
+        return await returnHandler.GetPurchaseCategoriesAsync(intent);
+    }
+
+    async Task<(IEnumerable<PurchaseSubcategoryVM>, int)> PurchaseSubcategoryProvider(DataGridIntent intent)
+    {
+        if (Model.PurchaseCategory is null) return ([], 0);
+        return await returnHandler.GetPurchaseSubCategoriesAsync(Model.PurchaseCategory, intent);
+    }
+
+    async Task PurchaseCategorySet(PurchaseCategoryVM? val)
+    {
+        if (Model.PurchaseCategory == val) return;
+        Model.PurchaseCategory = val;
+        Model.PurchaseSubcategory = null;
+
+        PurchaseSubcategoryDropdown.Reset();
     }
 
     async Task CategorySet(ReturnCategoryVM? val)

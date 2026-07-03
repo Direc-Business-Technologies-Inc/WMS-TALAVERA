@@ -46,19 +46,6 @@
                     </RadzenFormField>
                 </RadzenColumn>
                 <RadzenColumn SizeMD="6">
-                    <RadzenFormField Text="Status" class="rz-w-100">
-                        <ChildContent>
-
-                            <RadzenTextBox Visible="@(ReadOnly)" Value="@Model.Status?.Name" Placeholder="No status given" />
-                            <QuickVirtualizedDropdown Name="str_return_status" @ref="@StatusDropdown" @bind-Value="@Model.Status" Visible="@(!ReadOnly)" TItem="ReturnStatusVM" DataGetter="@StatusProvider" TextProperty="@nameof(ReturnStatusVM.Name)" />
-                        </ChildContent>
-
-                        <Helper>
-                            <RadzenRequiredValidator Visible="@IsEditable" Component="str_return_status" />
-                        </Helper>
-                    </RadzenFormField>
-                </RadzenColumn>
-                <RadzenColumn SizeMD="6">
                     <RadzenFormField Text="Subsidiary" class="rz-w-100">
                         <ChildContent>
                             <RadzenTextBox Visible="@(!IsEditable)" Value="@Model.Subsidiary?.Name" Placeholder="No location given" />
@@ -69,7 +56,38 @@
                         </Helper>
                     </RadzenFormField>
                 </RadzenColumn>
-                <RadzenColumn SizeMD="6">
+                <RadzenColumn SizeMD="3">
+                    <RadzenFormField Text="Purchase Category" class="rz-w-100">
+                        <ChildContent>
+                            <RadzenTextBox Visible="@(!IsEditable)" Value="@Model.PurchaseCategory?.Name" Placeholder="No purchase category given" />
+                            <QuickVirtualizedDropdown Name="str_purchase_category" @bind-Value:get="@Model.PurchaseCategory" @bind-Value:set="@PurchaseCategorySet" Visible="@IsEditable" TItem="PurchaseCategoryVM" DataGetter="@PurchaseCategoryProvider" TextProperty="@nameof(PurchaseCategoryVM.Name)" />
+                        </ChildContent>
+                        <Helper>
+                            <RadzenRequiredValidator Visible="@IsEditable" Component="str_purchase_category" />
+                        </Helper>
+                    </RadzenFormField>
+                </RadzenColumn>
+                <RadzenColumn SizeMD="3">
+                    <RadzenFormField Text="Purchase Subcategory" class="rz-w-100">
+                        <ChildContent>
+                            <RadzenTextBox Visible="@(!IsEditable)" Value="@Model.PurchaseSubcategory?.Name" Placeholder="No purchase subcategory given" />
+                            <QuickVirtualizedDropdown @ref="@PurchaseSubcategoryDropdown" @bind-Value="@Model.PurchaseSubcategory" Visible="@IsEditable" TItem="PurchaseSubcategoryVM" DataGetter="@PurchaseSubcategoryProvider" TextProperty="@nameof(PurchaseSubcategoryVM.Name)" Disabled="@(Model.PurchaseCategory is null)" />
+                        </ChildContent>
+                    </RadzenFormField>
+                </RadzenColumn>
+                <RadzenColumn SizeMD="3">
+                    <RadzenFormField Text="Status" class="rz-w-100">
+                        <ChildContent>
+                            <RadzenTextBox Visible="@(ReadOnly)" Value="@Model.Status?.Name" Placeholder="No status given" />
+                            <QuickVirtualizedDropdown Name="str_return_status" @ref="@StatusDropdown" @bind-Value="@Model.Status" Visible="@(!ReadOnly)" TItem="ReturnStatusVM" DataGetter="@StatusProvider" TextProperty="@nameof(ReturnStatusVM.Name)" />
+                        </ChildContent>
+
+                        <Helper>
+                            <RadzenRequiredValidator Visible="@IsEditable" Component="str_return_status" />
+                        </Helper>
+                    </RadzenFormField>
+                </RadzenColumn>
+                <RadzenColumn SizeMD="3">
                     <RadzenFormField Text="Warehouse" class="rz-w-100">
                         <ChildContent>
                             <RadzenTextBox Visible="@(!IsEditable)" Value="@Model.Location?.Name" Placeholder="No location given" />
