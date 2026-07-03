@@ -1,0 +1,59 @@
+﻿@using Web.BlazorServer.ViewModels.Transaction.Receiving
+
+@inherits BaseComponent
+
+<RadzenStack Gap="0.5em">
+    <RadzenCard Variant="Variant.Outlined" class="rz-my-1">
+        <RadzenTemplateForm TItem="BarcodeVM" Data="@barcode" Submit="AddBarcodeScan">
+            <RadzenStack Gap="0.5em" Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center">
+                <RadzenToggleButton Variant="Variant.Flat" @bind-Value="@IsGood" ButtonType="ButtonType.Button" ToggleButtonStyle="ButtonStyle.Success" ButtonStyle="ButtonStyle.Danger" Text="@(IsGood ? "Good" : "Bad")" Size="ButtonSize.Medium" />
+                <RadzenFormField Text="Barcode" class="rz-w-100">
+                    <ChildContent>
+                        <RadzenTextBox Disabled="@IsLoadingData" Name="barcode_input" @bind-Value="@barcode.Barcode" />
+                    </ChildContent>
+                    <Helper>
+                        <RadzenRequiredValidator Component="barcode_input" />
+                        <RadzenText TextStyle="TextStyle.Caption" class="rz-messages-error" Text="@HelperString" />
+                    </Helper>
+                    <End>
+                        <RadzenButton Visible="@(!IsLoadingData)" Size="ButtonSize.Small" Disabled="@IsLoadingData" ButtonType="ButtonType.Submit" ButtonStyle="ButtonStyle.Success" Text="Search" />
+                        <RadzenButton Visible="@(IsLoadingData)" Size="ButtonSize.Small" Disabled="@IsLoadingData" ButtonType="ButtonType.Submit" ButtonStyle="ButtonStyle.Success" Text="Search">
+                            <RadzenProgressBarCircular Mode="ProgressBarMode.Indeterminate" Size="ProgressBarCircularSize.ExtraSmall" ShowValue="false" AriaLabel="Loading, extra small" />
+                        </RadzenButton>
+                    </End>
+                </RadzenFormField>
+            </RadzenStack>
+        </RadzenTemplateForm>
+    </RadzenCard>
+    <RadzenCard Variant="Variant.Outlined" class="rz-my-1">
+        @if (barcodeBank.Count > 0)
+        {
+            <RadzenTable GridLines="DataGridGridLines.None" class="rz-my-2 rz-mx-4">
+
+                <RadzenTableHeader>
+                    <RadzenTableHeaderRow>
+                        <RadzenTableHeaderCell colspan="3">Items</RadzenTableHeaderCell>
+                    </RadzenTableHeaderRow>
+                </RadzenTableHeader>
+                @foreach (var item in barcodeBank.Values.ToList())
+                {
+                    <RadzenTableRow>
+                        <RadzenTableCell>
+                            @(item.Barcode.Item?.Name ?? "NULL ITEM")
+                        </RadzenTableCell>
+                        <RadzenTableCell>
+                            @(item.Barcode.UoM?.Name ?? "NULL UOM")
+                        </RadzenTableCell>
+                        <RadzenTableCell>
+                            @(item.Count > 0 ? "x" + item.Count : "")
+                        </RadzenTableCell>
+                    </RadzenTableRow>
+                }
+            </RadzenTable>
+        }
+    </RadzenCard>
+    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="1em">
+        <RadzenButton ButtonType="ButtonType.Button" ButtonStyle="ButtonStyle.Light" Text="Cancel" Click="@(() => Close(false))" />
+        <RadzenButton ButtonType="ButtonType.Button" ButtonStyle="ButtonStyle.Success" Text="Done" Click="@(() => Close(true))" />
+    </RadzenStack>
+</RadzenStack>

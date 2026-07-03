@@ -42,6 +42,7 @@ public class ItemReceiptLineDTO
     public int LineNumber { get; set; }
     public int PrefferedBinAssignmentId { get; set; }
 
+    public int ItemId { get; set; }
     public string ItemCode { get; set; } = string.Empty;
     public string ItemDescription { get; set; } = string.Empty;
     public string UoM { get; set; } = string.Empty;
@@ -53,6 +54,7 @@ public class ItemReceiptLineDTO
         set => _isLocationBinUsed = value.Equals("T", StringComparison.OrdinalIgnoreCase);
     }
 
+    public decimal UoMRate { get; set; }
     public decimal WeightActual { get; set; }
     public decimal WeightRecord { get; set; }
     public decimal QuantityPlanned { get; set; }

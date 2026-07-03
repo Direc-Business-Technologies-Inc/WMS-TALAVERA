@@ -4,8 +4,10 @@ using Application.DataTransferObjects.Transactions.Receiving.NS.Payload;
 using Application.DataTransferObjects.Transactions.Receiving.SAP;
 using Application.UseCases.Repositories.Integration.Others;
 using Application.UseCases.Repositories.Integration.Transaction.Receiving;
+using Integration.NS.DataTransferObjects.Receiving;
 using Integration.NS.Services;
 using Integration.SAP.Entities.Transactional.Receiving;
+using Mapster;
 using Shared.Entities;
 using Shared.Libraries.Utilities;
 using Shared.Libraries.ViewModel;
@@ -323,8 +325,10 @@ public class ReceivingIntegration(
         var builder = builderFactory.Create()
             .Select(
                 ("item.itemid", "ItemCode"),
+                ("item.id", "ItemId"),
                 ("tl.id", "LineNumber"),
                 ("uom.unitname", "UoM"),
+                ("uom.conversionrate", "UoMRate"),
                 ("loc.name", "Location"),
                 ("loc.usebins", "LocationUsesBins"),
                 ("item.displayname", "ItemDescription"),
@@ -401,6 +405,43 @@ public class ReceivingIntegration(
 
         if (exceptions.Count > 0) throw new Exception(string.Join("\n\n", exceptions.Select(ex => ex.Message)));
         return true;
+    }
+
+    public async Task<BarcodeDTO?> GetBarcodeData(string barcode)
+    {
+        var builder = builderFactory.Create()
+            .Select(
+                ("b.name", nameof(BarcodeNSDTO.Barcode)),
+                ("b.custrecord_bpu_item", nameof(BarcodeNSDTO.ItemId)),
+                ("BUILTIN.DF(b.custrecord_bpu_item)", nameof(BarcodeNSDTO.ItemName)),
+                ("uom.internalid", nameof(BarcodeNSDTO.UoMId)),
+                ("uom.unitName", nameof(BarcodeNSDTO.UoMName)),
+                ("uom.conversionRate", nameof(BarcodeNSDTO.UoMRate))
+            )
+            .From("CUSTOMRECORD_BARCODE_PER_UOM b")
+            .Join("unitstypeuom uom", on: "b.custrecord_bpu_uom = uom.internalid")
+            .WithFilter(
+                DataGridFilterUtilities.Equal("b.name", barcode)
+            );
+
+        var response = await netsuiteService.ExecuteSuiteQLQuery<BarcodeNSDTO>(builder.Build().Query);
+        var barcodeData = response.items.FirstOrDefault();
+        if (barcodeData == null) return null;
+
+        return barcodeData.Adapt(new BarcodeDTO()
+        {
+            Item = new()
+            {
+                Id = barcodeData.ItemId,
+                Name = barcodeData.ItemName,
+            },
+            UoM = new()
+            {
+                Id = barcodeData.UoMId,
+                Name = barcodeData.UoMName,
+                ConversionRate = barcodeData.UoMRate,
+            }
+        });
     }
 
     private string CreateTOJson(ItemReceiptDTO dto, bool isGood)
