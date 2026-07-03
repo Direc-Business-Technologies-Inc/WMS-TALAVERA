@@ -12,6 +12,7 @@
         <RadzenDataGridColumn TItem="ItemsVM" Property="@nameof(ItemsVM.ItemNumber)" Title="Item Id" />
         <RadzenDataGridColumn TItem="ItemsVM" Property="@nameof(ItemsVM.Name)" Title="Name " />
         <RadzenDataGridColumn TItem="ItemsVM" Property="@nameof(ItemsVM.Description)" Title="Description " />
+        <RadzenDataGridColumn TItem="ItemsVM" Property="@nameof(ItemsVM.QuantityOnHand)" Title="On Hand " />
         <RadzenDataGridColumn TItem="ItemsVM"
                               Frozen
                               FrozenPosition="FrozenColumnPosition.Right"
@@ -22,16 +23,11 @@
             </Template>
         </RadzenDataGridColumn>
     </GridColumns>
-    <Footer>
-        @if (SelectionMode == SelectionModes.Multiple)
-        {
-            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.End" Gap="0.5em">
-                <RadzenButton ButtonType="ButtonType.Button" ButtonStyle="ButtonStyle.Primary" Text="Clear Selection" Click="@(_ => SelectedItems.Clear())"/>
-                <RadzenButton ButtonType="ButtonType.Button" ButtonStyle="ButtonStyle.Success" Text="Select" Click="@Submit" />
-            </RadzenStack>
-        }
-    </Footer>
 </AppDataGrid>
+    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5em" Visible="@(SelectionMode == SelectionModes.Multiple)" class="rz-mt-3 rz-w-100">
+        <RadzenButton ButtonType="ButtonType.Button" ButtonStyle="ButtonStyle.Primary" Text="Clear Selection" Click="@(_ => SelectedItems.Clear())" />
+        <RadzenButton ButtonType="ButtonType.Button" ButtonStyle="ButtonStyle.Success" Text="Select" Click="@Submit" />
+    </RadzenStack>
 
 @code {
     async Task OpenTableSettings()

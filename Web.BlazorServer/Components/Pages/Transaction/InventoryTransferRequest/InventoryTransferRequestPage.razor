@@ -1,0 +1,25 @@
+﻿@using Web.BlazorServer.Components.Custom
+@using Web.BlazorServer.Components.Pages.Transaction.InventoryTransferRequest.Components
+@using Web.BlazorServer.Components.Pages.Transaction.Receiving.Components
+@using Web.BlazorServer.Components.Security
+@using Web.BlazorServer.ViewModels.Administration.User
+@using Web.BlazorServer.ViewModels.Transaction.InventoryAdjustment
+@using Web.BlazorServer.ViewModels.Transaction.Receiving
+
+@inherits BaseComponent
+@layout ProtectedLayout
+@attribute [AppAuthorizationAttribute("VIEW", "OITR")]
+@attribute [Route(ITRRoutes.INDEX)];
+
+<PageTitle>Inventory Transfer Requests</PageTitle>
+
+
+<AppContent>
+    <RadzenStack Orientation="Orientation.Horizontal"
+             AlignItems="AlignItems.Center"
+             JustifyContent="JustifyContent.SpaceBetween"
+             class="rz-mb-4">
+        <AppBreadCrumbs ModuleCode="OITR" />
+    </RadzenStack>
+    <ITRTable RowAction="@(itr => NavManager.NavigateTo(ITRRoutes.VIEW + $"?ref={itr.ReferenceNumber}"))" />
+</AppContent>

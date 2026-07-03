@@ -1,0 +1,44 @@
+﻿@using Web.BlazorServer.Components.Custom
+@using Web.BlazorServer.ViewModels.Others
+@inherits BaseComponent
+
+<RadzenStack> 
+    <RadzenFieldset Text="Inventory Details">
+        <RadzenTable GridLines="DataGridGridLines.Horizontal" AllowAlternatingRows>
+            <RadzenTableHeader>
+                <RadzenTableHeaderRow>
+                    <RadzenTableHeaderCell>Bin</RadzenTableHeaderCell>
+                    <RadzenTableHeaderCell>Allocated Quantity</RadzenTableHeaderCell>
+                </RadzenTableHeaderRow>
+            </RadzenTableHeader>
+            <RadzenTableBody>
+                @foreach (var detail in _details)
+                {
+                    <RadzenTableRow>
+                        <RadzenTableCell>
+                            <RadzenFormField class="rz-w-100">
+                                <QuickVirtualizedDropdown @bind-Value="detail.Bin" ActionName="@ActionGetLocationBins" TItem="LocationBinVM" DataGetter="@LocationBinProvider" TextProperty="@nameof(LocationBinVM.BinNumber)" />
+                            </RadzenFormField>
+                        </RadzenTableCell>
+                        <RadzenTableCell>
+                            <RadzenFormField class="rz-w-100">
+                                <RadzenNumeric class="rz-w-100" @bind-Value="detail.QuantityAlloted" Min="0" Max="@(detail.Bin is null ? 0 : null)"/>
+                            </RadzenFormField>
+                        </RadzenTableCell>
+                    </RadzenTableRow>
+                }
+                <RadzenTableRow>
+                    <RadzenTableCell></RadzenTableCell>
+                    <RadzenTableCell>
+                        <RadzenText class="rz-w-100" TextAlign="TextAlign.Right" TextStyle="TextStyle.Body1">Total: @CurrentCount</RadzenText>
+                        <RadzenText class="rz-w-100" TextAlign="TextAlign.Right" TextStyle="TextStyle.Body1">Expected Total: @TotalQuantity</RadzenText>
+                    </RadzenTableCell>
+                </RadzenTableRow>
+            </RadzenTableBody>
+        </RadzenTable>
+        <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5em" JustifyContent="JustifyContent.End" class="rz-p-3">
+            <RadzenButton ButtonType="ButtonType.Button" Text="Add" Click="AddLine" />
+            <RadzenButton ButtonType="ButtonType.Button" Text="Save" Click="Save" ButtonStyle="ButtonStyle.Success" />
+        </RadzenStack>
+    </RadzenFieldset>
+</RadzenStack>

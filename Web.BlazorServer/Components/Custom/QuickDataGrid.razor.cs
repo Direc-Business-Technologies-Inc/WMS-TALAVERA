@@ -6,11 +6,8 @@ using Web.BlazorServer.Components.Base;
 using Web.BlazorServer.Components.Custom.Utilities;
 using Web.BlazorServer.Components.Shared.Abstraction;
 using Web.BlazorServer.Defaults;
-using Web.BlazorServer.Handlers.Implementations.Transaction.Receiving;
-using Web.BlazorServer.Services.Implementation;
 using Web.BlazorServer.Services.Repositories;
 using Web.BlazorServer.ViewModels.Abstraction;
-using Web.BlazorServer.ViewModels.Transaction.Receiving;
 
 namespace Web.BlazorServer.Components.Custom;
 
@@ -24,6 +21,7 @@ public partial class QuickDataGrid<TItem> : BaseComponent where TItem : class
     [Parameter] public RenderFragment? HeaderStart { get; set; } = null;
     [Parameter] public RenderFragment? HeaderEnd { get; set; } = null;
     [Parameter] public RenderFragment<TItem>? RowActions { get; set; } = null;
+    [Parameter] public int? ActionWidth { get; set; } = null; // cringe
     [Parameter][EditorRequired] public required DataDelegate DataGetter { get; set; }
     [Parameter] public bool IgnorePageSettings { get; set; } = false;
 
@@ -88,6 +86,11 @@ public partial class QuickDataGrid<TItem> : BaseComponent where TItem : class
 
         AppBusyService.SetBusy(ActionName, false);
         return DataGridResultVM<TItem>.New(action.Result.Data ?? [], action.Result.Count);
+    }
+
+    public async Task Reload()
+    {
+        await DataGrid.DataGrid.Reload();
     }
 
     public delegate Task<(IEnumerable<TItem> Data, int Count)> DataDelegate(DataGridIntent intent);

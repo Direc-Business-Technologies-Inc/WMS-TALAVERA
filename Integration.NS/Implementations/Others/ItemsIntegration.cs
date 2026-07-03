@@ -21,6 +21,7 @@ public class ItemsIntegration(
     {
         var query = builderFactory.Create()
             .Select(
+                ("(SELECT SUM(quantityonhand) FROM aggregateitemlocation WHERE item = item.id)", nameof(ItemsNSDTO.QuantityOnHand)),
                 ("itemid", nameof(ItemsNSDTO.ItemNumber)),
                 ("id", nameof(ItemsNSDTO.Id)),
                 ("displayname", nameof(ItemsNSDTO.Name)),
@@ -29,14 +30,17 @@ public class ItemsIntegration(
                 ("purchaseunit", nameof(ItemsNSDTO.PurchaseUnitId)),
                 ("saleunit", nameof(ItemsNSDTO.SaleUnitId)),
                 ("stockunit", nameof(ItemsNSDTO.StockUnitId)),
-                ("BUILTIN.DF(purchaseunit)", nameof(ItemsNSDTO.PurchaseUnit)),
-                ("BUILTIN.DF(saleunit)", nameof(ItemsNSDTO.SaleUnit)),
-                ("BUILTIN.DF(stockunit)", nameof(ItemsNSDTO.StockUnit)),
-                ("(SELECT u1.conversionrate FROM unitsTypeUom u1 WHERE u1.id = saleunit)", nameof(ItemsNSDTO.SaleUnitRate)),
-                ("(SELECT u2.conversionrate FROM unitsTypeUom u2 WHERE u2.id = stockunit)", nameof(ItemsNSDTO.StockUnitRate)),
-                ("(SELECT u3.conversionrate FROM unitsTypeUom u3 WHERE u3.id = purchaseunit)", nameof(ItemsNSDTO.PurchaseUnitRate))
+                ("BUILTIN.DF(purchaseunit)", nameof(ItemsNSDTO.PurchaseUnitName)),
+                ("BUILTIN.DF(saleunit)", nameof(ItemsNSDTO.SaleUnitName)),
+                ("BUILTIN.DF(stockunit)", nameof(ItemsNSDTO.StockUnitName)),
+                ("u1.conversionrate", nameof(ItemsNSDTO.SaleUnitRate)),
+                ("u2.conversionrate", nameof(ItemsNSDTO.StockUnitRate)),
+                ("u3.conversionrate", nameof(ItemsNSDTO.PurchaseUnitRate))
             )
             .From("item")
+            .LeftJoin("unitsTypeUom u1", on: "u1.internalid = i.saleunit")
+            .LeftJoin("unitsTypeUom u2", on: "u2.internalid = i.stockunit")
+            .LeftJoin("unitsTypeUom u3", on: "u3.internalid = i.purchaseunit")
             .WithFilters(
                 DataGridFilterUtilities.Equal("itemid", id)
             )
@@ -104,6 +108,9 @@ public class ItemsIntegration(
                 ("u3.conversionrate", nameof(ItemsNSDTO.PurchaseUnitRate))
             )
             .From("item")
+            .LeftJoin("unitsTypeUom u1", on: "u1.internalid = i.saleunit")
+            .LeftJoin("unitsTypeUom u2", on: "u2.internalid = i.stockunit")
+            .LeftJoin("unitsTypeUom u3", on: "u3.internalid = i.purchaseunit")
             .WithDatagridIntent(intent)
             .Build();
 
@@ -120,7 +127,7 @@ public class ItemsIntegration(
     {
         var query = builderFactory.Create()
             .Select(
-                ("uom.id", nameof(ItemUnitDTO.Id)),
+                ("uom.internalid", nameof(ItemUnitDTO.Id)),
                 ("uom.unitname", nameof(ItemUnitDTO.Name)),
                 ("uom.abbreviation", nameof(ItemUnitDTO.Abbreviation)),
                 ("uom.conversionrate", nameof(ItemUnitDTO.ConversionRate))
@@ -140,19 +147,19 @@ public class ItemsIntegration(
         var dto = nsdto.Adapt<ItemsDTO>();
         dto.StockUnit = new ItemUnitDTO()
         {
-            Name = nsdto.StockUnit,
+            Name = nsdto.StockUnitName,
             ConversionRate = nsdto.StockUnitRate,
             Id = nsdto.StockUnitId
         };
         dto.PurchaseUnit = new ItemUnitDTO()
         {
-            Name = nsdto.PurchaseUnit,
+            Name = nsdto.PurchaseUnitName,
             ConversionRate = nsdto.PurchaseUnitRate,
             Id = nsdto.PurchaseUnitId
         };
         dto.SaleUnit = new ItemUnitDTO()
         {
-            Name = nsdto.PurchaseUnit,
+            Name = nsdto.PurchaseUnitName,
             ConversionRate = nsdto.PurchaseUnitRate,
             Id = nsdto.PurchaseUnitId
         };

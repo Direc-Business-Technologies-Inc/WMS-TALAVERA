@@ -1,0 +1,30 @@
+﻿@using Web.BlazorServer.Components.Custom
+@using Web.BlazorServer.Components.Pages.Transaction.Receiving.Components
+@using Web.BlazorServer.Components.Security
+@using Web.BlazorServer.ViewModels.Administration.User
+@using Web.BlazorServer.ViewModels.Transaction.InventoryAdjustment
+@using Web.BlazorServer.ViewModels.Transaction.Receiving
+
+@inherits BaseComponent
+@layout ProtectedLayout
+@attribute [AppAuthorizationAttribute("VIEW", "OGRC")]
+@attribute [Route(InventoryAdjustmentRoutes.INDEX)];
+
+
+<PageTitle>Inventory Adjustment</PageTitle>
+
+<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" class="rz-mb-4">
+    <AppBreadCrumbs ModuleCode="ORCV" />
+</RadzenStack>
+
+<AppContent>
+    <QuickDataGrid DataGetter="@LoadDataAsync" ActionName="@ActionGetInventoryAdjustment" Id="inventory_adjustment_datagrid" >
+        <HeaderEnd>
+            <RadzenButton ButtonStyle="ButtonStyle.Success" Size="ButtonSize.Small" Icon="call_received" Text="Create Receipt" Click="@(() => NavManager.NavigateTo(InventoryAdjustmentRoutes.CREATE + "?type=receipt"))" />
+            <RadzenButton ButtonStyle="ButtonStyle.Success" Size="ButtonSize.Small" Icon="call_made" Text="Create Issue" Click="@(() => NavManager.NavigateTo(InventoryAdjustmentRoutes.CREATE + "?type=issue"))" />
+        </HeaderEnd>
+        <RowActions >
+            <RadzenButton Icon="arrow_right_alt" Size="ButtonSize.ExtraSmall" Click="() => ViewInventoryAdjustment(context)" />
+        </RowActions>
+    </QuickDataGrid>
+</AppContent>
