@@ -24,7 +24,7 @@ public class InventoryAdjustmentLineVM
 
     public bool UsesBins { get; set; } = true;
 
-    public decimal? QuantityAllotedMax => Type == Types.Issue ? null : QuantityOnHand;
+    public decimal? QuantityAllotedMax => Type == Types.Receipt ? null : QuantityOnHand;
     public decimal QuantityAssignedToBins => InventoryDetails.Sum(x => x.QuantityAlloted);
     public decimal QuantityNew => Type == Types.Issue ? QuantityOnHand - QuantityAlloted : QuantityOnHand + QuantityAlloted;
     public decimal QuantityOld => Type == Types.Issue ? QuantityOnHand + QuantityAlloted : QuantityOnHand - QuantityAlloted;
