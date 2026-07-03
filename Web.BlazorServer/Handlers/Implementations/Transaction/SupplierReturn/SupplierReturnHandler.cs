@@ -4,6 +4,7 @@ using Application.UseCases.Queries.Transaction.SupplierReturn;
 using Mapster;
 using MediatR;
 using Shared.Entities;
+using Shared.Libraries.Utilities;
 using Web.BlazorServer.Components.Security;
 using Web.BlazorServer.Handlers.Repositories.Transaction.SupplierReturn;
 using Web.BlazorServer.ViewModels.Transaction.Receiving;
@@ -84,5 +85,24 @@ public class SupplierReturnHandler(
         (var data, int count) = await sender.Send(query);
 
         return (data.Adapt<IEnumerable<ReturnStatusVM>>(), count);
+    }
+
+    public async Task<(IEnumerable<PurchaseCategoryVM> Data, int Count)> GetPurchaseCategoriesAsync(DataGridIntent intent)
+    {
+        GetPurchaseCategoriesQry query = new(intent);
+        (var data, int count) = await sender.Send(query);
+        return (data.Adapt<IEnumerable<PurchaseCategoryVM>>(), count);
+    }
+
+    public async Task<(IEnumerable<PurchaseSubcategoryVM> Data, int Count)> GetPurchaseSubCategoriesAsync(PurchaseCategoryVM category, DataGridIntent intent)
+    {
+        var newIntent = intent.Adapt<DataGridIntent>();
+        newIntent.Filters.Add(
+            DataGridFilterUtilities.Equal(nameof(PurchaseSubcategoryVM.PurchaseCategoryId), category.Id)
+        );
+
+        GetPurchaseSubcategoriesQry query = new(newIntent);
+        (var data, int count) = await sender.Send(query);
+        return (data.Adapt<IEnumerable<PurchaseSubcategoryVM>>(), count);
     }
 }

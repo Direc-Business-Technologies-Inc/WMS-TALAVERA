@@ -20,4 +20,7 @@ public interface ISupplierReturnIntegration
     Task<(IEnumerable<PurchaseOrderDataGridDTO>, int)> GetPurchaseOrdersListAsync(DataGridIntent intent);
     Task<SupplierReturnDTO?> GetReturnFromPurchaseOrderAsync(string purchaseOrderId);
     Task<IEnumerable<SupplierReturnLineDTO>> GetReturnFromPurchaseOrderLinesAsync(string purchaseOrderId);
+    Task<(IEnumerable<PurchaseSubCategoryDTO>, int count)> GetPurchaseSubcategoriesAsync(DataGridIntent intent);
+    Task<(IEnumerable<PurchaseCategoryDTO>, int count)> GetPurchaseCategoriesAsync(DataGridIntent intent);
+
 }

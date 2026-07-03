@@ -16,6 +16,8 @@ public class SupplierReturnDTO
     public LocationDTO? Location { get; set; } = null;
     public ReturnStatusDTO? Status { get; set; } = null;
     public ReturnCategoryDTO? ReturnCategory { get; set; } = null;
+    public PurchaseCategoryDTO? PurchaseCategory { get; set; }
+    public PurchaseSubCategoryDTO? PurchaseSubcategory { get; set; }
     public SubsidiaryDTO? Subsidiary { get; set; } = null;
     public string ReferenceNumber { get; set; } = string.Empty;
     public string Memo { get; set; } = string.Empty;

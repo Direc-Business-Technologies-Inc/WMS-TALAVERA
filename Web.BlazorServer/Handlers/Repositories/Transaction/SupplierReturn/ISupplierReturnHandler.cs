@@ -16,4 +16,7 @@ public interface ISupplierReturnHandler
     Task<SupplierReturnVM?> GetReturnFromPurchaseOrderAsync(string Ref);
     Task<IEnumerable<SupplierReturnLineVM>> GetReturnFromPurchaseOrderLinesAsync(string Ref);
     Task<bool> CreateSupplierReturnAsync(SupplierReturnVM data);
+    Task<(IEnumerable<PurchaseCategoryVM> Data, int Count)> GetPurchaseCategoriesAsync(DataGridIntent intent);
+    Task<(IEnumerable<PurchaseSubcategoryVM> Data, int Count)> GetPurchaseSubCategoriesAsync(PurchaseCategoryVM category, DataGridIntent intent);
+
 }

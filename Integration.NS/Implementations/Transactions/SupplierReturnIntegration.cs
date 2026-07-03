@@ -41,7 +41,11 @@ public class SupplierReturnIntegration(
                     ("t.memo", nameof(SupplierReturnNSDTO.Memo)),
                     ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(SupplierReturnNSDTO.Date)),
                     ("s.name", nameof(SupplierReturnNSDTO.StatusName)),
-                    ("s.id", nameof(SupplierReturnNSDTO.StatusId))
+                    ("s.id", nameof(SupplierReturnNSDTO.StatusId)),
+                    ("t.custbody_dbti_purchase_category", nameof(SupplierReturnNSDTO.PurchaseCategoryId)),
+                    ("BUILTIN.DF(t.custbody_dbti_purchase_category)", nameof(SupplierReturnNSDTO.PurchaseCategoryName)),
+                    ("t.custbody_dbti_purchase_subcategory", nameof(SupplierReturnNSDTO.PurchaseSubCategoryId)),
+                    ("BUILTIN.DF(t.custbody_dbti_purchase_subcategory)", nameof(SupplierReturnNSDTO.PurchaseSubCategoryName))
                 )
                 .From("transaction t")
                 .LeftJoin("transactionline ml", "ml.mainline = 'T' and ml.transaction = t.id")
@@ -62,7 +66,9 @@ public class SupplierReturnIntegration(
             ReturnCategory = new() { Id = nsdto.CategoryId, Name = nsdto.CategoryName },
             Status = new() { Id = nsdto.StatusId, Name = nsdto.StatusName },
             Vendor = new() { Id = nsdto.VendorId, Name = nsdto.VendorName },
-            Subsidiary = new() { Id= nsdto.SubsidiaryId, Name = nsdto.SubsidiaryName }
+            Subsidiary = new() { Id= nsdto.SubsidiaryId, Name = nsdto.SubsidiaryName },
+            PurchaseCategory = new() { Id = nsdto.PurchaseCategoryId, Name = nsdto.PurchaseCategoryName},
+            PurchaseSubcategory = new() { Id = nsdto.PurchaseSubCategoryId, PurchaseCategoryId = nsdto.PurchaseCategoryId, Name = nsdto.PurchaseSubCategoryName},
         });
     }
 
@@ -282,6 +288,34 @@ public class SupplierReturnIntegration(
         return (response.items, response.totalResults);
     }
 
+    public async Task<(IEnumerable<PurchaseCategoryDTO>, int count)> GetPurchaseCategoriesAsync(DataGridIntent intent)
+    {
+        var builder = builderFactory.Create()
+            .Select(
+                ("id", nameof(PurchaseCategoryDTO.Id)),
+                ("name", nameof(PurchaseCategoryDTO.Name))
+            )
+            .From("CUSTOMLIST_DBTI_PURCHASE_CATEGORY_LIST")
+            .WithDatagridIntent(intent);
+
+        var response = await builder.Build().ExecuteWithPaging<PurchaseCategoryDTO>(netsuiteService);
+        return (response.items, response.totalResults);
+    }
+
+    public async Task<(IEnumerable<PurchaseSubCategoryDTO>, int count)> GetPurchaseSubcategoriesAsync(DataGridIntent intent)
+    {
+        var builder = builderFactory.Create()   
+            .Select(
+                ("id", nameof(PurchaseSubCategoryDTO.Id)),
+                ("name", nameof(PurchaseSubCategoryDTO.Name)),
+                ("custrecord_dbti_psc_purchase_category", nameof(PurchaseSubCategoryDTO.PurchaseCategoryId))
+            )
+            .From("CUSTOMRECORD_DBTI_PURCHASE_CATEGORIES")
+            .WithDatagridIntent(intent);
+
+        var response = await builder.Build().ExecuteWithPaging<PurchaseSubCategoryDTO>(netsuiteService);
+        return (response.items, response.totalResults);
+    }
 
     private string CreatePayload(SupplierReturnDTO data)
     {
@@ -289,12 +323,14 @@ public class SupplierReturnIntegration(
         {
             entity = data.Vendor?.Id ?? null,
             location = data.Location?.Id ?? null,
-            department = 2,
-            Class = 2,
+            department = 15, //operations
+            Class = 1, //external
             subsidiary = data.Subsidiary?.Id ?? null,
             custbody_dbti_prepared_by = data.PreparedById,
             custbody_dbti_return_category = data.ReturnCategory?.Id ?? null,
             orderstatus = data.Status?.Id ?? null,
+            custbody_dbti_purchase_category = data.PurchaseSubcategory != null ? data.PurchaseSubcategory.PurchaseCategoryId : data.PurchaseCategory?.Id ?? null,
+            custbody_dbti_purchase_subcategory = data.PurchaseSubcategory?.Id ?? null,
             memo = data.Memo,
             item = new
             {
@@ -302,7 +338,7 @@ public class SupplierReturnIntegration(
                 {
                     item = x.ItemId,
                     quantity = x.QuantityAlloted,
-                    department = 2,
+                    department = 15, //operations
                     units = x.UoM?.Id.ToString() ?? null
                 })
             }
