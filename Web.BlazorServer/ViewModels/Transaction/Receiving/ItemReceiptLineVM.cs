@@ -22,11 +22,13 @@ public class ItemReceiptLineVM
     public int LineNumber { get; set; }
     public int PrefferedBinAssignmentId { get; set; }
 
+    public int ItemId { get; set; }
     public string ItemCode { get; set; } = string.Empty;
     public string ItemDescription { get; set; } = string.Empty;
     public string UoM { get; set; } = string.Empty;
     public string Department { get; set; } = string.Empty;
     public string Location { get; set; } = string.Empty;
+    public decimal UoMRate { get; set; }
     public decimal WeightActual { get; set; }
     public decimal WeightRecord { get; set; }
     public decimal QuantityPlanned { get; set; }
@@ -34,5 +36,4 @@ public class ItemReceiptLineVM
     public decimal QuantityReceived { get; set; }
     public decimal QuantityBad { get; set; }
     public decimal QuantityGood { get; set; }
-
 }

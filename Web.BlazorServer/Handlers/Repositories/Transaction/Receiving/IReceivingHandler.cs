@@ -15,4 +15,6 @@ public interface IReceivingHandler
     Task<(IEnumerable<TransferOrderLineVM> Data, int Count)> GetTransferOrderLinesDataGridAsync(string transferOrderId, DataGridIntent intent);
     Task<bool> PostItemReceipt(ItemReceiptVM Data);
     Task<bool> PostGoodsReceiptPOAsync(PurchaseOrderVM data);
+    Task<BarcodeVM?> GetBarcodeData(string barcode);
+
 }

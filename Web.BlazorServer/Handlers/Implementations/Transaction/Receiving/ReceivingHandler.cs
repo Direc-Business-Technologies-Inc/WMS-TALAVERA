@@ -188,4 +188,13 @@ public class ReceivingHandler(
         var cmd = new CreateItemReceiptCmd(dto);
         return await Sender.Send(cmd);
     }
+
+    public async Task<BarcodeVM?> GetBarcodeData(string barcode)
+    {
+        GetBarcodeDataQry query = new(barcode);
+        var code = await Sender.Send(query);
+        if (code is null) return null;
+
+        return code.Adapt<BarcodeVM>();
+    }
 }

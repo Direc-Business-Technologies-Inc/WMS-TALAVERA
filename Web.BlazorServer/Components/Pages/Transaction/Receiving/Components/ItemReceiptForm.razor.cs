@@ -13,6 +13,9 @@ partial class ItemReceiptForm
     [Parameter] public EventCallback<ItemReceiptVM> OnValidSubmit { get; set; }
     [Inject] NavigationManager NavManager { get; set; } = default!;
 
+    Dictionary<ItemReceiptLineVM, decimal> LinesQuantityGoodTempBank = new();
+    Dictionary<ItemReceiptLineVM, decimal> LinesQuantityBadTempBank = new();
+
     readonly List<DropDownItem> Categories = new List<DropDownItem>()
     {
         new() {Name = "Good", Value = false},
@@ -41,6 +44,43 @@ partial class ItemReceiptForm
                 NavManager.NavigateTo($"/transactions/purchasing/receiving/returns/view?ref={Data.CreatedFrom}");
                 break;
         }
+    }
+
+    async Task BarcodeScanned((BarcodeVM barcode, bool IsGood) input)
+    {
+        var item = Data.Lines.Where(x => x.ItemId == input.barcode.Item?.Id).FirstOrDefault();
+        if (item is null) throw new Exception("Item is not included in this document");
+
+        decimal piecesToAdd = input.barcode.UoM?.ConversionRate ?? 0;
+        decimal diff = piecesToAdd / item.UoMRate;
+
+        if (input.IsGood)
+        {
+            if (item.QuantityGood + diff > item.QuantityPlanned) throw new Exception("Item count exceeds the planned quantity");
+
+            item.QuantityGood += diff;
+            LinesQuantityGoodTempBank[item] = LinesQuantityGoodTempBank.TryGetValue(item, out decimal value) ? value + diff : diff;
+        }
+        else
+        {
+            item.QuantityBad += diff;
+            LinesQuantityBadTempBank[item] = LinesQuantityBadTempBank.TryGetValue(item, out decimal value) ? value + diff : diff;
+        }
+    }
+
+    void ClearAddedBarcodes()
+    {
+        foreach (var item in LinesQuantityGoodTempBank.ToList())
+        {
+            item.Key.QuantityGood -= item.Value;
+        }
+        foreach (var item in LinesQuantityBadTempBank.ToList())
+        {
+            item.Key.QuantityBad -= item.Value;
+        }
+
+        LinesQuantityGoodTempBank.Clear();
+        LinesQuantityBadTempBank.Clear();
     }
 
     private class DropDownItem()
