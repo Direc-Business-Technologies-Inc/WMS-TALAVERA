@@ -17,10 +17,10 @@ namespace Api.CoreWebAPI.Controllers.Receiving;
 [Route("api/Receiving/[controller]")]
 public class TransferOrderController(ISender Sender) : ControllerBase
 {
-    [HttpGet("PendingReceipt")]
-    public async Task<ApiResult<IEnumerable<TransferOrderVM>>> GetAllTO()
+    [HttpPost("PendingReceipt")]
+    public async Task<ApiResult<IEnumerable<TransferOrderVM>>> GetAllTO(RequestPerSubsidiaryDTO req)
     {
-        var result = await Sender.Send(new GetTransferOrdersQry());
+        var result = await Sender.Send(new GetTransferOrdersQry(req));
 
         List<TransferOrderVM> ret = result.Adapt<List<TransferOrderVM>>();
 

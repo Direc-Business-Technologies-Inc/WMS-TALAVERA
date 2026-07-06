@@ -10,3 +10,8 @@ public class RequestDTO
 {
     public string OrderNumber { get; set; }
 }
+
+public class RequestPerSubsidiaryDTO
+{
+    public int NetsuiteUserSubsidiaryInternalId { get; set; }
+}

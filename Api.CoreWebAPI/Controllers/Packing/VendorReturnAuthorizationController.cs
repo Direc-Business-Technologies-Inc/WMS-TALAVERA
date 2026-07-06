@@ -1,4 +1,5 @@
-﻿using Application.DataTransferObjects.Transactions.Packing.NS;
+﻿using Application.DataTransferObjects.Transactions.Commons.NS.Request;
+using Application.DataTransferObjects.Transactions.Packing.NS;
 using Application.DataTransferObjects.Transactions.Packing.NS.Request;
 using Application.UseCases.Commands.Transaction.Packing.NS.TransferOrder;
 using Application.UseCases.Commands.Transaction.Packing.NS.VendorReturnAuthorization;
@@ -15,10 +16,10 @@ namespace Api.CoreWebAPI.Controllers.Packing;
 [Route("api/Packing/[controller]")]
 public class VendorReturnAuthorizationController(ISender Sender) : ControllerBase
 {
-    [HttpGet("PendingReturn")]
-    public async Task<ApiResult<IEnumerable<VendorReturnAuthorizationVM>>> GetAllVendorReturnAuthorization()
+    [HttpPost("PendingReturn")]
+    public async Task<ApiResult<IEnumerable<VendorReturnAuthorizationVM>>> GetAllVendorReturnAuthorization(RequestPerSubsidiaryDTO req)
     {
-        var result = await Sender.Send(new GetVendorReturnAuthorizationQry());
+        var result = await Sender.Send(new GetVendorReturnAuthorizationQry(req));
 
         List<VendorReturnAuthorizationVM> ret = result.Adapt<List<VendorReturnAuthorizationVM>>();
 

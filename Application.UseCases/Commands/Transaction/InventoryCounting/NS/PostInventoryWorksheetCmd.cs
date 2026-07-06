@@ -6,7 +6,7 @@ using Shared.Libraries.Entities;
 
 namespace Application.UseCases.Commands.Transaction.InventoryCounting.NS;
 
-public record PostInventoryWorksheetCmd(List<InventoryWorksheetLineDTO> Data, int Location) : ITransactionalRequest<ApiResult<bool>>;
+public record PostInventoryWorksheetCmd(List<InventoryWorksheetLineDTO> Data, int Location, int Subsidiary) : ITransactionalRequest<ApiResult<bool>>;
 
 public class PostInventoryWorksheetCmdHandler(INetSuiteApiClientService netSuiteApiClientService) : IRequestHandler<PostInventoryWorksheetCmd, ApiResult<bool>>
 {
@@ -14,7 +14,7 @@ public class PostInventoryWorksheetCmdHandler(INetSuiteApiClientService netSuite
     {
         try
         {
-            bool result = await netSuiteApiClientService.PostInventoryWorksheet(request.Data, request.Location);
+            bool result = await netSuiteApiClientService.PostInventoryWorksheet(request.Data, request.Location, request.Subsidiary);
 
             if (!result)
             {

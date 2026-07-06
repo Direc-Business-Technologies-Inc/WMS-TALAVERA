@@ -2,7 +2,6 @@
 using Application.DataTransferObjects.Transactions.InventoryCounting.NS;
 using Application.DataTransferObjects.Transactions.InventoryCounting.NS.Request;
 using Application.UseCases.Commands.Transaction.InventoryCounting.NS;
-using Application.UseCases.Commands.Transaction.Receiving.NS.PurchaseOrder;
 using Application.UseCases.Queries.Transaction.InventoryCounting.NS;
 using Mapster;
 using MediatR;
@@ -10,7 +9,6 @@ using Microsoft.AspNetCore.Mvc;
 using Shared.Libraries.Entities;
 using Shared.Libraries.ViewModel.Common;
 using Shared.Libraries.ViewModel.InventoryCounting;
-using Shared.Libraries.ViewModel.TransferOrder;
 
 namespace Api.CoreWebAPI.Controllers.InventoryCounting;
 
@@ -18,10 +16,10 @@ namespace Api.CoreWebAPI.Controllers.InventoryCounting;
 [Route("api/[controller]")]
 public class InventoryCountingController(ISender Sender) : ControllerBase
 {
-    [HttpGet("Started")]
-    public async Task<ApiResult<IEnumerable<InventoryCountingVM>>> GetAllStartedInventoryCount()
+    [HttpPost("Started")]
+    public async Task<ApiResult<IEnumerable<InventoryCountingVM>>> GetAllStartedInventoryCount(RequestPerSubsidiaryDTO req)
     {
-        var result = await Sender.Send(new GetStartedInventoryCountingQry());
+        var result = await Sender.Send(new GetStartedInventoryCountingQry(req));
 
         List<InventoryCountingVM> ret = result.Adapt<List<InventoryCountingVM>>();
 
@@ -59,7 +57,7 @@ public class InventoryCountingController(ISender Sender) : ControllerBase
     [HttpPost("Worksheet/SaveScan")]
     public async Task<IActionResult> InventoryWorksheetSaveScan(SaveInventoryWorksheetRequestDTO req)
     {
-        ApiResult<bool> result = await Sender.Send(new PostInventoryWorksheetCmd(req.InventoryCountItems, req.Location));
+        ApiResult<bool> result = await Sender.Send(new PostInventoryWorksheetCmd(req.InventoryCountItems, req.Location, req.NetsuiteUserSubsidiaryInternalId));
 
         return StatusCode(result.StatusCode, result);
     }

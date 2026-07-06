@@ -2,8 +2,10 @@ using Microsoft.JSInterop;
 using Mobile.MAUI.Services;
 using Mobile.MAUI.ViewModel;
 using Shared.Libraries.ViewModel;
+using Shared.Libraries.ViewModel.Authentication;
 using Shared.Libraries.ViewModel.Common;
 using Shared.Libraries.ViewModel.InventoryCounting;
+using System.Text.Json;
 using static Mobile.MAUI.Enums.CustomEnum;
 using static Mobile.MAUI.MauiProgram;
 
@@ -32,6 +34,7 @@ public partial class CreateInventoryWorksheetView : IAsyncDisposable
     private int ActiveTabIndex { get; set; } = 0;
     private int SelectedLocationInternalId { get; set; }
     private int SelectedBinInternalId { get; set; }
+    private int UserSubsidiaryId { get; set; }
 
     private bool MoveOn { get; set; }
     private bool NextScanIsBad { get; set; }
@@ -83,7 +86,7 @@ public partial class CreateInventoryWorksheetView : IAsyncDisposable
             {
                 await InvokeAsync(StateHasChanged);
 
-                var res = await Client.Get<List<LocationVM>>("/Lookup/Locations");
+                var res = await Client.Get<List<LocationVM>>("/Lookup/Susidiary/Locations", new { NetsuiteUserSubsidiaryInternalId = UserSubsidiaryId });
 
                 return res;
             },
@@ -165,7 +168,8 @@ public partial class CreateInventoryWorksheetView : IAsyncDisposable
                     new
                     {
                         InventoryCountItems = ICItems,
-                        Location = SelectedLocationInternalId
+                        Location = SelectedLocationInternalId,
+                        NetsuiteUserSubsidiaryInternalId = UserSubsidiaryId
                     });
 
                 return res;
@@ -190,6 +194,15 @@ public partial class CreateInventoryWorksheetView : IAsyncDisposable
     {
         if (firstRender)
         {
+            string? userAuth = await SecureStorage.GetAsync("UserAuth");
+            if (userAuth is not null)
+            {
+                var auth = JsonSerializer.Deserialize<AuthenticationVM>(userAuth);
+
+                UserSubsidiaryId = auth.NetsuiteSubsidiaryInternalId;
+            }
+
+
             if (ActionGetLocations is not null)
             {
                 await ActionFactory.ExecuteAppActionAsync(ActionGetLocations);

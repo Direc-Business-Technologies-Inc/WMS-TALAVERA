@@ -304,3 +304,22 @@ div.rz-datalist-content ul.rz-datalist-data > li {
     line-height: 1;
     white-space: nowrap;
 }
+
+.dynamic-qty-box {
+    width: 75px;
+    padding: 0 8px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+}
+
+.dynamic-qty-text {
+    font-size: 1.25rem;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0;
+}
