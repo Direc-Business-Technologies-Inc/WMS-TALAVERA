@@ -32,5 +32,5 @@ public interface INetSuiteApiClientService : INotifyPropertyChanged
     Task<bool> SaveTripTicket(PostTripTicketDTO Data);
 
     Task<bool> PatchInventoryCounting(List<PatchInventoryCountingDTO> Data);
-    Task<bool> PostInventoryWorksheet(List<InventoryWorksheetLineDTO> Data, int Location);
+    Task<bool> PostInventoryWorksheet(List<InventoryWorksheetLineDTO> Data, int Location, int Subsidiary);
 }

@@ -1,11 +1,12 @@
 ﻿using Application.DataTransferObjects.Others.NS;
+using Application.DataTransferObjects.Transactions.Commons.NS.Request;
 using Application.UseCases.Repositories.Integration.Others;
 using Mapster;
 using MediatR;
 
 namespace Application.UseCases.Queries.Transaction.InventoryCounting.NS;
 
-public record GetStartedInventoryCountingQry() : IRequest<IEnumerable<OrdersDTO>>;
+public record GetStartedInventoryCountingQry(RequestPerSubsidiaryDTO subsidiary) : IRequest<IEnumerable<OrdersDTO>>;
 
 public class GetStartedInventoryCountingQryHandler(
     INetSuiteApiClientService netSuiteApiClientService)
@@ -15,7 +16,12 @@ public class GetStartedInventoryCountingQryHandler(
         GetStartedInventoryCountingQry request,
         CancellationToken cancellationToken)
     {
-        var Data = await netSuiteApiClientService.NetsuiteQuery<OrdersDTO>("NS_InventoryCounting_Get_Started");
+        var parameters = new Dictionary<string, string>
+        {
+            ["subsidiaryid"] = request.subsidiary.NetsuiteUserSubsidiaryInternalId.ToString()
+        };
+
+        var Data = await netSuiteApiClientService.NetsuiteQuery<OrdersDTO>("NS_InventoryCounting_Get_Started", parameters);
         return Data.Adapt<IEnumerable<OrdersDTO>>();
     }
 }

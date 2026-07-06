@@ -16,10 +16,10 @@ namespace Api.CoreWebAPI.Controllers.Receiving;
 [Route("api/Receiving/[controller]")]
 public class ReturnsController(ISender Sender) : ControllerBase
 {
-    [HttpGet("PendingReceipt")]
-    public async Task<ApiResult<IEnumerable<ReturnsVM>>> GetAllReturns()
+    [HttpPost("PendingReceipt")]
+    public async Task<ApiResult<IEnumerable<ReturnsVM>>> GetAllReturns(RequestPerSubsidiaryDTO req)
     {
-        var result = await Sender.Send(new GetReturnsQry());
+        var result = await Sender.Send(new GetReturnsQry(req));
 
         List<ReturnsVM> ret = result.Adapt<List<ReturnsVM>>();
 

@@ -32,7 +32,17 @@ public partial class ProfileButton
             },
             OnSuccess = async (result) =>
             {
-                User = result.Data ?? new();
+                if (result.Data != null)
+                {
+                    User = result.Data;
+                }
+                else
+                {
+                    await RoleService.SetRole(null);
+                    AuthStateProvider.NotifyUserLogout();
+                    NavManager.NavigateTo("/login", true, true);
+                }
+                
                 await InvokeAsync(StateHasChanged);
             }
         };

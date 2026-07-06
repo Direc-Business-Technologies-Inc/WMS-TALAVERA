@@ -20,7 +20,7 @@ public class GetBinsPerLocationQryHandler(
             ["locations"] = string.Join(",", request.locations.Location)
         };
 
-        var Data = await netSuiteApiClientService.NetsuiteQuery<BinPerLocationDTO>("NS_Bin_Get_Locations", parameters);
+        var Data = await netSuiteApiClientService.NetsuiteQuery<BinPerLocationDTO>("NS_Location_Get_Bins", parameters);
 
         return Data.Adapt<IEnumerable<BinPerLocationDTO>>();
     }

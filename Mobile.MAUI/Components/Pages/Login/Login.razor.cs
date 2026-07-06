@@ -1,5 +1,7 @@
 using Mobile.MAUI.Services;
 using Mobile.MAUI.ViewModel;
+using Shared.Libraries.ViewModel.Authentication;
+using System.Text.Json;
 
 namespace Mobile.MAUI.Components.Pages.Login;
 
@@ -12,21 +14,30 @@ public partial class Login
 
     public RadzenButton SubmitBtn { get; set; }
 
-    AppAction<string> Actionlogin { get; set; }
+    AppAction<AuthenticationVM> Actionlogin { get; set; }
 
     protected override void OnInitialized()
     {
         base.OnInitialized();
-        Actionlogin = new AppAction<string>
+        Actionlogin = new AppAction<AuthenticationVM>
         {
             Name = "Login",
             TaskAsync = async () =>
             {
-                return await Client.Post<string>("/Auth/Login", Credential);
+                return await Client.Post<AuthenticationVM>("/Auth/Login", Credential);
             },
             OnSuccess = async (res) =>
             {
-                await AuthStateProvider.NotifyUserAuthentication(res.Data);
+                await AuthStateProvider.NotifyUserAuthentication(res.Data.Token);
+
+                await SecureStorage.SetAsync("UserAuth", JsonSerializer.Serialize(res.Data));
+
+                string? userAuth = await SecureStorage.GetAsync("UserAuth");
+                if (userAuth is not null)
+                {
+                    var auth = JsonSerializer.Deserialize<AuthenticationVM>(userAuth);
+                }
+
                 NavManager.NavigateTo($"/", true, true);
             }
         };
