@@ -117,7 +117,7 @@ public partial class InventoryDetailsDialog
         }
 
 
-        List<InventoryDetailVM> details = [..Details.Select(x => x.Detail)];
+        List<InventoryDetailVM> details = [..Details.Where(x => x.Detail.QuantityAlloted != 0).Select(x => x.Detail)];
 
         DialogService.Close(details);
     }
@@ -143,7 +143,7 @@ public partial class InventoryDetailsDialog
             Detail.Bin = bin;
             StatusDropdown?.Reset();
         }
-        public decimal? MaxValue => parent.Type == Types.Incoming ? null : QuantityOnHand;
+        public decimal? MaxValue => parent.Type == Types.Incoming ? null : Math.Min(QuantityOnHand, parent.Amount);
         public decimal QuantityOnHand => parent.InventoryBalance
             .Where(x =>
                 x.Status?.Id == Detail.Status?.Id &&
