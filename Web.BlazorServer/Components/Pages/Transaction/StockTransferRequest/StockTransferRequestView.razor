@@ -85,8 +85,10 @@
         action.OnFailure(ex =>
         {
             ActionURI = null;
-            NavError(ex.Message);
-            return Task.CompletedTask;
+            return Task.Delay(100).ContinueWith(_ =>
+            {
+                NavManager.NavigateTo(STRRoutes.Root);
+            });
         });
     }
 

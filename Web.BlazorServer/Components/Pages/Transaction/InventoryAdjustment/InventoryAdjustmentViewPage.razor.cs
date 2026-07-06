@@ -56,8 +56,10 @@ public partial class InventoryAdjustmentViewPage
 
         action.OnFailure(ex =>
         {
-            NavError(ex.Message);
-            return Task.CompletedTask;
+            return Task.Delay(100).ContinueWith(_ =>
+            {
+                NavManager.NavigateTo(InventoryAdjustmentRoutes.INDEX, true);
+            });
         });
     }
     Task OnReturn(InventoryAdjustmentVM data)

@@ -79,8 +79,10 @@
 
         action.OnFailure(ex =>
         {
-            NavManager.NavigateTo(STRRoutes.Root);
-            return Task.CompletedTask;
+            return Task.Delay(100).ContinueWith(_ =>
+            {
+                NavManager.NavigateTo(STRRoutes.Root);
+            });
         });
     }
 

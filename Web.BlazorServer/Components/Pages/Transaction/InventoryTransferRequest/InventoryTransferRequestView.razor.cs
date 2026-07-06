@@ -1,6 +1,7 @@
 using Mapster;
 using Microsoft.AspNetCore.Components;
 using Web.BlazorServer.Components.Base;
+using Web.BlazorServer.Components.Pages.Transaction.StockTransferRequest;
 using Web.BlazorServer.Handlers.Repositories.Transaction.InventoryTransfer;
 using Web.BlazorServer.Handlers.Repositories.Transaction.InventoryTransferRequest;
 using Web.BlazorServer.Helpers;
@@ -45,9 +46,10 @@ public partial class InventoryTransferRequestView : BaseForm<InventoryTransferRe
 
         action.OnFailure(ex =>
         {
-            NavManager.NavigateTo(ITRRoutes.INDEX);
-            ToastService.Error(ex.Message);
-            return Task.CompletedTask;
+            return Task.Delay(100).ContinueWith(_ =>
+            {
+                NavManager.NavigateTo(ITRRoutes.INDEX);
+            });
         });
     }
 

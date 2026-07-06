@@ -41,8 +41,8 @@ public partial class SupplierReturnView
 
         action.OnFailure(async(ex) =>
         {
+            await Task.Delay(120);
             NavManager.NavigateTo(SupplierReturnRoutes.INDEX);
-            ToastService.Error(ex.Message);
         });
 
         action.OnSuccess(async (response) =>
