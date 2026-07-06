@@ -21,14 +21,15 @@ public class LocationIntegration(
     {
         var query = builderFactory.Create()
             .Select(
-                ("id", nameof(LocationDTO.Id)),
-                ("externalId", nameof(LocationDTO.LocationNumber)),
-                ("name", nameof(LocationDTO.Name)),
-                ("BUILTIN.DF(mainaddress)", nameof(LocationDTO.Address)),
-                ("BUILTIN.DF(subsidiary)", nameof(LocationDTO.Subsidiary)),
-                ("subsidiary", nameof(LocationDTO.SubsidiaryId))
+                ("loc.id", nameof(LocationDTO.Id)),
+                ("loc.externalId", nameof(LocationDTO.LocationNumber)),
+                ("loc.name", nameof(LocationDTO.Name)),
+                ("BUILTIN.DF(loc.mainaddress)", nameof(LocationDTO.Address)),
+                ("BUILTIN.DF(loc.subsidiary)", nameof(LocationDTO.Subsidiary)),
+                ("loc.subsidiary", nameof(LocationDTO.SubsidiaryId)),
+                ("(SELECT COUNT(1) FROM bin b WHERE b.location = loc.id)", nameof(LocationDTO.BinsCount))
             )
-            .From("location")
+            .From("location loc")
             .WithDatagridIntent(intent)
             .Build();
 
@@ -81,14 +82,15 @@ public class LocationIntegration(
     {
         var query = builderFactory.Create()
             .Select(
-                ("id", nameof(LocationDTO.Id)),
-                ("externalId", nameof(LocationDTO.LocationNumber)),
-                ("name", nameof(LocationDTO.Name)),
-                ("BUILTIN.DF(mainaddress)", nameof(LocationDTO.Address)),
-                ("BUILTIN.DF(subsidiary)", nameof(LocationDTO.Subsidiary)),
-                ("subsidiary", nameof(LocationDTO.SubsidiaryId))
+                ("loc.id", nameof(LocationDTO.Id)),
+                ("loc.externalId", nameof(LocationDTO.LocationNumber)),
+                ("loc.name", nameof(LocationDTO.Name)),
+                ("BUILTIN.DF(loc.mainaddress)", nameof(LocationDTO.Address)),
+                ("BUILTIN.DF(loc.subsidiary)", nameof(LocationDTO.Subsidiary)),
+                ("loc.subsidiary", nameof(LocationDTO.SubsidiaryId)),
+                ("(SELECT COUNT(1) FROM bin b WHERE b.location = loc.id)", nameof(LocationDTO.BinsCount))
             )
-            .From("location")
+            .From("location loc")
             .WithFilter(
                 DataGridFilterUtilities.Equal("id", locationId)
             )
