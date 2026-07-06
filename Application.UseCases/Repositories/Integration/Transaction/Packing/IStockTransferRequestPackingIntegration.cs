@@ -5,7 +5,7 @@ namespace Application.UseCases.Repositories.Integration.Transaction.Packing;
 
 public interface IStockTransferRequestPackingIntegration
 {
-    Task<(IEnumerable<StockTransferRequestPackingDataGridDTO> Data, int Count)> GetPackingStockTransferRequestList(DataGridIntent intent);
+    Task<(IEnumerable<StockTransferRequestPackingDataGridDTO> Data, int Count)> GetPackingStockTransferRequestList(DataGridIntent intent, int subsidiaryId);
     Task<StockTransferRequestInfoPackingDTO?> GetPackingStockTransferRequest(string id);
     Task<(IEnumerable<StockTransferRequestLinePackingDTO> Data, int Count)> GetPackingStockTransferRequestLines(string id, DataGridIntent intent);
 }
