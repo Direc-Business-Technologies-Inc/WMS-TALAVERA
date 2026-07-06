@@ -37,6 +37,7 @@ public class InventoryIntegration(
             .LeftJoin("bin b", "b.id = ib.binnumber")
             .WithDatagridIntent(intent)
             .Build();
+
         var response = await query.ExecuteWithPaging<InventoryBalanceNSDTO>(netsuiteService);
         return (response.items.Select(ConvertInventoryBalance), response.totalResults);
     }

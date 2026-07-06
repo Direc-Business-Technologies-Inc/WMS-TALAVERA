@@ -14,4 +14,5 @@ public class LocationDTO
     public string Subsidiary { get; set; } = string.Empty;
     public string Address { get; set; } = string.Empty;
     public int SubsidiaryId { get; set; }
+    public int BinsCount { get; set; }
 }

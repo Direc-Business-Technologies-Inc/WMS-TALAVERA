@@ -1,5 +1,6 @@
 ﻿@using Web.BlazorServer.Components.Custom
 @using Web.BlazorServer.Components.Pages.Transaction.InventoryAdjustment.Components.Dialogs
+@using Web.BlazorServer.Components.Pages.Transaction.Others
 @using Web.BlazorServer.ViewModels.Others
 @using Web.BlazorServer.ViewModels.Transaction.InventoryAdjustment
 @inherits BaseComponent
@@ -167,10 +168,18 @@
             ToastService.Error("Assign alloted quantity first");
             return;
         }
+        if (line.Location is null) {
+            ToastService.Error("Please set a location");
+            return;
+        }
+
+        InventoryDetailsDialog.Types Type = Issue ?
+            InventoryDetailsDialog.Types.Outgoing : 
+            InventoryDetailsDialog.Types.Incoming;
 
         List<InventoryDetailVM> items = await DialogService.OpenAsync(
             "Set Inventory Details",
-            ds => @<InventoryDetails Location="@(line.Location)" Details="@(line.InventoryDetails)" TotalQuantity="@(line.QuantityAlloted)" />,
+            ds => @<InventoryDetailsDialog LocationId="@line.Location.Id" Amount="@line.QuantityAlloted" Type="Type"/>,
     options: GridSettingsService.GetDialogOptions());
 
         if (items is not null)
