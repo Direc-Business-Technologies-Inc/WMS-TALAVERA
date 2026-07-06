@@ -29,23 +29,33 @@
                     <QuickVirtualizedDropdown @ref="@LocationDropdown" Visible="@(!ReadOnly)" Disabled="@(Model.Subsidiary is null)" ActionName="@ActionGetLocations" TItem="LocationVM" @bind-Value="@Model.Location" DataGetter="@LocationProvider" TextProperty="@nameof(LocationVM.Name)" AllowFiltering AllowClear/>
                 </RadzenFormField>
             </RadzenColumn>
-            <RadzenColumn SizeMD="6">
-                <RadzenFormField Text="Account" class="rz-w-100">
+            <RadzenColumn>
+                <RadzenFormField Text="Adjustment Category" class="rz-w-100">
                     <ChildContent>
-                    <RadzenTextBox Visible="@ReadOnly" ReadOnly Value="@Model.Account?.Name" Placeholder="Enter account" />
-                    <QuickVirtualizedDropdown @ref="@AccountDropdown" Name="ia_account_dropdown" Visible="@(!ReadOnly)" Disabled="@(Model.Subsidiary is null)" ActionName="@ActionGetAccounts" TItem="BusinessAccountVM" @bind-Value="@Model.Account" DataGetter="@AccountProvider" TextProperty="@nameof(BusinessAccountVM.Name)" AllowFiltering AllowClear />
+                        <QuickVirtualizedDropdown Name="ia_category_dropdown" TItem="InventoryAdjustmentCategoryVM" @bind-Value="@Model.Category" DataGetter="CategoriesProvider" TextProperty="@nameof(InventoryAdjustmentCategoryVM.Name)" AllowFiltering AllowClear />
                     </ChildContent>
                     <Helper>
-                        <RadzenRequiredValidator Component="ia_account_dropdown" />
+                        <RadzenRequiredValidator Component="ia_category_dropdown" />
                     </Helper>
                 </RadzenFormField>
             </RadzenColumn>
-            <RadzenColumn SizeMD="6">
+            <RadzenColumn SizeMD="4">
                 <RadzenFormField Text="Adjustment Reason" class="rz-w-100">
                     <ChildContent>
                     <RadzenTextBox Visible="@ReadOnly" ReadOnly Value="@Model.Reason?.Name" Placeholder="Enter adjustment reason" />
                         <QuickVirtualizedDropdown Visible="@(!ReadOnly)" ActionName="@ActionGetReasons" TItem="InventoryAdjustmentReasonVM" @bind-Value:get="@Model.Reason" @bind-Value:set="@SetReason" DataGetter="@ReasonProvider" TextProperty="@nameof(InventoryAdjustmentReasonVM.Name)" AllowFiltering AllowClear />
                     </ChildContent>
+                </RadzenFormField>
+            </RadzenColumn>
+            <RadzenColumn SizeMD="4">
+                <RadzenFormField Text="Account" class="rz-w-100">
+                    <ChildContent>
+                        <RadzenTextBox Visible="@ReadOnly" ReadOnly Value="@Model.Account?.Name" Placeholder="Enter account" />
+                        <QuickVirtualizedDropdown @ref="@AccountDropdown" Name="ia_account_dropdown" Visible="@(!ReadOnly)" Disabled="@(Model.Subsidiary is null)" ActionName="@ActionGetAccounts" TItem="BusinessAccountVM" @bind-Value="@Model.Account" DataGetter="@AccountProvider" TextProperty="@nameof(BusinessAccountVM.Name)" AllowFiltering AllowClear />
+                    </ChildContent>
+                    <Helper>
+                        <RadzenRequiredValidator Component="ia_account_dropdown" />
+                    </Helper>
                 </RadzenFormField>
             </RadzenColumn>
         </RadzenRow>

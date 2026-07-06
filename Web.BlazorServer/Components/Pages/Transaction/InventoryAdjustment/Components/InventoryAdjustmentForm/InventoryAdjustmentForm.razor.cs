@@ -50,6 +50,10 @@ public partial class InventoryAdjustmentForm
         return await locationHandler.GetLocationsBySubsidiaryAsync(intent, Model.Subsidiary.Id);
     }
 
+    async Task<(IEnumerable<InventoryAdjustmentCategoryVM>, int)> CategoriesProvider(DataGridIntent intent)
+    {
+        return await adjustmentHandler.GetInventoryAdjustmentCategoriesAsync(intent);
+    }
     async Task<(IEnumerable<BusinessAccountVM>, int)> AccountProvider(DataGridIntent intent)
     {
         if (Model.Reason is not null) return ([new BusinessAccountVM
