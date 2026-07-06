@@ -20,6 +20,7 @@ public class TransactionDTO : InventoryItemDTO
     public decimal LineQuantity { get; set; }
     public decimal LineQuantityReceived { get; set; }
     public decimal LineQuantityPacked { get; set; }
+    public decimal LineQuantityBackOrdered { get; set; }
     public decimal LineQuantityShipped { get; set; }
 
     public int NetsuiteUoMInternalId { get; set; }

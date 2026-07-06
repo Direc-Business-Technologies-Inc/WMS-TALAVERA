@@ -77,6 +77,7 @@ public class ItemReceiptPackingHandler(ISender sender) : IItemReceiptPackingHand
         var quantityPlanned = ConvertQuantity(dto.LineQuantity, dto.UoMRate);
         var quantityOpen = GetOpenQuantity(dto.LineQuantity, dto.LineQuantityPacked, dto.UoMRate);
         var quantityPacked = ConvertQuantity(dto.LineQuantityPacked, dto.UoMRate);
+        var quantityBackOrdered = ConvertQuantity(dto.LineQuantityBackOrdered, dto.UoMRate);
 
         return new()
         {
@@ -87,10 +88,9 @@ public class ItemReceiptPackingHandler(ISender sender) : IItemReceiptPackingHand
             ItemCode = dto.MaterialCode,
             ItemDescription = dto.MaterialName,
             UoM = dto.UoMName,
-            Department = "Operations",
             Location = dto.LocationName,
-            WeightRecord = dto.MaterialWeight * quantityOpen,
             QuantityPlanned = quantityPlanned,
+            QuantityBackOrdered = quantityBackOrdered,
             QuantityOpen = quantityOpen,
             QuantityReceived = quantityPacked
         };
@@ -134,6 +134,7 @@ public class ItemReceiptPackingHandler(ISender sender) : IItemReceiptPackingHand
             NetsuiteMaterialVendorAssignedBin = dto.NetsuiteMaterialVendorAssignedBin,
             LineQuantity = dto.LineQuantity,
             LineQuantityPacked = dto.LineQuantityPacked,
+            LineQuantityBackOrdered = dto.LineQuantityBackOrdered,
             NetsuiteUoMInternalId = dto.NetsuiteUoMInternalId,
             UoMName = dto.UoMName,
             UoMRate = dto.UoMRate,
@@ -143,7 +144,7 @@ public class ItemReceiptPackingHandler(ISender sender) : IItemReceiptPackingHand
             NSLineQuantityShipped = quantityPacked,
             ScanCount = scannedQuantity > 0 ? 1 : 0,
             ScannedQuantity = scannedQuantity,
-            ScannedWeight = submittedLine?.WeightActual ?? 0,
+            ScannedWeight = 0,
             TotalWeight = scannedQuantity * dto.MaterialWeight,
             TotalQuantity = quantityOpen,
             IsBad = isBad,

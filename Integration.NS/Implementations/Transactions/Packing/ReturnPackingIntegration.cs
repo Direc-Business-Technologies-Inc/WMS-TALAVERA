@@ -55,6 +55,7 @@ internal class ReturnPackingIntegration(
                 ("BUILTIN.DF(t.tosubsidiary)", nameof(ReturnPackingHeaderNSDTO.ToSubsidiary)),
                 ("BUILTIN.DF(tl.location)", nameof(ReturnPackingHeaderNSDTO.Location)),
                 ("BUILTIN.DF(t.transferlocation)", nameof(ReturnPackingHeaderNSDTO.TransferLocation)),
+                ("BUILTIN.DF(t.custbody_dbti_transfer_category)", nameof(ReturnPackingHeaderNSDTO.TransferCategory)),
                 ("t.custbody_dbti_prepared_by", nameof(ReturnPackingHeaderNSDTO.PreparedBy))
             )
             .From("transaction t")
@@ -135,6 +136,7 @@ internal class ReturnPackingIntegration(
             ToSubsidiary = nsdto.ToSubsidiary,
             Location = nsdto.Location,
             TransferLocation = nsdto.TransferLocation,
+            TransferCategory = nsdto.TransferCategory,
             PreparedBy = nsdto.PreparedBy,
             ReceivedBy = nsdto.ReceivedBy
         };

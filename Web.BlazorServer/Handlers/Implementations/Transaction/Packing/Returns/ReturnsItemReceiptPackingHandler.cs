@@ -26,7 +26,7 @@ public class ReturnsItemReceiptPackingHandler(ISender sender) : IReturnsItemRece
             SourceType = ReturnsItemReceiptPackingVM.SourceTypes.Returns,
             CreatedFrom = header.ReferenceNumber,
             Department = "Operations",
-            Vendor = string.Empty,
+            TransferCategory = header.TransferCategory,
             ReceivedBy = header.ReceivedBy,
             Location = header.Location,
             TransferLocation = header.TransferLocation,
@@ -73,6 +73,7 @@ public class ReturnsItemReceiptPackingHandler(ISender sender) : IReturnsItemRece
         var quantityPlanned = ConvertQuantity(dto.LineQuantity, dto.UoMRate);
         var quantityOpen = GetOpenQuantity(dto.LineQuantity, dto.LineQuantityPacked, dto.UoMRate);
         var quantityPacked = ConvertQuantity(dto.LineQuantityPacked, dto.UoMRate);
+        var quantityBackOrdered = ConvertQuantity(dto.LineQuantityBackOrdered, dto.UoMRate);
 
         return new()
         {
@@ -83,10 +84,9 @@ public class ReturnsItemReceiptPackingHandler(ISender sender) : IReturnsItemRece
             ItemCode = dto.MaterialCode,
             ItemDescription = dto.MaterialName,
             UoM = dto.UoMName,
-            Department = "Operations",
             Location = dto.LocationName,
-            WeightRecord = dto.MaterialWeight * quantityOpen,
             QuantityPlanned = quantityPlanned,
+            QuantityBackOrdered = quantityBackOrdered,
             QuantityOpen = quantityOpen,
             QuantityReceived = quantityPacked
         };
@@ -130,6 +130,7 @@ public class ReturnsItemReceiptPackingHandler(ISender sender) : IReturnsItemRece
             NetsuiteMaterialVendorAssignedBin = dto.NetsuiteMaterialVendorAssignedBin,
             LineQuantity = dto.LineQuantity,
             LineQuantityPacked = dto.LineQuantityPacked,
+            LineQuantityBackOrdered = dto.LineQuantityBackOrdered,
             NetsuiteUoMInternalId = dto.NetsuiteUoMInternalId,
             UoMName = dto.UoMName,
             UoMRate = dto.UoMRate,
@@ -139,7 +140,7 @@ public class ReturnsItemReceiptPackingHandler(ISender sender) : IReturnsItemRece
             NSLineQuantityShipped = quantityPacked,
             ScanCount = scannedQuantity > 0 ? 1 : 0,
             ScannedQuantity = scannedQuantity,
-            ScannedWeight = submittedLine?.WeightActual ?? 0,
+            ScannedWeight = 0,
             TotalWeight = scannedQuantity * dto.MaterialWeight,
             TotalQuantity = quantityOpen,
             IsBad = submittedLine?.QuantityBad > 0 && submittedLine.QuantityGood == 0,
@@ -157,4 +158,5 @@ public class ReturnsItemReceiptPackingHandler(ISender sender) : IReturnsItemRece
     private static bool IsNetSuiteTrue(string value) =>
         value.Equals("T", StringComparison.OrdinalIgnoreCase) ||
         value.Equals("true", StringComparison.OrdinalIgnoreCase);
+
 }

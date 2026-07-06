@@ -29,9 +29,7 @@ public class VendorReturnAuthorizationItemReceiptPackingHandler(ISender sender) 
             Vendor = lines.FirstOrDefault()?.VendorName ?? string.Empty,
             ReceivedBy = header.ReceivedBy,
             Location = header.Location,
-            TransferLocation = header.TransferLocation,
             Subsidiary = header.FromSubsidiary,
-            ToSubsidiary = header.ToSubsidiary,
             Date = header.Date,
             SourceInternalId = lines.FirstOrDefault()?.NetsuiteOrderInternalId ?? header.Id,
             Lines = [.. lines.Select(MapToVm)]
@@ -88,9 +86,7 @@ public class VendorReturnAuthorizationItemReceiptPackingHandler(ISender sender) 
             ItemCode = dto.MaterialCode,
             ItemDescription = dto.MaterialName,
             UoM = dto.UoMName,
-            Department = "Operations",
             Location = dto.LocationName,
-            WeightRecord = dto.MaterialWeight * quantityOpen,
             QuantityPlanned = quantityPlanned,
             QuantityOpen = quantityOpen,
             QuantityReceived = quantityReceived
@@ -140,7 +136,7 @@ public class VendorReturnAuthorizationItemReceiptPackingHandler(ISender sender) 
             NSLineQuantityPacked = quantityOpen,
             ScanCount = scannedQuantity > 0 ? 1 : 0,
             ScannedQuantity = scannedQuantity,
-            ScannedWeight = submittedLine?.WeightActual ?? 0,
+            ScannedWeight = 0,
             TotalWeight = scannedQuantity * dto.MaterialWeight,
             IsBad = isBad,
             AlreadyFulfilled = scannedQuantity == quantityOpen
