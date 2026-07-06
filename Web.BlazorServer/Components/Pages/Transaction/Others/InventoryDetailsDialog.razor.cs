@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Shared.Entities;
 using Web.BlazorServer.Components.Custom;
 using Web.BlazorServer.Handlers.Repositories.Others;
+using Web.BlazorServer.Helpers;
 using Web.BlazorServer.ViewModels.Others;
 
 namespace Web.BlazorServer.Components.Pages.Transaction.Others;
@@ -26,31 +27,39 @@ public partial class InventoryDetailsDialog
 
     decimal AmountSum => Details.Sum(x => x.Detail.QuantityAlloted);
 
-    bool IsLoadingData => 
-        AppBusyService.IsBusy(ActionGetLocation) || 
-        AppBusyService.IsBusy(ActionGetInventoryBalance);
+    bool IsLoadingData => AppBusyService.IsBusy(ActionGetLocation);
     bool LocationHasBins = true;
 
 
-    protected override void OnParametersSet()
+    protected override async Task OnParametersSetAsync()
     {
-        base.OnParametersSet();
-        InitTask = LoadInventoryBalance();
+        InitTask = LoadBalances();
+        await Task.WhenAll(
+            LoadLocation(),
+            base.OnParametersSetAsync()
+        );
     }
 
-    async Task LoadInventoryBalance()
+    async Task LoadLocation()
     {
-        Task<LocationVM?> locationTask = locationHandler.GetLocation(LocationId);
-        Task<(IEnumerable<InventoryBalanceVM>, int)> balanceTask = inventoryHandler.GetInventoryBalanceAsync(new() { Take = -1 }, locationId: LocationId);
-
-        await Task.WhenAll(locationTask, balanceTask);
-        var location = await locationTask;
-
-        LocationHasBins = location?.HasBins ?? false;
-        (var data, int count) = await balanceTask;
-
-        InventoryBalance = [.. data];
+        var action = await AppActionFactory.RunLoadingAsync(async () =>
+        {
+            var location = await locationHandler.GetLocation(LocationId);
+            LocationHasBins = location?.HasBins ?? false;
+        }, ActionGetLocation);
     }
+
+    async Task LoadBalances()
+    {
+        var action = await AppActionFactory.RunLoadingAsync(async () =>
+        {
+            var location = await locationHandler.GetLocation(LocationId);
+            (var data, int count) = await inventoryHandler.GetInventoryBalanceAsync(new() { Take = -1 }, locationId: LocationId);
+
+            InventoryBalance = [.. data];
+        }, ActionGetInventoryBalance);
+    }
+
 
     async Task<(IEnumerable<LocationBinVM>, int)> LocationBinProvider(DataGridIntent intent)
     {

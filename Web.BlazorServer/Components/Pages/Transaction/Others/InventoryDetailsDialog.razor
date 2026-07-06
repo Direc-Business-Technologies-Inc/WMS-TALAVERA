@@ -2,9 +2,14 @@
 @using Web.BlazorServer.ViewModels.Others
 @inherits BaseComponent
 
-<RadzenStack Gap="0.5em">
+<RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Center" Visible="@IsLoadingData">
+    <RadzenStack Gap="0.25em">
+        <RadzenProgressBarCircular ProgressBarStyle="ProgressBarStyle.Primary" Value="100" ShowValue="false" Mode="ProgressBarMode.Indeterminate" AriaLabel="Primary loading" />
+        <RadzenText TextStyle="TextStyle.Body2">Please wait...</RadzenText>
+    </RadzenStack>
+</RadzenStack>
+<RadzenStack Gap="0.5em" Visible="@(!IsLoadingData)">
     <RadzenFieldset Text="Inventory Details">
-        
         <RadzenTable GridLines="DataGridGridLines.Horizontal" AllowAlternatingRows>
             <RadzenTableHeader>
                 <RadzenTableHeaderRow>
