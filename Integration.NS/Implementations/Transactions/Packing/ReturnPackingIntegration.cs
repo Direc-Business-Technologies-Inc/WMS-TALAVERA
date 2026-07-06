@@ -13,7 +13,7 @@ internal class ReturnPackingIntegration(
     INetSuiteApiClientService netsuiteService,
     SuiteQLQueryBuilderFactoryService builderFactory) : IReturnPackingIntegration
 {
-    public async Task<(IEnumerable<ReturnsDataGridDTO> Data, int Count)> GetPackingReturnsList(DataGridIntent intent)
+    public async Task<(IEnumerable<ReturnsDataGridDTO> Data, int Count)> GetPackingReturnsList(DataGridIntent intent, int subsidiaryId)
     {
         var query = builderFactory.Create()
             .Select(
@@ -30,7 +30,9 @@ internal class ReturnPackingIntegration(
             .From("transaction t")
             .Join("transactionline tl", on: "tl.transaction = t.id")
             .LeftJoin("transferorderstatus s", on: "s.id = t.status")
-            .WithFilters(Equal("tl.mainline", "T"))
+            .WithFilters(
+                Equal("tl.mainline", "T"),
+                Equal("t.subsidiary", subsidiaryId))
             .WithFilters(PackingReturnsFilters())
             .WithDatagridIntent(intent)
             .Build();
