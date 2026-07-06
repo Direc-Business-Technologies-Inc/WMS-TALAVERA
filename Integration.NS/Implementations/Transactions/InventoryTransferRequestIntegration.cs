@@ -170,19 +170,28 @@ public class InventoryTransferRequestIntegration(
             trandate = data.Date,
             Class = 1, // external
             department = 15, //operations
-            lines = data.Lines.Where(x => x.QuantityAlloted > 0).Select(x => new
+            inventory = new
             {
-                item = x.ItemID,
-                quantity = x.QuantityAlloted,
-                rate = x.Rate,
-                units = x.UoM?.Id.ToString() ?? null,
-                inventoryDetail = x.IsAllAssigned ? x.InventoryDetails.Select(y => new
+                items = data.Lines.Where(x => x.QuantityAlloted > 0).Select(x => new
                 {
-                    bin = y.Bin?.Id ?? null,
-                    status = y.Status?.Id ?? null,
-                    quantity = y.QuantityAlloted
-                }): null
-            })
+                    item = x.ItemID,
+                    adjustQtyBy = x.QuantityAlloted,
+                    fromBinNumbers =  string.Join(",", x.InventoryDetails.Where(y => y.Bin is not null).Select(y => y.Bin?.Id)),
+                    units = x.UoM?.Id.ToString() ?? null,
+                    inventoryDetail = new
+                    {
+                        InventoryAssignment = new 
+                        {
+                            items = x.IsAllAssigned ? x.InventoryDetails.Select(y => new
+                            {
+                                binNumber = y.Bin?.Id ?? null,
+                                inventoryStatus = y.Status?.Id ?? null,
+                                quantity = y.QuantityAlloted
+                            }) : null,
+                        }
+                    },
+                })
+            } 
         };
 
         return JsonSerializer.Serialize(anon, jsonOpts);

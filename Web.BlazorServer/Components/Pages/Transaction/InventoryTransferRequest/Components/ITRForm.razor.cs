@@ -54,12 +54,9 @@ public partial class ITRForm
     }
     async Task<(IEnumerable<LocationVM>, int)> DestinationLocationProvider(DataGridIntent intent)
     {
-        if (Model.SourceLocation is null || ParentLocationTask is null) return ([], 0);
+        if (Model.Subsidiary is null) return ([], 0);
 
-        LocationVM? parent = await ParentLocationTask;
-        if (parent is null) return ([], 0);
-
-        return await locationHandler.GetSublocationsOfLocationAsync(intent, parent.Id);
+        return await locationHandler.GetLocationsBySubsidiaryAsync(intent, Model.Subsidiary.Id);
     }
     async Task<(IEnumerable<ItemUnitVM>, int)> ItemUnitProvider(DataGridIntent intent, int itemId)
     {
