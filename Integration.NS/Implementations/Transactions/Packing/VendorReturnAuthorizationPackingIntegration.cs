@@ -1,6 +1,7 @@
 using Application.DataTransferObjects.Transactions.Packing.VendorReturnAuthorization;
 using Application.UseCases.Repositories.Integration.Others;
 using Application.UseCases.Repositories.Integration.Transaction.Packing;
+using Database.Libraries.Repositories;
 using Integration.NS.DataTransferObjects.Packing.VendorReturnAuthorization;
 using Integration.NS.Helpers;
 using Integration.NS.Services;
@@ -11,6 +12,7 @@ namespace Integration.NS.Implementations.Transactions.Packing;
 
 internal class VendorReturnAuthorizationPackingIntegration(
     INetSuiteApiClientService netsuiteService,
+    ISqlQueryManager sqlQuery,
     SuiteQLQueryBuilderFactoryService builderFactory) : IVendorReturnAuthorizationPackingIntegration
 {
     public async Task<(IEnumerable<VendorReturnAuthorizationDataGridDTO> Data, int Count)> GetPackingVendorReturnAuthorizationsList(DataGridIntent intent, int subsidiaryId)
@@ -72,22 +74,22 @@ internal class VendorReturnAuthorizationPackingIntegration(
 
     public async Task<(IEnumerable<VendorReturnAuthorizationLineDTO> Data, int Count)> GetPackingVendorReturnAuthorizationLines(string id, DataGridIntent intent)
     {
+        var mobileLineQuery = sqlQuery.ResolveSuiteQLScript(
+            "NS_VendorReturnAuthorization_Get_Items",
+            new Dictionary<string, string>
+            {
+                ["tranid"] = id
+            });
+
         var query = builderFactory.Create()
             .Select(
-                ("item.itemid", nameof(VendorReturnAuthorizationPackingLineNSDTO.ItemCode)),
-                ("item.displayname", nameof(VendorReturnAuthorizationPackingLineNSDTO.ItemDescription)),
-                ("BUILTIN.DF(tl.units)", nameof(VendorReturnAuthorizationPackingLineNSDTO.UoM)),
-                ("BUILTIN.DF(tl.location)", nameof(VendorReturnAuthorizationPackingLineNSDTO.Warehouse)),
-                ("tl.quantity", nameof(VendorReturnAuthorizationPackingLineNSDTO.QuantityPlanned))
+                ("q.MaterialCode", nameof(VendorReturnAuthorizationPackingLineNSDTO.ItemCode)),
+                ("q.MaterialName", nameof(VendorReturnAuthorizationPackingLineNSDTO.ItemDescription)),
+                ("q.UoMName", nameof(VendorReturnAuthorizationPackingLineNSDTO.UoM)),
+                ("q.LocationName", nameof(VendorReturnAuthorizationPackingLineNSDTO.Warehouse)),
+                ("q.LineQuantity", nameof(VendorReturnAuthorizationPackingLineNSDTO.QuantityPlanned))
             )
-            .From("transactionline tl")
-            .Join("transaction t", on: "tl.transaction = t.id")
-            .Join("item", on: "tl.item = item.id")
-            .Join("entity e", on: "t.entity = e.id")
-            .WithFilters(
-                Equal("t.tranid", id),
-                Equal("tl.mainline", "F"))
-            .WithFilters(PackingVendorReturnAuthorizationFilters())
+            .From($"({mobileLineQuery}) q")
             .WithDatagridIntent(intent)
             .Build();
 

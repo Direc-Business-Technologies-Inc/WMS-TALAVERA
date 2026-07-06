@@ -1,6 +1,7 @@
 using Application.DataTransferObjects.Transactions.Packing.Returns;
 using Application.UseCases.Repositories.Integration.Others;
 using Application.UseCases.Repositories.Integration.Transaction.Packing;
+using Database.Libraries.Repositories;
 using Integration.NS.DataTransferObjects.Packing.Returns;
 using Integration.NS.Helpers;
 using Integration.NS.Services;
@@ -11,6 +12,7 @@ namespace Integration.NS.Implementations.Transactions.Packing;
 
 internal class ReturnPackingIntegration(
     INetSuiteApiClientService netsuiteService,
+    ISqlQueryManager sqlQuery,
     SuiteQLQueryBuilderFactoryService builderFactory) : IReturnPackingIntegration
 {
     public async Task<(IEnumerable<ReturnsDataGridDTO> Data, int Count)> GetPackingReturnsList(DataGridIntent intent, int subsidiaryId)
@@ -71,22 +73,22 @@ internal class ReturnPackingIntegration(
 
     public async Task<(IEnumerable<ReturnsLineDTO> Data, int Count)> GetPackingReturnLines(string id, DataGridIntent intent)
     {
+        var mobileLineQuery = sqlQuery.ResolveSuiteQLScript(
+            "NS_TO_x_Return_x_Packing_Get_Items",
+            new Dictionary<string, string>
+            {
+                ["tranid"] = id
+            });
+
         var query = builderFactory.Create()
             .Select(
-                ("item.itemid", nameof(ReturnPackingLineNSDTO.ItemCode)),
-                ("item.displayname", nameof(ReturnPackingLineNSDTO.ItemDescription)),
-                ("BUILTIN.DF(tl.units)", nameof(ReturnPackingLineNSDTO.UoM)),
-                ("BUILTIN.DF(tl.location)", nameof(ReturnPackingLineNSDTO.Warehouse)),
-                ("tl.quantity", nameof(ReturnPackingLineNSDTO.QuantityPlanned))
+                ("q.MaterialCode", nameof(ReturnPackingLineNSDTO.ItemCode)),
+                ("q.MaterialName", nameof(ReturnPackingLineNSDTO.ItemDescription)),
+                ("q.UoMName", nameof(ReturnPackingLineNSDTO.UoM)),
+                ("q.LocationName", nameof(ReturnPackingLineNSDTO.Warehouse)),
+                ("q.LineQuantity", nameof(ReturnPackingLineNSDTO.QuantityPlanned))
             )
-            .From("transactionline tl")
-            .Join("transaction t", on: "tl.transaction = t.id")
-            .Join("item", on: "tl.item = item.id")
-            .WithFilters(
-                Equal("t.tranid", id),
-                Equal("tl.transactionlinetype", "SHIPPING"),
-                Equal("tl.mainline", "F"))
-            .WithFilters(PackingReturnsFilters())
+            .From($"({mobileLineQuery}) q")
             .WithDatagridIntent(intent)
             .Build();
 
