@@ -2,6 +2,7 @@ using Application.DataTransferObjects.Transactions.Packing.VendorReturnAuthoriza
 using Application.UseCases.Repositories.Integration.Others;
 using Application.UseCases.Repositories.Integration.Transaction.Packing;
 using Database.Libraries.Repositories;
+using Integration.NS.DataTransferObjects.Packing.STR;
 using Integration.NS.DataTransferObjects.Packing.VendorReturnAuthorization;
 using Integration.NS.Helpers;
 using Integration.NS.Services;
@@ -87,7 +88,9 @@ internal class VendorReturnAuthorizationPackingIntegration(
                 ("q.MaterialName", nameof(VendorReturnAuthorizationPackingLineNSDTO.ItemDescription)),
                 ("q.UoMName", nameof(VendorReturnAuthorizationPackingLineNSDTO.UoM)),
                 ("q.LocationName", nameof(VendorReturnAuthorizationPackingLineNSDTO.Warehouse)),
-                ("q.LineQuantity", nameof(VendorReturnAuthorizationPackingLineNSDTO.QuantityPlanned))
+                ("q.LineQuantity", nameof(VendorReturnAuthorizationPackingLineNSDTO.QuantityPlanned)),
+                ("q.LineQuantityPacked", nameof(VendorReturnAuthorizationPackingLineNSDTO.QuantityReceived)),
+                ("q.LineQuantityBackOrdered", nameof(VendorReturnAuthorizationPackingLineNSDTO.QuantityBackOrdered))
             )
             .From($"({mobileLineQuery}) q")
             .WithDatagridIntent(intent)
@@ -147,7 +150,9 @@ internal class VendorReturnAuthorizationPackingIntegration(
             ItemDescription = nsdto.ItemDescription,
             UoM = nsdto.UoM,
             Warehouse = nsdto.Warehouse,
-            QuantityPlanned = nsdto.QuantityPlanned
+            QuantityPlanned = nsdto.QuantityPlanned,
+            QuantityReceived = nsdto.QuantityReceived,
+            QuantityBackOrdered = nsdto.QuantityBackOrdered,
         };
     }
 }

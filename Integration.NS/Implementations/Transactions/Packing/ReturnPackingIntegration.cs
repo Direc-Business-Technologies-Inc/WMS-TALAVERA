@@ -3,6 +3,7 @@ using Application.UseCases.Repositories.Integration.Others;
 using Application.UseCases.Repositories.Integration.Transaction.Packing;
 using Database.Libraries.Repositories;
 using Integration.NS.DataTransferObjects.Packing.Returns;
+using Integration.NS.DataTransferObjects.Packing.STR;
 using Integration.NS.Helpers;
 using Integration.NS.Services;
 using Shared.Entities;
@@ -87,7 +88,9 @@ internal class ReturnPackingIntegration(
                 ("q.MaterialName", nameof(ReturnPackingLineNSDTO.ItemDescription)),
                 ("q.UoMName", nameof(ReturnPackingLineNSDTO.UoM)),
                 ("q.LocationName", nameof(ReturnPackingLineNSDTO.Warehouse)),
-                ("q.LineQuantity", nameof(ReturnPackingLineNSDTO.QuantityPlanned))
+                ("q.LineQuantity", nameof(ReturnPackingLineNSDTO.QuantityPlanned)),
+                ("q.LineQuantityPacked", nameof(ReturnPackingLineNSDTO.QuantityReceived)),
+                ("q.LineQuantityBackOrdered", nameof(ReturnPackingLineNSDTO.QuantityBackOrdered))
             )
             .From($"({mobileLineQuery}) q")
             .WithDatagridIntent(intent)
@@ -150,7 +153,9 @@ internal class ReturnPackingIntegration(
             ItemDescription = nsdto.ItemDescription,
             UoM = nsdto.UoM,
             Warehouse = nsdto.Warehouse,
-            QuantityPlanned = nsdto.QuantityPlanned
+            QuantityPlanned = nsdto.QuantityPlanned,
+            QuantityReceived = nsdto.QuantityReceived,
+            QuantityBackOrdered = nsdto.QuantityBackOrdered,
         };
     }
 }

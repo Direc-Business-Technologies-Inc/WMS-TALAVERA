@@ -86,7 +86,9 @@ internal class StockTransferRequestPackingIntegration(
                 ("q.MaterialName", nameof(StrPackingLineNSDTO.ItemDescription)),
                 ("q.UoMName", nameof(StrPackingLineNSDTO.UoM)),
                 ("q.LocationName", nameof(StrPackingLineNSDTO.Warehouse)),
-                ("q.LineQuantity", nameof(StrPackingLineNSDTO.QuantityPlanned))
+                ("q.LineQuantity", nameof(StrPackingLineNSDTO.QuantityPlanned)),
+                ("q.LineQuantityPacked", nameof(StrPackingLineNSDTO.QuantityReceived)),
+                ("q.LineQuantityBackOrdered", nameof(StrPackingLineNSDTO.QuantityBackOrdered))
             )
             .From($"({mobileLineQuery}) q")
             .WithDatagridIntent(intent)
@@ -148,7 +150,9 @@ internal class StockTransferRequestPackingIntegration(
             ItemDescription = nsdto.ItemDescription,
             UoM = nsdto.UoM,
             Warehouse = nsdto.Warehouse,
-            QuantityPlanned = nsdto.QuantityPlanned
+            QuantityPlanned = nsdto.QuantityPlanned,
+            QuantityReceived = nsdto.QuantityReceived,
+            QuantityBackOrdered = nsdto.QuantityBackOrdered,
         };
     }
 }
