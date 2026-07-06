@@ -143,13 +143,12 @@ public class InventoryTransferRequestIntegration(
 
     public async Task<bool> CreateInventoryTransferRequest(InventoryTransferRequestDTO data)
     {
-        var url = netsuiteService.GetRestletURI + "?script=1886&deploy=1";
+        var url = netsuiteService.GetRestAPIURI + "/record/v1/inventoryTransfer";
         var payload = CreatePayload(data);
 
         try
         {
-            //_ = await netsuiteService.MakeRequest<object>(url, payload, HttpMethod.Post);
-            _ = await netsuiteService.MakeRequestOAuth1<object>(url, payload);
+            _ = await netsuiteService.MakeRequest<object>(url, payload, HttpMethod.Post);
         }
         catch (Exception ex) when (ex.Message.Equals("Empty response from NetSuite API", StringComparison.OrdinalIgnoreCase))
         {
@@ -163,15 +162,14 @@ public class InventoryTransferRequestIntegration(
     {
         var anon = new
         {
-            entity = data.Customer?.Id ?? null,
             subsidiary = data.Subsidiary?.Id ?? null,
             location = data.SourceLocation?.Id ?? null,
-            custbody_dbti_itr_to_location = data.DestinationLocation?.Id ?? null,
+            transferlocation = data.DestinationLocation?.Id ?? null,
             custbody_dbti_prepared_by = data.PreparedById,
             memo = data.Memo,
             trandate = data.Date,
-            Class = 1,
-            department = 4,
+            Class = 1, // external
+            department = 15, //operations
             lines = data.Lines.Where(x => x.QuantityAlloted > 0).Select(x => new
             {
                 item = x.ItemID,
