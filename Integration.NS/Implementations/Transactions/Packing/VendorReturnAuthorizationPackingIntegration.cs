@@ -13,7 +13,7 @@ internal class VendorReturnAuthorizationPackingIntegration(
     INetSuiteApiClientService netsuiteService,
     SuiteQLQueryBuilderFactoryService builderFactory) : IVendorReturnAuthorizationPackingIntegration
 {
-    public async Task<(IEnumerable<VendorReturnAuthorizationDataGridDTO> Data, int Count)> GetPackingVendorReturnAuthorizationsList(DataGridIntent intent)
+    public async Task<(IEnumerable<VendorReturnAuthorizationDataGridDTO> Data, int Count)> GetPackingVendorReturnAuthorizationsList(DataGridIntent intent, int subsidiaryId)
     {
         var query = builderFactory.Create()
             .Select(
@@ -30,7 +30,9 @@ internal class VendorReturnAuthorizationPackingIntegration(
             .From("transaction t")
             .Join("transactionline tl", on: "tl.transaction = t.id")
             .Join("entity e", on: "t.entity = e.id")
-            .WithFilters(Equal("tl.mainline", "T"))
+            .WithFilters(
+                Equal("tl.mainline", "T"),
+                Equal("t.subsidiary", subsidiaryId))
             .WithFilters(PackingVendorReturnAuthorizationFilters())
             .WithDatagridIntent(intent)
             .Build();
@@ -99,7 +101,7 @@ internal class VendorReturnAuthorizationPackingIntegration(
         return
         [
             Equal("t.recordtype", "vendorreturnauthorization"),
-            In("t.status", new string[] { "B" })
+            In("t.status", new string[] { "B", "E" })
         ];
     }
 

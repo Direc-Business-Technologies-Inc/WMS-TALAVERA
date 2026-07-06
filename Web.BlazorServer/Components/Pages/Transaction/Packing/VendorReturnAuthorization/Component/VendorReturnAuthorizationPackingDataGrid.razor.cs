@@ -57,7 +57,7 @@ partial class VendorReturnAuthorizationPackingDataGrid
                 });
             }
 
-            return await VraHandler.GetVendorReturnAuthorizationsList(intent);
+            return await VraHandler.GetVendorReturnAuthorizationsList(intent, CurrentUserService.NsSubsidiaryId);
         }, AppActionOptionPresets.Loading(ActionGetVendorReturnAuthorizations));
 
         AppBusyService.SetBusy(ActionGetVendorReturnAuthorizations, false);
