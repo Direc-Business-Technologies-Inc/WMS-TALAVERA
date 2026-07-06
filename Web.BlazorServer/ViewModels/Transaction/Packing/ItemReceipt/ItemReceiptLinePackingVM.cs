@@ -6,11 +6,11 @@ public class ItemReceiptLinePackingVM
 
     public bool IsReceived
     {
-        get => _isReceived && QuantityReceived < QuantityPlanned;
+        get => _isReceived && !IsComplete;
         set => _isReceived = value;
     }
 
-    public bool IsComplete => QuantityPlanned <= QuantityReceived;
+    public bool IsComplete => QuantityOpen <= 0;
     public bool IsLocationBinUsed { get; set; } = false;
 
     public int LineNumber { get; set; }

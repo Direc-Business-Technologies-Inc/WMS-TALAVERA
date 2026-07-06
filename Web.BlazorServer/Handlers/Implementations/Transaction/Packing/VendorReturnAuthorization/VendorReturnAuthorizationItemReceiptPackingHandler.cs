@@ -41,7 +41,7 @@ public class VendorReturnAuthorizationItemReceiptPackingHandler(ISender sender) 
         var sourceLines = (await sender.Send(new GetVendorReturnAuthorizationLineQry(new VendorReturnAuthorizationLineRequestDTO
         {
             OrderNumber = data.CreatedFrom
-        }))).Where(line => GetOpenQuantity(line.LineQuantity, line.LineQuantityPacked, line.UoMRate) > 0).ToList();
+        }))).ToList();
 
         var submittedLines = data.Lines.ToDictionary(line => line.LineNumber);
         var dto = sourceLines
@@ -74,7 +74,7 @@ public class VendorReturnAuthorizationItemReceiptPackingHandler(ISender sender) 
     private static VendorReturnAuthorizationItemReceiptLinePackingVM MapToVm(VendorReturnAuthorizationLineDTO dto)
     {
         var quantityPlanned = ConvertQuantity(dto.LineQuantity, dto.UoMRate);
-        var quantityOpen = GetOpenQuantity(dto.LineQuantity, dto.LineQuantityPacked, dto.UoMRate);
+        var quantityOpen = GetRemainingQuantity(dto.LineQuantity, dto.LineQuantityBackOrdered, dto.LineQuantityPacked, dto.UoMRate);
         var quantityReceived = ConvertQuantity(dto.LineQuantityReceived, dto.UoMRate);
 
         return new()
@@ -101,7 +101,7 @@ public class VendorReturnAuthorizationItemReceiptPackingHandler(ISender sender) 
 
         var quantityPlanned = ConvertQuantity(dto.LineQuantity, dto.UoMRate);
         var quantityReceived = ConvertQuantity(dto.LineQuantityReceived, dto.UoMRate);
-        var quantityOpen = GetOpenQuantity(dto.LineQuantity, dto.LineQuantityPacked, dto.UoMRate);
+        var quantityOpen = GetRemainingQuantity(dto.LineQuantity, dto.LineQuantityBackOrdered, dto.LineQuantityPacked, dto.UoMRate);
 
         return new()
         {
@@ -146,8 +146,8 @@ public class VendorReturnAuthorizationItemReceiptPackingHandler(ISender sender) 
     private static decimal ConvertQuantity(decimal quantity, decimal uoMRate) =>
         uoMRate == 0 ? quantity : quantity / uoMRate;
 
-    private static decimal GetOpenQuantity(decimal quantity, decimal fulfilledQuantity, decimal uoMRate) =>
-        Math.Max(0, ConvertQuantity(quantity - fulfilledQuantity, uoMRate));
+    private static decimal GetRemainingQuantity(decimal quantity, decimal backOrderedQuantity, decimal fulfilledQuantity, decimal uoMRate) =>
+        Math.Max(0, ConvertQuantity(quantity - (backOrderedQuantity + fulfilledQuantity), uoMRate));
 
     private static bool IsNetSuiteTrue(string value) =>
         value.Equals("T", StringComparison.OrdinalIgnoreCase) ||
