@@ -26,9 +26,14 @@ namespace Web.BlazorServer.Handlers.Implementations.Transaction.InventoryCountin
 
 public class InventoryCountingHandler(ISender Sender) : IInventoryCountingHandler
 {
-    public async Task<(IEnumerable<SharedInventoryCountingVM> Data, int Count)> GetStartedInventoryCountingAsync(DataGridIntent intent)
+    public async Task<(IEnumerable<SharedInventoryCountingVM> Data, int Count)> GetStartedInventoryCountingAsync(DataGridIntent intent, int subsidiaryId)
     {
-        IEnumerable<OrdersDTO> response = await Sender.Send(new GetStartedInventoryCountingQry());
+        RequestPerSubsidiaryDTO subsidiaryDTO = new()
+        {
+            NetsuiteUserSubsidiaryInternalId = subsidiaryId
+        };
+
+        IEnumerable<OrdersDTO> response = await Sender.Send(new GetStartedInventoryCountingQry(subsidiaryDTO));
         List<SharedInventoryCountingVM> data = response.Adapt<List<SharedInventoryCountingVM>>();
 
         foreach (var sort in intent.Sorts)
@@ -100,7 +105,7 @@ public class InventoryCountingHandler(ISender Sender) : IInventoryCountingHandle
         return response.Adapt<IEnumerable<SharedItemBarcodesPerUoMVM>>();
     }
 
-    public async Task<bool> PostInventoryWorksheetAsync(IEnumerable<InventoryWorksheetDetailLineVM> lines, int locationId)
+    public async Task<bool> PostInventoryWorksheetAsync(IEnumerable<InventoryWorksheetDetailLineVM> lines, int locationId, int subsidiaryId)
     {
         List<InventoryWorksheetLineDTO> worksheetLines = [.. lines
             .Where(line => line.Quantity > 0)
@@ -109,7 +114,7 @@ public class InventoryCountingHandler(ISender Sender) : IInventoryCountingHandle
         if (worksheetLines.Count == 0)
             return false;
 
-        PostInventoryWorksheetCmd cmd = new(worksheetLines, locationId);
+        PostInventoryWorksheetCmd cmd = new(worksheetLines, locationId, subsidiaryId);
         var result = await Sender.Send(cmd);
 
         return result.Success && result.Data == true;

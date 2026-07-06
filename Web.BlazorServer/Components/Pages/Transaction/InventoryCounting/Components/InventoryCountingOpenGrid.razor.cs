@@ -3,6 +3,7 @@ using Radzen;
 using Shared.Entities;
 using Shared.Kernel;
 using Shared.Libraries.ViewModel.InventoryCounting;
+using Shared.Services.Repository;
 using Web.BlazorServer.Components.Shared.Abstraction;
 using Web.BlazorServer.Defaults;
 using Web.BlazorServer.Handlers.Repositories.Transaction.InventoryCounting;
@@ -15,6 +16,7 @@ public partial class InventoryCountingOpenGrid
 {
     [Inject] IInventoryCountingHandler InventoryCountingHandler { get; set; } = default!;
     [Inject] IGridSettingsService GridSettingsService { get; set; } = default!;
+    [Inject] ICurrentUserService _currentUser { get; set; } = default!;
 
     AppDataGrid<InventoryCountingVM> DataGrid { get; set; } = default!;
     DataGridSettings GridSettings { get; set; } = new();
@@ -44,7 +46,7 @@ public partial class InventoryCountingOpenGrid
         var action = await AppActionFactory.RunAsync(async () =>
         {
             AppBusyService.SetBusy(ActionGetAll, true);
-            var response = await InventoryCountingHandler.GetStartedInventoryCountingAsync(intent);
+            var response = await InventoryCountingHandler.GetStartedInventoryCountingAsync(intent, _currentUser.NsSubsidiaryId);
             return response;
         }, AppActionOptionPresets.Loading(ActionGetAll));
 

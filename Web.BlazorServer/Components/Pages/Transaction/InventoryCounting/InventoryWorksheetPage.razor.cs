@@ -219,7 +219,8 @@ public partial class InventoryWorksheetPage
             AppBusyService.SetBusy(ActionPost, true);
             return await InventoryCountingHandler.PostInventoryWorksheetAsync(
                 detailLines,
-                FormData.Location!.NetsuiteLocationInternalId);
+                FormData.Location!.NetsuiteLocationInternalId,
+                _currentUser.NsSubsidiaryId);
         }, AppActionOptionPresets.Confirmed(ActionPost));
 
         AppBusyService.SetBusy(ActionPost, false);
