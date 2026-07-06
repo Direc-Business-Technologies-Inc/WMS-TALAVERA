@@ -130,32 +130,18 @@ public static class WebStructure
             icon: "transit_ticket",
             uri: "/transactions/delivery/trip-ticket"),
         NavigationRouteDEM.New(
-            name: "Goods Issue",
+            name: "Inventory Counting",
             protectedRoute : true,
             position: 0,
             parentId: SubRouteList1!.First(x => x.Name.Equals("Inventory")).Id,
-            icon: "bottom_panel_close",
-            uri: "/transactions/inventory/goods-issue"),
+            icon: "home_storage",
+            uri: "/transactions/inventory/inventory-counting"),
         NavigationRouteDEM.New(
-            name: "Goods Receipt",
+            name: "Inventory Worksheet",
             protectedRoute : true,
             position: 1,
             parentId: SubRouteList1!.First(x => x.Name.Equals("Inventory")).Id,
-            icon: "bottom_panel_open",
-            uri: "/transactions/inventory/goods-receipt"),
-        NavigationRouteDEM.New(
-            name: "Inventory Transfer",
-            protectedRoute : true,
-            position: 2,
-            parentId: SubRouteList1!.First(x => x.Name.Equals("Inventory")).Id,
-            icon: "battery_android_share",
-            uri: "/transactions/inventory/inventory-transfer"),
-        NavigationRouteDEM.New(
-            name: "Inventory Counting",
-            protectedRoute : true,
-            position: 3,
-            parentId: SubRouteList1!.First(x => x.Name.Equals("Inventory")).Id,
             icon: "home_storage",
-            uri: "/transactions/inventory/inventory-counting"),
+            uri: "/transactions/inventory/inventory-worksheet"),
     ];
 }
