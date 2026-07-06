@@ -46,6 +46,7 @@ public class ItemReceiptPackingHandler(ISender sender) : IItemReceiptPackingHand
 
         var submittedLines = data.Lines.ToDictionary(line => line.LineNumber);
         var dto = sourceLines
+            .Where(x => GetRemainingQuantity(x.LineQuantity, x.LineQuantityBackOrdered, x.LineQuantityPacked, x.UoMRate) > 0)
             .SelectMany(line =>
             {
                 submittedLines.TryGetValue(line.LineSequenceNumber, out var submittedLine);
@@ -85,6 +86,7 @@ public class ItemReceiptPackingHandler(ISender sender) : IItemReceiptPackingHand
             IsLocationBinUsed = IsNetSuiteTrue(dto.LocationUsedBin),
             LineNumber = dto.LineSequenceNumber,
             PrefferedBinAssignmentId = dto.NetsuiteMaterialPrefferedBinId,
+            VendorAssignedBinId = dto.NetsuiteMaterialVendorAssignedBin,
             ItemCode = dto.MaterialCode,
             ItemDescription = dto.MaterialName,
             UoM = dto.UoMName,

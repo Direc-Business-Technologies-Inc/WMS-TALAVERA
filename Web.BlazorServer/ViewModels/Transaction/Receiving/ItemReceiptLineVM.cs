@@ -23,7 +23,7 @@ public class ItemReceiptLineVM
     public int PrefferedBinAssignmentId { get; set; }
 
     public string ItemCode { get; set; } = string.Empty;
-    public string ItemDescription { get; set; } = string.Empty;
+    public string ItemDescription { get; set; } =  string.Empty;
     public string UoM { get; set; } = string.Empty;
     public string Department { get; set; } = string.Empty;
     public string Location { get; set; } = string.Empty;

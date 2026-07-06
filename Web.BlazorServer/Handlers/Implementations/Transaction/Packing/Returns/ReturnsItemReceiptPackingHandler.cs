@@ -81,6 +81,7 @@ public class ReturnsItemReceiptPackingHandler(ISender sender) : IReturnsItemRece
             IsLocationBinUsed = IsNetSuiteTrue(dto.LocationUsedBin),
             LineNumber = dto.LineSequenceNumber,
             PrefferedBinAssignmentId = dto.NetsuiteMaterialPrefferedBinId,
+            VendorAssignedBinId = dto.NetsuiteMaterialVendorAssignedBin,
             ItemCode = dto.MaterialCode,
             ItemDescription = dto.MaterialName,
             UoM = dto.UoMName,
