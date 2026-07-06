@@ -92,5 +92,12 @@ public class InventoryAdjustmentHandler(
         return (data.Adapt<IEnumerable<InventoryAdjustmentReasonVM>>(), count);
     }
 
+    public async Task<(IEnumerable<InventoryAdjustmentCategoryVM> Data, int Count)> GetInventoryAdjustmentCategoriesAsync(DataGridIntent intent)
+    {
+        GetInventoryAdjustmentCategoriesQry query = new GetInventoryAdjustmentCategoriesQry(intent);
 
+        (var data, int count) = await sender.Send(query);
+
+        return (data.Adapt<IEnumerable<InventoryAdjustmentCategoryVM>>(), count);
+    }
 }
