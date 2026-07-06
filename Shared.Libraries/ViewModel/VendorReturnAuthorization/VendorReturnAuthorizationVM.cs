@@ -18,12 +18,14 @@ public class VendorReturnAuthorizationVM
     public string GetName(string status) => status switch
     {
         "B" => "Pending Return",
+        "E" => "Pending Credit/Partially Returned",
         _ => "Unknown"
     };
 
     public string GetShortName(string status) => status switch
     {
         "B" => "PR",
+        "E" => "PC/PRR",
         _ => "-"
     };
 }

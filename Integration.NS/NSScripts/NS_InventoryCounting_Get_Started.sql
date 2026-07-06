@@ -9,4 +9,5 @@ FROM transaction t
 
 WHERE
     t.status = 'B'
-    AND t.recordType = 'inventorycount'
+    AND t.recordType = 'inventorycount' AND
+	t.subsidiary = @subsidiaryid

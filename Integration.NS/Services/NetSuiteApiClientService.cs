@@ -219,9 +219,10 @@ namespace Integration.NS.Services
 
             var httpResponse = await _httpClient.SendAsync(httpRequest);
 
+            var responseJson = await httpResponse.Content.ReadAsStringAsync();
+
             if (httpResponse.IsSuccessStatusCode)
             {
-                var responseJson = await httpResponse.Content.ReadAsStringAsync();
                 //_logger.LogDebug("SuiteQLQuery Result: {@Result}", responseJson);
                 if (string.IsNullOrWhiteSpace(responseJson))
                 {
@@ -233,11 +234,10 @@ namespace Integration.NS.Services
                 return response;
             }
 
-            throw new Exception($"""
-Request failed with status code: {(int)httpResponse.StatusCode} ({httpResponse.StatusCode})
+            var errorDetail = GetNetSuiteErrorDetail(responseJson);
 
-{await httpResponse.Content.ReadAsStringAsync()}
-""");
+            //throw new Exception($"Request failed with status code: {httpResponse.StatusCode}");
+            throw new Exception(errorDetail);
         }
 
         public async Task<T> MakeRequestOAuth1<T>(string url, string? reqBody)
@@ -333,20 +333,85 @@ Request failed with status code: {(int)httpResponse.StatusCode} ({httpResponse.S
 
             var httpResponse = await _httpClient.SendAsync(request);
 
+            var responseJson = await httpResponse.Content.ReadAsStringAsync();
             if (httpResponse.IsSuccessStatusCode)
             {
-                var responseJson = await httpResponse.Content.ReadAsStringAsync();
-
                 if (string.IsNullOrEmpty(responseJson))
                     return default(T);
 
                 return System.Text.Json.JsonSerializer.Deserialize<T>(responseJson);
             }
 
-            var errorMessage = await httpResponse.Content.ReadAsStringAsync();
-            throw new Exception(
-                $"Request failed with status code {(int)httpResponse.StatusCode} ({httpResponse.StatusCode}). " +
-                $"Response: {errorMessage}");
+            var errorDetail = GetNetSuiteErrorDetail(responseJson);
+
+            //throw new Exception($"Request failed with status code: {httpResponse.StatusCode}");
+            throw new Exception(errorDetail);
+        }
+
+        private static string? GetNetSuiteErrorDetail(string responseJson)
+        {
+            if (string.IsNullOrWhiteSpace(responseJson))
+                return null;
+
+            try
+            {
+                using var doc = JsonDocument.Parse(responseJson);
+                var root = doc.RootElement;
+
+                // Format 1:
+                // {
+                //   "o:errorDetails": [
+                //     {
+                //       "detail": "Error while accessing a resource..."
+                //     }
+                //   ]
+                // }
+                if (root.TryGetProperty("o:errorDetails", out var errorDetails) &&
+                    errorDetails.ValueKind == JsonValueKind.Array &&
+                    errorDetails.GetArrayLength() > 0)
+                {
+                    var firstError = errorDetails[0];
+
+                    if (firstError.TryGetProperty("detail", out var detailElement) &&
+                        detailElement.ValueKind == JsonValueKind.String)
+                    {
+                        var detail = detailElement.GetString();
+
+                        if (!string.IsNullOrWhiteSpace(detail))
+                            return detail;
+                    }
+                }
+
+                // Format 2:
+                // {
+                //   "success": false,
+                //   "error": "The field estamount contained..."
+                // }
+                if (root.TryGetProperty("error", out var errorElement) &&
+                    errorElement.ValueKind == JsonValueKind.String)
+                {
+                    var error = errorElement.GetString();
+
+                    if (!string.IsNullOrWhiteSpace(error))
+                        return error;
+                }
+
+                //// Optional fallback: title
+                //if (root.TryGetProperty("title", out var titleElement) &&
+                //    titleElement.ValueKind == JsonValueKind.String)
+                //{
+                //    var title = titleElement.GetString();
+
+                //    if (!string.IsNullOrWhiteSpace(title))
+                //        return title;
+                //}
+
+                return null;
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         public async Task<IEnumerable<T>?> NetsuiteQuery<T>(
@@ -715,13 +780,14 @@ Request failed with status code: {(int)httpResponse.StatusCode} ({httpResponse.S
             return true;
         }
 
-        public async Task<bool> PostInventoryWorksheet(List<InventoryWorksheetLineDTO> Data, int Location)
+        public async Task<bool> PostInventoryWorksheet(List<InventoryWorksheetLineDTO> Data, int Location, int Subsidiary)
         {
             string url = InventoryWorksheetRestletUrl;
 
             try
             {
-                var payloadGood = PostInventoryWorksheetPayload.PostInventoryWorksheet(Data, Location);
+                var payloadGood = PostInventoryWorksheetPayload.PostInventoryWorksheet(Data, Location, Subsidiary);
+
                 var jsonStringGood = JsonSerializer.Serialize(payloadGood, JsonSerializerOption);
 
                 await MakeRequestOAuth1<object>(url, jsonStringGood);

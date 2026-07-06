@@ -4,4 +4,4 @@ SELECT
 FROM
 	bin b
 WHERE
-	location = @location
+	b.location IN ({locations})

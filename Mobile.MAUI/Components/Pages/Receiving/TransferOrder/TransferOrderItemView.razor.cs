@@ -7,6 +7,7 @@ using Shared.Libraries.ViewModel.TransferOrder;
 using static Mobile.MAUI.Enums.CustomEnum;
 using static Mobile.MAUI.MauiProgram;
 using AppAction = Mobile.MAUI.Services.AppAction;
+using static Mobile.MAUI.Helpers.FormatHelper;
 
 namespace Mobile.MAUI.Components.Pages.Receiving.TransferOrder;
 
@@ -79,6 +80,9 @@ public partial class TransferOrderItemView : IAsyncDisposable
                     MaterialCode = line.MaterialCode,
                     MaterialName = line.MaterialName,
                     MaterialWeight = line.MaterialWeight,
+
+                    NetsuiteMaterialPrefferedBinId = line.NetsuiteMaterialPrefferedBinId,
+                    
 
                     LineQuantity = line.LineQuantity,
                     LineQuantityReceived = line.LineQuantityReceived,
@@ -343,7 +347,7 @@ public partial class TransferOrderItemView : IAsyncDisposable
                 }
 
                 badLine.ScannedQuantity += barcode.UoMRate / badLine.UoMRate;
-                badLine.ScannedWeight += barcode.UoMRate * (ChangeWeight ?? 0m);
+                badLine.ScannedWeight += ChangeWeight ?? 0m;
                 badLine.ScanCount++;
             }
             else
@@ -372,7 +376,7 @@ public partial class TransferOrderItemView : IAsyncDisposable
                 }
 
                 goodLine.ScannedQuantity += barcode.UoMRate / goodLine.UoMRate;
-                goodLine.ScannedWeight += barcode.UoMRate * (weight ?? 0m);
+                goodLine.ScannedWeight += weight ?? 0m;
                 goodLine.ScanCount++;
             }
 
@@ -423,7 +427,7 @@ public partial class TransferOrderItemView : IAsyncDisposable
 
                 ScanCount = x.ScanCount,
                 IsBad = x.IsBad,
-                ScannedQuantity = x.ScannedQuantity,
+                ScannedQuantity = RoundOfNearestHundredThousands(x.ScannedQuantity),
                 ScannedWeight = x.ScannedWeight
             })
             .ToList();
@@ -537,7 +541,7 @@ public partial class TransferOrderItemView : IAsyncDisposable
                 }
 
                 var badScannedQuantity = barcode.UoMRate / badLine.UoMRate;
-                var badScannedWeight = barcode.UoMRate * (ChangeWeight ?? 0m);
+                var badScannedWeight = ChangeWeight ?? 0m;
 
                 if (badLine.ScannedQuantity < badScannedQuantity)
                 {
@@ -570,7 +574,7 @@ public partial class TransferOrderItemView : IAsyncDisposable
                 }
 
                 var goodScannedQuantity = barcode.UoMRate / goodLine.UoMRate;
-                var goodScannedWeight = barcode.UoMRate * (weight ?? 0m);
+                var goodScannedWeight = weight ?? 0m    ;
 
                 if (goodLine.ScannedQuantity < goodScannedQuantity)
                 {

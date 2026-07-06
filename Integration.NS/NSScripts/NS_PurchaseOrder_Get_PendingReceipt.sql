@@ -14,4 +14,5 @@ JOIN
 	entity e ON t.entity = e.id
 WHERE 
 	t.recordtype = 'purchaseorder' AND
-	t.status IN ('B', 'E')
+	t.status IN ('B', 'E') AND
+	t.subsidiary = @subsidiaryid

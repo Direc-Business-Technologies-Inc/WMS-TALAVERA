@@ -1,4 +1,5 @@
-﻿using Application.DataTransferObjects.Transactions.Receiving.NS;
+﻿using Application.DataTransferObjects.Transactions.Commons.NS.Request;
+using Application.DataTransferObjects.Transactions.Receiving.NS;
 using Application.DataTransferObjects.Transactions.Receiving.NS.Request;
 using Application.UseCases.Commands.Transaction.Receiving.NS.PurchaseOrder;
 using Application.UseCases.Queries.Transaction.Receiving.NS.PurchaseOrder;
@@ -14,10 +15,10 @@ namespace Api.CoreWebAPI.Controllers.Receiving;
 [Route("api/Receiving/[controller]")]
 public class PurchaseOrderController(ISender Sender) : ControllerBase
 {
-    [HttpGet("PendingReceipt")]
-    public async Task<ApiResult<IEnumerable<PurchaseOrderVM>>> GetAllPO()
+    [HttpPost("PendingReceipt")]
+    public async Task<ApiResult<IEnumerable<PurchaseOrderVM>>> GetAllPO(RequestPerSubsidiaryDTO req)
     {
-        var result = await Sender.Send(new GetPurchaseOrdersQry());
+        var result = await Sender.Send(new GetPurchaseOrdersQry(req));
 
         List<PurchaseOrderVM> ret = result.Adapt<List<PurchaseOrderVM>>();
 

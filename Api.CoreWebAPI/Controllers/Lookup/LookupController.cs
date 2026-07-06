@@ -1,4 +1,5 @@
-﻿using Application.UseCases.Queries.Others.NS;
+﻿using Application.DataTransferObjects.Transactions.Commons.NS.Request;
+using Application.UseCases.Queries.Others.NS;
 using Mapster;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
@@ -32,6 +33,14 @@ public class LookupController(ISender Sender) : ControllerBase
         return ApiResult<IEnumerable<LocationVM>>.Succeeded(ret);
     }
 
+    [HttpPost("Susidiary/Locations")]
+    public async Task<ApiResult<IEnumerable<LocationVM>>> GetSubsidiaryLocations(RequestPerSubsidiaryDTO req)
+    {
+        var result = await Sender.Send(new GetSubsidiariesLocationQry(req));
+        var ret = result.Adapt<List<LocationVM>>();
+        return ApiResult<IEnumerable<LocationVM>>.Succeeded(ret);
+    }
+
     [HttpGet("Helpers")]
     public async Task<ApiResult<IEnumerable<HelperVM>>> GetHelpers()
     {
@@ -50,5 +59,13 @@ public class LookupController(ISender Sender) : ControllerBase
         List<TruckPlateNumberVM> ret = result.Adapt<List<TruckPlateNumberVM>>();
 
         return ApiResult<IEnumerable<TruckPlateNumberVM>>.Succeeded(ret);
+    }
+
+    [HttpPost("BinLocations")]
+    public async Task<ApiResult<IEnumerable<BinVM>>> GetBinLocations(BinLocationRequestDTO req)
+    {
+        var result = await Sender.Send(new GetBinsPerLocationQry(req));
+        var ret = result.Adapt<List<BinVM>>();
+        return ApiResult<IEnumerable<BinVM>>.Succeeded(ret);
     }
 }
