@@ -65,8 +65,8 @@
             var response = await handler.GetStockTransferRequest(Ref);
 
             if (response is null) throw new Exception($"Stock transfer request \"{Ref}\" could not be found");
-            if (!response.Status.Id.Equals("C", StringComparison.OrdinalIgnoreCase))
-                throw new Exception($"Cannot update stock transfer request \"{Ref}\" ");
+            if (!response.IsEditable)
+                throw new Exception($"Stock transfer request \"{Ref}\" is not editable and cannot be updated");
                 
             return response;
         }, AppActionOptionPresets.Loading(ActionGetStockTransferRequest));

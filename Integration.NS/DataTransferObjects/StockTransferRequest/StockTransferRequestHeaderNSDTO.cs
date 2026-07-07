@@ -26,7 +26,8 @@ public class StockTransferRequestHeaderNSDTO
     public string PreparedBy { get; set; } = string.Empty;
     public string Remarks { get; set; } = string.Empty;
     public string StatusName { get; set; } = string.Empty; 
-    public string StatusId { get; set; } = string.Empty; 
+    public int StatusId { get; set; }
+    public bool IsEditable => StatusId == 3;
     public DateTime Date { get; set; }
     public List<StockTransferRequestLineDTO> Lines { get; set; } = [];
 }

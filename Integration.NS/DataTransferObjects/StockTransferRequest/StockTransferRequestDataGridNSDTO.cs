@@ -18,6 +18,8 @@ public class StockTransferRequestDataGridNSDTO
     public string PreparedBy { get; set; } = string.Empty;
     public string Remarks { get; set; } = string.Empty;
     public string StatusName { get; set; } = string.Empty;
-    public string StatusId { get; set; } = string.Empty;
+    public int StatusId { get; set; }
     public DateTime Date { get; set; }
+
+    public bool IsEditable => StatusId == 3;
 }

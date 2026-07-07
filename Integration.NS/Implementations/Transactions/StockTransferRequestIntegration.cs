@@ -39,7 +39,7 @@ internal class StockTransferRequestIntegration(
                 )
                 .From("transaction t")
                 .Join("transactionline tl", on: "tl.transaction = t.id")
-                .LeftJoin("transferorderstatus s", on: "s.id = t.status")
+                .LeftJoin("CUSTOMLIST_DBTI_CR_APPROVAL_STATUSES s", on: "s.id = t.custbody_dbti_custom_approval_status")
                 .WithFilters(
                     DataGridFilterUtilities.Equal("tl.mainline", "T"),
                     DataGridFilterUtilities.Equal("t.recordtype", "intercompanytransferorder"),
@@ -71,7 +71,7 @@ internal class StockTransferRequestIntegration(
                 )
                 .From("transaction t")
                 .Join("transactionline tl", on: "tl.transaction = t.id")
-                .LeftJoin("transferorderstatus s", on: "s.id = t.status")
+                .LeftJoin("CUSTOMLIST_DBTI_CR_APPROVAL_STATUSES s", on: "s.id = t.custbody_dbti_custom_approval_status")
                 .WithFilters(
                     DataGridFilterUtilities.Equal("tl.mainline", "T"),
                     DataGridFilterUtilities.In("t.recordtype", new string[] { "intercompanytransferorder", "transferorder" }),
@@ -103,7 +103,7 @@ internal class StockTransferRequestIntegration(
                 )
                 .From("transaction t")
                 .Join("transactionline tl", on: "tl.transaction = t.id")
-                .LeftJoin("transferorderstatus s", on: "s.id = t.status")
+                .LeftJoin("CUSTOMLIST_DBTI_CR_APPROVAL_STATUSES s", on: "s.id = t.custbody_dbti_custom_approval_status")
                 .WithFilters(
                     DataGridFilterUtilities.Equal("tl.mainline", "T"),
                     DataGridFilterUtilities.Equal("t.recordtype", "transferorder"),
@@ -146,7 +146,7 @@ internal class StockTransferRequestIntegration(
                 )
                 .From("transaction t")
                 .Join("transactionline tl", on: "tl.transaction = t.id")
-                .LeftJoin("transferorderstatus s", on: "s.id = t.status")
+                .LeftJoin("CUSTOMLIST_DBTI_CR_APPROVAL_STATUSES s", on: "s.id = t.custbody_dbti_custom_approval_status")
                 .WithFilters(
                     DataGridFilterUtilities.In("t.status", new string[] { "C", "A" }),
                     DataGridFilterUtilities.Equal("t.tranid", id),
@@ -226,7 +226,7 @@ internal class StockTransferRequestIntegration(
                 ("id", nameof(TransferOrderStatus.Id)),
                 ("name", nameof(TransferOrderStatus.Name))
             )
-            .From("transferorderstatus")
+            .From("CUSTOMLIST_DBTI_CR_APPROVAL_STATUSES")
             .WithDatagridIntent(intent)
             .Build();
 
@@ -313,6 +313,7 @@ internal class StockTransferRequestIntegration(
             } : null,
             custbody_dbti_transfer_category = new { id = dto.TransferCategory.Id },
             custbody_dbti_prepared_by = dto.PreparedById,
+            custbody_dbti_custom_approval_status = 2, // draft
             custbody_dbti_return_to_vendor = dto.TransferCategory.IsReturn && dto.Vendor != null ? new { id = dto.Vendor.Id.ToString() } : null,
             Department = new { id = "4" },
             Class = new { id = "1" },
