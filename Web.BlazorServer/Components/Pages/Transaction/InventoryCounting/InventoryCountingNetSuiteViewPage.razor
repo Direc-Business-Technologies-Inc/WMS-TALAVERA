@@ -1,0 +1,114 @@
+@using global::Shared.Libraries.ViewModel.InventoryCounting
+@using Web.BlazorServer.Components.Custom
+@using Web.BlazorServer.Components.Security
+@using Web.BlazorServer.Components.Shared.Skeletons
+
+@inherits BaseComponent
+@page "/transactions/inventory/inventory-counting/ns/view"
+@layout ProtectedLayout
+@attribute [AppAuthorizationAttribute("VIEW", "OICT")]
+
+<PageTitle>Inventory Counting @Header.OrderNumber</PageTitle>
+
+<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" class="rz-mb-4">
+    <AppBreadCrumbs ModuleCode="OICT" />
+</RadzenStack>
+
+<AppContent>
+    <AppFormSkeleton TItem="InventoryCountingVM" Loading="@IsLoadingData" />
+
+    <RadzenTemplateForm Visible="@(!IsLoadingData)"
+                        TItem="InventoryCountingVM"
+                        Data="@Header"
+                        Submit="@PatchLinesAsync">
+        <RadzenStack Gap="1rem">
+            <RadzenFieldset Text="Details" AllowCollapse>
+                <RadzenRow Gap="1rem">
+                    <RadzenColumn Size="12" SizeMD="4">
+                        <RadzenFormField Text="Document" class="rz-w-100" AllowFloatingLabel="false">
+                            <RadzenTextBox Value="@($"IC-{Header.OrderNumber}")" ReadOnly class="rz-w-100" />
+                        </RadzenFormField>
+                    </RadzenColumn>
+                    <RadzenColumn Size="12" SizeMD="4">
+                        <RadzenFormField Text="NetSuite ID" class="rz-w-100" AllowFloatingLabel="false">
+                            <RadzenNumeric TValue="int" Value="@Header.NetsuiteOrderInternalId" ReadOnly ShowUpDown="false" class="rz-w-100" />
+                        </RadzenFormField>
+                    </RadzenColumn>
+                    <RadzenColumn Size="12" SizeMD="4">
+                        <RadzenFormField Text="Status" class="rz-w-100" AllowFloatingLabel="false">
+                            <RadzenTextBox Value="@Header.GetName(Header.OrderStatus)" ReadOnly class="rz-w-100" />
+                        </RadzenFormField>
+                    </RadzenColumn>
+                    <RadzenColumn Size="12" SizeMD="4">
+                        <RadzenFormField Text="Order Type" class="rz-w-100" AllowFloatingLabel="false">
+                            <RadzenTextBox Value="@Header.OrderType" ReadOnly class="rz-w-100" />
+                        </RadzenFormField>
+                    </RadzenColumn>
+                    <RadzenColumn Size="12" SizeMD="4">
+                        <RadzenFormField Text="Created Date" class="rz-w-100" AllowFloatingLabel="false">
+                            <RadzenTextBox Value="@Header.NetsuiteOrderCreatedDate.ToString("MM/dd/yyyy")" ReadOnly class="rz-w-100" />
+                        </RadzenFormField>
+                    </RadzenColumn>
+                </RadzenRow>
+            </RadzenFieldset>
+
+            <RadzenFieldset Text="Lines" AllowCollapse>
+                <AppTableWithSettings Data="@Lines" Id="inventory_counting_ns_lines">
+                    <Columns>
+                        <RadzenDataGridColumn TItem="InventoryCountingLineVM"
+                                              Property="@nameof(InventoryCountingLineVM.MaterialCode)"
+                                              Title="Item Code"
+                                              Type="@typeof(string)" />
+                        <RadzenDataGridColumn TItem="InventoryCountingLineVM"
+                                              Property="@nameof(InventoryCountingLineVM.MaterialName)"
+                                              Title="Item Name"
+                                              Type="@typeof(string)" />
+                        <RadzenDataGridColumn TItem="InventoryCountingLineVM"
+                                              Property="@nameof(InventoryCountingLineVM.UoMName)"
+                                              Title="UoM"
+                                              Width="100px"
+                                              Type="@typeof(string)" />
+                        <RadzenDataGridColumn TItem="InventoryCountingLineVM"
+                                              Property="@nameof(InventoryCountingLineVM.LineQuantity)"
+                                              Title="Quantity"
+                                              Width="120px"
+                                              Type="@typeof(decimal)">
+                            <Template Context="line">
+                                @line.LineQuantity.ToString("N0")
+                            </Template>
+                        </RadzenDataGridColumn>
+                        <RadzenDataGridColumn TItem="InventoryCountingLineVM"
+                                              Property="@nameof(InventoryCountingLineVM.ScannedQuantity)"
+                                              Title="Good Quantity"
+                                              Width="170px"
+                                              Type="@typeof(decimal)">
+                            <Template Context="line">
+                                <RadzenFormField class="rz-w-100">
+                                    <TextTemplate>
+                                        <RadzenText class="rz-color-success" Text="Good" TextStyle="TextStyle.Caption" />
+                                    </TextTemplate>
+                                    <ChildContent>
+                                        <RadzenNumeric TValue="decimal"
+                                                       Name="line_quantity_good"
+                                                       @bind-Value="@line.ScannedQuantity"
+                                                       Min="0"
+                                                       ShowUpDown="false"
+                                                       class="rz-w-100" />
+                                    </ChildContent>
+                                </RadzenFormField>
+                            </Template>
+                        </RadzenDataGridColumn>
+                    </Columns>
+                </AppTableWithSettings>
+            </RadzenFieldset>
+
+            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
+                <RadzenButton Text="Back" ButtonStyle="ButtonStyle.Base" Click="@GoBack" ButtonType="ButtonType.Button" />
+                <RadzenButton Text="Patch Count"
+                              ButtonStyle="ButtonStyle.Success"
+                              ButtonType="ButtonType.Submit"
+                              IsBusy="@AppBusyService.IsBusy(ActionPatch)" />
+            </RadzenStack>
+        </RadzenStack>
+    </RadzenTemplateForm>
+</AppContent>

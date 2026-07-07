@@ -220,9 +220,10 @@ namespace Integration.NS.Services
 
             var httpResponse = await _httpClient.SendAsync(httpRequest);
 
+            var responseJson = await httpResponse.Content.ReadAsStringAsync();
+
             if (httpResponse.IsSuccessStatusCode)
             {
-                var responseJson = await httpResponse.Content.ReadAsStringAsync();
                 //_logger.LogDebug("SuiteQLQuery Result: {@Result}", responseJson);
                 if (string.IsNullOrEmpty(responseJson))
                 {
@@ -335,18 +336,85 @@ namespace Integration.NS.Services
 
             var httpResponse = await _httpClient.SendAsync(request);
 
+            var responseJson = await httpResponse.Content.ReadAsStringAsync();
             if (httpResponse.IsSuccessStatusCode)
             {
-                var responseJson = await httpResponse.Content.ReadAsStringAsync();
-
                 if (string.IsNullOrEmpty(responseJson))
                     return default(T);
 
                 return System.Text.Json.JsonSerializer.Deserialize<T>(responseJson);
             }
 
-            var errorMessage = await httpResponse.Content.ReadAsStringAsync();
-            throw new Exception($"Request failed with status code: {httpResponse.StatusCode}");
+            var errorDetail = GetNetSuiteErrorDetail(responseJson);
+
+            //throw new Exception($"Request failed with status code: {httpResponse.StatusCode}");
+            throw new Exception(errorDetail);
+        }
+
+        private static string? GetNetSuiteErrorDetail(string responseJson)
+        {
+            if (string.IsNullOrWhiteSpace(responseJson))
+                return null;
+
+            try
+            {
+                using var doc = JsonDocument.Parse(responseJson);
+                var root = doc.RootElement;
+
+                // Format 1:
+                // {
+                //   "o:errorDetails": [
+                //     {
+                //       "detail": "Error while accessing a resource..."
+                //     }
+                //   ]
+                // }
+                if (root.TryGetProperty("o:errorDetails", out var errorDetails) &&
+                    errorDetails.ValueKind == JsonValueKind.Array &&
+                    errorDetails.GetArrayLength() > 0)
+                {
+                    var firstError = errorDetails[0];
+
+                    if (firstError.TryGetProperty("detail", out var detailElement) &&
+                        detailElement.ValueKind == JsonValueKind.String)
+                    {
+                        var detail = detailElement.GetString();
+
+                        if (!string.IsNullOrWhiteSpace(detail))
+                            return detail;
+                    }
+                }
+
+                // Format 2:
+                // {
+                //   "success": false,
+                //   "error": "The field estamount contained..."
+                // }
+                if (root.TryGetProperty("error", out var errorElement) &&
+                    errorElement.ValueKind == JsonValueKind.String)
+                {
+                    var error = errorElement.GetString();
+
+                    if (!string.IsNullOrWhiteSpace(error))
+                        return error;
+                }
+
+                //// Optional fallback: title
+                //if (root.TryGetProperty("title", out var titleElement) &&
+                //    titleElement.ValueKind == JsonValueKind.String)
+                //{
+                //    var title = titleElement.GetString();
+
+                //    if (!string.IsNullOrWhiteSpace(title))
+                //        return title;
+                //}
+
+                return null;
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         public async Task<IEnumerable<T>?> NetsuiteQuery<T>(
@@ -694,17 +762,6 @@ namespace Integration.NS.Services
             var orderId = Data.Select(x => x.NetsuiteOrderInternalId).FirstOrDefault();
             string url = string.Format(PatchInventoryCountUrl, orderId);
 
-            //var badPO = Data.Where(x => x.IsBad).ToList();
-
-            //if (badPO.Any(x => x.ScannedQuantity > 0))
-            //{
-            //    var payloadBad = PurchaseOrderIRPayloadDTO.CreateForItemReceipt(badPO, 2);
-
-            //    var jsonStringBad = JsonSerializer.Serialize(payloadBad, JsonSerializerOption);
-
-            //    await MakeRequest<object>(url, jsonStringBad);
-            //}
-
             var goodIC = Data.Where(x => !x.IsBad).ToList();
 
             if (goodIC.Any())
@@ -726,13 +783,13 @@ namespace Integration.NS.Services
             return true;
         }
 
-        public async Task<bool> PostInventoryWorksheet(List<InventoryWorksheetLineDTO> Data, int Location)
+        public async Task<bool> PostInventoryWorksheet(List<InventoryWorksheetLineDTO> Data, int Location, int Subsidiary)
         {
             string url = InventoryWorksheetRestletUrl;
 
             try
             {
-                var payloadGood = PostInventoryWorksheetPayload.PostInventoryWorksheet(Data, Location);
+                var payloadGood = PostInventoryWorksheetPayload.PostInventoryWorksheet(Data, Location, Subsidiary);
 
                 var jsonStringGood = JsonSerializer.Serialize(payloadGood, JsonSerializerOption);
 

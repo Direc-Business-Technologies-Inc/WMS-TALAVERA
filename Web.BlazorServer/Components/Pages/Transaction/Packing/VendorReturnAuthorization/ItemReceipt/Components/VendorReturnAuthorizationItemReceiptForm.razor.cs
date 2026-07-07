@@ -12,6 +12,8 @@ public partial class VendorReturnAuthorizationItemReceiptForm
     [Parameter] public EventCallback<VendorReturnAuthorizationItemReceiptPackingVM> OnValidSubmit { get; set; }
     [Inject] NavigationManager NavManager { get; set; } = default!;
 
+    List<VendorReturnAuthorizationItemReceiptLinePackingVM> FulfillableLines => [.. Data.Lines.Where(line => !line.IsComplete)];
+
     public void Submit()
     {
         if (OnValidSubmit.HasDelegate && EditContext is not null && EditContext.Validate())

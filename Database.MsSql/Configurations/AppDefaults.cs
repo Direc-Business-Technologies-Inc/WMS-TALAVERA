@@ -76,18 +76,18 @@ internal static class AppDefaults
             root: false,
             navRouteId: WebStructure.SubRouteList2.First(x => x.Name.Equals("Sales Return")).Id,
             permissions: [AppDefaults.NewPermission("VIEW"), AppDefaults.NewPermission("CREATE"), AppDefaults.NewPermission("UPDATE")]),
-        ModuleDEM.Create(
-            name: "Goods Issue",
-            code: "OGIS",
-            root: false,
-            navRouteId: WebStructure.SubRouteList2.First(x => x.Name.Equals("Goods Issue")).Id,
-            permissions: [AppDefaults.NewPermission("VIEW"), AppDefaults.NewPermission("CREATE"), AppDefaults.NewPermission("UPDATE")]),
-        ModuleDEM.Create(
-            name: "Goods Receipt",
-            code: "OGRC",
-            root: false,
-            navRouteId: WebStructure.SubRouteList2.First(x => x.Name.Equals("Goods Receipt")).Id,
-            permissions: [AppDefaults.NewPermission("VIEW"), AppDefaults.NewPermission("CREATE"), AppDefaults.NewPermission("UPDATE")]),
+        // ModuleDEM.Create(
+        //     name: "Goods Issue",
+        //     code: "OGIS",
+        //     root: false,
+        //     navRouteId: WebStructure.SubRouteList2.First(x => x.Name.Equals("Goods Issue")).Id,
+        //     permissions: [AppDefaults.NewPermission("VIEW"), AppDefaults.NewPermission("CREATE"), AppDefaults.NewPermission("UPDATE")]),
+        // ModuleDEM.Create(
+        //     name: "Goods Receipt",
+        //     code: "OGRC",
+        //     root: false,
+        //     navRouteId: WebStructure.SubRouteList2.First(x => x.Name.Equals("Goods Receipt")).Id,
+        //     permissions: [AppDefaults.NewPermission("VIEW"), AppDefaults.NewPermission("CREATE"), AppDefaults.NewPermission("UPDATE")]),
         ModuleDEM.Create(
             name: "Inventory Adjustment",
             code: "OIAJ",
@@ -111,6 +111,12 @@ internal static class AppDefaults
             code: "OICT",
             root: false,
             navRouteId: WebStructure.SubRouteList2.First(x => x.Name.Equals("Inventory Counting")).Id,
+            permissions: [AppDefaults.NewPermission("VIEW"), AppDefaults.NewPermission("CREATE"), AppDefaults.NewPermission("UPDATE")]),
+        ModuleDEM.Create(
+            name: "Inventory Worksheet",
+            code: "OICT",
+            root: false,
+            navRouteId: WebStructure.SubRouteList2.First(x => x.Name.Equals("Inventory Worksheet")).Id,
             permissions: [AppDefaults.NewPermission("VIEW"), AppDefaults.NewPermission("CREATE"), AppDefaults.NewPermission("UPDATE")]),
         ModuleDEM.Create(
             name: "Packing",

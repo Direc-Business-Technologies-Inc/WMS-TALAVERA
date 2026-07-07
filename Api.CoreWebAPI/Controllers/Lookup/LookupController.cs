@@ -33,6 +33,14 @@ public class LookupController(ISender Sender) : ControllerBase
         return ApiResult<IEnumerable<LocationVM>>.Succeeded(ret);
     }
 
+    [HttpPost("Susidiary/Locations")]
+    public async Task<ApiResult<IEnumerable<LocationVM>>> GetSubsidiaryLocations(RequestPerSubsidiaryDTO req)
+    {
+        var result = await Sender.Send(new GetSubsidiariesLocationQry(req));
+        var ret = result.Adapt<List<LocationVM>>();
+        return ApiResult<IEnumerable<LocationVM>>.Succeeded(ret);
+    }
+
     [HttpGet("Helpers")]
     public async Task<ApiResult<IEnumerable<HelperVM>>> GetHelpers()
     {

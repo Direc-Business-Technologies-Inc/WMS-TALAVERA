@@ -40,15 +40,10 @@
                         <RadzenTextBox Value="@Data.Department" ReadOnly />
                     </RadzenFormField>
                 </RadzenColumn>
-                <RadzenColumn SizeMD="6">
-                    <RadzenFormField AllowFloatingLabel="false" Text="Vendor" class="rz-w-100">
-                        <RadzenTextBox ReadOnly Value="@Data.Vendor" />
-                    </RadzenFormField>
-                </RadzenColumn>
             </RadzenRow>
         </RadzenFieldset>
         <RadzenFieldset AllowCollapse Text="Lines">
-            <AppTableWithSettings Data="@Data.Lines" Id="packing_item_receipt_lines">
+            <AppTableWithSettings Data="@FulfillableLines" Id="packing_item_receipt_lines">
                 <Columns>
                     <RadzenDataGridColumn TItem="ItemReceiptLinePackingVM" Width="30px">
                         <Template Context="data">
@@ -58,16 +53,10 @@
                     <RadzenDataGridColumn TItem="ItemReceiptLinePackingVM" Property="@nameof(ItemReceiptLinePackingVM.ItemCode)" Title="Item Code" />
                     <RadzenDataGridColumn TItem="ItemReceiptLinePackingVM" Property="@nameof(ItemReceiptLinePackingVM.ItemDescription)" Title="Item Description" />
                     <RadzenDataGridColumn TItem="ItemReceiptLinePackingVM" Property="@nameof(ItemReceiptLinePackingVM.UoM)" Title="UoM" />
-                    <RadzenDataGridColumn TItem="ItemReceiptLinePackingVM" Property="@nameof(ItemReceiptLinePackingVM.Department)" Title="Department" />
                     <RadzenDataGridColumn TItem="ItemReceiptLinePackingVM" Property="@nameof(ItemReceiptLinePackingVM.Location)" Title="Warehouse" />
-                    <RadzenDataGridColumn TItem="ItemReceiptLinePackingVM" Property="@nameof(ItemReceiptLinePackingVM.WeightActual)" Title="Actual Weight">
-                        <Template Context="data">
-                            <RadzenNumeric Min="0" @bind-Value="data.WeightActual" ShowUpDown="false" Disabled="@(!data.IsReceived)" />
-                        </Template>
-                    </RadzenDataGridColumn>
-                    <RadzenDataGridColumn TItem="ItemReceiptLinePackingVM" Property="@nameof(ItemReceiptLinePackingVM.WeightRecord)" Title="Record Weight" FormatString="{0:#,##0.##}" />
-                    <RadzenDataGridColumn TItem="ItemReceiptLinePackingVM" Property="@nameof(ItemReceiptLinePackingVM.QuantityPlanned)" Title="Planned Quantity" FormatString="{0:#,##0.##}" />
-                    <RadzenDataGridColumn TItem="ItemReceiptLinePackingVM" Property="@nameof(ItemReceiptLinePackingVM.QuantityReceived)" Title="Received Quantity" FormatString="{0:#,##0.##}" />
+                    <RadzenDataGridColumn TItem="ItemReceiptLinePackingVM" Property="@nameof(ItemReceiptLinePackingVM.QuantityPlanned)" Title="Planned Quantity" />
+                    <RadzenDataGridColumn TItem="ItemReceiptLinePackingVM" Property="@nameof(ItemReceiptLinePackingVM.QuantityReceived)" Title="Received Quantity" />
+                    <RadzenDataGridColumn TItem="ItemReceiptLinePackingVM" Property="@nameof(ItemReceiptLinePackingVM.QuantityBackOrdered)" Title="Back Ordered Quantity" />
                     <RadzenDataGridColumn TItem="ItemReceiptLinePackingVM" Property="@nameof(ItemReceiptLinePackingVM.QuantityBad)" Title="Quantity">
                         <Template Context="data">
                             <RadzenStack>

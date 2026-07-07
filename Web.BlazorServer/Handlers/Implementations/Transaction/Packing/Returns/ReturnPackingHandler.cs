@@ -9,9 +9,9 @@ namespace Web.BlazorServer.Handlers.Implementations.Transaction.Packing.Returns;
 
 public class ReturnPackingHandler(ISender sender) : IReturnPackingHandler
 {
-    public async Task<(IEnumerable<ReturnsPackingDataGridVM> Data, int Count)> GetReturnsList(DataGridIntent intent)
+    public async Task<(IEnumerable<ReturnsPackingDataGridVM> Data, int Count)> GetReturnsList(DataGridIntent intent, int subsidiaryId)
     {
-        GetPackingReturnListQry query = new(intent);
+        GetPackingReturnListQry query = new(intent, subsidiaryId);
 
         (var data, int count) = await sender.Send(query);
 

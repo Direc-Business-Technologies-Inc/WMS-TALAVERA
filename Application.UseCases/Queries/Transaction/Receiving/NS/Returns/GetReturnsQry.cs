@@ -1,11 +1,12 @@
 ﻿using Application.DataTransferObjects.Others.NS;
+using Application.DataTransferObjects.Transactions.Commons.NS.Request;
 using Application.UseCases.Repositories.Integration.Others;
 using Mapster;
 using MediatR;
 
 namespace Application.UseCases.Queries.Transaction.Receiving.NS.Returns;
 
-public record GetReturnsQry() : IRequest<IEnumerable<OrdersDTO>>;
+public record GetReturnsQry(RequestPerSubsidiaryDTO subsidiary) : IRequest<IEnumerable<OrdersDTO>>;
 
 public class GetGetReturnsQryQryHandler(
     INetSuiteApiClientService netSuiteApiClientService)
@@ -15,7 +16,12 @@ public class GetGetReturnsQryQryHandler(
         GetReturnsQry request,
         CancellationToken cancellationToken)
     {
-        var Data = await netSuiteApiClientService.NetsuiteQuery<OrdersDTO>("NS_TransferOrder_x_Return_Get_PendingReceipt");
+        var parameters = new Dictionary<string, string>
+        {
+            ["subsidiaryid"] = request.subsidiary.NetsuiteUserSubsidiaryInternalId.ToString()
+        };
+
+        var Data = await netSuiteApiClientService.NetsuiteQuery<OrdersDTO>("NS_TransferOrder_x_Return_Get_PendingReceipt", parameters);
         return Data.Adapt<IEnumerable<OrdersDTO>>();
     }
 }

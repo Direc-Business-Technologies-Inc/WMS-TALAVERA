@@ -57,7 +57,7 @@ partial class STRPackingDataGrid
                 });
             }
 
-            return await StrHandler.GetStockTransferRequestsList(intent);
+            return await StrHandler.GetStockTransferRequestsList(intent, CurrentUserService.NsSubsidiaryId);
         }, AppActionOptionPresets.Loading(ActionGetStockTransferRequests));
 
         AppBusyService.SetBusy(ActionGetStockTransferRequests, false);

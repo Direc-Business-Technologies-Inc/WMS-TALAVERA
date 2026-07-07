@@ -13,14 +13,5 @@
 </RadzenStack>
 
 <AppContent>
-    <RadzenTabs @bind-SelectedIndex="@SelectedTab" @bind-SelectedIndex:after="@TabChanged">
-        <Tabs>
-            <RadzenTabsItem Text="Inventory Counting Documents">
-                <InventoryCountingOpenGrid />
-            </RadzenTabsItem>
-            <RadzenTabsItem Text="History">
-                <InventoryCountingHistoryGrid />
-            </RadzenTabsItem>
-        </Tabs>
-    </RadzenTabs>
+    <InventoryCountingOpenGrid />
 </AppContent>

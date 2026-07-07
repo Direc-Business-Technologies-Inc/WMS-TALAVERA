@@ -5,7 +5,7 @@ using Shared.Entities;
 
 namespace Application.UseCases.Queries.Transaction.Packing.STR;
 
-public record GetPackingStockTransferRequestListQry(DataGridIntent Intent)
+public record GetPackingStockTransferRequestListQry(DataGridIntent Intent, int SubsidiaryId)
     : IRequest<(IEnumerable<StockTransferRequestPackingDataGridDTO> Data, int Count)>;
 
 public class GetPackingStockTransferRequestListQryHandler(IStockTransferRequestPackingIntegration integration)
@@ -15,6 +15,6 @@ public class GetPackingStockTransferRequestListQryHandler(IStockTransferRequestP
         GetPackingStockTransferRequestListQry request,
         CancellationToken cancellationToken)
     {
-        return integration.GetPackingStockTransferRequestList(request.Intent);
+        return integration.GetPackingStockTransferRequestList(request.Intent, request.SubsidiaryId);
     }
 }

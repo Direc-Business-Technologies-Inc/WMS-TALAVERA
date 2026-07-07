@@ -21,18 +21,8 @@
                     </RadzenFormField>
                 </RadzenColumn>
                 <RadzenColumn SizeMD="6">
-                    <RadzenFormField AllowFloatingLabel="false" Text="To Subsidiary" class="rz-w-100">
-                        <RadzenTextBox Value="@Data.ToSubsidiary" ReadOnly />
-                    </RadzenFormField>
-                </RadzenColumn>
-                <RadzenColumn SizeMD="6">
                     <RadzenFormField AllowFloatingLabel="false" Text="From Warehouse" class="rz-w-100">
                         <RadzenTextBox Value="@Data.Location" ReadOnly />
-                    </RadzenFormField>
-                </RadzenColumn>
-                <RadzenColumn SizeMD="6">
-                    <RadzenFormField AllowFloatingLabel="false" Text="To Warehouse" class="rz-w-100">
-                        <RadzenTextBox Value="@Data.TransferLocation" ReadOnly />
                     </RadzenFormField>
                 </RadzenColumn>
                 <RadzenColumn SizeMD="6">
@@ -48,7 +38,7 @@
             </RadzenRow>
         </RadzenFieldset>
         <RadzenFieldset AllowCollapse Text="Lines">
-            <AppTableWithSettings Data="@Data.Lines" Id="packing_vendor_return_authorization_item_receipt_lines">
+            <AppTableWithSettings Data="@FulfillableLines" Id="packing_vendor_return_authorization_item_receipt_lines">
                 <Columns>
                     <RadzenDataGridColumn TItem="VendorReturnAuthorizationItemReceiptLinePackingVM" Width="30px">
                         <Template Context="data">
@@ -58,16 +48,9 @@
                     <RadzenDataGridColumn TItem="VendorReturnAuthorizationItemReceiptLinePackingVM" Property="@nameof(VendorReturnAuthorizationItemReceiptLinePackingVM.ItemCode)" Title="Item Code" />
                     <RadzenDataGridColumn TItem="VendorReturnAuthorizationItemReceiptLinePackingVM" Property="@nameof(VendorReturnAuthorizationItemReceiptLinePackingVM.ItemDescription)" Title="Item Description" />
                     <RadzenDataGridColumn TItem="VendorReturnAuthorizationItemReceiptLinePackingVM" Property="@nameof(VendorReturnAuthorizationItemReceiptLinePackingVM.UoM)" Title="UoM" />
-                    <RadzenDataGridColumn TItem="VendorReturnAuthorizationItemReceiptLinePackingVM" Property="@nameof(VendorReturnAuthorizationItemReceiptLinePackingVM.Department)" Title="Department" />
                     <RadzenDataGridColumn TItem="VendorReturnAuthorizationItemReceiptLinePackingVM" Property="@nameof(VendorReturnAuthorizationItemReceiptLinePackingVM.Location)" Title="Warehouse" />
-                    <RadzenDataGridColumn TItem="VendorReturnAuthorizationItemReceiptLinePackingVM" Property="@nameof(VendorReturnAuthorizationItemReceiptLinePackingVM.WeightActual)" Title="Actual Weight" FormatString="{0:#,##0.##}">
-                        <Template Context="data">
-                            <RadzenNumeric Min="0" @bind-Value="data.WeightActual" ShowUpDown="false" Disabled="@(!data.IsReceived)" Format="#,##0.##" />
-                        </Template>
-                    </RadzenDataGridColumn>
-                    <RadzenDataGridColumn TItem="VendorReturnAuthorizationItemReceiptLinePackingVM" Property="@nameof(VendorReturnAuthorizationItemReceiptLinePackingVM.WeightRecord)" Title="Record Weight" FormatString="{0:#,##0.##}" />
-                    <RadzenDataGridColumn TItem="VendorReturnAuthorizationItemReceiptLinePackingVM" Property="@nameof(VendorReturnAuthorizationItemReceiptLinePackingVM.QuantityPlanned)" Title="Planned Quantity" FormatString="{0:#,##0.##}" />
-                    <RadzenDataGridColumn TItem="VendorReturnAuthorizationItemReceiptLinePackingVM" Property="@nameof(VendorReturnAuthorizationItemReceiptLinePackingVM.QuantityReceived)" Title="Received Quantity" FormatString="{0:#,##0.##}" />
+                    <RadzenDataGridColumn TItem="VendorReturnAuthorizationItemReceiptLinePackingVM" Property="@nameof(VendorReturnAuthorizationItemReceiptLinePackingVM.QuantityPlanned)" Title="Planned Quantity" />
+                    <RadzenDataGridColumn TItem="VendorReturnAuthorizationItemReceiptLinePackingVM" Property="@nameof(VendorReturnAuthorizationItemReceiptLinePackingVM.QuantityReceived)" Title="Received Quantity" />
                     <RadzenDataGridColumn TItem="VendorReturnAuthorizationItemReceiptLinePackingVM" Property="@nameof(VendorReturnAuthorizationItemReceiptLinePackingVM.QuantityBad)" Title="Quantity">
                         <Template Context="data">
                             <RadzenStack>
