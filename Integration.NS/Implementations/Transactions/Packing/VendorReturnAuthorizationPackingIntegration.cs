@@ -1,6 +1,8 @@
 using Application.DataTransferObjects.Transactions.Packing.VendorReturnAuthorization;
 using Application.UseCases.Repositories.Integration.Others;
 using Application.UseCases.Repositories.Integration.Transaction.Packing;
+using Database.Libraries.Repositories;
+using Integration.NS.DataTransferObjects.Packing.STR;
 using Integration.NS.DataTransferObjects.Packing.VendorReturnAuthorization;
 using Integration.NS.Helpers;
 using Integration.NS.Services;
@@ -11,9 +13,10 @@ namespace Integration.NS.Implementations.Transactions.Packing;
 
 internal class VendorReturnAuthorizationPackingIntegration(
     INetSuiteApiClientService netsuiteService,
+    ISqlQueryManager sqlQuery,
     SuiteQLQueryBuilderFactoryService builderFactory) : IVendorReturnAuthorizationPackingIntegration
 {
-    public async Task<(IEnumerable<VendorReturnAuthorizationDataGridDTO> Data, int Count)> GetPackingVendorReturnAuthorizationsList(DataGridIntent intent)
+    public async Task<(IEnumerable<VendorReturnAuthorizationDataGridDTO> Data, int Count)> GetPackingVendorReturnAuthorizationsList(DataGridIntent intent, int subsidiaryId)
     {
         var query = builderFactory.Create()
             .Select(
@@ -30,7 +33,9 @@ internal class VendorReturnAuthorizationPackingIntegration(
             .From("transaction t")
             .Join("transactionline tl", on: "tl.transaction = t.id")
             .Join("entity e", on: "t.entity = e.id")
-            .WithFilters(Equal("tl.mainline", "T"))
+            .WithFilters(
+                Equal("tl.mainline", "T"),
+                Equal("t.subsidiary", subsidiaryId))
             .WithFilters(PackingVendorReturnAuthorizationFilters())
             .WithDatagridIntent(intent)
             .Build();
@@ -70,22 +75,23 @@ internal class VendorReturnAuthorizationPackingIntegration(
 
     public async Task<(IEnumerable<VendorReturnAuthorizationLineDTO> Data, int Count)> GetPackingVendorReturnAuthorizationLines(string id, DataGridIntent intent)
     {
+        var mobileLineQuery = sqlQuery.ResolveSuiteQLScript(
+            "NS_VendorReturnAuthorization_Get_Items",
+            new Dictionary<string, string>
+            {
+                ["tranid"] = id
+            });
+
         var query = builderFactory.Create()
             .Select(
-                ("item.itemid", nameof(VendorReturnAuthorizationPackingLineNSDTO.ItemCode)),
-                ("item.displayname", nameof(VendorReturnAuthorizationPackingLineNSDTO.ItemDescription)),
-                ("BUILTIN.DF(tl.units)", nameof(VendorReturnAuthorizationPackingLineNSDTO.UoM)),
-                ("BUILTIN.DF(tl.location)", nameof(VendorReturnAuthorizationPackingLineNSDTO.Warehouse)),
-                ("tl.quantity", nameof(VendorReturnAuthorizationPackingLineNSDTO.QuantityPlanned))
+                ("q.MaterialCode", nameof(VendorReturnAuthorizationPackingLineNSDTO.ItemCode)),
+                ("q.MaterialName", nameof(VendorReturnAuthorizationPackingLineNSDTO.ItemDescription)),
+                ("q.UoMName", nameof(VendorReturnAuthorizationPackingLineNSDTO.UoM)),
+                ("q.LocationName", nameof(VendorReturnAuthorizationPackingLineNSDTO.Warehouse)),
+                ("q.LineQuantity", nameof(VendorReturnAuthorizationPackingLineNSDTO.QuantityPlanned)),
+                ("q.LineQuantityPacked", nameof(VendorReturnAuthorizationPackingLineNSDTO.QuantityReceived))
             )
-            .From("transactionline tl")
-            .Join("transaction t", on: "tl.transaction = t.id")
-            .Join("item", on: "tl.item = item.id")
-            .Join("entity e", on: "t.entity = e.id")
-            .WithFilters(
-                Equal("t.tranid", id),
-                Equal("tl.mainline", "F"))
-            .WithFilters(PackingVendorReturnAuthorizationFilters())
+            .From($"({mobileLineQuery}) q")
             .WithDatagridIntent(intent)
             .Build();
 
@@ -99,7 +105,7 @@ internal class VendorReturnAuthorizationPackingIntegration(
         return
         [
             Equal("t.recordtype", "vendorreturnauthorization"),
-            In("t.status", new string[] { "B" })
+            In("t.status", new string[] { "B", "E" })
         ];
     }
 
@@ -143,7 +149,8 @@ internal class VendorReturnAuthorizationPackingIntegration(
             ItemDescription = nsdto.ItemDescription,
             UoM = nsdto.UoM,
             Warehouse = nsdto.Warehouse,
-            QuantityPlanned = nsdto.QuantityPlanned
+            QuantityPlanned = nsdto.QuantityPlanned,
+            QuantityReceived = nsdto.QuantityReceived,
         };
     }
 }

@@ -7,6 +7,7 @@ using Shared.Libraries.ViewModel.TransferOrder;
 using static Mobile.MAUI.Enums.CustomEnum;
 using static Mobile.MAUI.MauiProgram;
 using AppAction = Mobile.MAUI.Services.AppAction;
+using static Mobile.MAUI.Helpers.FormatHelper;
 
 namespace Mobile.MAUI.Components.Pages.Receiving.TransferOrder;
 
@@ -426,7 +427,7 @@ public partial class TransferOrderItemView : IAsyncDisposable
 
                 ScanCount = x.ScanCount,
                 IsBad = x.IsBad,
-                ScannedQuantity = x.ScannedQuantity,
+                ScannedQuantity = RoundOfNearestHundredThousands(x.ScannedQuantity),
                 ScannedWeight = x.ScannedWeight
             })
             .ToList();

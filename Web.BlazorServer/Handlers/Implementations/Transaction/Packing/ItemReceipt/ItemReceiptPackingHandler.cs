@@ -42,10 +42,11 @@ public class ItemReceiptPackingHandler(ISender sender) : IItemReceiptPackingHand
         var sourceLines = (await sender.Send(new GetTransferOrderLineQry(new TransferOrderLineRequestDTO
         {
             OrderNumber = data.CreatedFrom
-        }))).Where(line => GetOpenQuantity(line.LineQuantity, line.LineQuantityPacked, line.UoMRate) > 0).ToList();
+        }))).ToList();
 
         var submittedLines = data.Lines.ToDictionary(line => line.LineNumber);
         var dto = sourceLines
+            .Where(x => GetRemainingQuantity(x.LineQuantity, x.LineQuantityBackOrdered, x.LineQuantityPacked, x.UoMRate) > 0)
             .SelectMany(line =>
             {
                 submittedLines.TryGetValue(line.LineSequenceNumber, out var submittedLine);
@@ -75,8 +76,9 @@ public class ItemReceiptPackingHandler(ISender sender) : IItemReceiptPackingHand
     private static ItemReceiptLinePackingVM MapToVm(TransferOrderLineDTO dto)
     {
         var quantityPlanned = ConvertQuantity(dto.LineQuantity, dto.UoMRate);
-        var quantityOpen = GetOpenQuantity(dto.LineQuantity, dto.LineQuantityPacked, dto.UoMRate);
+        var quantityOpen = GetRemainingQuantity(dto.LineQuantity, dto.LineQuantityBackOrdered, dto.LineQuantityPacked, dto.UoMRate);
         var quantityPacked = ConvertQuantity(dto.LineQuantityPacked, dto.UoMRate);
+        var quantityBackOrdered = ConvertQuantity(dto.LineQuantityBackOrdered, dto.UoMRate);
 
         return new()
         {
@@ -84,13 +86,13 @@ public class ItemReceiptPackingHandler(ISender sender) : IItemReceiptPackingHand
             IsLocationBinUsed = IsNetSuiteTrue(dto.LocationUsedBin),
             LineNumber = dto.LineSequenceNumber,
             PrefferedBinAssignmentId = dto.NetsuiteMaterialPrefferedBinId,
+            VendorAssignedBinId = dto.NetsuiteMaterialVendorAssignedBin,
             ItemCode = dto.MaterialCode,
             ItemDescription = dto.MaterialName,
             UoM = dto.UoMName,
-            Department = "Operations",
             Location = dto.LocationName,
-            WeightRecord = dto.MaterialWeight * quantityOpen,
             QuantityPlanned = quantityPlanned,
+            QuantityBackOrdered = quantityBackOrdered,
             QuantityOpen = quantityOpen,
             QuantityReceived = quantityPacked
         };
@@ -104,7 +106,7 @@ public class ItemReceiptPackingHandler(ISender sender) : IItemReceiptPackingHand
 
         var quantityPlanned = ConvertQuantity(dto.LineQuantity, dto.UoMRate);
         var quantityPacked = ConvertQuantity(dto.LineQuantityPacked, dto.UoMRate);
-        var quantityOpen = GetOpenQuantity(dto.LineQuantity, dto.LineQuantityPacked, dto.UoMRate);
+        var quantityOpen = GetRemainingQuantity(dto.LineQuantity, dto.LineQuantityBackOrdered, dto.LineQuantityPacked, dto.UoMRate);
 
         return new()
         {
@@ -134,6 +136,7 @@ public class ItemReceiptPackingHandler(ISender sender) : IItemReceiptPackingHand
             NetsuiteMaterialVendorAssignedBin = dto.NetsuiteMaterialVendorAssignedBin,
             LineQuantity = dto.LineQuantity,
             LineQuantityPacked = dto.LineQuantityPacked,
+            LineQuantityBackOrdered = dto.LineQuantityBackOrdered,
             NetsuiteUoMInternalId = dto.NetsuiteUoMInternalId,
             UoMName = dto.UoMName,
             UoMRate = dto.UoMRate,
@@ -143,7 +146,7 @@ public class ItemReceiptPackingHandler(ISender sender) : IItemReceiptPackingHand
             NSLineQuantityShipped = quantityPacked,
             ScanCount = scannedQuantity > 0 ? 1 : 0,
             ScannedQuantity = scannedQuantity,
-            ScannedWeight = submittedLine?.WeightActual ?? 0,
+            ScannedWeight = 0,
             TotalWeight = scannedQuantity * dto.MaterialWeight,
             TotalQuantity = quantityOpen,
             IsBad = isBad,
@@ -155,8 +158,8 @@ public class ItemReceiptPackingHandler(ISender sender) : IItemReceiptPackingHand
     private static decimal ConvertQuantity(decimal quantity, decimal uoMRate) =>
         uoMRate == 0 ? quantity : quantity / uoMRate;
 
-    private static decimal GetOpenQuantity(decimal quantity, decimal fulfilledQuantity, decimal uoMRate) =>
-        Math.Max(0, ConvertQuantity(quantity - fulfilledQuantity, uoMRate));
+    private static decimal GetRemainingQuantity(decimal quantity, decimal backOrderedQuantity, decimal fulfilledQuantity, decimal uoMRate) =>
+        Math.Max(0, ConvertQuantity(quantity - (backOrderedQuantity + fulfilledQuantity), uoMRate));
 
     private static bool IsNetSuiteTrue(string value) =>
         value.Equals("T", StringComparison.OrdinalIgnoreCase) ||

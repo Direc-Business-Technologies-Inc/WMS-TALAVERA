@@ -1,6 +1,8 @@
 using Mobile.MAUI.Services;
 using Shared.Libraries.ViewModel;
+using Shared.Libraries.ViewModel.Authentication;
 using Shared.Libraries.ViewModel.TripTicket;
+using System.Text.Json;
 
 namespace Mobile.MAUI.Components.Pages.TripTicket;
 
@@ -10,6 +12,7 @@ public partial class TripTicketDetailsView
     DialogService DialogService { get; set; }
 
     AppAction<List<LocationVM>> ActionGetDestinations;
+    AppAction<List<LocationVM>> ActionGetOriginLocations;
     AppAction<List<DriverVM>> ActionGetDrivers;
     AppAction<List<HelperVM>> ActionGetHelpers;
     AppAction<List<TruckPlateNumberVM>> ActionGetTruckPlateNumbers;
@@ -21,6 +24,8 @@ public partial class TripTicketDetailsView
     List<LocationVM> OriginLocations { get; set; } = [];
 
     public TripTicketVM Model { get; set; } = new();
+
+    int UserSubsidiaryId { get; set; }
 
     protected override async Task OnInitializedAsync()
     {
@@ -41,6 +46,21 @@ public partial class TripTicketDetailsView
                     NetsuiteLocationInternalId = line.NetsuiteLocationInternalId
                 }).ToList() ?? [];
 
+                await InvokeAsync(StateHasChanged);
+            }
+        };
+
+        ActionGetOriginLocations = new AppAction<List<LocationVM>>
+        {
+            Name = "GetOriginLocations",
+            TaskAsync = async () =>
+            {
+                await InvokeAsync(StateHasChanged);
+                var res = await Client.Get<List<LocationVM>>("/Lookup/Susidiary/Locations", new { NetsuiteUserSubsidiaryInternalId = UserSubsidiaryId });
+                return res;
+            },
+            OnSuccess = async (result) =>
+            {
                 OriginLocations = result.Data.Select(line => new LocationVM
                 {
                     LocationName = line.LocationName,
@@ -104,6 +124,14 @@ public partial class TripTicketDetailsView
     {
         if (firstRender)
         {
+            string? userAuth = await SecureStorage.GetAsync("UserAuth");
+            if (userAuth is not null)
+            {
+                var auth = JsonSerializer.Deserialize<AuthenticationVM>(userAuth);
+
+                UserSubsidiaryId = auth.NetsuiteSubsidiaryInternalId;
+            }
+
             await ActionFactory.ExecuteAppActionAsync(ActionGetDestinations);
             await ActionFactory.ExecuteAppActionAsync(ActionGetDrivers);
             await ActionFactory.ExecuteAppActionAsync(ActionGetHelpers);

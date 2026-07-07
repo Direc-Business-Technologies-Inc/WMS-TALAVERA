@@ -6,6 +6,7 @@ using Shared.Libraries.ViewModel;
 using Shared.Libraries.ViewModel.Returns;
 using static Mobile.MAUI.MauiProgram;
 using AppAction = Mobile.MAUI.Services.AppAction;
+using static Mobile.MAUI.Helpers.FormatHelper;
 
 namespace Mobile.MAUI.Components.Pages.Receiving.Returns;
 
@@ -360,7 +361,7 @@ public partial class ReturnsItemView : IAsyncDisposable
 
                 ScanCount = x.ScanCount,
                 IsBad = x.IsBad,
-                ScannedQuantity = x.ScannedQuantity,
+                ScannedQuantity = RoundOfNearestHundredThousands(x.ScannedQuantity),
                 ScannedWeight = x.ScannedWeight
             })
             .ToList();

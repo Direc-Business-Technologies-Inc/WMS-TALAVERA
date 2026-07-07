@@ -50,7 +50,8 @@ public class PostInventoryWorksheetPayload
 
     public static PostInventoryWorksheetPayload PostInventoryWorksheet(
     List<InventoryWorksheetLineDTO> icItems,
-    int location)
+    int location,
+    int subsidiary)
     {
         var lines = icItems
             .Where(x => x.GoodScannedQuantity > 0 || x.BadScannedQuantity > 0)
@@ -102,7 +103,7 @@ public class PostInventoryWorksheetPayload
 
         return new PostInventoryWorksheetPayload
         {
-            Subsidiary = 1,
+            Subsidiary = subsidiary,
             Account = 1,
             LastInDay = "T",
             Location = location,

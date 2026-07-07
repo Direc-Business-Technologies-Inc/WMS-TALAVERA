@@ -5,11 +5,27 @@
 @inherits BaseComponent
 <RadzenStack>
     <RadzenStack class="mt-4">
+        <RadzenStack Gap="8px" class="rz-px-2 rz-mb-2">
+            <RadzenTextBox Value="@SearchText"
+                           Placeholder="Search.."
+                           Style="width:100%;"
+                           @oninput="@OnSearchInput" />
+
+            @if (!string.IsNullOrWhiteSpace(SearchText))
+            {
+                <RadzenButton Text="Clear Search"
+                              Icon="close"
+                              ButtonStyle="ButtonStyle.Base"
+                              Size="ButtonSize.Small"
+                              Click="@ClearSearch" />
+            }
+        </RadzenStack>
+
         <Loading IsLoading="@ActionGetTransferOrder.Busy" Text="Loading Transfer Orders..">
             <ChildContent>
                 <RadzenStack>
-                    <EmptyListTemplate ReloadCallback="LoadData" Visible="@(Data.Count == 0)" />
-                    <RadzenDataList Data="@(Data ?? Enumerable.Empty<TransferOrderVM>())"
+                    <EmptyListTemplate ReloadCallback="LoadData" Visible="@(FilteredData.Count == 0)" />
+                    <RadzenDataList Data="@(FilteredData ?? Enumerable.Empty<TransferOrderVM>())"
                                     TItem="TransferOrderVM"
                                     class="trans-list">
                         <Template Context="row">

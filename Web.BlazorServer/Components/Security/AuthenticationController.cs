@@ -64,6 +64,7 @@ public class AuthenticationController(
             new Claim("RoleId", loginResponse.User is null ? Guid.Empty.ToString() : loginResponse.User.Role.Id.ToString()),
             new Claim("Role", loginResponse.User is null ? Guid.Empty.ToString() : loginResponse.User.Role.Name),
             new Claim("Email", loginResponse.User is null ? "user@example.com" : loginResponse.User.Email.Address),
+            new Claim("NsSubsidiaryId", loginResponse.User?.EmployeeNs?.NsSubsidiaryId.ToString() ?? "0"),
             new Claim("Permissions", permissionString)
         ];
 

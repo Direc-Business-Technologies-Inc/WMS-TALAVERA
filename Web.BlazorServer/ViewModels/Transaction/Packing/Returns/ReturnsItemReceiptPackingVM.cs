@@ -13,7 +13,7 @@ public class ReturnsItemReceiptPackingVM
 
     public string CreatedFrom { get; set; } = string.Empty;
     public string Department { get; set; } = string.Empty;
-    public string Vendor { get; set; } = string.Empty;
+    public string TransferCategory { get; set; } = string.Empty;
     public string ReceivedBy { get; set; } = string.Empty;
     public string Location { get; set; } = string.Empty;
     public string TransferLocation { get; set; } = string.Empty;

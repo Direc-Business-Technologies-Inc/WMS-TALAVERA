@@ -9,9 +9,9 @@ namespace Web.BlazorServer.Handlers.Implementations.Transaction.Packing.VendorRe
 
 public class VendorReturnAuthorizationPackingHandler(ISender sender) : IVendorReturnAuthorizationPackingHandler
 {
-    public async Task<(IEnumerable<VendorReturnAuthorizationPackingDataGridVM> Data, int Count)> GetVendorReturnAuthorizationsList(DataGridIntent intent)
+    public async Task<(IEnumerable<VendorReturnAuthorizationPackingDataGridVM> Data, int Count)> GetVendorReturnAuthorizationsList(DataGridIntent intent, int subsidiaryId)
     {
-        GetPackingVendorReturnAuthorizationListQry query = new(intent);
+        GetPackingVendorReturnAuthorizationListQry query = new(intent, subsidiaryId);
 
         (var data, int count) = await sender.Send(query);
 
