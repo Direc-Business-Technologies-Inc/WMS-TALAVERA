@@ -90,7 +90,11 @@
                                 <RadzenNumeric ReadOnly="@ReadOnly" Name="line_details" @bind-Value="@data.QuantityAlloted" class="rz-w-100" Min="0" Max="@(data.QuantityAllotedMax)" />
                             </ChildContent>
                             <End>
-                                <RadzenButton Visible="@(!ReadOnly)" Icon="inventory" ButtonStyle="@(data.IsAllAssignedToBins ? ButtonStyle.Success : ButtonStyle.Warning)" Size="ButtonSize.ExtraSmall" Click="_ => OpenInventoryDetailDialog(data)" />
+                                <RadzenButton Visible="@(!ReadOnly)" 
+                                              Icon="@(data.IsAllAssignedToBins ? "assignment_turned_in" : "assignment_returned")"
+                                              ButtonStyle="@(data.IsAllAssignedToBins ? ButtonStyle.Success : ButtonStyle.Warning)" 
+                                              Size="ButtonSize.ExtraSmall" 
+                                              Click="_ => OpenInventoryDetailDialog(data)" />
                             </End>
                             <Helper>
                                 @if (!ReadOnly)
@@ -179,7 +183,7 @@
 
         List<InventoryDetailVM> items = await DialogService.OpenAsync(
             "Set Inventory Details",
-            ds => @<InventoryDetailsDialog LocationId="@line.Location.Id" Amount="@line.QuantityAlloted" Type="Type"/>,
+            ds => @<InventoryDetailsDialog LocationId="@line.Location.Id" Amount="@line.QuantityAlloted" Type="Type" ItemId="@line.ItemId"/>,
     options: GridSettingsService.GetDialogOptions());
 
         if (items is not null)
