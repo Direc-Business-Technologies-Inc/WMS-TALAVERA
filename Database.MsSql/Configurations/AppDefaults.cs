@@ -102,7 +102,7 @@ internal static class AppDefaults
             permissions: [AppDefaults.NewPermission("VIEW"), AppDefaults.NewPermission("CREATE"), AppDefaults.NewPermission("UPDATE")]),
         ModuleDEM.Create(
             name: "Inventory Worksheet",
-            code: "OICT",
+            code: "OIWK",
             root: false,
             navRouteId: WebStructure.SubRouteList2.First(x => x.Name.Equals("Inventory Worksheet")).Id,
             permissions: [AppDefaults.NewPermission("VIEW"), AppDefaults.NewPermission("CREATE"), AppDefaults.NewPermission("UPDATE")]),
@@ -183,7 +183,7 @@ internal static class AppDefaults
         return role.Code switch
         {
             "SYS_ADMIN" => [.. ModuleList],
-            "WHS_STAFF" => [.. ModuleList.Where(m => m.Code is "ODSB" or "ORCV" or "OGRN" or "ODLV" or "OSRN" or "OGIS" or "OGRC" or "OITR" or "OICT" or "OPCK" or "OTTX")],
+            "WHS_STAFF" => [.. ModuleList.Where(m => m.Code is "ODSB" or "ORCV" or "OGRN" or "ODLV" or "OSRN" or "OGIS" or "OGRC" or "OITR" or "OICT" or "OIWK" or "OPCK" or "OTTX")],
             "FINANCE" => [.. ModuleList.Where(m => m.Code is "ODSB" or "ORCV" or "OGRN" or "ODLV" or "OSRN" or "OGIS" or "OGRC")],
             _ => []
         };

@@ -25,11 +25,7 @@
         <RadzenDataGridColumn TItem="InventoryCountingVM"
                               Property="@nameof(InventoryCountingVM.OrderNumber)"
                               Title="Document"
-                              Type="@typeof(string)">
-            <Template>
-                @($"IC-{context.OrderNumber}")
-            </Template>
-        </RadzenDataGridColumn>
+                              Type="@typeof(string)" />
         <RadzenDataGridColumn TItem="InventoryCountingVM"
                               Property="@nameof(InventoryCountingVM.OrderStatus)"
                               Title="Status">
