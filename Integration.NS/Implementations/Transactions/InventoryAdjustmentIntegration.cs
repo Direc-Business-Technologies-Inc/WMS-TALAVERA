@@ -210,6 +210,14 @@ public class InventoryAdjustmentIntegration(
 
     private string CreateIAPayload(InventoryAdjustmentDTO dto)
     {
+        var issueLinesCount = dto.Lines.Count(x => x.QuantityAlloted < 0);
+        var receiptLinesCount = dto.Lines.Count(x => x.QuantityAlloted > 0);
+        if (issueLinesCount > 0 && receiptLinesCount > 0)
+            throw new Exception("WMS does not allow goods issue lines and goods receipt lines in the same document");
+        int category = issueLinesCount > 0
+            ? 1 : // issue category
+            2; // receipt category
+
         var anon = new
         {
             account = new { id = dto.Account!.Id },
@@ -219,7 +227,7 @@ public class InventoryAdjustmentIntegration(
             department = new { id = 4 },
             custbody_atlas_inv_adj_reason = dto.Reason?.Id ?? null,
             custbody_dbti_prepared_by = dto.PreparedById,
-            custbody_dbti_adjustment_category = dto.Category?.Id,
+            custbody_dbti_adjustment_category = category,
             Class = 1,
             inventory = new
             {

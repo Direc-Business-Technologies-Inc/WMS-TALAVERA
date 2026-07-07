@@ -32,12 +32,7 @@
             </RadzenColumn>
             <RadzenColumn>
                 <RadzenFormField Text="Adjustment Category" class="rz-w-100">
-                    <ChildContent>
-                        <QuickVirtualizedDropdown Name="ia_category_dropdown" TItem="InventoryAdjustmentCategoryVM" @bind-Value="@Model.Category" DataGetter="CategoriesProvider" TextProperty="@nameof(InventoryAdjustmentCategoryVM.Name)" AllowFiltering AllowClear />
-                    </ChildContent>
-                    <Helper>
-                        <RadzenRequiredValidator Component="ia_category_dropdown" />
-                    </Helper>
+                    <RadzenTextBox ReadOnly Value="@Model.Category?.Name" Placeholder="Category not provided" />
                 </RadzenFormField>
             </RadzenColumn>
             <RadzenColumn SizeMD="4">
