@@ -31,8 +31,6 @@ public partial class ITRForm
     QuickVirtualizedDropdown<LocationVM> DestinationLocationDropdown { get; set; } = default!;
     QuickVirtualizedDropdown<SubsidiaryVM> SubsidiaryDropdown { get; set; } = default!;
 
-    Task<LocationVM?>? ParentLocationTask = null;
-
     readonly List<AppFilterDescriptor> ItemFilters = [
         DataGridFilterUtilities.GreaterThan("QuantityOnHand", 0)
     ];
@@ -43,8 +41,7 @@ public partial class ITRForm
     }
     async Task<(IEnumerable<SubsidiaryVM>, int)> SubsidiaryProvider(DataGridIntent intent)
     {
-        if (Model.Customer is null) return ([], 0);
-        return await subsidiaryHandler.GetSubsidiariesByCustomerAsync(intent, Model.Customer.Id);
+        return await subsidiaryHandler.GetSubsidiariesAsync(intent);
     }
     async Task<(IEnumerable<LocationVM>, int)> SourceLocationProvider(DataGridIntent intent)
     {
@@ -54,16 +51,13 @@ public partial class ITRForm
     }
     async Task<(IEnumerable<LocationVM>, int)> DestinationLocationProvider(DataGridIntent intent)
     {
-        if (Model.SourceLocation is null || ParentLocationTask is null) return ([], 0);
+        if (Model.Subsidiary is null) return ([], 0);
 
-        LocationVM? parent = await ParentLocationTask;
-        if (parent is null) return ([], 0);
-
-        return await locationHandler.GetSublocationsOfLocationAsync(intent, parent.Id);
+        return await locationHandler.GetLocationsBySubsidiaryAsync(intent, Model.Subsidiary.Id);
     }
     async Task<(IEnumerable<ItemUnitVM>, int)> ItemUnitProvider(DataGridIntent intent, int itemId)
     {
-        return await itemsHandler.GetItemUnits(itemId,intent);
+        return await itemsHandler.GetItemUnits(itemId, intent);
     }
 
     async Task AddItems(List<ItemsVM> items)
@@ -94,24 +88,6 @@ public partial class ITRForm
     {
         if (OnSubmit.HasDelegate) await OnSubmit.InvokeAsync(Model);
     }
-
-    async Task CustomerSet(CustomerVM? value)
-    {
-        var oldValue = Model.Customer;
-        Model.Customer = value;
-
-        if (Model.Lines.Count > 0)
-        {
-            var response = await AlertService.PromptAsync("Changing customers will clear added items", "Change Customers?");
-            await Task.Yield();
-            Model.Customer = oldValue;
-            if (!response) return;
-        }
-
-        Model.Lines.Clear();
-        await SubsidiarySet(null);
-        SubsidiaryDropdown.Reset();
-    }
     async Task SubsidiarySet(SubsidiaryVM? value)
     {
         var oldValue = Model.Subsidiary;
@@ -125,8 +101,12 @@ public partial class ITRForm
         }
 
         Model.Lines.Clear();
-        Model.SourceLocation = null;
-        Model.DestinationLocation = null;
+
+        await Task.WhenAll(
+            LocationSet(null),
+            DestinationLocationSet(null)
+        );
+
 
         SourceLocationDropdown.Reset();
         DestinationLocationDropdown.Reset();
@@ -142,17 +122,42 @@ public partial class ITRForm
         if (Model.Lines.Count > 0)
         {
             var response = await AlertService.PromptAsync("Changing source location will clear added items", "Change Source Location?");
+            if (!response)
+            {
+                await Task.Yield();
+                Model.SourceLocation = oldValue;
+                return;
+            }
+        }
+
+        if (_areEqual(Model.DestinationLocation, value))
+        {
+            ToastService.Error("Destination warehouse cannot be the same as the source warehouse");
             await Task.Yield();
             Model.SourceLocation = oldValue;
-            if (!response) return;
+            return;
         }
-        Model.Lines.Clear();
-        Model.DestinationLocation = null;
 
-        ParentLocationTask = value is null ? null : locationHandler.GetParentLocation(value);
-        DestinationLocationDropdown.Reset();
+        Model.Lines.Clear();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    async Task DestinationLocationSet(LocationVM? value)
+    {
+        var oldValue = Model.DestinationLocation;
+        Model.DestinationLocation = value;
+
+        if (_areEqual(Model.SourceLocation, value))
+        {
+            ToastService.Error("Destination warehouse cannot be the same as the source warehouse");
+            await Task.Yield();
+            Model.DestinationLocation = oldValue;
+            return;
+        }
 
         await InvokeAsync(StateHasChanged);
     }
 
+
+    bool _areEqual(LocationVM? a, LocationVM? b) => (a is null || b is null) ? false : a?.Id == b?.Id;
 }
