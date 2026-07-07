@@ -43,6 +43,8 @@ using Web.BlazorServer.Handlers.Repositories.Transaction.Receiving;
 using Web.BlazorServer.Handlers.Repositories.Transaction.SalesReturn;
 using Web.BlazorServer.Handlers.Repositories.Transaction.StockTransferRequest;
 using Web.BlazorServer.Handlers.Repositories.Transaction.SupplierReturn;
+using Web.BlazorServer.Handlers.Repositories.Administration.Settings;
+using Web.BlazorServer.Handlers.Implementations.Administration.Settings;
 
 namespace Web.BlazorServer.Handlers;
 
@@ -86,6 +88,7 @@ public static class BlazorServerHandlersDI
         services.TryAddTransient<ICustomerHandler, CustomerHandler>();
         services.TryAddTransient<IInventoryTransferRequestHandler, InventoryTransferRequestHandler>();
         services.TryAddTransient<IInventoryHandler, InventoryHandler>();
+        services.TryAddTransient<ISettingsHandler, SettingsHandler>();
 
         if (environment.IsDevelopment())
         {

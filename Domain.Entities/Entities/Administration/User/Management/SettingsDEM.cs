@@ -21,6 +21,12 @@ public class SettingsDEM
         Decimal
     }
 
+    public void SetValue(string value)
+    {
+        value = CheckType(Type, value);
+        Value = value;
+    }
+
     private SettingsDEM()
     {
 
