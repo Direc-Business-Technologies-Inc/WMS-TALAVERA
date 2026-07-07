@@ -124,13 +124,10 @@ public class InventoryTransferRequestIntegration(
                 ("s.id", nameof(InventoryTransferRequestStatusDTO.Id)),
                 ("s.name", nameof(InventoryTransferRequestStatusDTO.Name))
             )
-            .From("CustomTransactionType ct")
-            .Join("transactionstatus s", "s.trantype = 'CuTrSale' AND s.trancustomtype = ct.id")
+            .From("CUSTOMLIST_DBTI_CR_APPROVAL_STATUSES s")
             .WithDatagridIntent(intent)
-            .WithFilter(
-               DataGridFilterUtilities.Equal("ct.scriptid", "customsale_dbti_inv_transfer_req")
-            )
             .Build();
+
         var response = await netsuiteService.ExecuteSuiteQLQuery<InventoryTransferRequestStatusDTO>(query.Query, query.Limit, query.Offset);
         return (response.items, response.totalResults);
     }
