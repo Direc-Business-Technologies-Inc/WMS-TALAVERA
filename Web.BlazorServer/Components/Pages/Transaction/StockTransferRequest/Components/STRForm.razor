@@ -179,13 +179,14 @@
                     <RadzenDataGridColumn TItem="StockTransferRequestLineVM"
                                           Property="@nameof(StockTransferRequestLineVM.QuantityOnHand)"
                                           Type="@typeof(decimal)"
+                                          FormatString="{0:#,##0.##}"
                                           Title="On hand Quantity" />
                     <RadzenDataGridColumn TItem="StockTransferRequestLineVM"
                                           Type="@typeof(decimal)"
                                           Property="@nameof(StockTransferRequestLineVM.QuantityAlloted)"
                                           Title="Alloted Quantity">
                         <Template Context="data">
-                            <RadzenNumeric Max="@(data.QuantityOnHand / (data.UoM?.ConversionRate ?? 1))" Min="0" @bind-Value="@data.QuantityAlloted" ReadOnly="@ReadOnly" class="rz-w-100" ShowUpDown="@(!ReadOnly)" />
+                            <RadzenNumeric Max="@(data.QuantityOnHand / (data.UoM?.ConversionRate ?? 1))" Min="0" @bind-Value="@data.QuantityAlloted" ReadOnly="@ReadOnly" class="rz-w-100" ShowUpDown="@(!ReadOnly)" Format="#,##0.##" />
                         </Template>
                     </RadzenDataGridColumn>
                     @if (!ReadOnly)

@@ -76,13 +76,13 @@
                         <QuickVirtualizedDropdown Visible="@(!ReadOnly)" ActionName="@ActionGetItemUnits" TItem="ItemUnitVM" @bind-Value="@data.UoM" DataGetter="@(intent => UnitsProvider(data.ItemId, intent))" TextProperty="@nameof(ItemUnitVM.Name)" />
                     </Template>
                 </RadzenDataGridColumn>
-                <RadzenDataGridColumn Visible="@ReadOnly" TItem="InventoryAdjustmentLineVM" Property="@nameof(InventoryAdjustmentLineVM.QuantityOld)" Title="On hand Quantity" />
-                <RadzenDataGridColumn Visible="@(!ReadOnly)" TItem="InventoryAdjustmentLineVM" Property="@nameof(InventoryAdjustmentLineVM.QuantityOnHand)" Title="On hand Quantity" />
+                <RadzenDataGridColumn Visible="@ReadOnly" TItem="InventoryAdjustmentLineVM" Type="typeof(decimal)" Property="@nameof(InventoryAdjustmentLineVM.QuantityOld)" Title="On hand Quantity" FormatString="{0:#,##0.##}"/>
+                <RadzenDataGridColumn Visible="@(!ReadOnly)" TItem="InventoryAdjustmentLineVM" Type="typeof(decimal)" Property="@nameof(InventoryAdjustmentLineVM.QuantityOnHand)" Title="On hand Quantity" FormatString="{0:#,##0.##}" />
                 <RadzenDataGridColumn TItem="InventoryAdjustmentLineVM" Property="@nameof(InventoryAdjustmentLineVM.QuantityAlloted)" Title="Alloted Quantity">
                     <Template Context="data">
                         <RadzenFormField Text="@(data.Type == InventoryAdjustmentLineVM.Types.Issue ? "Issue" : "Receipt")">
                             <ChildContent>
-                                <RadzenNumeric ReadOnly="@ReadOnly" Name="line_details" @bind-Value="@data.QuantityAlloted" class="rz-w-100" Min="0" Max="@(data.QuantityAllotedMax)" />
+                                <RadzenNumeric ReadOnly="@ReadOnly" Name="line_details" @bind-Value="@data.QuantityAlloted" class="rz-w-100" Min="0" Max="@(data.QuantityAllotedMax)" Format="#,##0.##" />
                             </ChildContent>
                             <End>
                                 <RadzenButton Visible="@(!ReadOnly)" 

@@ -117,7 +117,7 @@
                     <RadzenDataGridColumn TItem="SupplierReturnLineVM" Title="Alloted Quantity">
                         <Template Context="data">
                             <RadzenText Visible="@(!IsEditable)" TextStyle="TextStyle.Body2" Text="@data.QuantityAlloted.ToString()" />
-                            <RadzenNumeric Visible="@(IsEditable)" @bind-Value="@data.QuantityAlloted" />
+                            <RadzenNumeric Visible="@(IsEditable)" @bind-Value="@data.QuantityAlloted" Format="#,##0.##" />
                         </Template>
                     </RadzenDataGridColumn>
                 </Columns>

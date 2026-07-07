@@ -65,9 +65,9 @@
                             <RadzenNumeric Min="0" @bind-Value="data.WeightActual" ShowUpDown="false" Disabled="@(!data.IsReceived)" />
                         </Template>
                     </RadzenDataGridColumn>
-                    <RadzenDataGridColumn TItem="ReturnsItemReceiptLinePackingVM" Property="@nameof(ReturnsItemReceiptLinePackingVM.WeightRecord)" Title="Record Weight" />
-                    <RadzenDataGridColumn TItem="ReturnsItemReceiptLinePackingVM" Property="@nameof(ReturnsItemReceiptLinePackingVM.QuantityPlanned)" Title="Planned Quantity" />
-                    <RadzenDataGridColumn TItem="ReturnsItemReceiptLinePackingVM" Property="@nameof(ReturnsItemReceiptLinePackingVM.QuantityReceived)" Title="Received Quantity" />
+                    <RadzenDataGridColumn TItem="ReturnsItemReceiptLinePackingVM" Property="@nameof(ReturnsItemReceiptLinePackingVM.WeightRecord)" Title="Record Weight" FormatString="{0:#,##0.##}" />
+                    <RadzenDataGridColumn TItem="ReturnsItemReceiptLinePackingVM" Property="@nameof(ReturnsItemReceiptLinePackingVM.QuantityPlanned)" Title="Planned Quantity" FormatString="{0:#,##0.##}" />
+                    <RadzenDataGridColumn TItem="ReturnsItemReceiptLinePackingVM" Property="@nameof(ReturnsItemReceiptLinePackingVM.QuantityReceived)" Title="Received Quantity" FormatString="{0:#,##0.##}" />
                     <RadzenDataGridColumn TItem="ReturnsItemReceiptLinePackingVM" Property="@nameof(ReturnsItemReceiptLinePackingVM.QuantityBad)" Title="Quantity">
                         <Template Context="data">
                             <RadzenStack>
@@ -76,7 +76,7 @@
                                         <RadzenText class="@(data.IsReceived ? "rz-color-success" : "rz-color-base-300")" Text="Good" TextStyle="TextStyle.Caption" />
                                     </TextTemplate>
                                     <ChildContent>
-                                        <RadzenNumeric Name="line_quantity_good" @bind-Value="@data.QuantityGood" Disabled="@(!data.IsReceived)" Max="@(data.QuantityOpen - data.QuantityBad)" Min="0" />
+                                        <RadzenNumeric Name="line_quantity_good" @bind-Value="@data.QuantityGood" Disabled="@(!data.IsReceived)" Max="@(data.QuantityOpen - data.QuantityBad)" Min="0" Format="#,##0.##" />
                                     </ChildContent>
                                     <Helper>
                                         <RadzenCustomValidator Component="line_quantity_good" Validator="@(() => data.QuantityOpen >= data.QuantityGood + data.QuantityBad)" Text="Cannot receive more than the open quantity" />
