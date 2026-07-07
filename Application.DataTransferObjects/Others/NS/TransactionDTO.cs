@@ -22,6 +22,7 @@ public class TransactionDTO : InventoryItemDTO
     public decimal LineQuantityPacked { get; set; }
     public decimal LineQuantityBackOrdered { get; set; }
     public decimal LineQuantityShipped { get; set; }
+    public decimal LineQuantityBackOrdered { get; set; }
 
     public int NetsuiteUoMInternalId { get; set; }
     public string UoMName { get; set; } = string.Empty;

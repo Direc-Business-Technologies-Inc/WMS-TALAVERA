@@ -290,20 +290,20 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
                      x.LineSequenceNumber == GoodSelectedLine.LineSequenceNumber));
 
 
-            if (NextScanIsBad)
-            {
+            //if (NextScanIsBad)
+            //{
                 badLine = BadVRAItems.FirstOrDefault(x =>
                     x.NetsuiteMaterialInternalId == barcode.NetsuiteMaterialInternalId &&
                     (GoodSelectedLine == null ||
                      x.LineSequenceNumber == GoodSelectedLine.LineSequenceNumber));
-            }
-            else
-            {
-                badLine = BadVRAItems.FirstOrDefault(x =>
-                    x.NetsuiteMaterialInternalId == barcode.NetsuiteMaterialInternalId &&
-                    (BadSelectedLine == null ||
-                     x.LineSequenceNumber == BadSelectedLine.LineSequenceNumber));
-            }
+            //}
+            //else
+            //{
+            //    badLine = BadVRAItems.FirstOrDefault(x =>
+            //        x.NetsuiteMaterialInternalId == barcode.NetsuiteMaterialInternalId &&
+            //        (BadSelectedLine == null ||
+            //         x.LineSequenceNumber == BadSelectedLine.LineSequenceNumber));
+            //}
 
             if (goodLine is null)
             {
