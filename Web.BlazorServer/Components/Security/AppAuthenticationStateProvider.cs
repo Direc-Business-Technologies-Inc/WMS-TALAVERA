@@ -34,8 +34,10 @@ public class AppAuthenticationStateProvider : AuthenticationStateProvider
 
         var idClaim = user.FindFirst("Id")?.Value;
         var nameClaim = user.FindFirst("Name")?.Value ?? string.Empty;
+        var nsSubsidiaryClaim = user.FindFirst("NsSubsidiaryId")?.Value;
+        int.TryParse(nsSubsidiaryClaim, out var nsSubsidiaryId);
 
         if (Guid.TryParse(idClaim, out var userId))
-            currentUserService.SetUser(userId, nameClaim);
+            currentUserService.SetUser(userId, nameClaim, nsSubsidiaryId);
     }
 }

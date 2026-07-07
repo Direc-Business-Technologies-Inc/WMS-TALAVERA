@@ -5,7 +5,7 @@ using Shared.Entities;
 
 namespace Application.UseCases.Queries.Transaction.Packing.Returns;
 
-public record GetPackingReturnListQry(DataGridIntent Intent)
+public record GetPackingReturnListQry(DataGridIntent Intent, int SubsidiaryId)
     : IRequest<(IEnumerable<ReturnsDataGridDTO> Data, int Count)>;
 
 public class GetPackingReturnListQryHandler(IReturnPackingIntegration integration)
@@ -15,6 +15,6 @@ public class GetPackingReturnListQryHandler(IReturnPackingIntegration integratio
         GetPackingReturnListQry request,
         CancellationToken cancellationToken)
     {
-        return integration.GetPackingReturnsList(request.Intent);
+        return integration.GetPackingReturnsList(request.Intent, request.SubsidiaryId);
     }
 }

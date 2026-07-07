@@ -1,14 +1,13 @@
-using Domain.Entities.Enums.Transaction.InventoryCounting;
 using Microsoft.AspNetCore.Components;
 using Radzen;
 using Shared.Entities;
 using Shared.Kernel;
+using Shared.Libraries.ViewModel.InventoryCounting;
 using Web.BlazorServer.Components.Shared.Abstraction;
 using Web.BlazorServer.Defaults;
 using Web.BlazorServer.Handlers.Repositories.Transaction.InventoryCounting;
 using Web.BlazorServer.Services.Repositories;
 using Web.BlazorServer.ViewModels.Abstraction;
-using Web.BlazorServer.ViewModels.Transaction.InventoryCounting;
 
 namespace Web.BlazorServer.Components.Pages.Transaction.InventoryCounting.Components;
 
@@ -17,7 +16,7 @@ public partial class InventoryCountingOpenGrid
     [Inject] IInventoryCountingHandler InventoryCountingHandler { get; set; } = default!;
     [Inject] IGridSettingsService GridSettingsService { get; set; } = default!;
 
-    AppDataGrid<InventoryCountingDataGridVM> DataGrid { get; set; } = default!;
+    AppDataGrid<InventoryCountingVM> DataGrid { get; set; } = default!;
     DataGridSettings GridSettings { get; set; } = new();
 
     string ActionGetAll { get; } = EnumHelper.GetEnumDescription(AppActions.GetAllInventoryCountingDocuments);
@@ -40,34 +39,19 @@ public partial class InventoryCountingOpenGrid
         await DataGrid.DataGrid.Reload();
     }
 
-    async Task<DataGridResultVM<InventoryCountingDataGridVM>> LoadDataAsync(DataGridIntent intent)
+    async Task<DataGridResultVM<InventoryCountingVM>> LoadDataAsync(DataGridIntent intent)
     {
-        intent.Filters.Add(new AppFilterDescriptor
-        {
-            LogicalOperator = LogicalOperatorEnum.AND,
-            Property = nameof(InventoryCountingDataGridVM.Status),
-            Value = new List<InventoryCountingDocumentStatus>
-            {
-                InventoryCountingDocumentStatus.Open,
-                InventoryCountingDocumentStatus.Recount
-            },
-            ComparisonOperator = ComparisonOperatorEnum.In,
-        });
-
         var action = await AppActionFactory.RunAsync(async () =>
         {
             AppBusyService.SetBusy(ActionGetAll, true);
-            var response = await InventoryCountingHandler.GetInventoryCountingDataGridAsync(intent);
+            var response = await InventoryCountingHandler.GetStartedInventoryCountingAsync(intent, CurrentUserService.NsSubsidiaryId);
             return response;
         }, AppActionOptionPresets.Loading(ActionGetAll));
 
         AppBusyService.SetBusy(ActionGetAll, false);
-        return DataGridResultVM<InventoryCountingDataGridVM>.New(action.Result.Data ?? [], action.Result.Count);
+        return DataGridResultVM<InventoryCountingVM>.New(action.Result.Data ?? [], action.Result.Count);
     }
 
-    void ViewDocument(InventoryCountingDataGridVM doc) =>
-        NavManager.NavigateTo($"/transactions/inventory/inventory-counting/view?Id={doc.Id}", true);
-
-    void CreateDocument() =>
-        NavManager.NavigateTo("/transactions/inventory/inventory-counting/create", true);
+    void ViewDocument(InventoryCountingVM doc) =>
+        NavManager.NavigateTo($"/transactions/inventory/inventory-counting/ns/view?OrderNumber={Uri.EscapeDataString(doc.OrderNumber)}", true);
 }

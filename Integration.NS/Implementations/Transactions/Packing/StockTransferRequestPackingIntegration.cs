@@ -1,6 +1,7 @@
 using Application.DataTransferObjects.Transactions.Packing.STR;
 using Application.UseCases.Repositories.Integration.Others;
 using Application.UseCases.Repositories.Integration.Transaction.Packing;
+using Database.Libraries.Repositories;
 using Integration.NS.DataTransferObjects.Packing.STR;
 using Integration.NS.Helpers;
 using Integration.NS.Services;
@@ -11,9 +12,10 @@ namespace Integration.NS.Implementations.Transactions.Packing;
 
 internal class StockTransferRequestPackingIntegration(
     INetSuiteApiClientService netsuiteService,
+    ISqlQueryManager sqlQuery,
     SuiteQLQueryBuilderFactoryService builderFactory) : IStockTransferRequestPackingIntegration
 {
-    public async Task<(IEnumerable<StockTransferRequestPackingDataGridDTO> Data, int Count)> GetPackingStockTransferRequestList(DataGridIntent intent)
+    public async Task<(IEnumerable<StockTransferRequestPackingDataGridDTO> Data, int Count)> GetPackingStockTransferRequestList(DataGridIntent intent, int subsidiaryId)
     {
         var query = builderFactory.Create()
             .Select(
@@ -30,7 +32,9 @@ internal class StockTransferRequestPackingIntegration(
             .From("transaction t")
             .Join("transactionline tl", on: "tl.transaction = t.id")
             .LeftJoin("transferorderstatus s", on: "s.id = t.status")
-            .WithFilters(Equal("tl.mainline", "T"))
+            .WithFilters(
+                Equal("tl.mainline", "T"),
+                Equal("t.subsidiary", subsidiaryId))
             .WithFilters(PackingStockTransferRequestFilters())
             .WithDatagridIntent(intent)
             .Build();
@@ -69,22 +73,24 @@ internal class StockTransferRequestPackingIntegration(
 
     public async Task<(IEnumerable<StockTransferRequestLinePackingDTO> Data, int Count)> GetPackingStockTransferRequestLines(string id, DataGridIntent intent)
     {
+        var mobileLineQuery = sqlQuery.ResolveSuiteQLScript(
+            "NS_TO_x_Packing_Get_Items",
+            new Dictionary<string, string>
+            {
+                ["tranid"] = id
+            });
+
         var query = builderFactory.Create()
             .Select(
-                ("item.itemid", nameof(StrPackingLineNSDTO.ItemCode)),
-                ("item.displayname", nameof(StrPackingLineNSDTO.ItemDescription)),
-                ("BUILTIN.DF(tl.units)", nameof(StrPackingLineNSDTO.UoM)),
-                ("BUILTIN.DF(tl.location)", nameof(StrPackingLineNSDTO.Warehouse)),
-                ("tl.quantity", nameof(StrPackingLineNSDTO.QuantityPlanned))
+                ("q.MaterialCode", nameof(StrPackingLineNSDTO.ItemCode)),
+                ("q.MaterialName", nameof(StrPackingLineNSDTO.ItemDescription)),
+                ("q.UoMName", nameof(StrPackingLineNSDTO.UoM)),
+                ("q.LocationName", nameof(StrPackingLineNSDTO.Warehouse)),
+                ("q.LineQuantity", nameof(StrPackingLineNSDTO.QuantityPlanned)),
+                ("q.LineQuantityPacked", nameof(StrPackingLineNSDTO.QuantityReceived)),
+                ("q.LineQuantityBackOrdered", nameof(StrPackingLineNSDTO.QuantityBackOrdered))
             )
-            .From("transactionline tl")
-            .Join("transaction t", on: "tl.transaction = t.id")
-            .Join("item", on: "tl.item = item.id")
-            .WithFilters(
-                Equal("t.tranid", id),
-                Equal("tl.transactionlinetype", "SHIPPING"),
-                Equal("tl.mainline", "F"))
-            .WithFilters(PackingStockTransferRequestFilters())
+            .From($"({mobileLineQuery}) q")
             .WithDatagridIntent(intent)
             .Build();
 
@@ -144,7 +150,9 @@ internal class StockTransferRequestPackingIntegration(
             ItemDescription = nsdto.ItemDescription,
             UoM = nsdto.UoM,
             Warehouse = nsdto.Warehouse,
-            QuantityPlanned = nsdto.QuantityPlanned
+            QuantityPlanned = nsdto.QuantityPlanned,
+            QuantityReceived = nsdto.QuantityReceived,
+            QuantityBackOrdered = nsdto.QuantityBackOrdered,
         };
     }
 }

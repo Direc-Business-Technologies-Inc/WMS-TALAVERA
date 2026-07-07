@@ -57,7 +57,7 @@ partial class ReturnsPackingDataGrid
                 });
             }
 
-            return await ReturnsHandler.GetReturnsList(intent);
+            return await ReturnsHandler.GetReturnsList(intent, CurrentUserService.NsSubsidiaryId);
         }, AppActionOptionPresets.Loading(ActionGetReturns));
 
         AppBusyService.SetBusy(ActionGetReturns, false);

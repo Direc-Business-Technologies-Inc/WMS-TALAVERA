@@ -759,17 +759,6 @@ namespace Integration.NS.Services
             var orderId = Data.Select(x => x.NetsuiteOrderInternalId).FirstOrDefault();
             string url = string.Format(PatchInventoryCountUrl, orderId);
 
-            //var badPO = Data.Where(x => x.IsBad).ToList();
-
-            //if (badPO.Any(x => x.ScannedQuantity > 0))
-            //{
-            //    var payloadBad = PurchaseOrderIRPayloadDTO.CreateForItemReceipt(badPO, 2);
-
-            //    var jsonStringBad = JsonSerializer.Serialize(payloadBad, JsonSerializerOption);
-
-            //    await MakeRequest<object>(url, jsonStringBad);
-            //}
-
             var goodIC = Data.Where(x => !x.IsBad).ToList();
 
             if (goodIC.Any())

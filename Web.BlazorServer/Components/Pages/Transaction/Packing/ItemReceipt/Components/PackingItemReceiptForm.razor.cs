@@ -12,6 +12,8 @@ partial class PackingItemReceiptForm
     [Parameter] public EventCallback<ItemReceiptPackingVM> OnValidSubmit { get; set; }
     [Inject] NavigationManager NavManager { get; set; } = default!;
 
+    List<ItemReceiptLinePackingVM> FulfillableLines => [.. Data.Lines.Where(line => !line.IsComplete)];
+
     public void Submit()
     {
         if (OnValidSubmit.HasDelegate && EditContext is not null && EditContext.Validate())

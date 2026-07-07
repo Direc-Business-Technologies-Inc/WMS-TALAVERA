@@ -29,9 +29,7 @@ public class VendorReturnAuthorizationItemReceiptPackingHandler(ISender sender) 
             Vendor = lines.FirstOrDefault()?.VendorName ?? string.Empty,
             ReceivedBy = header.ReceivedBy,
             Location = header.Location,
-            TransferLocation = header.TransferLocation,
             Subsidiary = header.FromSubsidiary,
-            ToSubsidiary = header.ToSubsidiary,
             Date = header.Date,
             SourceInternalId = lines.FirstOrDefault()?.NetsuiteOrderInternalId ?? header.Id,
             Lines = [.. lines.Select(MapToVm)]
@@ -43,10 +41,11 @@ public class VendorReturnAuthorizationItemReceiptPackingHandler(ISender sender) 
         var sourceLines = (await sender.Send(new GetVendorReturnAuthorizationLineQry(new VendorReturnAuthorizationLineRequestDTO
         {
             OrderNumber = data.CreatedFrom
-        }))).Where(line => GetOpenQuantity(line.LineQuantity, line.LineQuantityPacked, line.UoMRate) > 0).ToList();
+        }))).ToList();
 
         var submittedLines = data.Lines.ToDictionary(line => line.LineNumber);
         var dto = sourceLines
+            .Where(x => GetRemainingQuantity(x.LineQuantity, x.LineQuantityBackOrdered, x.LineQuantityPacked, x.UoMRate) > 0)
             .SelectMany(line =>
             {
                 submittedLines.TryGetValue(line.LineSequenceNumber, out var submittedLine);
@@ -76,7 +75,7 @@ public class VendorReturnAuthorizationItemReceiptPackingHandler(ISender sender) 
     private static VendorReturnAuthorizationItemReceiptLinePackingVM MapToVm(VendorReturnAuthorizationLineDTO dto)
     {
         var quantityPlanned = ConvertQuantity(dto.LineQuantity, dto.UoMRate);
-        var quantityOpen = GetOpenQuantity(dto.LineQuantity, dto.LineQuantityPacked, dto.UoMRate);
+        var quantityOpen = GetRemainingQuantity(dto.LineQuantity, dto.LineQuantityBackOrdered, dto.LineQuantityPacked, dto.UoMRate);
         var quantityReceived = ConvertQuantity(dto.LineQuantityReceived, dto.UoMRate);
 
         return new()
@@ -85,12 +84,11 @@ public class VendorReturnAuthorizationItemReceiptPackingHandler(ISender sender) 
             IsLocationBinUsed = IsNetSuiteTrue(dto.LocationUsedBin),
             LineNumber = dto.LineSequenceNumber,
             PrefferedBinAssignmentId = dto.NetsuiteMaterialPrefferedBinId,
+            VendorAssignedBinId = dto.NetsuiteMaterialVendorAssignedBin,
             ItemCode = dto.MaterialCode,
             ItemDescription = dto.MaterialName,
             UoM = dto.UoMName,
-            Department = "Operations",
             Location = dto.LocationName,
-            WeightRecord = dto.MaterialWeight * quantityOpen,
             QuantityPlanned = quantityPlanned,
             QuantityOpen = quantityOpen,
             QuantityReceived = quantityReceived
@@ -105,7 +103,7 @@ public class VendorReturnAuthorizationItemReceiptPackingHandler(ISender sender) 
 
         var quantityPlanned = ConvertQuantity(dto.LineQuantity, dto.UoMRate);
         var quantityReceived = ConvertQuantity(dto.LineQuantityReceived, dto.UoMRate);
-        var quantityOpen = GetOpenQuantity(dto.LineQuantity, dto.LineQuantityPacked, dto.UoMRate);
+        var quantityOpen = GetRemainingQuantity(dto.LineQuantity, dto.LineQuantityBackOrdered, dto.LineQuantityPacked, dto.UoMRate);
 
         return new()
         {
@@ -128,6 +126,7 @@ public class VendorReturnAuthorizationItemReceiptPackingHandler(ISender sender) 
             MaterialName = dto.MaterialName,
             MaterialWeight = dto.MaterialWeight,
             NetsuiteMaterialPrefferedBinId = dto.NetsuiteMaterialPrefferedBinId,
+            NetsuiteMaterialVendorAssignedBin = dto.NetsuiteMaterialVendorAssignedBin,
             LineQuantity = dto.LineQuantity,
             LineQuantityReceived = dto.LineQuantityReceived,
             NetsuiteUoMInternalId = dto.NetsuiteUoMInternalId,
@@ -140,7 +139,7 @@ public class VendorReturnAuthorizationItemReceiptPackingHandler(ISender sender) 
             NSLineQuantityPacked = quantityOpen,
             ScanCount = scannedQuantity > 0 ? 1 : 0,
             ScannedQuantity = scannedQuantity,
-            ScannedWeight = submittedLine?.WeightActual ?? 0,
+            ScannedWeight = 0,
             TotalWeight = scannedQuantity * dto.MaterialWeight,
             IsBad = isBad,
             AlreadyFulfilled = scannedQuantity == quantityOpen
@@ -150,8 +149,8 @@ public class VendorReturnAuthorizationItemReceiptPackingHandler(ISender sender) 
     private static decimal ConvertQuantity(decimal quantity, decimal uoMRate) =>
         uoMRate == 0 ? quantity : quantity / uoMRate;
 
-    private static decimal GetOpenQuantity(decimal quantity, decimal fulfilledQuantity, decimal uoMRate) =>
-        Math.Max(0, ConvertQuantity(quantity - fulfilledQuantity, uoMRate));
+    private static decimal GetRemainingQuantity(decimal quantity, decimal backOrderedQuantity, decimal fulfilledQuantity, decimal uoMRate) =>
+        Math.Max(0, ConvertQuantity(quantity - (backOrderedQuantity + fulfilledQuantity), uoMRate));
 
     private static bool IsNetSuiteTrue(string value) =>
         value.Equals("T", StringComparison.OrdinalIgnoreCase) ||

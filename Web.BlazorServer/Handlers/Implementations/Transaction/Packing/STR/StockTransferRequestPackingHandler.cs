@@ -9,9 +9,9 @@ namespace Web.BlazorServer.Handlers.Implementations.Transaction.Packing.STR;
 
 public class StockTransferRequestPackingHandler(ISender sender) : IStockTransferRequestPackingHandler
 {
-    public async Task<(IEnumerable<StockTransferRequestPackingDataGridVM> Data, int Count)> GetStockTransferRequestsList(DataGridIntent intent)
+    public async Task<(IEnumerable<StockTransferRequestPackingDataGridVM> Data, int Count)> GetStockTransferRequestsList(DataGridIntent intent, int subsidiaryId)
     {
-        GetPackingStockTransferRequestListQry query = new(intent);
+        GetPackingStockTransferRequestListQry query = new(intent, subsidiaryId);
 
         (var data, int count) = await sender.Send(query);
 

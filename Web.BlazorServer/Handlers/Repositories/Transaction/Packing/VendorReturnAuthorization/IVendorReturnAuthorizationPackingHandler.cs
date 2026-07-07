@@ -5,7 +5,7 @@ namespace Web.BlazorServer.Handlers.Repositories.Transaction.Packing.VendorRetur
 
 public interface IVendorReturnAuthorizationPackingHandler
 {
-    Task<(IEnumerable<VendorReturnAuthorizationPackingDataGridVM> Data, int Count)> GetVendorReturnAuthorizationsList(DataGridIntent intent);
+    Task<(IEnumerable<VendorReturnAuthorizationPackingDataGridVM> Data, int Count)> GetVendorReturnAuthorizationsList(DataGridIntent intent, int subsidiaryId);
     Task<VendorReturnAuthorizationInfoPackingVM?> GetPackingVendorReturnAuthorization(string reference);
     Task<(IEnumerable<VendorReturnAuthorizationLinePackingVM> Data, int Count)> GetPackingVendorReturnAuthorizationLines(string reference, DataGridIntent intent);
 }

@@ -28,6 +28,7 @@ SELECT
 
     ABS(tl.quantity) AS LineQuantity,
     tl.quantitypacked AS LineQuantityPacked,
+    tl.quantitybackordered AS LineQuantityBackOrdered,
 
     tl.units AS NetsuiteUoMInternalId,
     uom.unitname AS UoMName,
