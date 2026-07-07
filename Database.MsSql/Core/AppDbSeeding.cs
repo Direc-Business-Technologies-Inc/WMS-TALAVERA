@@ -134,6 +134,14 @@ internal class AppDbSeeding
 
             }
 
+            if (!await AppDbContext.OSTN.AnyAsync(CancellationToken))
+            {
+                foreach (var setting in AppDefaults.Settings)
+                {
+                    await AppDbContext.OSTN.AddAsync(setting, CancellationToken);
+                }
+            }
+
             await AppDbContext.SaveChangesAsync();
             await transaction.CommitAsync(CancellationToken);
 

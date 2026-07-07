@@ -3,6 +3,7 @@ using Domain.Entities.Administration.User.Role;
 using Domain.Entities.System;
 using Domain.ValueObjects.Others;
 using DataCipher;
+using Domain.Entities.Entities.Administration.User.Management;
 
 namespace Database.MsSql.Configurations;
 
@@ -189,6 +190,15 @@ internal static class AppDefaults
                            "APHI")),
     ];
 
+    public static readonly IEnumerable<SettingsDEM> Settings = [
+        SettingsDEM.Create(
+            "wms.max_login_attemts", 
+            "Maximum Failed Login Attempts",
+            "Number of consecutive failed login attempts before the user account is locked. Must be a positive integer. Defaults to 5 if not configured.",
+            SettingsDEM.Types.Integer,
+            "5"
+        )
+    ];
     public static IEnumerable<ModuleDEM> RoleModules(RoleDEM role)
     {
 
