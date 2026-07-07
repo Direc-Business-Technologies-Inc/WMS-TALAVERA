@@ -15,6 +15,8 @@ public partial class InventoryDetailsDialog
     [Parameter][EditorRequired] public int LocationId { get; set; }
     [Parameter][EditorRequired] public decimal Amount { get; set; }
     [Parameter] public Types Type { get; set; } = Types.Outgoing;
+    [Parameter] public int? ItemId { get; set; } = null;
+    [Parameter] public int? StatusId { get; set; } = null;
 
     List<DetailItem> Details = [];
     List<InventoryBalanceVM> InventoryBalance = [];
@@ -54,7 +56,12 @@ public partial class InventoryDetailsDialog
         var action = await AppActionFactory.RunLoadingAsync(async () =>
         {
             var location = await locationHandler.GetLocation(LocationId);
-            (var data, int count) = await inventoryHandler.GetInventoryBalanceAsync(new() { Take = -1 }, locationId: LocationId);
+            (var data, int count) = await inventoryHandler.GetInventoryBalanceAsync(
+                new() { Take = -1 }, 
+                locationId: LocationId,
+                itemId: ItemId,
+                statusId: StatusId 
+            );
 
             InventoryBalance = [.. data];
         }, ActionGetInventoryBalance);
