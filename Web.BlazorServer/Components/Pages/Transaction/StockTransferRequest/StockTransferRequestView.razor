@@ -70,7 +70,7 @@
         {
             res.Adapt(FormData);
             FormData.Category = res.Category;
-            ActionURI = res.Status?.Id.Equals("C", StringComparison.OrdinalIgnoreCase) ?? false ?
+            ActionURI = res.IsEditable ?
                 STRRoutes.Update + $"?ref={Ref}" :
                 null;
             await InvokeAsync(StateHasChanged);

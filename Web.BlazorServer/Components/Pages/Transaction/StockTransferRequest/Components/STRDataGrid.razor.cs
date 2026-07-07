@@ -93,9 +93,6 @@ partial class STRDataGrid
 
     async Task<(IEnumerable<TransferOrderStatusVM>, int count)> TranferOrderStatusProvider(DataGridIntent intent)
     {
-        intent.Filters.Add(
-            DataGridFilterUtilities.In(nameof(TransferOrderStatusVM.Id), new string[] { "C", "A" }
-        ));
         return await strHandler.GetTransferOrderStatuses(intent);
     }
 
