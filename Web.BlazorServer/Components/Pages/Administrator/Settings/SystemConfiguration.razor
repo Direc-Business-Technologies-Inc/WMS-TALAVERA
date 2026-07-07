@@ -1,0 +1,15 @@
+﻿@using Web.BlazorServer.Components.Pages.Administrator.Settings.Components
+@inherits BaseComponent
+@attribute [Route(ROUTE_INDEX)];
+
+
+<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" class="rz-mb-4">
+    <AppBreadCrumbs ModuleCode="OSYS" />
+</RadzenStack>
+
+<AppContent>
+    @foreach (var setting in Settings)
+    {
+        <SettingsCard Setting="setting" />
+    }
+</AppContent>

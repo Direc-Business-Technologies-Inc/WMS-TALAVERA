@@ -6,6 +6,7 @@ using Web.BlazorServer.Components.Pages.Transaction.InventoryTransferRequest;
 using Web.BlazorServer.Components.Pages.Transaction.SupplierReturn;
 using Web.BlazorServer.ViewModels.System;
 using Web.BlazorServer.Components.Pages.Transaction.InventoryCounting;
+using Web.BlazorServer.Components.Pages.Administrator.Settings;
 
 namespace Web.BlazorServer.Helpers;
 
@@ -46,7 +47,7 @@ public class NavRoutesRepository
         NavigationRouteVM user = new() { Name = "User", Icon = "manage_accounts", Protected = false };
         NavigationRouteVM settings = new() { Name = "Settings", Icon = "settings", Protected = false };
 
-        NavigationRouteVM syscon = new() { Name = "System Configuration", Icon = "build_circle", Protected = true, Uri= "/administration/settings/system-configuration" };
+        NavigationRouteVM syscon = new() { Name = "System Configuration", Icon = "build_circle", Protected = true, Uri=SystemConfiguration.ROUTE_INDEX };
 
         NavigationRouteVM uauth = new() { Name = "User Authorization", Icon = "admin_panel_settings", Protected = true, Uri= "/administration/user/authorization-management" };
         NavigationRouteVM uman = new() { Name = "User Management", Icon = "account_circle", Protected = true, Uri= "/administration/user/user-management" };
