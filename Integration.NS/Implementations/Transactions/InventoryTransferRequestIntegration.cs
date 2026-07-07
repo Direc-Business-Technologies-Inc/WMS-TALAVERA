@@ -35,18 +35,14 @@ public class InventoryTransferRequestIntegration(
                 ("t.subsidiary", nameof(InventoryTransferRequestNSDTO.SubsidiaryId)),
                 ("tl.location", nameof(InventoryTransferRequestNSDTO.SourceLocationId)),
                 ("tl.entity", nameof(InventoryTransferRequestNSDTO.CustomerId)),
-                ("BUILTIN.DF(t.custbody_dbti_itr_to_location)", nameof(InventoryTransferRequestNSDTO.DestinationLocationName)),
-                ("t.custbody_dbti_itr_to_location", nameof(InventoryTransferRequestNSDTO.DestinationLocationId)),
-                ("t.status", nameof(InventoryTransferRequestNSDTO.StatusId)),
-                ("s.name", nameof(InventoryTransferRequestNSDTO.StatusName)),
+                ("BUILTIN.DF(t.transferlocation)", nameof(InventoryTransferRequestNSDTO.DestinationLocationName)),
+                ("t.transferlocation", nameof(InventoryTransferRequestNSDTO.DestinationLocationId)),
                 ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(InventoryTransferRequestNSDTO.Date))
             )
             .From("transaction t")
             .Join("transactionline tl", "tl.transaction = t.id AND tl.mainline='T'")
-            .LeftJoin("CustomTransactionType ct", "ct.scriptid = t.recordtype")
-            .LeftJoin("transactionstatus s", "s.trantype = 'CuTrSale' AND t.status = s.id AND s.trancustomtype = ct.id")
             .WithFilters(
-                DataGridFilterUtilities.Equal("t.recordtype", "customsale_dbti_inv_transfer_req"),
+                DataGridFilterUtilities.Equal("t.recordtype", "inventorytransfer"),
                 DataGridFilterUtilities.Equal("t.tranid", Ref)
             )
             .Build();
@@ -60,7 +56,6 @@ public class InventoryTransferRequestIntegration(
             SourceLocation = new() { Id = result.SourceLocationId, Name = result.SourceLocationName },
             DestinationLocation = new() { Id = result.DestinationLocationId, Name = result.DestinationLocationName },
             Subsidiary = new() { Id = result.SubsidiaryId, Name = result.SubsidiaryName },
-            Status = new() { Id = result.StatusId, Name = result.StatusName }
         });
     }
 
@@ -74,7 +69,9 @@ public class InventoryTransferRequestIntegration(
                 ("BUILTIN.DF(tl.units)", nameof(InventoryTransferRequestLineNSDTO.UoMName)),
                 ("tl.units", nameof(InventoryTransferRequestLineNSDTO.UoMId)),
                 ("uom.conversionrate", nameof(InventoryTransferRequestLineNSDTO.UoMRate)),
-                ("iil.quantityonhand", nameof(InventoryTransferRequestLineNSDTO.QuantityOnHand))
+                ("iil.quantityonhand", nameof(InventoryTransferRequestLineNSDTO.QuantityOnHand)),
+                ("tl.location", nameof(InventoryTransferRequestLineNSDTO.LocationId)),
+                ("BUILTIN.DF(tl.location)", nameof(InventoryTransferRequestLineNSDTO.LocationName))
             )
             .From("transactionline tl")
             .Join("item item", on: "item.id = tl.item")
@@ -84,9 +81,8 @@ public class InventoryTransferRequestIntegration(
             .LeftJoin("inventoryitemlocations iil", on: "tl.item = iil.item AND ml.location = iil.location")
             .WithFilters(
                 DataGridFilterUtilities.Equal("t.tranid", Ref),
-                DataGridFilterUtilities.Equal("t.recordtype", "customsale_dbti_inv_transfer_req"),
-                DataGridFilterUtilities.Equal("tl.mainline", "F"),
-                DataGridFilterUtilities.Equal("tl.accountinglinetype", "INCOME")
+                DataGridFilterUtilities.Equal("t.recordtype", "inventorytransfer"),
+                DataGridFilterUtilities.Equal("tl.mainline", "F")
             )
             .Build();
 
@@ -103,17 +99,15 @@ public class InventoryTransferRequestIntegration(
                 ("t.tranid", nameof(InventoryTransferRequestDataGridDTO.ReferenceNumber)),
                 ("BUILTIN.DF(tl.location)", nameof(InventoryTransferRequestDataGridDTO.SourceLocation)),
                 ("BUILTIN.DF(t.subsidiary)", nameof(InventoryTransferRequestDataGridDTO.SubsidiaryName)),
-                ("s.name", nameof(InventoryTransferRequestDataGridDTO.StatusName)),
+                ("BUILTIN.DF(t.custbody_dbti_custom_approval_status)", nameof(InventoryTransferRequestDataGridDTO.StatusName)),
                 ("BUILTIN.DF(t.custbody_dbti_prepared_by)", nameof(InventoryTransferRequestDataGridDTO.PreparedBy)),
-                ("BUILTIN.DF(t.custbody_dbti_itr_to_location)", nameof(InventoryTransferRequestDataGridDTO.DestinationLocation)),
+                ("BUILTIN.DF(t.transferLocation)", nameof(InventoryTransferRequestDataGridDTO.DestinationLocation)),
                 ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(InventoryTransferRequestDataGridDTO.Date))
             )
             .From("transaction t")
             .Join("transactionline tl", "tl.transaction = t.id AND tl.mainline='T'")
-            .LeftJoin("CustomTransactionType ct", "ct.scriptid = t.recordtype")
-            .LeftJoin("transactionstatus s", "s.trantype = 'CuTrSale' AND t.status = s.id AND s.trancustomtype = ct.id")
             .WithFilters(
-                DataGridFilterUtilities.Equal("t.recordtype", "customsale_dbti_inv_transfer_req")
+                DataGridFilterUtilities.Equal("t.recordtype", "inventorytransfer")
             )
             .WithDatagridIntent(intent)
             .Build();
@@ -129,13 +123,10 @@ public class InventoryTransferRequestIntegration(
                 ("s.id", nameof(InventoryTransferRequestStatusDTO.Id)),
                 ("s.name", nameof(InventoryTransferRequestStatusDTO.Name))
             )
-            .From("CustomTransactionType ct")
-            .Join("transactionstatus s", "s.trantype = 'CuTrSale' AND s.trancustomtype = ct.id")
+            .From("CUSTOMLIST_DBTI_CR_APPROVAL_STATUSES s")
             .WithDatagridIntent(intent)
-            .WithFilter(
-               DataGridFilterUtilities.Equal("ct.scriptid", "customsale_dbti_inv_transfer_req")
-            )
             .Build();
+
         var response = await netsuiteService.ExecuteSuiteQLQuery<InventoryTransferRequestStatusDTO>(query.Query, query.Limit, query.Offset);
         return (response.items, response.totalResults);
     }
@@ -214,6 +205,11 @@ public class InventoryTransferRequestIntegration(
                 ConversionRate = line.UoMRate,
                 Id = line.UoMId,
                 Name = line.UoMName
+            },
+            Location = new()
+            {
+                Id = line.LocationId,
+                Name = line.LocationName,
             }
         });
     }

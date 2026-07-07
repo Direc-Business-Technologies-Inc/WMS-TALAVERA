@@ -41,6 +41,7 @@ public partial class InventoryTransferRequestView : BaseForm<InventoryTransferRe
         action.OnSuccess(async (res) =>
         {
             res.Adapt(FormData);
+            PrepareFormData();
             await InvokeAsync(StateHasChanged);
         });
 
@@ -51,6 +52,13 @@ public partial class InventoryTransferRequestView : BaseForm<InventoryTransferRe
                 NavManager.NavigateTo(ITRRoutes.INDEX);
             });
         });
+    }
+
+    void PrepareFormData()
+    {
+        var destLines = FormData.Lines.Where(x => x.Location?.Id != FormData.SourceLocation?.Id);
+        FormData.Lines = [.. destLines];
+        FormData.DestinationLocation = destLines.FirstOrDefault(x => x.Location is not null)?.Location;
     }
 
     async Task OnReturn(InventoryTransferRequestVM data)

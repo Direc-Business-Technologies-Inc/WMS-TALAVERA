@@ -177,6 +177,7 @@ public class SuiteQLQueryBuilder
     private string _stringifyValue(object value)
     {
         if (value is string strVal) return $"'{strVal}'";
+        if (value is Literal literalVal) return literalVal.Value;
         if (value is DateTime dateVal) return $"'{dateVal.ToString(DATETIME_FORMAT_STRING)}'";
         if (value is null) return "NULL";
         if (value is object[] arrayVal) return "(" + string.Join(", ", arrayVal.Select(_stringifyValue)) + ")";
@@ -328,4 +329,6 @@ public class SuiteQLQueryBuilder
         }  
         return this;
     }
+
+    public record Literal(string Value);
 }
