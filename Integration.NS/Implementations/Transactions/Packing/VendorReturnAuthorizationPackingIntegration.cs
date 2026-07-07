@@ -89,8 +89,7 @@ internal class VendorReturnAuthorizationPackingIntegration(
                 ("q.UoMName", nameof(VendorReturnAuthorizationPackingLineNSDTO.UoM)),
                 ("q.LocationName", nameof(VendorReturnAuthorizationPackingLineNSDTO.Warehouse)),
                 ("q.LineQuantity", nameof(VendorReturnAuthorizationPackingLineNSDTO.QuantityPlanned)),
-                ("q.LineQuantityPacked", nameof(VendorReturnAuthorizationPackingLineNSDTO.QuantityReceived)),
-                ("q.LineQuantityBackOrdered", nameof(VendorReturnAuthorizationPackingLineNSDTO.QuantityBackOrdered))
+                ("q.LineQuantityPacked", nameof(VendorReturnAuthorizationPackingLineNSDTO.QuantityReceived))
             )
             .From($"({mobileLineQuery}) q")
             .WithDatagridIntent(intent)
@@ -152,7 +151,6 @@ internal class VendorReturnAuthorizationPackingIntegration(
             Warehouse = nsdto.Warehouse,
             QuantityPlanned = nsdto.QuantityPlanned,
             QuantityReceived = nsdto.QuantityReceived,
-            QuantityBackOrdered = nsdto.QuantityBackOrdered,
         };
     }
 }

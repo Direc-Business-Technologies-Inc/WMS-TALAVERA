@@ -45,6 +45,7 @@ public class VendorReturnAuthorizationItemReceiptPackingHandler(ISender sender) 
 
         var submittedLines = data.Lines.ToDictionary(line => line.LineNumber);
         var dto = sourceLines
+            .Where(x => GetRemainingQuantity(x.LineQuantity, x.LineQuantityBackOrdered, x.LineQuantityPacked, x.UoMRate) > 0)
             .SelectMany(line =>
             {
                 submittedLines.TryGetValue(line.LineSequenceNumber, out var submittedLine);
