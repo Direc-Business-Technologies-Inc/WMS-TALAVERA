@@ -56,7 +56,7 @@ internal class VendorReturnAuthorizationPackingIntegration(
                 ("BUILTIN.DF(t.tosubsidiary)", nameof(VendorReturnAuthorizationPackingHeaderNSDTO.ToSubsidiary)),
                 ("BUILTIN.DF(tl.location)", nameof(VendorReturnAuthorizationPackingHeaderNSDTO.Location)),
                 ("BUILTIN.DF(t.transferlocation)", nameof(VendorReturnAuthorizationPackingHeaderNSDTO.TransferLocation)),
-                ("t.custbody_dbti_prepared_by", nameof(VendorReturnAuthorizationPackingHeaderNSDTO.PreparedBy))
+                ("BUILTIN.DF(t.custbody_dbti_prepared_by)", nameof(VendorReturnAuthorizationPackingHeaderNSDTO.PreparedBy))
             )
             .From("transaction t")
             .Join("transactionline tl", on: "tl.transaction = t.id")

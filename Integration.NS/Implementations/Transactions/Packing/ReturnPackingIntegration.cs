@@ -57,7 +57,7 @@ internal class ReturnPackingIntegration(
                 ("BUILTIN.DF(tl.location)", nameof(ReturnPackingHeaderNSDTO.Location)),
                 ("BUILTIN.DF(t.transferlocation)", nameof(ReturnPackingHeaderNSDTO.TransferLocation)),
                 ("BUILTIN.DF(t.custbody_dbti_transfer_category)", nameof(ReturnPackingHeaderNSDTO.TransferCategory)),
-                ("t.custbody_dbti_prepared_by", nameof(ReturnPackingHeaderNSDTO.PreparedBy))
+                ("BUILTIN.DF(t.custbody_dbti_prepared_by)", nameof(ReturnPackingHeaderNSDTO.PreparedBy))
             )
             .From("transaction t")
             .Join("transactionline tl", on: "tl.transaction = t.id")
