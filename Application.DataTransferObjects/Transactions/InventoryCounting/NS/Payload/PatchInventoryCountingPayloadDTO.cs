@@ -27,7 +27,7 @@ public class PatchInventoryCountingPayloadDTO
                             [
                                 new CountInventoryDetailItem
                                 {
-                                    Id = line.NetsuiteInventoryDetailInternalId,
+                                    Id = line.NetsuiteInventoryDetailInternalId == 0 ? null : line.NetsuiteInventoryDetailInternalId,
                                     Quantity = line.ScannedQuantity,
                                     InventoryStatus = new ReferenceValue
                                     {

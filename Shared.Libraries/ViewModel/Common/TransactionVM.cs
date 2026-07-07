@@ -23,6 +23,7 @@ public class TransactionVM : InventoryItemVM
     public decimal LineQuantityReceived { get; set; }
     public decimal LineQuantityPacked { get; set; }
     public decimal LineQuantityShipped { get; set; }
+    public decimal LineQuantityBackOrdered { get; set; }
 
     public int NetsuiteUoMInternalId { get; set; }
     public string UoMName { get; set; } = string.Empty;
@@ -37,9 +38,9 @@ public class TransactionVM : InventoryItemVM
 
     public decimal TotalWeight => ScannedQuantity * MaterialWeight; // Record Weight
 
-    public decimal NSLineQuantityReceived => (LineQuantity - LineQuantityReceived) / UoMRate;
-    public decimal NSLineQuantityPacked => (LineQuantity - LineQuantityPacked) / UoMRate;
-    public decimal NSLineQuantityShipped => (LineQuantity - LineQuantityShipped) / UoMRate;
+    public decimal NSLineQuantityReceived => (LineQuantity - (LineQuantityReceived + LineQuantityBackOrdered)) / UoMRate;
+    public decimal NSLineQuantityPacked => (LineQuantity - (LineQuantityPacked + LineQuantityBackOrdered)) / UoMRate;
+    public decimal NSLineQuantityShipped => (LineQuantity - (LineQuantityShipped + LineQuantityBackOrdered)) / UoMRate;
 
     // For Scanning
     public int ScanCount { get; set; }
