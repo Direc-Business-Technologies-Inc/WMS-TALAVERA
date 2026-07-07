@@ -39,7 +39,11 @@ public partial class InventoryAdjustmentCreatePage
             FormData.Memo = "Created via WMS";
             var nsEmployee = authService.GetClaimValue("com.direcbusiness.wms.nsEmployeeName");
             FormData.PreparedBy = string.IsNullOrEmpty(nsEmployee) ? "No Netsuite Account Registered" : nsEmployee;
-
+            FormData.Category = new()
+            {
+                Name = IsIssue ? "Goods Issue" : "Goods Receipt",
+                Id = -1
+            };
             await InvokeAsync(StateHasChanged);
         }
     }
