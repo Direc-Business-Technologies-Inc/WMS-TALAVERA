@@ -282,20 +282,20 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
                      x.LineSequenceNumber == GoodSelectedLine.LineSequenceNumber));
 
 
-            if (NextScanIsBad)
-            {
+            //if (NextScanIsBad)
+            //{
                 badLine = BadPOItems.FirstOrDefault(x =>
                     x.NetsuiteMaterialInternalId == barcode.NetsuiteMaterialInternalId &&
                     (GoodSelectedLine == null ||
                      x.LineSequenceNumber == GoodSelectedLine.LineSequenceNumber));
-            }
-            else
-            {
-                badLine = BadPOItems.FirstOrDefault(x =>
-                    x.NetsuiteMaterialInternalId == barcode.NetsuiteMaterialInternalId &&
-                    (BadSelectedLine == null ||
-                     x.LineSequenceNumber == BadSelectedLine.LineSequenceNumber));
-            }
+            //}
+            //else
+            //{
+            //    badLine = BadPOItems.FirstOrDefault(x =>
+            //        x.NetsuiteMaterialInternalId == barcode.NetsuiteMaterialInternalId &&
+            //        (BadSelectedLine == null ||
+            //         x.LineSequenceNumber == BadSelectedLine.LineSequenceNumber));
+            //}
 
             if (goodLine is null)
             {
