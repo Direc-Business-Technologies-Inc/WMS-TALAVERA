@@ -40,7 +40,7 @@
         <RadzenFieldset Text="Lines">
             <AppTableWithSettings Id="inventory_transfer_request_lines_table" Data="@Model.Lines">
                 <HeaderTemplate>
-                    <RadzenButton Icon="add" Disabled="@(Model.SourceLocation is null)" ButtonStyle="ButtonStyle.Success" Click="(() => OpenItemDialog())" Size="ButtonSize.Small"/> 
+                    <RadzenButton Visible="@(!ReadOnly)" Icon="add" Disabled="@(Model.SourceLocation is null)" ButtonStyle="ButtonStyle.Success" Click="(() => OpenItemDialog())" Size="ButtonSize.Small"/> 
                 </HeaderTemplate>
                 <Columns>
                     <RadzenDataGridColumn TItem="InventoryTransferRequestLineVM" Property="@nameof(InventoryTransferRequestLineVM.ItemCode)" Title="Item Code" />
