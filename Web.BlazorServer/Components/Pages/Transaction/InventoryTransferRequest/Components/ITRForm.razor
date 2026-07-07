@@ -1,4 +1,5 @@
 ﻿@using Web.BlazorServer.Components.Custom
+@using Web.BlazorServer.Components.Pages.Transaction.Others
 @using Web.BlazorServer.ViewModels.Others
 @using Web.BlazorServer.ViewModels.Transaction.InventoryTransferRequest
 @inherits BaseComponent
@@ -114,9 +115,12 @@
     }
    
     async Task OpenInventoryDetailDialog(InventoryTransferRequestLineVM line, int itemId, decimal totalQuantity) {
+        var type = InventoryDetailsDialog.Types.Outgoing;
+        if (Model.SourceLocation is null) return;
+
         List<InventoryDetailVM> details = await DialogService.OpenAsync(
             "Enter Inventory Details",
-            ds => @<InventoryDetailsDialog Location="@(Model.SourceLocation ?? new())" ItemId="itemId" TotalQuantity="totalQuantity" />,
+            ds => @<InventoryDetailsDialog LocationId="@(Model.SourceLocation.Id)" ItemId="itemId" Amount="totalQuantity" Type="@type"/>,
             options: GridSettingsService.GetDialogOptions()
         );
 
