@@ -5,6 +5,7 @@ using Web.BlazorServer.Components.Pages.Transaction.TripTicket;
 using Web.BlazorServer.Components.Pages.Transaction.InventoryTransferRequest;
 using Web.BlazorServer.Components.Pages.Transaction.SupplierReturn;
 using Web.BlazorServer.ViewModels.System;
+using Web.BlazorServer.Components.Pages.Transaction.InventoryCounting;
 
 namespace Web.BlazorServer.Helpers;
 
@@ -72,6 +73,8 @@ public class NavRoutesRepository
             Register("OSTR", new() {Name = "Stock Transfer Request", Icon="battery_android_share", Protected=true, Uri = STRRoutes.Root }),
             Register("OIAJ", new() {Name = "Inventory Adjustment", Icon="swap_vert", Protected=true, Uri = InventoryAdjustmentRoutes.INDEX }),
             Register("OITR", new() {Name = "Inventory Transfer Request", Icon="warehouse", Protected=true, Uri = ITRRoutes.INDEX }),
+            Register("OICT", new() {Name = "Inventory Counting", Icon="inventory", Protected=true, Uri = InventoryCountingRoutes.COUNT_INDEX }),
+            new() {Name = "Inventory Counting", Icon="view_list", Protected=true, Uri = InventoryCountingRoutes.WORKSHEET_INDEX },
 
         ];
 
