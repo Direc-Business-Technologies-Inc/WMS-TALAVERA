@@ -100,12 +100,13 @@ public class InventoryTransferRequestIntegration(
                 ("BUILTIN.DF(tl.location)", nameof(InventoryTransferRequestDataGridDTO.SourceLocation)),
                 ("BUILTIN.DF(t.subsidiary)", nameof(InventoryTransferRequestDataGridDTO.SubsidiaryName)),
                 ("BUILTIN.DF(t.custbody_dbti_custom_approval_status)", nameof(InventoryTransferRequestDataGridDTO.StatusName)),
-                ("BUILTIN.DF(t.custbody_dbti_prepared_by)", nameof(InventoryTransferRequestDataGridDTO.PreparedBy)),
+                ("CONCAT(e.firstname,CONCAT(' ',e.lastname))", nameof(InventoryTransferRequestDataGridDTO.PreparedBy)),
                 ("BUILTIN.DF(t.transferLocation)", nameof(InventoryTransferRequestDataGridDTO.DestinationLocation)),
                 ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(InventoryTransferRequestDataGridDTO.Date))
             )
             .From("transaction t")
             .Join("transactionline tl", "tl.transaction = t.id AND tl.mainline='T'")
+            .LeftJoin("employee e", on: "e.id = t.custbody_dbti_prepared_by")
             .WithFilters(
                 DataGridFilterUtilities.Equal("t.recordtype", "inventorytransfer")
             )

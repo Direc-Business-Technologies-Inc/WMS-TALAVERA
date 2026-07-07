@@ -32,7 +32,7 @@ public class InventoryAdjustmentIntegration(
                 ("t.id", nameof(InventoryAdjustmentNSDTO.Id)),
                 ("t.tranid", nameof(InventoryAdjustmentNSDTO.ReferenceNumber)),
                 ("t.memo", nameof(InventoryAdjustmentNSDTO.Memo)),
-                ("t.custbody_dbti_prepared_by", nameof(InventoryAdjustmentNSDTO.PreparedBy)),
+                ("CONCAT(e.firstname,CONCAT(' ',e.lastname))", nameof(InventoryAdjustmentNSDTO.PreparedBy)),
                 ("BUILTIN.DF(tl.location)", nameof(InventoryAdjustmentNSDTO.LocationName)),
                 ("tl.location", nameof(InventoryAdjustmentNSDTO.LocationId)),
                 ("BUILTIN.DF(t.account)", nameof(InventoryAdjustmentNSDTO.AccountName)),
@@ -51,6 +51,7 @@ public class InventoryAdjustmentIntegration(
             .Join("transactionline tl", on: "tl.transaction = t.id")
             .LeftJoin("CUSTOMRECORD_ATLAS_INV_ADJ_REASN iar", on: "iar.id = t.custbody_atlas_inv_adj_reason")
             .LeftJoin("CUSTOMLIST_DBTI_ADJUSTMENT_CATEGORY_LI iac", on: "iac.id = t.custbody_dbti_adjustment_category")
+            .LeftJoin("employee e", on: "e.id = t.custbody_dbti_prepared_by")
             .WithFilters(
                 DataGridFilterUtilities.Equal("t.recordtype", "inventoryadjustment"),
                 DataGridFilterUtilities.Equal("t.tranid", id),
@@ -116,7 +117,7 @@ public class InventoryAdjustmentIntegration(
                 ("t.id", nameof(InventoryAdjustmentDataGridDTO.Id)),
                 ("t.tranid", nameof(InventoryAdjustmentDataGridDTO.ReferenceNumber)),
                 ("t.memo", nameof(InventoryAdjustmentDataGridDTO.Memo)),
-                ("t.custbody_dbti_prepared_by", nameof(InventoryAdjustmentDataGridDTO.PreparedBy)),
+                ("CONCAT(e.firstname,CONCAT(' ',e.lastname))", nameof(InventoryAdjustmentDataGridDTO.PreparedBy)),
                 ("BUILTIN.DF(tl.location)", nameof(InventoryAdjustmentDataGridDTO.Location)),
                 ("BUILTIN.DF(t.account)", nameof(InventoryAdjustmentDataGridDTO.Account)),
                 ("BUILTIN.DF(t.subsidiary)", nameof(InventoryAdjustmentDataGridDTO.Subsidiary)),
@@ -129,6 +130,7 @@ public class InventoryAdjustmentIntegration(
             .LeftJoin("CUSTOMRECORD_ATLAS_INV_ADJ_REASN iar", on: "iar.id = t.custbody_atlas_inv_adj_reason")
             .LeftJoin($"({ReceiptQuery}) receipt", on: "receipt.transactionid = t.id")
             .LeftJoin($"({IssueQuery}) issue", on: "issue.transactionid = t.id")
+            .LeftJoin("employee e", on: "e.id = t.custbody_dbti_prepared_by")
             .WithFilters(
                 DataGridFilterUtilities.Equal("t.recordtype", "inventoryadjustment"),
                 DataGridFilterUtilities.Equal("tl.mainline", "T")
