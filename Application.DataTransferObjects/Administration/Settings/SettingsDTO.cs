@@ -15,6 +15,7 @@ public class SettingsDTO
     public string Value { get; private set; } = string.Empty;
     public enum Types
     {
+        Default,
         String,
         Integer,
         Decimal

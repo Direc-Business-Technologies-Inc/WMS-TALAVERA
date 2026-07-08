@@ -1,30 +1,44 @@
 ﻿using Ardalis.GuardClauses;
+using Domain.Commons;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
 namespace Domain.Entities.Entities.Administration.User.Management;
 
-public class SettingsDEM
+public class SettingsDEM : AuditableDEM
 {
-    public Types Type { get; private set; }
-    public string Title { get; private set; } = string.Empty;
+    [Column(Order=1)]
+    [Required]
+    [MaxLength(50)]
     public string Code { get; private set; } = string.Empty;
+    [Column(Order=2)]
+    [MaxLength(250)]
+    public string Title { get; private set; } = string.Empty;
+    [Column(Order=3)]
+    [MaxLength(250)]
     public string Description { get; private set; } = string.Empty;
+    public Types Type { get; private set; }
+    [MaxLength(250)]
     public string Value { get; private set; } = string.Empty;
     public enum Types
     {
+        Default,
         String,
         Integer,
         Decimal
     }
 
-    public void SetValue(string value)
+    public void SetValue(string value, Guid updater)
     {
         value = CheckType(Type, value);
         Value = value;
+
+        SetUpdatedBy(updater);
     }
 
     private SettingsDEM()

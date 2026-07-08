@@ -18,6 +18,7 @@
         public bool Dirty { get; set; }
         public enum Types
         {
+            Default,
             String,
             Integer,
             Decimal

@@ -22,7 +22,7 @@ public class UpdateSettingCMDHandler(
         SettingsDEM? setting = await appReadRepo.FirstOrDefaultAsync<SettingsDEM>(x => x.Code.Equals(request.setting));
         if (setting is null) throw new InvalidOperationException($"Couldn't find the setting {request.setting}");
 
-        setting.SetValue(request.value);
+        setting.SetValue(request.value, Guid.Empty);
         appCommandRepo.Update(setting);
 
         return setting.Value;
