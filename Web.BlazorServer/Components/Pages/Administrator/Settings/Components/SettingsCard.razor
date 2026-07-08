@@ -11,15 +11,15 @@
             <RadzenFormField class="rz-w-100">
                 @if (Setting.Type == SettingsVM.Types.String)
                 {
-                    <RadzenTextBox @bind-Value:get="@Setting.Value" @bind-Value:set="ValueSet" />
+                    <RadzenTextBox @bind-Value:get="@Setting.Value" @bind-Value:set="ValueSet" ReadOnly="@ReadOnly"/>
                 }
                 else if (Setting.Type == SettingsVM.Types.Integer)
                 {
-                    <RadzenNumeric @bind-Value:get="IntValue" @bind-Value:set="IntValueSet" TValue="int" />
+                    <RadzenNumeric @bind-Value:get="IntValue" @bind-Value:set="IntValueSet" TValue="int" ReadOnly="@ReadOnly"/>
                 }
                 else if (Setting.Type == SettingsVM.Types.Decimal)
                 {
-                    <RadzenNumeric @bind-Value:get="DecimalValue" @bind-Value:set="DecimalValueSet" TValue="decimal"/>
+                    <RadzenNumeric @bind-Value:get="DecimalValue" @bind-Value:set="DecimalValueSet" TValue="decimal" ReadOnly="@ReadOnly"/>
                 }
                 else
                 {
@@ -33,6 +33,7 @@
 @code {
     [Parameter][EditorRequired] public SettingsVM Setting { get; set; }
     [Parameter] public EventCallback<SettingsVM> SettingChanged { get; set; }
+    [Parameter] public bool ReadOnly {get; set;} = false;
     int _intValue;
     decimal _decimalValue;
 

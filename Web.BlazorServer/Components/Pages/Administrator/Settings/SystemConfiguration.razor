@@ -3,7 +3,7 @@
 @inherits BaseComponent
 @attribute [Route(ROUTE_INDEX)];
 @layout ProtectedLayout
-@attribute [AppAuthorizationAttribute("VIEW", "ORCV")]
+@attribute [AppAuthorizationAttribute("VIEW", "OSYS")]
 
 <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" class="rz-mb-4">
     <AppBreadCrumbs ModuleCode="OSTN" />
@@ -11,7 +11,7 @@
 
 <AppContent>
     <RadzenStack Gap="1em">
-        <RadzenStack Visible="!IsLoadingData" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5em">
+        <RadzenStack Visible="@(!IsLoadingData && CanUpdate)" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5em">
             <RadzenButton ButtonType="ButtonType.Button" Text="Revert Changes" Click="ResetSettings" Size="ButtonSize.Small" />
             <RadzenButton ButtonType="ButtonType.Button" ButtonStyle="ButtonStyle.Success" Text="Save Changes" Click="TrySaveSettings" Disabled="(IsSavingData)" Size="ButtonSize.Small" />
         </RadzenStack>
@@ -23,7 +23,7 @@
         </RadzenStack>
         @foreach (var setting in Settings)
         {
-            <SettingsCard Setting="setting" />
+            <SettingsCard ReadOnly="@(!CanUpdate)" Setting="setting" />
         }
     </RadzenStack>
 </AppContent>

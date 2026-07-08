@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.Identity.Client;
+using Web.BlazorServer.Components.Security;
 using Web.BlazorServer.Handlers.Repositories.Administration.Settings;
 using Web.BlazorServer.Helpers;
 using Web.BlazorServer.Services.Implementation;
@@ -10,18 +11,21 @@ namespace Web.BlazorServer.Components.Pages.Administrator.Settings;
 public partial class SystemConfiguration
 {
     [Inject] ISettingsHandler settingsHandler { get; set; } = default!;
+    [Inject] AppAuthenticationService authService { get; set; } = default!;
 
     public const string ROUTE_INDEX = "/administration/settings/system-configuration";
     public const string ACTION_GET_SETTINGS = "Get Settings";
     public List<SettingsVM> Settings = [];
     public bool IsLoadingData = true;
     public bool IsSavingData = false;
+    public bool CanUpdate = false;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         await base.OnAfterRenderAsync(firstRender);
         if (firstRender)
         {
+            CanUpdate = authService.HasPermission("OSYS.UPDATE");
             IsLoadingData = true;
             await InvokeAsync(StateHasChanged);
             await LoadSettings();
