@@ -48,7 +48,7 @@
                 @if (Details.Count == 0)
                 {
                     <RadzenTableRow>
-                        <RadzenTableCell colspan="4">
+                        <RadzenTableCell colspan="@(LocationHasBins ? 4 : 3)">
                             <RadzenText TextAlign="TextAlign.Center" TextStyle="TextStyle.Body2">Add inventory details</RadzenText>
                         </RadzenTableCell>
                     </RadzenTableRow>
@@ -56,7 +56,7 @@
                 @if (ErrorString is not null)
                 {
                     <RadzenTableRow>
-                        <RadzenTableCell colspan="4">
+                        <RadzenTableCell colspan="@(LocationHasBins ? 4 : 3)">
                             <RadzenText TextAlign="TextAlign.Center" TextStyle="TextStyle.Body2" class="rz-messages-error">@ErrorString</RadzenText>
                         </RadzenTableCell>
                     </RadzenTableRow>
