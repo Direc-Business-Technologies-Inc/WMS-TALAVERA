@@ -5,7 +5,7 @@ using Shared.Entities;
 
 namespace Application.UseCases.Queries.Transaction.TripTicket;
 
-public record GetTripTicketDataGridQry(DataGridIntent Intent)
+public record GetTripTicketDataGridQry(DataGridIntent Intent, int subsidiaryId)
     : IRequest<(IEnumerable<TripTicketDataGridDTO> Data, int Count)>;
 
 public class GetTripTicketDataGridQryHandler(ITripTicketIntegration integration)
@@ -15,6 +15,6 @@ public class GetTripTicketDataGridQryHandler(ITripTicketIntegration integration)
         GetTripTicketDataGridQry request,
         CancellationToken cancellationToken)
     {
-        return integration.GetTripTicketsAsync(request.Intent);
+        return integration.GetTripTicketsAsync(request.Intent, request.subsidiaryId);
     }
 }

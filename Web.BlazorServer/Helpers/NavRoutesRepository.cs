@@ -68,9 +68,8 @@ public class NavRoutesRepository
         NavigationRouteVM delivery = new() { Name = "Delivery", Icon = "inventory_2", Protected = false };
 
         List<NavigationRouteVM> inventorySubroutes = [
-            new() {Name = "Stock Transfer Request", Icon="battery_android_share", Protected=true, Uri = STRRoutes.Root },
-            new() {Name = "Inventory Adjustment", Icon="swap_vert", Protected=true, Uri = InventoryAdjustmentRoutes.INDEX },
-            //new() {Name = "Inventory Transfer Request", Icon="warehouse", Protected=true, Uri = ITRRoutes.INDEX },
+            new() {Name = "Inventory Counting", Icon="home_storage", Protected=true, Uri = "/transactions/inventory/inventory-counting" },
+            new() {Name = "Inventory Worksheet", Icon="home_storage", Protected=true, Uri = "/transactions/inventory/inventory-worksheet" },
         ];
 
         List<NavigationRouteVM> purchaseSubroutes = [

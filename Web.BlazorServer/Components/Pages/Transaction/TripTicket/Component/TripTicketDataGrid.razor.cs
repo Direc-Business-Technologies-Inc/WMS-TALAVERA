@@ -56,7 +56,7 @@ partial class TripTicketDataGrid
                 });
             }
 
-            return await TripTicketHandler.GetTTDataGridAsync(intent);
+            return await TripTicketHandler.GetTTDataGridAsync(intent, CurrentUserService.NsSubsidiaryId);
 
         }, AppActionOptionPresets.Loading(ActionGetTripTickets));
 

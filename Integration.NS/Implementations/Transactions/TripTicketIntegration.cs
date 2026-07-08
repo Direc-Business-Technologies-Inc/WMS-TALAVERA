@@ -13,9 +13,10 @@ public class TripTicketIntegration(
     SuiteQLQueryBuilderFactoryService builderFactory)
     : ITripTicketIntegration
 {
-    public async Task<(IEnumerable<TripTicketDataGridDTO> Data, int Count)> GetTripTicketsAsync(DataGridIntent intent)
+    public async Task<(IEnumerable<TripTicketDataGridDTO> Data, int Count)> GetTripTicketsAsync(DataGridIntent intent, int subsidiaryId)
     {
         var query = CreateTripTicketListQuery()
+            .WithFilters(Equal("t.subsidiary", subsidiaryId))
             .WithDatagridIntent(intent)
             .Build();
 
@@ -72,6 +73,12 @@ public class TripTicketIntegration(
                 ("BUILTIN.DF(tt.custrecord_dbti_trt_assigned_driver)", nameof(TripTicketDataGridDTO.Driver)),
                 ("BUILTIN.DF(tt.custrecord_dbti_trt_origin_location)", nameof(TripTicketDataGridDTO.Location)),
                 ("TO_CHAR(tt.custrecord_dbti_trt_date, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(TripTicketDataGridDTO.TripDate)))
-            .From("customrecord_dbti_trip_ticket tt");
+            .From("customrecord_dbti_trip_ticket tt")
+        .Join(
+            "customrecord_dbti_trip_ticket_if ttif",
+            on: "tt.id = ttif.custrecord_dbti_ttf_trip_ticket_num")
+        .Join(
+            "transaction t",
+            on: "ttif.custrecord_dbti_ttf_item_fulfillment_num = t.id");
     }
 }

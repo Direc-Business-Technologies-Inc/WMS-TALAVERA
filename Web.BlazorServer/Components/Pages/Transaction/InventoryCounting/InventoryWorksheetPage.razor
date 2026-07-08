@@ -49,11 +49,6 @@
                             </Helper>
                         </RadzenFormField>
                     </RadzenColumn>
-                    <RadzenColumn Size="12" SizeMD="4">
-                        <RadzenFormField Text="Bin Required" class="rz-w-100" AllowFloatingLabel="false">
-                            <RadzenTextBox Value="@GetBinRequirementText()" ReadOnly class="rz-w-100" />
-                        </RadzenFormField>
-                    </RadzenColumn>
                 </RadzenRow>
             </RadzenFieldset>
 
@@ -66,6 +61,7 @@
                                       Icon="add"
                                       Size="ButtonSize.Small"
                                       ButtonStyle="ButtonStyle.Primary"
+                                      Disabled="@string.IsNullOrWhiteSpace(FormData?.Location?.LocationName)"
                                       Click="@AddLine" />
                     </HeaderTemplate>
                     <Columns>
@@ -101,12 +97,23 @@
                                               Width="170px"
                                               Type="@typeof(decimal)">
                             <Template Context="line">
-                                <RadzenNumeric TValue="decimal"
-                                               @bind-Value="@line.TotalQuantity"
-                                               Change="@((decimal _) => OnTotalQuantityChanged(line))"
-                                               Min="0"
-                                               ShowUpDown="false"
-                                               class="rz-w-100" />
+                                <RadzenFormField>
+                                    <ChildContent>
+                                        <RadzenNumeric TValue="decimal"
+                                                       @bind-Value="@line.TotalQuantity"
+                                                       Change="@((decimal _) => OnTotalQuantityChanged(line))"
+                                                       Min="0"
+                                                       ShowUpDown="false"
+                                                       class="rz-w-100" />
+                                    </ChildContent>
+                                    <End>
+                                        <RadzenButton Icon="rule"
+                                                      Size="ButtonSize.ExtraSmall"
+                                                      ButtonStyle="@DefaultStyle(line)"
+                                                      Disabled="@(line.NetsuiteMaterialInternalId <= 0 || line.TotalQuantity <= 0)"
+                                                      Click="@(() => OpenDetailsDialog(line))" />
+                                    </End>
+                                </RadzenFormField>
                             </Template>
                         </RadzenDataGridColumn>
                         <RadzenDataGridColumn TItem="InventoryWorksheetCreateLineVM"
@@ -126,11 +133,6 @@
                                               Pickable="false">
                             <Template Context="line">
                                 <RadzenStack Orientation="Orientation.Horizontal" Gap="4px">
-                                    <RadzenButton Icon="rule"
-                                                  Size="ButtonSize.ExtraSmall"
-                                                  ButtonStyle="ButtonStyle.Primary"
-                                                  Disabled="@(line.NetsuiteMaterialInternalId <= 0 || line.TotalQuantity <= 0)"
-                                                  Click="@(() => OpenDetailsDialog(line))" />
                                     <RadzenButton Icon="delete"
                                                   Size="ButtonSize.ExtraSmall"
                                                   ButtonStyle="ButtonStyle.Danger"

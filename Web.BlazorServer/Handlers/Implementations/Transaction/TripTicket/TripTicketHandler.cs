@@ -16,9 +16,9 @@ namespace Web.BlazorServer.Handlers.Implementations.Transaction.TripTicket;
 
 public class TripTicketHandler(ISender Sender) : ITripTicketHandler
 {
-    public async Task<(IEnumerable<TripTicketDataGridVM> Data, int Count)> GetTTDataGridAsync(DataGridIntent intent)
+    public async Task<(IEnumerable<TripTicketDataGridVM> Data, int Count)> GetTTDataGridAsync(DataGridIntent intent, int subsidiaryId)
     {
-        GetTripTicketDataGridQry qry = new(intent);
+        GetTripTicketDataGridQry qry = new(intent, subsidiaryId);
         (IEnumerable<TripTicketDataGridDTO> Data, int Count) = await Sender.Send(qry);
         return (Data.Adapt<IEnumerable<TripTicketDataGridVM>>(), Count);
     }
