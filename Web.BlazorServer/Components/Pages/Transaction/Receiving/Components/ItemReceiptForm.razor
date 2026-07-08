@@ -75,7 +75,7 @@
         <RadzenFieldset AllowCollapse Text="Lines">
             <AppTableWithSettings Data="@Data.Lines" Id="item_receipt_lines">
                 <HeaderTemplate>
-                    <RadzenButton Icon="barcode" Text="Scan Barcode" Click="OpenBarcodeDialog" ButtonType="ButtonType.Button" Size="ButtonSize.Small" />
+                                <RadzenButton Text="Scan Barcodes" Icon="barcode" Click="OpenBarcodeDialog" ButtonType="ButtonType.Button" Size="ButtonSize.Small" />
                 </HeaderTemplate>
                 <Columns>
                     <RadzenDataGridColumn TItem="ItemReceiptLineVM" Width="30px">
@@ -142,14 +142,12 @@
 @code {
     async Task OpenBarcodeDialog()
     {
-        LinesQuantityGoodTempBank.Clear();
-        LinesQuantityBadTempBank.Clear();
-
         bool? save = await DialogService.OpenAsync(
             "Table Settings",
-            ds => @<ScanDialog OnBarcodeAdded="BarcodeScanned" />,
+            ds => @<ScanDialog OnBarcodeAdded="BarcodeScanned" Barcodes="Barcodes" />,
             options: GridSettingsService.GetDialogOptions());
         
         if (save == false) ClearAddedBarcodes();
+        else if (save == true) Barcodes.Clear();
     }
 }
