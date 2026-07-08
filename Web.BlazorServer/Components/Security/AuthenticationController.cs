@@ -72,7 +72,9 @@ public class AuthenticationController(
         {
             claims.Add(new Claim("com.direcbusiness.wms.nsEmployeeId", loginResponse.User.EmployeeNs.NsId.ToString()));
             claims.Add(new Claim("com.direcbusiness.wms.nsEmployeeName", loginResponse.User.EmployeeNs.FirstName + " " + loginResponse.User.EmployeeNs.LastName));
+            claims.Add(new Claim("com.direcbusiness.wms.nsSubsidiary", loginResponse.User.EmployeeNs.NsSubsidiaryId.ToString()));
         }
+        claims.Add(new Claim("com.direcbusiness.wms.nsAllowedSubsidiaries", JsonSerializer.Serialize(loginResponse.User?.AllowedSubsidiaryIds ?? [])));
 
         await HttpContextAccessor!.HttpContext!.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme)));
 
