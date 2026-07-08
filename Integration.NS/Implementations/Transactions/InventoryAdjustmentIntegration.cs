@@ -10,14 +10,7 @@ using Integration.NS.Services;
 using Mapster;
 using Shared.Entities;
 using Shared.Libraries.Utilities;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Text.Json;
-using System.Text.RegularExpressions;
-using System.Threading.Tasks;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace Integration.NS.Implementations.Transactions;
 
@@ -123,7 +116,8 @@ public class InventoryAdjustmentIntegration(
                 ("BUILTIN.DF(t.subsidiary)", nameof(InventoryAdjustmentDataGridDTO.Subsidiary)),
                 ("iar.name", nameof(InventoryAdjustmentDataGridDTO.AdjustmentReason)),
                 ("NVL(receipt.total, 0)", nameof(InventoryAdjustmentDataGridDTO.QuantityReceivedTotal)),
-                ("NVL(issue.total, 0)", nameof(InventoryAdjustmentDataGridDTO.QuantityIssuedTotal))
+                ("NVL(issue.total, 0)", nameof(InventoryAdjustmentDataGridDTO.QuantityIssuedTotal)),
+                ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS') ", nameof(InventoryAdjustmentDataGridDTO.Date))
             )
             .From("transaction t")
             .Join("transactionline tl", on:"tl.transaction = t.id")

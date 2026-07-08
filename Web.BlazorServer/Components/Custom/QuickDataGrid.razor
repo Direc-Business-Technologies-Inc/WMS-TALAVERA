@@ -10,7 +10,6 @@
                     @HeaderStart
                 }
             </RadzenStack>
-            
             <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" AlignItems="AlignItems.Center" Gap="8px">
                 @if (HeaderEnd is not null)
                 {
@@ -30,7 +29,7 @@
         {
             foreach (var (prop, title) in PropertyTitles)
             {
-                <RadzenDataGridColumn TItem="TItem" Property="@prop.Name" Title="@title" Type="@prop.GetType()" FormatString="{0:d}"/>
+                <RadzenDataGridColumn TItem="TItem" Property="@prop.Name" Title="@title" Type="@prop.GetType()" FormatString="@GetFormat(prop)"/>
             }
         }
         

@@ -56,6 +56,11 @@ public partial class QuickDataGrid<TItem> : BaseComponent where TItem : class
         }
     }
 
+    string GetFormat(PropertyInfo prop)
+    {
+        return prop.GetCustomAttribute<QuickDataGridStringFormat>()?.Format ?? "{0:d}";
+    }
+
     async Task LoadGridSettings()
     {
         if (Id is null)
