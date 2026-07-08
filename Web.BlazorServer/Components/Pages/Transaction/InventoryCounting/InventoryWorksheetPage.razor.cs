@@ -106,7 +106,6 @@ public partial class InventoryWorksheetPage
 
         if (FormData.Location is null || FormData.Location.NetsuiteLocationInternalId <= 0)
         {
-            ClearBins();
             return;
         }
 
@@ -115,23 +114,11 @@ public partial class InventoryWorksheetPage
             new DataGridIntent { Take = 1 });
 
         LocationHasBins = count > 0 || bins.Any();
-
-        if (!LocationHasBins)
-            ClearBins();
     }
 
     void ClearForm()
     {
         FormData.Lines = [];
-    }
-
-    void ClearBins()
-    {
-        foreach (var detail in FormData.Lines.SelectMany(line => line.Details))
-        {
-            detail.Bin = null;
-            detail.NetsuiteBinInternalId = 0;
-        }
     }
 
     async Task AddLine()
