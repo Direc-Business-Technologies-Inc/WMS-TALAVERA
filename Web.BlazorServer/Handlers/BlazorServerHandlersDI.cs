@@ -89,11 +89,7 @@ public static class BlazorServerHandlersDI
         services.TryAddTransient<IInventoryTransferRequestHandler, InventoryTransferRequestHandler>();
         services.TryAddTransient<IInventoryHandler, InventoryHandler>();
         services.TryAddTransient<ISettingsHandler, SettingsHandler>();
-
-        if (environment.IsDevelopment())
-        {
-            services.TryAddTransient<IStockTransferRequestHandler, StockTransferRequestHandler>();
-        }
+        services.TryAddTransient<IStockTransferRequestHandler, StockTransferRequestHandler>();
         services.TryAddTransient<IBusinessAccountHandler, BusinessAccountHandler>();
         services.TryAddTransient<IInventoryAdjustmentHandler, InventoryAdjustmentHandler>();
         services.TryAddTransient<ITripTicketHandler, TripTicketHandler>();
