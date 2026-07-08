@@ -1,25 +1,25 @@
 ﻿@using Web.BlazorServer.ViewModels.Administration.Settings
 <RadzenCard>
     <RadzenRow Gap="0.5em">
-        <RadzenColumn SizeSM="7" SizeLG="9" SizeXL="11">
+        <RadzenColumn SizeSM="9" SizeXL="11">
             <RadzenStack Gap="0.5em">
                 <RadzenText TextStyle="TextStyle.DisplayH6">@Setting.Title</RadzenText>
                 <RadzenText TextStyle="TextStyle.Body2">@Setting.Description</RadzenText>
             </RadzenStack>
         </RadzenColumn>
-        <RadzenColumn SizeSM="5" SizeLG="3" SizeXL="1">
+        <RadzenColumn SizeSM="3" SizeXL="1">
             <RadzenFormField class="rz-w-100">
                 @if (Setting.Type == SettingsVM.Types.String)
                 {
-                    <RadzenTextBox @bind-Value="Setting.Value" />
+                    <RadzenTextBox @bind-Value:get="@Setting.Value" @bind-Value:set="ValueSet" />
                 }
                 else if (Setting.Type == SettingsVM.Types.Integer)
                 {
-                    <RadzenNumeric @bind-Value="IntValue" TValue="int" />
+                    <RadzenNumeric @bind-Value:get="IntValue" @bind-Value:set="IntValueSet" TValue="int" />
                 }
                 else if (Setting.Type == SettingsVM.Types.Decimal)
                 {
-                    <RadzenNumeric @bind-Value="DecimalValue" TValue="decimal"/>
+                    <RadzenNumeric @bind-Value:get="DecimalValue" @bind-Value:set="DecimalValueSet" TValue="decimal"/>
                 }
                 else
                 {
@@ -32,26 +32,28 @@
 
 @code {
     [Parameter][EditorRequired] public SettingsVM Setting { get; set; }
+    [Parameter] public EventCallback<SettingsVM> SettingChanged { get; set; }
     int _intValue;
     decimal _decimalValue;
 
-    int IntValue
+    decimal DecimalValue => decimal.TryParse(Setting.Value, out decimal decval) ? decval : 0;
+    int IntValue => int.TryParse(Setting.Value, out int intval) ? intval : 0;
+
+    async Task DecimalValueSet(decimal value) 
     {
-        get => _intValue;
-        set
-        {
-            _intValue = value;
-            Setting.Value = _intValue.ToString();
-        }
+        Setting.Value = value.ToString() ?? "0";
+        await SettingChanged.InvokeAsync(Setting);
     }
 
-    decimal DecimalValue
+    async Task IntValueSet(int value)
     {
-        get => _decimalValue;
-        set
-        {
-            _decimalValue = value;
-            Setting.Value = _decimalValue.ToString();
-        }
+        Setting.Value = value.ToString() ?? "0";
+        await SettingChanged.InvokeAsync(Setting);
+    }
+
+    async Task ValueSet(string? value)
+    {
+        Setting.Value = value ?? string.Empty;
+        await SettingChanged.InvokeAsync(Setting);
     }
 }

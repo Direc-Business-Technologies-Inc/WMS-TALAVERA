@@ -1,15 +1,29 @@
 ﻿@using Web.BlazorServer.Components.Pages.Administrator.Settings.Components
+@using Web.BlazorServer.Components.Security
 @inherits BaseComponent
 @attribute [Route(ROUTE_INDEX)];
-
+@layout ProtectedLayout
+@attribute [AppAuthorizationAttribute("VIEW", "ORCV")]
 
 <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" class="rz-mb-4">
-    <AppBreadCrumbs ModuleCode="OSYS" />
+    <AppBreadCrumbs ModuleCode="OSTN" />
 </RadzenStack>
 
 <AppContent>
-    @foreach (var setting in Settings)
-    {
-        <SettingsCard Setting="setting" />
-    }
+    <RadzenStack Gap="1em">
+        <RadzenStack Visible="!IsLoadingData" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5em">
+            <RadzenButton ButtonType="ButtonType.Button" Text="Revert Changes" Click="ResetSettings" Size="ButtonSize.Small" />
+            <RadzenButton ButtonType="ButtonType.Button" ButtonStyle="ButtonStyle.Success" Text="Save Changes" Click="TrySaveSettings" Disabled="(IsSavingData)" Size="ButtonSize.Small" />
+        </RadzenStack>
+        <RadzenStack Orientation="Orientation.Horizontal" Visible="IsLoadingData" JustifyContent="JustifyContent.Center">
+            <RadzenStack JustifyContent="JustifyContent.Center" AlignItems="AlignItems.Center">
+                <RadzenProgressBarCircular ProgressBarStyle="ProgressBarStyle.Primary" Value="100" ShowValue="false" Mode="ProgressBarMode.Indeterminate" AriaLabel="Primary loading" />
+                <RadzenText TextStyle="TextStyle.Caption">Loading settings...</RadzenText>
+            </RadzenStack>
+        </RadzenStack>
+        @foreach (var setting in Settings)
+        {
+            <SettingsCard Setting="setting" />
+        }
+    </RadzenStack>
 </AppContent>

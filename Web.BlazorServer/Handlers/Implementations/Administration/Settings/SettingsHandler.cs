@@ -1,4 +1,5 @@
-﻿using Application.UseCases.Queries.Administration.Settings;
+﻿using Application.UseCases.Commands.Administration.Settings;
+using Application.UseCases.Queries.Administration.Settings;
 using Mapster;
 using MediatR;
 using Web.BlazorServer.Handlers.Repositories.Administration.Settings;
@@ -30,6 +31,20 @@ namespace Web.BlazorServer.Handlers.Implementations.Administration.Settings
             var setting = await GetSettingAsync(code);
 
             return setting?.Value ?? null;
+        }
+
+        public async Task<(string code, bool success)> SetSettingAsync(string code, string value)
+        {
+            UpdateSettingCMD query = new(code, value);
+            try
+            {
+                var setting = await sender.Send(query);
+                return (code, true);
+            }
+            catch (Exception)
+            {
+                return (code, false);
+            }
         }
     }
 }
