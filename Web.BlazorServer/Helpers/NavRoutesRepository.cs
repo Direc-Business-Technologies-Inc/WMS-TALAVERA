@@ -71,12 +71,8 @@ public class NavRoutesRepository
         NavigationRouteVM delivery = new() { Name = "Delivery", Icon = "local_shipping", Protected = false };
 
         List<NavigationRouteVM> inventorySubroutes = [
-            Register("OSTR", new() {Name = "Stock Transfer Request", Icon="battery_android_share", Protected=true, Uri = STRRoutes.Root }),
-            Register("OIAJ", new() {Name = "Inventory Adjustment", Icon="swap_vert", Protected=true, Uri = InventoryAdjustmentRoutes.INDEX }),
-            Register("OITR", new() {Name = "Inventory Transfer Request", Icon="warehouse", Protected=true, Uri = ITRRoutes.INDEX }),
-            Register("OICT", new() {Name = "Inventory Counting", Icon="inventory", Protected=true, Uri = InventoryCountingRoutes.COUNT_INDEX }),
-            new() {Name = "Inventory Counting", Icon="view_list", Protected=true, Uri = InventoryCountingRoutes.WORKSHEET_INDEX },
-
+            new() {Name = "Inventory Counting", Icon="home_storage", Protected=true, Uri = "/transactions/inventory/inventory-counting" },
+            new() {Name = "Inventory Worksheet", Icon="home_storage", Protected=true, Uri = "/transactions/inventory/inventory-worksheet" },
         ];
 
         List<NavigationRouteVM> purchaseSubroutes = [

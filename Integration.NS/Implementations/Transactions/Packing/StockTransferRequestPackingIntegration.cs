@@ -55,7 +55,7 @@ internal class StockTransferRequestPackingIntegration(
                 ("BUILTIN.DF(t.tosubsidiary)", nameof(StrPackingHeaderNSDTO.ToSubsidiary)),
                 ("BUILTIN.DF(tl.location)", nameof(StrPackingHeaderNSDTO.Location)),
                 ("BUILTIN.DF(t.transferlocation)", nameof(StrPackingHeaderNSDTO.TransferLocation)),
-                ("t.custbody_dbti_prepared_by", nameof(StrPackingHeaderNSDTO.PreparedBy))
+                ("BUILTIN.DF(t.custbody_dbti_prepared_by)", nameof(StrPackingHeaderNSDTO.PreparedBy))
             )
             .From("transaction t")
             .Join("transactionline tl", on: "tl.transaction = t.id")
@@ -138,7 +138,6 @@ internal class StockTransferRequestPackingIntegration(
             Location = nsdto.Location,
             TransferLocation = nsdto.TransferLocation,
             PreparedBy = nsdto.PreparedBy,
-            ReceivedBy = nsdto.ReceivedBy
         };
     }
 

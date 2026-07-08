@@ -10,5 +10,4 @@ public class StrPackingHeaderNSDTO
     public string Location { get; set; } = string.Empty;
     public string TransferLocation { get; set; } = string.Empty;
     public string PreparedBy { get; set; } = string.Empty;
-    public string ReceivedBy { get; set; } = string.Empty;
 }

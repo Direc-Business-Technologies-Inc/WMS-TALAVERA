@@ -24,8 +24,11 @@ SELECT
 	i.displayname as MaterialName,
 	b.id AS NetsuiteMaterialPrefferedBinId,
 	i.weight AS MaterialWeight,
+
 	ABS(tl.quantity) AS LineQuantity,
 	tl.quantityshiprecv AS LineQuantityPacked,
+	tl.quantitybackordered AS LineQuantityBackOrdered,
+
 	tl.units AS NetsuiteUoMInternalId,
 	uom.unitname AS UoMName,
 	uom.conversionrate AS UoMRate,

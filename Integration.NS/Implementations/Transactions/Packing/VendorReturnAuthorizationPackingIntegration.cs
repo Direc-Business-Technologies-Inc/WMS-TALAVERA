@@ -53,10 +53,9 @@ internal class VendorReturnAuthorizationPackingIntegration(
                 ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(VendorReturnAuthorizationPackingHeaderNSDTO.Date)),
                 ("t.tranid", nameof(VendorReturnAuthorizationPackingHeaderNSDTO.ReferenceNumber)),
                 ("BUILTIN.DF(t.subsidiary)", nameof(VendorReturnAuthorizationPackingHeaderNSDTO.FromSubsidiary)),
-                ("BUILTIN.DF(t.tosubsidiary)", nameof(VendorReturnAuthorizationPackingHeaderNSDTO.ToSubsidiary)),
                 ("BUILTIN.DF(tl.location)", nameof(VendorReturnAuthorizationPackingHeaderNSDTO.Location)),
                 ("BUILTIN.DF(t.transferlocation)", nameof(VendorReturnAuthorizationPackingHeaderNSDTO.TransferLocation)),
-                ("t.custbody_dbti_prepared_by", nameof(VendorReturnAuthorizationPackingHeaderNSDTO.PreparedBy))
+                ("BUILTIN.DF(t.custbody_dbti_prepared_by)", nameof(VendorReturnAuthorizationPackingHeaderNSDTO.PreparedBy))
             )
             .From("transaction t")
             .Join("transactionline tl", on: "tl.transaction = t.id")
@@ -133,11 +132,9 @@ internal class VendorReturnAuthorizationPackingIntegration(
             Date = nsdto.Date,
             ReferenceNumber = nsdto.ReferenceNumber,
             FromSubsidiary = nsdto.FromSubsidiary,
-            ToSubsidiary = nsdto.ToSubsidiary,
             Location = nsdto.Location,
             TransferLocation = nsdto.TransferLocation,
             PreparedBy = nsdto.PreparedBy,
-            ReceivedBy = nsdto.ReceivedBy
         };
     }
 

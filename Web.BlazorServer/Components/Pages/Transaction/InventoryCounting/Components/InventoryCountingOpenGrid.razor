@@ -18,18 +18,9 @@
     </HeaderTemplate>
     <GridColumns>
         <RadzenDataGridColumn TItem="InventoryCountingVM"
-                              Property="@nameof(InventoryCountingVM.NetsuiteOrderInternalId)"
-                              Title="NetSuite ID"
-                              Width="120px"
-                              Type="@typeof(int)" />
-        <RadzenDataGridColumn TItem="InventoryCountingVM"
                               Property="@nameof(InventoryCountingVM.OrderNumber)"
                               Title="Document"
-                              Type="@typeof(string)">
-            <Template>
-                @($"IC-{context.OrderNumber}")
-            </Template>
-        </RadzenDataGridColumn>
+                              Type="@typeof(string)" />
         <RadzenDataGridColumn TItem="InventoryCountingVM"
                               Property="@nameof(InventoryCountingVM.OrderStatus)"
                               Title="Status">

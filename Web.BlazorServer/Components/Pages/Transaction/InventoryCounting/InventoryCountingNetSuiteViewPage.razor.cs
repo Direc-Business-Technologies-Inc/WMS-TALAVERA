@@ -91,11 +91,11 @@ public partial class InventoryCountingNetSuiteViewPage
             return;
         }
 
-        if (linesToPatch.Any(line => line.NetsuiteInventoryDetailInternalId is null))
-        {
-            ToastService.Warning("One or more lines have no NetSuite inventory detail reference.");
-            return;
-        }
+        //if (linesToPatch.Any(line => line.NetsuiteInventoryDetailInternalId is null))
+        //{
+        //    ToastService.Warning("One or more lines have no NetSuite inventory detail reference.");
+        //    return;
+        //}
 
         var action = await AppActionFactory.RunAsync(async () =>
         {

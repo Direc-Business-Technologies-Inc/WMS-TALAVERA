@@ -26,7 +26,6 @@ public class ItemReceiptPackingHandler(ISender sender) : IItemReceiptPackingHand
             SourceType = ItemReceiptPackingVM.SourceTypes.TransferOrder,
             CreatedFrom = header.ReferenceNumber,
             Department = "Operations",
-            ReceivedBy = header.ReceivedBy,
             Location = header.Location,
             TransferLocation = header.TransferLocation,
             Subsidiary = header.FromSubsidiary,
