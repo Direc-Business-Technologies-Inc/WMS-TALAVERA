@@ -102,6 +102,7 @@ public partial class InventoryWorksheetPage
     async Task OnLocationChanged(object value)
     {
         LocationHasBins = false;
+        ClearForm();
 
         if (FormData.Location is null || FormData.Location.NetsuiteLocationInternalId <= 0)
         {
@@ -117,6 +118,11 @@ public partial class InventoryWorksheetPage
 
         if (!LocationHasBins)
             ClearBins();
+    }
+
+    void ClearForm()
+    {
+        FormData.Lines = [];
     }
 
     void ClearBins()
@@ -303,10 +309,14 @@ public partial class InventoryWorksheetPage
             line.Details = [];
     }
 
-    string GetBinRequirementText() =>
-        FormData.Location is null || FormData.Location.NetsuiteLocationInternalId <= 0
-            ? "Select location"
-            : LocationHasBins ? "Required" : "Not required";
+    ButtonStyle DefaultStyle(InventoryWorksheetCreateLineVM line)
+    {
+        return line.TotalQuantity <= 0
+            ? ButtonStyle.Primary 
+            : (line.AllocatedQuantity == line.TotalQuantity 
+            ? ButtonStyle.Success
+            : ButtonStyle.Warning);
+    }
 
     async Task ReloadLinesAsync()
     {
