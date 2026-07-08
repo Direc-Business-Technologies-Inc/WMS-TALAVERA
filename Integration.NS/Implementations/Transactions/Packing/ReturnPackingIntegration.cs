@@ -141,7 +141,6 @@ internal class ReturnPackingIntegration(
             TransferLocation = nsdto.TransferLocation,
             TransferCategory = nsdto.TransferCategory,
             PreparedBy = nsdto.PreparedBy,
-            ReceivedBy = nsdto.ReceivedBy
         };
     }
 

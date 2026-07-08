@@ -27,7 +27,6 @@ public class ReturnsItemReceiptPackingHandler(ISender sender) : IReturnsItemRece
             CreatedFrom = header.ReferenceNumber,
             Department = "Operations",
             TransferCategory = header.TransferCategory,
-            ReceivedBy = header.ReceivedBy,
             Location = header.Location,
             TransferLocation = header.TransferLocation,
             Subsidiary = header.FromSubsidiary,

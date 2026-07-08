@@ -11,5 +11,4 @@ public class ReturnsInfoDTO
     public string TransferLocation { get; set; } = string.Empty;
     public string TransferCategory { get; set; } = string.Empty;
     public string PreparedBy { get; set; } = string.Empty;
-    public string ReceivedBy { get; set; } = string.Empty;
 }

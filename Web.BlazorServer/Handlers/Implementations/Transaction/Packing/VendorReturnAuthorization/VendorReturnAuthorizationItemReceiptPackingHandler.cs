@@ -27,7 +27,6 @@ public class VendorReturnAuthorizationItemReceiptPackingHandler(ISender sender) 
             CreatedFrom = header.ReferenceNumber,
             Department = "Operations",
             Vendor = lines.FirstOrDefault()?.VendorName ?? string.Empty,
-            ReceivedBy = header.ReceivedBy,
             Location = header.Location,
             Subsidiary = header.FromSubsidiary,
             Date = header.Date,

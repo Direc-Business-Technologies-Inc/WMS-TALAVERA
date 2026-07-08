@@ -138,7 +138,6 @@ internal class StockTransferRequestPackingIntegration(
             Location = nsdto.Location,
             TransferLocation = nsdto.TransferLocation,
             PreparedBy = nsdto.PreparedBy,
-            ReceivedBy = nsdto.ReceivedBy
         };
     }
 
