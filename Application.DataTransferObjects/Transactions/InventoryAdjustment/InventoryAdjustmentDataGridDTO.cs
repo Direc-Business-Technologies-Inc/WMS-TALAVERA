@@ -19,5 +19,5 @@ public class InventoryAdjustmentDataGridDTO
     public string Memo { get; set; } = string.Empty;
     public string PreparedBy { get; set; } = string.Empty;
     public string AdjustmentReason { get; set; } = string.Empty;
- 
+    public DateTime Date { get; set; }
 }
