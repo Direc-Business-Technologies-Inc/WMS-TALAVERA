@@ -3,6 +3,7 @@ using Mapster;
 using Microsoft.Net.Http.Headers;
 using Shared.Entities;
 using System.Collections;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using static System.Net.WebRequestMethods;
@@ -181,6 +182,16 @@ public class SuiteQLQueryBuilder
         if (value is DateTime dateVal) return $"'{dateVal.ToString(DATETIME_FORMAT_STRING)}'";
         if (value is null) return "NULL";
         if (value is object[] arrayVal) return "(" + string.Join(", ", arrayVal.Select(_stringifyValue)) + ")";
+        if (value is IEnumerable enumerable)
+        {
+            StringBuilder builder = new();
+            builder.Append("(");
+            foreach (var item in enumerable) { 
+                builder.Append(_stringifyValue(item));
+            }
+            builder.Append(")");
+            return builder.ToString();
+        }
         return JsonSerializer.Serialize(value);
     }
 
