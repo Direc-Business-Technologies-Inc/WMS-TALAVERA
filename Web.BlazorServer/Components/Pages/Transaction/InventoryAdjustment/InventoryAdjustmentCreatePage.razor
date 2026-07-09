@@ -25,15 +25,15 @@
                 <RadzenText TextStyle="TextStyle.Caption">Please wait...</RadzenText>
             </RadzenStack>
         </RadzenStack>
-    <RadzenStack Orientation="Orientation.Horizontal"
-                 AlignItems="AlignItems.Center"
-                 JustifyContent="JustifyContent.End"
-                 Gap="32px"
-                 class="rz-mb-2">
-        <AppContentBadge Title="Doc" Content="To be generated" />
-        <AppContentBadge Title="Type" Content="@(IsIssue ? "Issue" : "Receipt")" />
-        <AppContentBadge Title="Doc Date" Content="@FormData.Date.ToString("MM-dd-yy")" ChildBadgeStyle="BadgeStyle.Secondary" ChildShade="Shade.Default" />
-    </RadzenStack>
+        <RadzenStack Orientation="Orientation.Horizontal"
+                     AlignItems="AlignItems.Center"
+                     JustifyContent="JustifyContent.End"
+                     Gap="32px"
+                     class="rz-mb-2">
+            <AppContentBadge Title="Doc" Content="To be generated" />
+            <AppContentBadge Title="Type" Content="@(IsIssue ? "Issue" : "Receipt")" />
+            <AppContentBadge Title="Doc Date" Content="@FormData.Date.ToString("MM-dd-yy")" ChildBadgeStyle="BadgeStyle.Secondary" ChildShade="Shade.Default" />
+        </RadzenStack>
     </RadzenStack>
     <InventoryAdjustmentForm Disabled="IsBusy" Model="@FormData" EditContext="@EditContext" OnReturnClicked="OnReturn" OnSubmit="@OnSubmit" Issue="@IsIssue"/>
 </AppContent>

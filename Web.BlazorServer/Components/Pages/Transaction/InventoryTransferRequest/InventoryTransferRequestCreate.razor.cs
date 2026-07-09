@@ -13,6 +13,7 @@ public partial class InventoryTransferRequestCreate : BaseForm<InventoryTransfer
     [Inject] AppAuthenticationService authService { get; set; } = default!;
 
     readonly string ActionCreate = "Create Inventory transfer request";
+    bool IsBusy = false;
 
     protected override void OnParametersSet()
     {
@@ -55,10 +56,22 @@ public partial class InventoryTransferRequestCreate : BaseForm<InventoryTransfer
             return;
         }
 
+        IsBusy = true;
+        await InvokeAsync(StateHasChanged);
+
         var action = await AppActionFactory.RunConfirmedAsync(async () =>
         {
             await itrHandler.CreateInventoryTransferRequest(data);
         }, ActionCreate);
+
+        action.OnSuccess(() =>
+        {
+            NavManager.NavigateTo(ITRRoutes.INDEX);
+            return Task.CompletedTask;
+        });
+
+        IsBusy = false;
+        await InvokeAsync(StateHasChanged);
     }
 
     private bool LinesNeedAssignment(InventoryTransferRequestVM data, out List<InventoryTransferRequestLineVM> lines)
