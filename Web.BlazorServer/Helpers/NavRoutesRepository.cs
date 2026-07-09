@@ -74,7 +74,7 @@ public class NavRoutesRepository
             Register("OIAJ", new() {Name = "Inventory Adjustment", Icon="swap_vert", Protected=true, Uri = InventoryAdjustmentRoutes.INDEX }),
             Register("OITR", new() {Name = "Inventory Transfer Request", Icon="warehouse", Protected=true, Uri = ITRRoutes.INDEX }),
             Register("OICT", new() {Name = "Inventory Counting", Icon="inventory", Protected=true, Uri = InventoryCountingRoutes.COUNT_INDEX }),
-            new() {Name = "Inventory Counting", Icon="view_list", Protected=true, Uri = InventoryCountingRoutes.WORKSHEET_INDEX },
+            new() {Name = "Inventory Worksheet", Icon="view_list", Protected=true, Uri = InventoryCountingRoutes.WORKSHEET_INDEX },
 
         ];
 
