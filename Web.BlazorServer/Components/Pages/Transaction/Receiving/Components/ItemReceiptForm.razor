@@ -120,7 +120,7 @@
                                     <RadzenText class="@(data.IsReceived ? "rz-color-danger" : "rz-color-base-300")" Text="Bad" TextStyle="TextStyle.Caption" />    
                                 </TextTemplate>
                                 <ChildContent>
-                                    <RadzenNumeric Name="line_quantity_bad" @bind-Value="@data.QuantityBad" Disabled="@(!data.IsReceived)" Min="0" />
+                                    <RadzenNumeric Name="line_quantity_bad" @bind-Value="@data.QuantityBad" Disabled="@(!data.IsReceived)" Max="@(data.QuantityOpen)" Min="0" />
                                 </ChildContent>
                                 <Helper>
                                     <RadzenCustomValidator Component="line_quantity_bad" Validator="@(() => data.QuantityOpen >= data.QuantityGood + data.QuantityBad)" Text="Cannot receive more than the open quantity" />
