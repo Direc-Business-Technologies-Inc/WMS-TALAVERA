@@ -207,7 +207,37 @@ public partial class STRForm
             }
         }
 
+        if (IsSameLocation(Model.SourceLocation, Model.DestinationLocation))
+        {
+            ToastService.Error("Source location may not be the same as the destination location");
+            await Task.Yield();
+            Model.DestinationLocation = originalValue;
+            return;
+        }
+
+        Model.Lines.Clear();
+
         await InvokeAsync(StateHasChanged);
+    }
+
+    async Task OnDestinationLocationChanged(LocationVM? value)
+    {
+        var originalValue = Model.DestinationLocation;
+        Model.DestinationLocation = value;
+
+        if (IsSameLocation(Model.SourceLocation, Model.DestinationLocation))
+        {
+            ToastService.Error("Destination location may not be the same as the source location");
+            await Task.Yield();
+            Model.DestinationLocation = originalValue;
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    bool IsSameLocation(LocationVM? a, LocationVM? b)
+    {
+        return a is null || b is null ? false : a.Id == b.Id;
     }
 
     async Task OnToSubsidiaryChanged(SubsidiaryVM? value)
