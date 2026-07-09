@@ -1,9 +1,13 @@
 ﻿using Application.DataTransferObjects.Others.NS;
 using Application.UseCases.Repositories.Integration.Others;
+using Integration.NS.Services;
+using Microsoft.AspNetCore.Http;
+using Shared.Libraries.Utilities;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 namespace Integration.NS.Helpers;
@@ -39,5 +43,18 @@ public static class SuiteQLQueryExtensions
         responses[0].items = itemsStitched;
         responses[0].count = itemsStitched.Count;
         return responses[0];
+    }
+
+    public static SuiteQLQueryBuilder WithSubsidiaries(this SuiteQLQueryBuilder builder, IHttpContextAccessor context, string transactionTablename)
+    {
+        if (string.IsNullOrWhiteSpace(transactionTablename)) return builder;
+        string? claimValue = context.HttpContext?.User?.FindFirst("com.direcbusiness.wms.nsAllowedSubsidiaries")?.Value;
+        if (claimValue == null) return builder;
+
+        List<int> allowedSubsidiaries = JsonSerializer.Deserialize<List<int>>(claimValue) ?? [];
+
+        if (allowedSubsidiaries.Count == 0) return builder;
+        return builder.WithFilter(
+            DataGridFilterUtilities.In($"{transactionTablename}.subsidiary", allowedSubsidiaries));
     }
 }
