@@ -91,7 +91,7 @@ public class SubsidiaryIntegration(
             search.Clear();
 
             foreach (var list in results) {
-                foreach (var item in result) {
+                foreach (var item in list) {
                     if (addmemo.Contains(item.Id)) continue;
 
                     result.Add(item);
