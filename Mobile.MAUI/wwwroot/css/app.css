@@ -246,6 +246,7 @@ div.rz-datalist-content ul.rz-datalist-data > li {
     }
 
 .trans-number {
+    padding-top: 22px;
     font-size: 22px;
     font-weight: 800;
     color: #4a4a4a;

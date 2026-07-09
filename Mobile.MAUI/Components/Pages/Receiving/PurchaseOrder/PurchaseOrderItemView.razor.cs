@@ -388,7 +388,17 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
 
     async Task SaveScan()
     {
-        POItems = GoodPOItems.Where(x => x.NSLineQuantityReceived != 0)
+        POItems = GoodPOItems
+            .Where(g =>
+            {
+                var bad = BadPOItems.FirstOrDefault(b =>
+                    b.LineSequenceNumber == g.LineSequenceNumber);
+
+                var badQty = bad?.ScannedQuantity ?? 0;
+
+                return g.ScannedQuantity > 0 ||
+                        (g.ScannedQuantity + badQty) < g.NSLineQuantityReceived;
+            })
             .Concat(BadPOItems.Where(x => x.NSLineQuantityReceived != 0))
             .Select(x => new PurchaseOrderLineVM
             {

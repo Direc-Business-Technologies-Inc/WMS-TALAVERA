@@ -301,19 +301,9 @@ public partial class ReturnsItemView : IAsyncDisposable
                 return;
             }
 
-            var isOverScan = line.ScannedQuantity >= line.NSLineQuantityReceived;
-
-            if (isOverScan)
-            {
-                await Toast.Warning($"Over-scanning item: {line.MaterialCode}.");
-                return;
-            }
-
             var scanQty = barcode.UoMRate / line.UoMRate;
 
-            var remainingQty = line.NSLineQuantityReceived - line.ScannedQuantity;
-
-            bool isExceed = scanQty > remainingQty;
+            bool isExceed = scanQty > line.ScannedQuantity;
 
             if (isExceed)
             {
