@@ -171,6 +171,15 @@
             ToastService.Error("Please set a location");
             return;
         }
+        DialogOptions opts = new()
+        {
+            CloseDialogOnOverlayClick = true,
+            CloseDialogOnEsc = true,
+            Draggable = true,
+            Resizable = true,
+            Width = "80%",
+            ShowClose = true
+        };
 
         InventoryDetailsDialog.Types Type = Issue ?
             InventoryDetailsDialog.Types.Outgoing : 
@@ -179,7 +188,7 @@
         List<InventoryDetailVM> items = await DialogService.OpenAsync(
             "Set Inventory Details",
             ds => @<InventoryDetailsDialog LocationId="@line.Location.Id" Amount="@line.QuantityAlloted" Type="Type" ItemId="@line.ItemId"/>,
-    options: GridSettingsService.GetDialogOptions());
+    options: opts);
 
         if (items is not null)
         {
