@@ -184,10 +184,16 @@ public class SuiteQLQueryBuilder
         if (value is object[] arrayVal) return "(" + string.Join(", ", arrayVal.Select(_stringifyValue)) + ")";
         if (value is IEnumerable enumerable)
         {
+            bool firstItem = true;
             StringBuilder builder = new();
             builder.Append("(");
             foreach (var item in enumerable) { 
+                if (!firstItem)
+                {
+                    builder.Append(',');
+                }
                 builder.Append(_stringifyValue(item));
+                firstItem = false;
             }
             builder.Append(")");
             return builder.ToString();
@@ -197,7 +203,7 @@ public class SuiteQLQueryBuilder
 
     private string _listOp(string prop, string op, object? value, Dictionary<string, string>? propertyMap = null)
     {
-        if (value is null || value is not object[] arrayVal) throw new InvalidOperationException($"operation {op} requires an array type as its value");
+        if (value is null || value is not IEnumerable) throw new InvalidOperationException($"operation {op} requires an array type as its value");
 
         prop = propertyMap != null && propertyMap.ContainsKey(prop) ? propertyMap[prop] : prop;
 
