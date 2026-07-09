@@ -7,6 +7,7 @@ using Application.UseCases.Repositories.Integration.Others;
 using DataCipher;
 using Domain.Entities.Administration.User.Management;
 using Domain.Entities.Administration.User.Role;
+using Domain.Entities.Entities.Administration.User.Management;
 using Domain.Providers;
 using Mapster;
 using MediatR;
@@ -21,6 +22,7 @@ public class LoginCmdHandler(
     IAppCommandRepository appCommand)
     : IRequestHandler<LoginCmd, AuthenticationResponseDTO>
 {
+    const int DEFAULT_MAX_LOGINS = 5;
     public async Task<AuthenticationResponseDTO> Handle(LoginCmd request, CancellationToken cancellationToken)
     {
         if (!await appRead.ExistsAsync<UserDEM>(x => x.Account.UserName.Value == request.Login.UserName))
@@ -49,10 +51,14 @@ public class LoginCmdHandler(
         login ??= LoginDEM.Create(false, user.Id);
         user.AddNewLogin(login);
 
+        var loginSetting = await appRead.FirstOrDefaultAsync<SettingsDEM>(x => x.Code.Equals("wms.max_login_attemts"));
+        int maxLogins = loginSetting is null ? DEFAULT_MAX_LOGINS :
+            int.TryParse(loginSetting.Value, out int intval) ? intval : DEFAULT_MAX_LOGINS;
+
         if (!Encryption.Decrypt(user.Account.HashedPassword).Equals(request.Login.Password))
         {
             login.NewAttempt();
-            if (login.AttemptCount > 3)
+            if (login.AttemptCount > maxLogins)
                 user.Account.Lock();
 
             appCommand.Update(user);
