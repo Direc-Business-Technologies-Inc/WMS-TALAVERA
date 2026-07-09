@@ -21,6 +21,7 @@ public partial class InventoryAdjustmentForm
     [Parameter] public string SubmitString { get; set; } = "Submit";
     [Parameter] public string SecondaryActionString { get; set; } = "Action";
     [Parameter] public bool ReadOnly { get; set; } = false;
+    [Parameter] public bool Disabled { get; set; } = false;
     [Parameter] public bool Issue { get; set; } = false;
 
     [Inject] ISubsidiaryHandler subsidiaryHandler { get; set; } = default!;

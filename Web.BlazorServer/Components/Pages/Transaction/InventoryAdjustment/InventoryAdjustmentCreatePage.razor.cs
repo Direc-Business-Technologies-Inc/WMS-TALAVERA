@@ -12,10 +12,14 @@ public partial class InventoryAdjustmentCreatePage
     [Inject] public AppAuthenticationService authService { get; set; } = default!;
     [SupplyParameterFromQuery] public string? Type { get; set; }
     bool IsIssue => Type is not null && Type.Equals("issue", StringComparison.OrdinalIgnoreCase);
+    bool IsBusy = false;
     readonly string ActionCreateInventoryAdjustment = "Create Inventory Adjustment";
 
     async Task OnSubmit(InventoryAdjustmentVM data)
     {
+        IsBusy = true;
+        await InvokeAsync(StateHasChanged);
+
         var action = await AppActionFactory.RunConfirmedAsync(async () =>
         {
             if (inventoryAdjustmentHandler is null) throw new Exception("No registered handler for inventory adjustment");
@@ -28,6 +32,9 @@ public partial class InventoryAdjustmentCreatePage
             await Task.Delay(100);
             NavManager.NavigateTo(InventoryAdjustmentRoutes.INDEX);
         });
+
+        IsBusy = false;
+        await InvokeAsync(StateHasChanged);
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
