@@ -1,6 +1,7 @@
-﻿namespace Application.DataTransferObjects.Transactions.Receiving.NS.Request;
+﻿using Application.DataTransferObjects.Transactions.Commons.NS.Request;
 
-public class PurchaseOrderLineRequestDTO
+namespace Application.DataTransferObjects.Transactions.Receiving.NS.Request;
+
+public class PurchaseOrderLineRequestDTO : RequestDTO
 {
-    public string OrderNumber { get; set; }
 }
