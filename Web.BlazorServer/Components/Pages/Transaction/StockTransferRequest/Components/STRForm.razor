@@ -46,16 +46,22 @@
                 </RadzenColumn>
                 <RadzenColumn Visible="@Model.IsReturn" SizeLG="3" SizeMD="6">
                     <RadzenFormField AllowFloatingLabel="@(!ReadOnly)" Text="Vendor" class="rz-w-100">
-                        <RadzenTextBox Visible="@ReadOnly" ReadOnly Value="@(Model.Vendor?.Name ?? null)" />
-                        <QuickVirtualizedDropdown Visible="@(!ReadOnly)"
-                                                  @ref="@VendorDropdown"
-                                                  TItem="VendorVM"
-                                                  ActionName="@ActionGetVendors"
-                                                  DataGetter="@VendorProvider"
-                                                  @bind-Value="@Model.Vendor"
-                                                  TextProperty="@nameof(VendorVM.Name)"
-                                                  AllowClear
-                                                  AllowFiltering />
+                        <ChildContent>
+                            <RadzenTextBox Visible="@ReadOnly" ReadOnly Value="@(Model.Vendor?.Name ?? null)" />
+                            <QuickVirtualizedDropdown Visible="@(!ReadOnly)"
+                                                      @ref="@VendorDropdown"
+                                                      TItem="VendorVM"
+                                                      Name="str_vendor_dropdown"
+                                                      ActionName="@ActionGetVendors"
+                                                      DataGetter="@VendorProvider"
+                                                      @bind-Value="@Model.Vendor"
+                                                      TextProperty="@nameof(VendorVM.Name)"
+                                                      AllowClear
+                                                      AllowFiltering />
+                        </ChildContent>
+                        <Helper>
+                            <RadzenRequiredValidator Component="str_vendor_dropdown" />
+                        </Helper>
                     </RadzenFormField>
                 </RadzenColumn>
                 <RadzenColumn SizeLG="@(Model.IsIntercompany ? 3 : 6)" SizeMD="@(Model.IsIntercompany ? 6 : 12)">
@@ -245,7 +251,7 @@
     {
         List<ItemsVM> items = await DialogService.OpenAsync(
             "Select Items",
-            ds => @<ItemSelectionDialog Location="@(Model.SourceLocation?.Id ?? null)" Filters = "@ItemFilters"/>,
+            ds => @<ItemSelectionDialog Location="@(Model.SourceLocation?.Id ?? null)" Filters="@ItemFilters" />,
     options: GridSettingsService.GetDialogOptions());
 
         if (items is not null) await AddItems(items);
