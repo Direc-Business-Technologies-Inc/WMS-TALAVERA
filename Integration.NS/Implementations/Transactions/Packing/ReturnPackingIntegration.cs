@@ -6,6 +6,7 @@ using Integration.NS.DataTransferObjects.Packing.Returns;
 using Integration.NS.DataTransferObjects.Packing.STR;
 using Integration.NS.Helpers;
 using Integration.NS.Services;
+using Microsoft.AspNetCore.Http;
 using Shared.Entities;
 using static Shared.Libraries.Utilities.DataGridFilterUtilities;
 
@@ -13,6 +14,7 @@ namespace Integration.NS.Implementations.Transactions.Packing;
 
 internal class ReturnPackingIntegration(
     INetSuiteApiClientService netsuiteService,
+    IHttpContextAccessor httpContextAccessor,
     ISqlQueryManager sqlQuery,
     SuiteQLQueryBuilderFactoryService builderFactory) : IReturnPackingIntegration
 {
@@ -31,6 +33,7 @@ internal class ReturnPackingIntegration(
                 ("t.memo", nameof(ReturnPackingDataGridNSDTO.Remarks))
             )
             .From("transaction t")
+            .WithSubsidiaries(httpContextAccessor, "t")
             .Join("transactionline tl", on: "tl.transaction = t.id")
             .LeftJoin("transferorderstatus s", on: "s.id = t.status")
             .WithFilters(
@@ -61,6 +64,7 @@ internal class ReturnPackingIntegration(
             )
             .From("transaction t")
             .Join("transactionline tl", on: "tl.transaction = t.id")
+            .WithSubsidiaries(httpContextAccessor, "t")
             .WithFilters(
                 Equal("t.tranid", id),
                 Equal("tl.mainline", "T"))
