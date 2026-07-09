@@ -28,7 +28,6 @@
 	  <Compile Remove="NSScripts\NS_IF_Get_Items.cs" />
 	  <Compile Remove="NSScripts\NS_InventoryCounting_Get_Started.cs" />
 	  <Compile Remove="NSScripts\NS_Item_Get_Barcodes.cs" />
-	  <Compile Remove="NSScripts\NS_TO_x_Packing_Get_PendingFulfillment.cs" />
 	  <Compile Remove="NSScripts\NS_TransferOrder_Get_Items.cs" />
 	  <Compile Remove="NSScripts\NS_TransferOrder_Get_PendingReceipt.cs" />
 	</ItemGroup>
@@ -39,7 +38,6 @@
 	  <Content Remove="NSScripts\NS_IF_Get_Items.cs" />
 	  <Content Remove="NSScripts\NS_InventoryCounting_Get_Started.cs" />
 	  <Content Remove="NSScripts\NS_Item_Get_Barcodes.cs" />
-	  <Content Remove="NSScripts\NS_TO_x_Packing_Get_PendingFulfillment.cs" />
 	  <Content Remove="NSScripts\NS_TransferOrder_Get_Items.cs" />
 	  <Content Remove="NSScripts\NS_TransferOrder_Get_PendingReceipt.cs" />
 	</ItemGroup>
@@ -55,8 +53,6 @@
     <Content Update="NSScripts\NS_Location_Get_Bins.sql" Link="Scripts\NS_Location_Get_Bins.sql" />
     <Content Update="NSScripts\NS_PurchaseOrder_GetAll.sql" Link="Scripts\NS_PurchaseOrder_Get_Pending.sql" />
     <Content Update="NSScripts\NS_PurchaseOrder_Get_PendingReceipt.sql" Link="Scripts\NS_PurchaseOrder_Get_PendingReceipt.sql" />
-    <Content Update="NSScripts\NS_VendorReturnAuthorization_Get_Items.sql" Link="Scripts\NS_VendorReturnAuthorization_Get_Items.sql" />
-    <Content Update="NSScripts\NS_VendorReturnAuthorization_Get_PendingReturn.sql" Link="Scripts\NS_VendorReturnAuthorization_Get_PendingReturn.sql" />
   </ItemGroup>
 	
   <ItemGroup>

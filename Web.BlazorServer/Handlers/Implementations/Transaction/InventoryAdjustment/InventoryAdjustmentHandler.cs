@@ -4,12 +4,15 @@ using Application.UseCases.Queries.Transaction.InventoryAdjustment;
 using Mapster;
 using MediatR;
 using Shared.Entities;
+using Web.BlazorServer.Components.Security;
 using Web.BlazorServer.Handlers.Repositories.Transaction.InventoryAdjustment;
 using Web.BlazorServer.ViewModels.Transaction.InventoryAdjustment;
 
 namespace Web.BlazorServer.Handlers.Implementations.Transaction.InventoryAdjustment;
 
-public class InventoryAdjustmentHandler(ISender sender) : IInventoryAdjustmentHandler
+public class InventoryAdjustmentHandler(
+    AppAuthenticationService authService,
+    ISender sender) : IInventoryAdjustmentHandler
 {
     public async Task<InventoryAdjustmentVM?> GetInventoryAdjustmentAsync(string id)
     {
@@ -40,6 +43,24 @@ public class InventoryAdjustmentHandler(ISender sender) : IInventoryAdjustmentHa
         return (data.Adapt<IEnumerable<InventoryAdjustmentDataGridVM>>(), count);
     }
 
+    public async Task<(IEnumerable<InventoryAdjustmentDataGridVM> Data, int Count)> GetIssuesDataGridAsync(DataGridIntent intent)
+    {
+        GetIssuesQry query = new(intent);
+
+        (var data, int count) = await sender.Send(query);
+
+        return (data.Adapt<IEnumerable<InventoryAdjustmentDataGridVM>>(), count);
+    }
+
+    public async Task<(IEnumerable<InventoryAdjustmentDataGridVM> Data, int Count)> GetReceiptsDataGridAsync(DataGridIntent intent)
+    {
+        GetReceiptsQry query = new(intent);
+
+        (var data, int count) = await sender.Send(query);
+
+        return (data.Adapt<IEnumerable<InventoryAdjustmentDataGridVM>>(), count);
+    }
+
     public async Task<bool> CreateInventoryAdjustmentAsync(InventoryAdjustmentVM vm)
     {
         var dto = vm.Adapt<InventoryAdjustmentDTO>();
@@ -53,7 +74,30 @@ public class InventoryAdjustmentHandler(ISender sender) : IInventoryAdjustmentHa
             dto.Lines.Add(dtoline);
         }
 
+        if (int.TryParse(authService.GetClaimValue("com.direcbusiness.wms.nsEmployeeId"), out int employeeId))
+        {
+            dto.PreparedById = employeeId;
+        }
+
         CreateInventoryAdjustmentCmd cmd = new(dto);
         return await sender.Send(cmd);
+    }
+
+    public async Task<(IEnumerable<InventoryAdjustmentReasonVM> Data, int Count)> GetInventoryAdjustmentReasonsAsync(DataGridIntent intent)
+    {
+        GetInventoryAdjustmentReasonsQry query = new(intent);
+
+        (var data, int count) = await sender.Send(query);
+
+        return (data.Adapt<IEnumerable<InventoryAdjustmentReasonVM>>(), count);
+    }
+
+    public async Task<(IEnumerable<InventoryAdjustmentCategoryVM> Data, int Count)> GetInventoryAdjustmentCategoriesAsync(DataGridIntent intent)
+    {
+        GetInventoryAdjustmentCategoriesQry query = new GetInventoryAdjustmentCategoriesQry(intent);
+
+        (var data, int count) = await sender.Send(query);
+
+        return (data.Adapt<IEnumerable<InventoryAdjustmentCategoryVM>>(), count);
     }
 }

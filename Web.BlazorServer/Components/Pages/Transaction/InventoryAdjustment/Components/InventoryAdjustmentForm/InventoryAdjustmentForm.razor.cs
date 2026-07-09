@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Components.Forms;
 using Shared.Entities;
 using Web.BlazorServer.Components.Custom;
 using Web.BlazorServer.Handlers.Repositories.Others;
+using Web.BlazorServer.Handlers.Repositories.Transaction.InventoryAdjustment;
 using Web.BlazorServer.Services.Repositories;
 using Web.BlazorServer.ViewModels.Others;
 using Web.BlazorServer.ViewModels.Transaction.InventoryAdjustment;
@@ -20,17 +21,20 @@ public partial class InventoryAdjustmentForm
     [Parameter] public string SubmitString { get; set; } = "Submit";
     [Parameter] public string SecondaryActionString { get; set; } = "Action";
     [Parameter] public bool ReadOnly { get; set; } = false;
+    [Parameter] public bool Issue { get; set; } = false;
 
     [Inject] ISubsidiaryHandler subsidiaryHandler { get; set; } = default!;
     [Inject] ILocationHandler locationHandler { get; set; } = default!;
     [Inject] IItemsHandler itemsHandler { get; set; } = default!;
     [Inject] IBusinessAccountHandler accountHandler { get; set; } = default!;
+    [Inject] IInventoryAdjustmentHandler adjustmentHandler { get; set; } = default!;
     [Inject] IGridSettingsService GridSettingsService { get; set; } = default!;
 
     public string ActionGetSubsidiaries => "Get Subsidiaries";
     public string ActionGetLocations => "Get Locations";
     public string ActionGetAccounts => "Get Accounts";
     public string ActionGetItemUnits => "Get Item Units";
+    public string ActionGetReasons => "Get Inventory Adjustment Reasons";
     public QuickVirtualizedDropdown<BusinessAccountVM> AccountDropdown { get; set; } = default!;
     public QuickVirtualizedDropdown<LocationVM> LocationDropdown { get; set; } = default!;
 
@@ -46,15 +50,44 @@ public partial class InventoryAdjustmentForm
         return await locationHandler.GetLocationsBySubsidiaryAsync(intent, Model.Subsidiary.Id);
     }
 
+    async Task<(IEnumerable<InventoryAdjustmentCategoryVM>, int)> CategoriesProvider(DataGridIntent intent)
+    {
+        return await adjustmentHandler.GetInventoryAdjustmentCategoriesAsync(intent);
+    }
     async Task<(IEnumerable<BusinessAccountVM>, int)> AccountProvider(DataGridIntent intent)
     {
+        if (Model.Reason is not null) return ([new BusinessAccountVM
+        {
+            Name = Model.Reason.AccountName,
+            Id = Model.Reason.AccountId,
+        }], 1);
         if (Model.Subsidiary is null) return ([], 0);
         return await accountHandler.GetBusinessAccountsBySubsidiaryDataGridAsync(intent, Model.Subsidiary.Id);
+    }
+
+    async Task<(IEnumerable<InventoryAdjustmentReasonVM>, int)> ReasonProvider(DataGridIntent intent)
+    {
+        return await adjustmentHandler.GetInventoryAdjustmentReasonsAsync(intent);
     }
 
     async Task<(IEnumerable<ItemUnitVM>, int)> UnitsProvider(int itemid, DataGridIntent intent)
     {
         return await itemsHandler.GetItemUnits(itemid, intent);
+    }
+
+    async Task SetReason(InventoryAdjustmentReasonVM? reason)
+    {
+        Model.Reason = reason;
+        if (reason != null)
+        {
+            Model.Account = new BusinessAccountVM
+            {
+                Name = reason.AccountName,
+                Id = reason.AccountId
+            };
+        }
+
+        await InvokeAsync(StateHasChanged);
     }
 
     async Task SetSubsidiary(SubsidiaryVM? value)
@@ -69,7 +102,9 @@ public partial class InventoryAdjustmentForm
             new InventoryAdjustmentLineVM
             {
                 ItemId = x.Id,
+                Type = Issue ? InventoryAdjustmentLineVM.Types.Issue : InventoryAdjustmentLineVM.Types.Receipt,
                 ItemCode = x.ItemNumber,
+                UsesBins = x.UsesBins,
                 ItemDescription = x.Name,
                 UoM = x.StockUnit,
                 Location = Model.Location,

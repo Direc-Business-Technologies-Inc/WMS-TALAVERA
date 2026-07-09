@@ -6,6 +6,7 @@ using Integration.NS.DataTransferObjects.StockTransferRequest;
 using Integration.NS.Helpers;
 using Integration.NS.Services;
 using Mapster;
+using Microsoft.AspNetCore.Http;
 using Shared.Entities;
 using Shared.Libraries.Utilities;
 using System;
@@ -20,6 +21,7 @@ namespace Integration.NS.Implementations.Transactions;
 
 internal class StockTransferRequestIntegration(
     INetSuiteApiClientService netsuiteService,
+    IHttpContextAccessor httpContextAccessor,
     SuiteQLQueryBuilderFactoryService builderFactory) : IStockTransferRequestIntegration
 {
     public async Task<(IEnumerable<StockTransferRequestDataGridDTO> Data, int Count)> GetIntercompanyTransferOrderList(DataGridIntent intent)
@@ -28,17 +30,19 @@ internal class StockTransferRequestIntegration(
                 .Select(
                     ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(StockTransferRequestDataGridNSDTO.Date)),
                     ("t.tranid", nameof(StockTransferRequestDataGridNSDTO.ReferenceNumber)),
-                    ("BUILTIN.DF(t.custbody_dbti_prepared_by)", nameof(StockTransferRequestDataGridNSDTO.PreparedBy)),
+                    ("CONCAT(e.firstname,CONCAT(' ',e.lastname))", nameof(StockTransferRequestDataGridNSDTO.PreparedBy)),
                     ("BUILTIN.DF(t.subsidiary)", nameof(StockTransferRequestDataGridNSDTO.Subsidiary)),
                     ("BUILTIN.DF(t.tosubsidiary)", nameof(StockTransferRequestDataGridNSDTO.ToSubsidiary)),
                     ("BUILTIN.DF(t.transferlocation)", nameof(StockTransferRequestDataGridNSDTO.DestinationLocation)),
                     ("BUILTIN.DF(tl.location)", nameof(StockTransferRequestDataGridNSDTO.SourceLocation)),
                     ("s.name", nameof(StockTransferRequestDataGridNSDTO.StatusName)),
-                    ("s.id", nameof(StockTransferRequestDataGridNSDTO.StatusId))
+                    ("s.id", nameof(StockTransferRequestDataGridNSDTO.StatusId)),
+                    ("t.memo", nameof(StockTransferRequestDataGridNSDTO.Remarks))
                 )
                 .From("transaction t")
                 .Join("transactionline tl", on: "tl.transaction = t.id")
-                .LeftJoin("transferorderstatus s", on: "s.id = t.status")
+                .LeftJoin("CUSTOMLIST_DBTI_CR_APPROVAL_STATUSES s", on: "s.id = t.custbody_dbti_custom_approval_status")
+                .LeftJoin("employee e", on: "e.id = t.custbody_dbti_prepared_by")
                 .WithFilters(
                     DataGridFilterUtilities.Equal("tl.mainline", "T"),
                     DataGridFilterUtilities.Equal("t.recordtype", "intercompanytransferorder"),
@@ -46,6 +50,7 @@ internal class StockTransferRequestIntegration(
                     DataGridFilterUtilities.NotEqual("t.custbody_dbti_transfer_category", 3),
                     DataGridFilterUtilities.NotEqual("t.custbody_dbti_transfer_category", 4)
                 )
+                .WithSubsidiaries(httpContextAccessor, "t")
                 .WithDatagridIntent(intent)
                 .Build();
 
@@ -59,17 +64,20 @@ internal class StockTransferRequestIntegration(
                 .Select(
                     ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(StockTransferRequestDataGridNSDTO.Date)),
                     ("t.tranid", nameof(StockTransferRequestDataGridNSDTO.ReferenceNumber)),
-                    ("BUILTIN.DF(t.custbody_dbti_prepared_by)", nameof(StockTransferRequestDataGridNSDTO.PreparedBy)),
+                    ("CONCAT(e.firstname,CONCAT(' ',e.lastname))", nameof(StockTransferRequestDataGridNSDTO.PreparedBy)),
                     ("BUILTIN.DF(t.subsidiary)", nameof(StockTransferRequestDataGridNSDTO.Subsidiary)),
                     ("BUILTIN.DF(t.tosubsidiary)", nameof(StockTransferRequestDataGridNSDTO.ToSubsidiary)),
                     ("BUILTIN.DF(t.transferlocation)", nameof(StockTransferRequestDataGridNSDTO.DestinationLocation)),
                     ("BUILTIN.DF(tl.location)", nameof(StockTransferRequestDataGridNSDTO.SourceLocation)),
                     ("s.name", nameof(StockTransferRequestDataGridNSDTO.StatusName)),
-                    ("s.id", nameof(StockTransferRequestDataGridNSDTO.StatusId))
+                    ("s.id", nameof(StockTransferRequestDataGridNSDTO.StatusId)),
+                    ("t.memo", nameof(StockTransferRequestDataGridNSDTO.Remarks))
                 )
                 .From("transaction t")
                 .Join("transactionline tl", on: "tl.transaction = t.id")
-                .LeftJoin("transferorderstatus s", on: "s.id = t.status")
+                .LeftJoin("CUSTOMLIST_DBTI_CR_APPROVAL_STATUSES s", on: "s.id = t.custbody_dbti_custom_approval_status")
+                .LeftJoin("employee e", on: "e.id = t.custbody_dbti_prepared_by")
+                .WithSubsidiaries(httpContextAccessor, "t")
                 .WithFilters(
                     DataGridFilterUtilities.Equal("tl.mainline", "T"),
                     DataGridFilterUtilities.In("t.recordtype", new string[] { "intercompanytransferorder", "transferorder" }),
@@ -90,17 +98,19 @@ internal class StockTransferRequestIntegration(
                 .Select(
                     ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(StockTransferRequestDataGridNSDTO.Date)),
                     ("t.tranid", nameof(StockTransferRequestDataGridNSDTO.ReferenceNumber)),
-                    ("BUILTIN.DF(t.custbody_dbti_prepared_by)", nameof(StockTransferRequestDataGridNSDTO.PreparedBy)),
+                    ("CONCAT(e.firstname,CONCAT(' ',e.lastname))", nameof(StockTransferRequestDataGridNSDTO.PreparedBy)),
                     ("BUILTIN.DF(t.subsidiary)", nameof(StockTransferRequestDataGridNSDTO.Subsidiary)),
                     ("BUILTIN.DF(t.tosubsidiary)", nameof(StockTransferRequestDataGridNSDTO.ToSubsidiary)),
                     ("BUILTIN.DF(t.transferlocation)", nameof(StockTransferRequestDataGridNSDTO.DestinationLocation)),
                     ("s.name", nameof(StockTransferRequestDataGridNSDTO.StatusName)),
                     ("s.id", nameof(StockTransferRequestDataGridNSDTO.StatusId)),
-                    ("BUILTIN.DF(tl.location)", nameof(StockTransferRequestDataGridNSDTO.SourceLocation))
+                    ("BUILTIN.DF(tl.location)", nameof(StockTransferRequestDataGridNSDTO.SourceLocation)),
+                    ("t.memo", nameof(StockTransferRequestDataGridNSDTO.Remarks))
                 )
                 .From("transaction t")
                 .Join("transactionline tl", on: "tl.transaction = t.id")
-                .LeftJoin("transferorderstatus s", on: "s.id = t.status")
+                .LeftJoin("CUSTOMLIST_DBTI_CR_APPROVAL_STATUSES s", on: "s.id = t.custbody_dbti_custom_approval_status")
+                .LeftJoin("employee e", on: "e.id = t.custbody_dbti_prepared_by")
                 .WithFilters(
                     DataGridFilterUtilities.Equal("tl.mainline", "T"),
                     DataGridFilterUtilities.Equal("t.recordtype", "transferorder"),
@@ -108,6 +118,7 @@ internal class StockTransferRequestIntegration(
                     DataGridFilterUtilities.NotEqual("t.custbody_dbti_transfer_category", 3),
                     DataGridFilterUtilities.NotEqual("t.custbody_dbti_transfer_category", 4)
                 )
+                .WithSubsidiaries(httpContextAccessor, "t")
                 .WithDatagridIntent(intent)
                 .Build();
 
@@ -123,7 +134,7 @@ internal class StockTransferRequestIntegration(
                 .Select(
                     ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(StockTransferRequestHeaderNSDTO.Date)),
                     ("t.tranid", nameof(StockTransferRequestHeaderNSDTO.ReferenceNumber)),
-                    ("BUILTIN.DF(t.custbody_dbti_prepared_by)", nameof(StockTransferRequestHeaderNSDTO.PreparedBy)),
+                    ("CONCAT(e.firstname,CONCAT(' ',e.lastname))", nameof(StockTransferRequestHeaderNSDTO.PreparedBy)),
                     ("BUILTIN.DF(t.custbody_dbti_return_to_vendor)", nameof(StockTransferRequestHeaderNSDTO.VendorName)),
                     ("BUILTIN.DF(t.subsidiary)", nameof(StockTransferRequestHeaderNSDTO.SubsidiaryName)),
                     ("BUILTIN.DF(t.tosubsidiary)", nameof(StockTransferRequestHeaderNSDTO.ToSubsidiaryName)),
@@ -134,14 +145,18 @@ internal class StockTransferRequestIntegration(
                     ("t.tosubsidiary", nameof(StockTransferRequestHeaderNSDTO.ToSubsidiaryId)),
                     ("t.transferlocation", nameof(StockTransferRequestHeaderNSDTO.DestinationLocationId)),
                     ("tl.location", nameof(StockTransferRequestHeaderNSDTO.SourceLocationId)),
+                    ("t.memo", nameof(StockTransferRequestHeaderNSDTO.Remarks)),
                     ("t.custbody_dbti_transfer_category", nameof(StockTransferRequestHeaderNSDTO.TransferCategoryId)),
                     ("s.name", nameof(StockTransferRequestHeaderNSDTO.StatusName)),
                     ("s.id", nameof(StockTransferRequestHeaderNSDTO.StatusId)),
+                    ("t.id", nameof(StockTransferRequestHeaderNSDTO.Id)),
                     ("BUILTIN.DF(t.custbody_dbti_transfer_category)", nameof(StockTransferRequestHeaderNSDTO.TransferCategoryName))
                 )
                 .From("transaction t")
                 .Join("transactionline tl", on: "tl.transaction = t.id")
-                .LeftJoin("transferorderstatus s", on: "s.id = t.status")
+                .LeftJoin("CUSTOMLIST_DBTI_CR_APPROVAL_STATUSES s", on: "s.id = t.custbody_dbti_custom_approval_status")
+                .LeftJoin("employee e", on: "e.id = t.custbody_dbti_prepared_by")
+                .WithSubsidiaries(httpContextAccessor, "t")
                 .WithFilters(
                     DataGridFilterUtilities.In("t.status", new string[] { "C", "A" }),
                     DataGridFilterUtilities.Equal("t.tranid", id),
@@ -185,9 +200,11 @@ internal class StockTransferRequestIntegration(
                 ("uom.unitName", nameof(StockTransferRequestLineNSDTO.UoMName)),
                 ("uom.internalid", nameof(StockTransferRequestLineNSDTO.UoMId)),
                 ("uom.conversionrate", nameof(StockTransferRequestLineNSDTO.UoMRate)),
-                ("BUILTIN.DF(tl.location)", nameof(StockTransferRequestLineNSDTO.Warehouse)),
+                ("BUILTIN.DF(ml.location)", nameof(StockTransferRequestLineNSDTO.Warehouse)),
                 ("item.displayname", nameof(StockTransferRequestLineNSDTO.ItemDescription)),
-                ("iil.quantityonhand", nameof(StockTransferRequestLineNSDTO.QuantityOnHand))
+                ("tl.linesequencenumber", nameof(StockTransferRequestLineNSDTO.LineNumber)),
+                ("(iil.quantityonhand / uom.conversionrate)", nameof(StockTransferRequestLineNSDTO.QuantityOnHand)),
+                ("(-tl.quantity / uom.conversionrate)", nameof(StockTransferRequestLineNSDTO.QuantityAlloted)) // idk why this is negative
             )
             .From("transactionline tl")
             .Join("transaction t", on: "tl.transaction = t.id")
@@ -196,7 +213,8 @@ internal class StockTransferRequestIntegration(
             .Join("transactionline ml", on: "ml.transaction = t.id AND ml.mainline = 'T'")
             .Join("inventoryitemlocations iil", on: "tl.item = iil.item AND ml.location = iil.location")
             .WithFilters(
-                DataGridFilterUtilities.Equal("tl.transactionlinetype", "RECEIVING"),
+                DataGridFilterUtilities.Equal("tl.transactionlinetype", "ITEM"),
+                DataGridFilterUtilities.In("t.recordtype", new string[] { "intercompanytransferorder", "transferorder" }),
                 DataGridFilterUtilities.Equal("t.tranid", id),
                 DataGridFilterUtilities.Equal("tl.mainline", "F")
             ).Build();
@@ -209,7 +227,7 @@ internal class StockTransferRequestIntegration(
                 Id = x.UoMId
             }
         }))];
-    }
+     }
 
     public async Task<(IEnumerable<TransferOrderStatus> data, int count)> GetTransferOrderStatuses(DataGridIntent intent)
     {
@@ -218,7 +236,7 @@ internal class StockTransferRequestIntegration(
                 ("id", nameof(TransferOrderStatus.Id)),
                 ("name", nameof(TransferOrderStatus.Name))
             )
-            .From("transferorderstatus")
+            .From("CUSTOMLIST_DBTI_CR_APPROVAL_STATUSES")
             .WithDatagridIntent(intent)
             .Build();
 
@@ -250,8 +268,8 @@ internal class StockTransferRequestIntegration(
     {
         string payloadString = CreateSTRPayload(dto);
         var url = dto.TransferCategory.IsInterCompany ?
-            $"{netsuiteService.GetRestAPIURI}/record/v1/interCompanyTransferOrder" :
-            $"{netsuiteService.GetRestAPIURI}/record/v1/transferOrder";
+            $"{netsuiteService.GetRestAPIURI}/record/v1/interCompanyTransferOrder/{dto.Id}" :
+            $"{netsuiteService.GetRestAPIURI}/record/v1/transferOrder/{dto.Id}";
 
         try
         {
@@ -304,6 +322,8 @@ internal class StockTransferRequestIntegration(
                 id = dto.DestinationLocation.Id.ToString()
             } : null,
             custbody_dbti_transfer_category = new { id = dto.TransferCategory.Id },
+            custbody_dbti_prepared_by = dto.PreparedById,
+            custbody_dbti_custom_approval_status = 2, // draft
             custbody_dbti_return_to_vendor = dto.TransferCategory.IsReturn && dto.Vendor != null ? new { id = dto.Vendor.Id.ToString() } : null,
             Department = new { id = "4" },
             Class = new { id = "1" },
@@ -314,9 +334,11 @@ internal class StockTransferRequestIntegration(
                 {
                     return new
                     {
+                        line = line.LineNumber,
                         item = new { id = line.ItemId },
                         quantity = line.QuantityAlloted,
-                        department = new { id = "4" }
+                        department = new { id = "4" },
+                        units = line.UoM?.Id.ToString() ?? null
                     };
                 })
             }

@@ -1,0 +1,79 @@
+﻿@using Web.BlazorServer.Components.Custom
+@using Web.BlazorServer.ViewModels.Others
+@inherits BaseComponent
+
+<RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Center" Visible="@IsLoadingData">
+    <RadzenStack Gap="0.25em">
+        <RadzenProgressBarCircular ProgressBarStyle="ProgressBarStyle.Primary" Value="100" ShowValue="false" Mode="ProgressBarMode.Indeterminate" AriaLabel="Primary loading" />
+        <RadzenText TextStyle="TextStyle.Body2">Please wait...</RadzenText>
+    </RadzenStack>
+</RadzenStack>
+<RadzenStack Gap="0.5em" Visible="@(!IsLoadingData)">
+    <RadzenFieldset Text="Inventory Details">
+        <RadzenTable GridLines="DataGridGridLines.Horizontal" AllowAlternatingRows>
+            <RadzenTableHeader>
+                <RadzenTableHeaderRow>
+                    <RadzenTableHeaderCell Visible="@LocationHasBins">Bin</RadzenTableHeaderCell>
+                    <RadzenTableHeaderCell>Status</RadzenTableHeaderCell>
+                    <RadzenTableHeaderCell>On-hand Quantity</RadzenTableHeaderCell>
+                    <RadzenTableHeaderCell>Allocated Quantity</RadzenTableHeaderCell>
+                </RadzenTableHeaderRow>
+            </RadzenTableHeader>
+            <RadzenTableBody>
+                @foreach (var detail in Details)
+                {
+                    <RadzenTableRow>
+                        <RadzenTableCell Visible="@LocationHasBins">
+                            <RadzenFormField class="rz-w-100">
+                                <QuickVirtualizedDropdown @bind-Value:get="detail.Detail.Bin" @bind-Value:set="@detail.BinSet" TItem="LocationBinVM" DataGetter="@LocationBinProvider" TextProperty="@nameof(LocationBinVM.BinNumber)" />
+                            </RadzenFormField>
+                        </RadzenTableCell>
+                        <RadzenTableCell>
+                            <RadzenFormField class="rz-w-100">
+                                <QuickVirtualizedDropdown @ref="@detail.StatusDropdown" @bind-Value="detail.Detail.Status" TItem="InventoryStatusVM" DataGetter="@(intent => StatusProvider(detail, intent))" TextProperty="@nameof(InventoryStatusVM.Name)" Disabled="@(LocationHasBins && detail.Detail.Bin is null)" />
+                            </RadzenFormField>
+                        </RadzenTableCell>
+                        <RadzenTableCell>
+                            <RadzenFormField class="rz-w-100">
+                                <RadzenNumeric class="rz-w-100" Format="#,##0.##" Value="detail.QuantityOnHand" ShowUpDown="false" ReadOnly />
+                            </RadzenFormField>
+                        </RadzenTableCell>
+                        <RadzenTableCell>
+                            <RadzenFormField class="rz-w-100">
+                                <RadzenNumeric class="rz-w-100" Format="#,##0.##" @bind-Value="detail.Detail.QuantityAlloted" Min="0" Max="@(detail.MaxValue)" />
+                            </RadzenFormField>
+                        </RadzenTableCell>
+                    </RadzenTableRow>
+                }
+                @if (Details.Count == 0)
+                {
+                    <RadzenTableRow>
+                        <RadzenTableCell colspan="@(LocationHasBins ? 4 : 3)">
+                            <RadzenText TextAlign="TextAlign.Center" TextStyle="TextStyle.Body2">Add inventory details</RadzenText>
+                        </RadzenTableCell>
+                    </RadzenTableRow>
+                }
+                @if (ErrorString is not null)
+                {
+                    <RadzenTableRow>
+                        <RadzenTableCell colspan="@(LocationHasBins ? 4 : 3)">
+                            <RadzenText TextAlign="TextAlign.Center" TextStyle="TextStyle.Body2" class="rz-messages-error">@ErrorString</RadzenText>
+                        </RadzenTableCell>
+                    </RadzenTableRow>
+                }
+            </RadzenTableBody>
+        </RadzenTable>
+        <RadzenStack Gap="0.2em">
+            <RadzenStack Orientation=" Orientation.Horizontal" JustifyContent="JustifyContent.End">
+                <RadzenText TextStyle="TextStyle.Caption">Total Count: @AmountSum</RadzenText>
+            </RadzenStack>
+            <RadzenStack Orientation=" Orientation.Horizontal" JustifyContent="JustifyContent.End">
+                <RadzenText TextStyle="TextStyle.Caption">Required Count: @Amount</RadzenText>
+            </RadzenStack>
+            <RadzenStack Orientation=" Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5em">
+                <RadzenButton Size="ButtonSize.Small" Text="Add" Click="AddItem" />
+                <RadzenButton ButtonStyle="ButtonStyle.Success" Size="ButtonSize.Small" Text="Set" Click="Submit" />
+            </RadzenStack>
+        </RadzenStack>
+    </RadzenFieldset>
+</RadzenStack>

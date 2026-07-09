@@ -12,6 +12,7 @@ public class ItemReceiptDTO
     public int SourceInternalId { get; set; }
     public int VendorPrefferedBin { get; set; }
     public int DefaultBO { get; set; }
+    public int? PreparedById { get; set; }
 
     public string Type { get; set; } = string.Empty;
     public string CreatedFrom { get; set; } = string.Empty;
@@ -22,6 +23,7 @@ public class ItemReceiptDTO
     public string TransferLocation { get; set; } = string.Empty;
     public string Subsidiary { get; set; } = string.Empty;
     public string ToSubsidiary { get; set; } = string.Empty;
+    public string PreparedBy { get; set; } = string.Empty;
 
     public DateTime Date { get; set; } = DateTime.Now;
 
@@ -40,6 +42,7 @@ public class ItemReceiptLineDTO
     public int LineNumber { get; set; }
     public int PrefferedBinAssignmentId { get; set; }
 
+    public int ItemId { get; set; }
     public string ItemCode { get; set; } = string.Empty;
     public string ItemDescription { get; set; } = string.Empty;
     public string UoM { get; set; } = string.Empty;
@@ -51,8 +54,9 @@ public class ItemReceiptLineDTO
         set => _isLocationBinUsed = value.Equals("T", StringComparison.OrdinalIgnoreCase);
     }
 
-    public decimal WeightReceived { get; set; }
-    public decimal WeightTotal { get; set; }
+    public decimal UoMRate { get; set; }
+    public decimal WeightActual { get; set; }
+    public decimal WeightPerItem { get; set; }
     public decimal QuantityPlanned { get; set; }
     public decimal QuantityOpen { get; set; }
     public decimal QuantityReceived { get; set; }

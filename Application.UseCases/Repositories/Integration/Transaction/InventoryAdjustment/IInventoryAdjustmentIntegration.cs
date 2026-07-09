@@ -13,5 +13,9 @@ public interface IInventoryAdjustmentIntegration
     Task<(IEnumerable<InventoryAdjustmentDataGridDTO> Data, int Count)> GetInventoryAdjustmentsAsync(DataGridIntent intent);
     Task<InventoryAdjustmentDTO?> GetInventoryAdjustmentAsync(string id);
     Task<IEnumerable<InventoryAdjustmentLineDTO>> GetInventoryAdjustmentLinesAsync(string id);
+    Task<(IEnumerable<InventoryAdjustmentReasonDTO> Data, int Count)> GetInventoryAdjustmentReasonsAsync(DataGridIntent intent);
+    Task<(IEnumerable<InventoryAdjustmentCategoryDTO> Data, int Count)> GetInventoryAdjustmentCategoriesAsync(DataGridIntent intent);
+    Task<(IEnumerable<InventoryAdjustmentDataGridDTO> Data, int Count)> GetIssuesAdjustmentsAsync(DataGridIntent intent);
+    Task<(IEnumerable<InventoryAdjustmentDataGridDTO> Data, int Count)> GetReceiptsAdjustmentsAsync(DataGridIntent intent);
     Task<bool> CreateInventoryAdjustment(InventoryAdjustmentDTO value);
 }

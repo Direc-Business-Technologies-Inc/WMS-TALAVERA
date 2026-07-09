@@ -6,7 +6,7 @@
 
 @inherits BaseForm<InventoryAdjustmentVM>
 @layout ProtectedLayout
-@attribute [AppAuthorizationAttribute("VIEW", "OGRC")]
+@attribute [AppAuthorizationAttribute("VIEW", "OIAJ")]
 @attribute [Route(InventoryAdjustmentRoutes.VIEW)];
 
 
@@ -14,11 +14,20 @@
 <PageTitle>View Inventory Adjustment: @Ref</PageTitle>
 
 <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" class="rz-mb-4">
-    <AppBreadCrumbs ModuleCode="OGRC" />
+    <AppBreadCrumbs ModuleCode="OIAJ" />
 </RadzenStack>
 
 <AppContent>
-    
+    <RadzenStack Visible="@(!IsLoadingData)"
+                 Orientation="Orientation.Horizontal"
+                 AlignItems="AlignItems.Center"
+                 JustifyContent="JustifyContent.End"
+                 Gap="32px"
+                 class="rz-mb-2">
+        <AppContentBadge Title="Doc" Content="@FormData.ReferenceNumber" />
+        <AppContentBadge Title="Type" Content="@FormData.TypeString" />
+        <AppContentBadge Title="Doc Date" Content="@FormData.Date.ToString("MM-dd-yy")" ChildBadgeStyle="BadgeStyle.Secondary" ChildShade="Shade.Default" />
+    </RadzenStack>
     <AppFormSkeleton TItem="InventoryAdjustmentVM" Loading="@IsLoadingData" />
     @if (!IsLoadingData) {
         <InventoryAdjustmentForm Model="@FormData" EditContext="@EditContext" ReadOnly OnReturnClicked="OnReturn" />

@@ -6,6 +6,7 @@ using Integration.NS.DataTransferObjects.Packing.STR;
 using Integration.NS.DataTransferObjects.Packing.VendorReturnAuthorization;
 using Integration.NS.Helpers;
 using Integration.NS.Services;
+using Microsoft.AspNetCore.Http;
 using Shared.Entities;
 using static Shared.Libraries.Utilities.DataGridFilterUtilities;
 
@@ -14,6 +15,7 @@ namespace Integration.NS.Implementations.Transactions.Packing;
 internal class VendorReturnAuthorizationPackingIntegration(
     INetSuiteApiClientService netsuiteService,
     ISqlQueryManager sqlQuery,
+    IHttpContextAccessor httpContextAccessor,
     SuiteQLQueryBuilderFactoryService builderFactory) : IVendorReturnAuthorizationPackingIntegration
 {
     public async Task<(IEnumerable<VendorReturnAuthorizationDataGridDTO> Data, int Count)> GetPackingVendorReturnAuthorizationsList(DataGridIntent intent, int subsidiaryId)
@@ -33,6 +35,7 @@ internal class VendorReturnAuthorizationPackingIntegration(
             .From("transaction t")
             .Join("transactionline tl", on: "tl.transaction = t.id")
             .Join("entity e", on: "t.entity = e.id")
+            .WithSubsidiaries(httpContextAccessor, "t")
             .WithFilters(
                 Equal("tl.mainline", "T"),
                 Equal("t.subsidiary", subsidiaryId))
@@ -60,6 +63,7 @@ internal class VendorReturnAuthorizationPackingIntegration(
             .From("transaction t")
             .Join("transactionline tl", on: "tl.transaction = t.id")
             .Join("entity e", on: "t.entity = e.id")
+            .WithSubsidiaries(httpContextAccessor, "t")
             .WithFilters(
                 Equal("t.tranid", id),
                 Equal("tl.mainline", "T"))

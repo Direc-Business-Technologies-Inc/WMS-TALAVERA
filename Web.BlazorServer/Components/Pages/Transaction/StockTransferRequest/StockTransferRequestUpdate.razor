@@ -11,12 +11,15 @@
 
 @inherits BaseForm<StockTransferRequestInfoVM>
 @layout ProtectedLayout
-@attribute [AppAuthorizationAttribute("VIEW", "ORCV")]
+@attribute [AppAuthorizationAttribute("VIEW", "OSTR")]
 @attribute [Route(STRRoutes.Update)]
 
 
-<PageTitle>Receiving</PageTitle>
+<PageTitle>Updating Stock Transfer Request @Ref</PageTitle>
 
+<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" class="rz-mb-4">
+    <AppBreadCrumbs ModuleCode="OSTR" />
+</RadzenStack>
 <AppContent>
 <AppFormSkeleton TItem="StockTransferRequestInfoVM" Loading="@IsLoadingData" />
 @if (!IsLoadingData)
@@ -62,7 +65,9 @@
             var response = await handler.GetStockTransferRequest(Ref);
 
             if (response is null) throw new Exception($"Stock transfer request \"{Ref}\" could not be found");
-
+            if (!response.IsEditable)
+                throw new Exception($"Stock transfer request \"{Ref}\" is not editable and cannot be updated");
+                
             return response;
         }, AppActionOptionPresets.Loading(ActionGetStockTransferRequest));
 
@@ -74,8 +79,10 @@
 
         action.OnFailure(ex =>
         {
-            NavError(ex.Message);
-            return Task.CompletedTask;
+            return Task.Delay(100).ContinueWith(_ =>
+            {
+                NavManager.NavigateTo(STRRoutes.Root);
+            });
         });
     }
 
@@ -92,19 +99,13 @@
             return Task.CompletedTask;
         });
 
-        action.OnFailure(ex =>
-        {
-            ToastService.Error(ex.Message);
-            return Task.CompletedTask;
-        });
-
         return true;
     }
 
     void NavError(string message)
     {
         ToastService.Error(message);
-        NavManager.NavigateTo(STRRoutes.Root, true);
+        NavManager.NavigateTo(STRRoutes.Root);
     }
 
 

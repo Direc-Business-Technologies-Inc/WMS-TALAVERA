@@ -12,7 +12,7 @@
         <RadzenDataGridColumn TItem="ItemsVM" Property="@nameof(ItemsVM.ItemNumber)" Title="Item Id" />
         <RadzenDataGridColumn TItem="ItemsVM" Property="@nameof(ItemsVM.Name)" Title="Name " />
         <RadzenDataGridColumn TItem="ItemsVM" Property="@nameof(ItemsVM.Description)" Title="Description " />
-        <RadzenDataGridColumn TItem="ItemsVM" Property="@nameof(ItemsVM.QuantityOnHand)" Title="On Hand " />
+        <RadzenDataGridColumn TItem="ItemsVM" Type="typeof(decimal)" FormatString="{0:#,##0.##}" Property="@nameof(ItemsVM.QuantityOnHand)" Title="On-Hand Quantity" />
         <RadzenDataGridColumn TItem="ItemsVM"
                               Frozen
                               FrozenPosition="FrozenColumnPosition.Right"

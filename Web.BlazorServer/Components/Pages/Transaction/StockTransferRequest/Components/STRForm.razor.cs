@@ -56,11 +56,18 @@ public partial class STRForm
     readonly string ActionGetVendors = "Get Vendors";
     readonly string ActionGetItemUnits = "Get Item Units";
 
-    private QuickVirtualizedDropdown<LocationVM> SourceLocationDropdown { get; set; } = default!;
-    private QuickVirtualizedDropdown<LocationVM> DestinationLocationDropdown { get; set; } = default!;
+    private QuickVirtualizedDropdown<LocationVM>? SourceLocationDropdown { get; set; }
+    private QuickVirtualizedDropdown<LocationVM>? DestinationLocationDropdown { get; set; }
     private QuickVirtualizedDropdown<VendorVM>? VendorDropdown { get; set; }
 
     private List<TransferCategory> ReturnCategories = [.. TransferCategory.ReturnCategories];
+
+    public string ReferenceString => string.IsNullOrEmpty(Model.ReferenceNumber) ? 
+        ReadOnly ? "N/A" : "Auto-Generated" : 
+        Model.ReferenceNumber;
+    public string StatusString => Model.Status is null ?
+        ReadOnly ? "N/A" : "To be submitted" :
+        string.IsNullOrEmpty(Model.Status.Name) ? "---" : Model.Status.Name;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -150,48 +157,105 @@ public partial class STRForm
 
     async Task OnSubsidiaryChanged(SubsidiaryVM? value)
     {
+        var originalValue = Model.Subsidiary;
+        Model.Subsidiary = value;
+
+        if (Model.IsIntercompany && SameSubsidiary(value, Model.ToSubsidiary))
+        {
+            ToastService.Warning("\"Subsidiary\" cannot be the same as \"To Subsidiary\"");
+            await Task.Yield();
+            Model.Subsidiary = originalValue;
+            return;
+        }
 
         if (Model.Lines.Any())
         {
             var confirm = await DialogService.Confirm(message: "Changing subsidiaries will clear added items") ?? false;
-            if (!confirm) return;
-        }
-        if (value != Model.Subsidiary)
-        {
-            Model.Lines.Clear();
-            Model.Subsidiary = value;
-            Model.SourceLocation = null;
-            if (!Model.IsIntercompany)
+            if (!confirm)
             {
-                Model.ToSubsidiary = value;
-                Model.DestinationLocation = null;
-                DestinationLocationDropdown.Reset();
+                await Task.Yield();
+                Model.Subsidiary = originalValue;
+                return;
             }
-            SourceLocationDropdown.Reset();
-            await InvokeAsync(StateHasChanged);
         }
+
+        Model.Lines.Clear();
+
+        await OnLocationChanged(null);
+        if (!Model.IsIntercompany)
+        {
+            await OnToSubsidiaryChanged(value);
+        }
+        SourceLocationDropdown?.Reset();
+        await InvokeAsync(StateHasChanged);
     }
 
 
     async Task OnLocationChanged(LocationVM? value)
     {
+        var originalValue = Model.SourceLocation;
+        Model.SourceLocation = value;
+
         if (Model.Lines.Any())
         {
             var confirm = await DialogService.Confirm(message: "Changing source warehouse will clear added items") ?? false;
-            if (!confirm) return;
+            if (!confirm)
+            {
+                await Task.Yield();
+                Model.SourceLocation = originalValue;
+                return;
+            }
         }
+
+        if (IsSameLocation(Model.SourceLocation, Model.DestinationLocation))
+        {
+            ToastService.Error("Source location may not be the same as the destination location");
+            await Task.Yield();
+            Model.DestinationLocation = originalValue;
+            return;
+        }
+
         Model.Lines.Clear();
-        Model.SourceLocation = value;
 
         await InvokeAsync(StateHasChanged);
     }
 
+    async Task OnDestinationLocationChanged(LocationVM? value)
+    {
+        var originalValue = Model.DestinationLocation;
+        Model.DestinationLocation = value;
+
+        if (IsSameLocation(Model.SourceLocation, Model.DestinationLocation))
+        {
+            ToastService.Error("Destination location may not be the same as the source location");
+            await Task.Yield();
+            Model.DestinationLocation = originalValue;
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    bool IsSameLocation(LocationVM? a, LocationVM? b)
+    {
+        return a is null || b is null ? false : a.Id == b.Id;
+    }
+
     async Task OnToSubsidiaryChanged(SubsidiaryVM? value)
     {
+        var originalValue = Model.ToSubsidiary;
         Model.ToSubsidiary = value;
+
+        if (Model.IsIntercompany && SameSubsidiary(value, Model.Subsidiary))
+        {
+            ToastService.Warning("\"To Subsidiary\" cannot be the same as \"Subsidiary\"");
+            await Task.Yield();
+            Model.ToSubsidiary = originalValue;
+            return;
+        }
+
         Model.DestinationLocation = null;
         Model.Vendor = null;
-        DestinationLocationDropdown.Reset();
+        DestinationLocationDropdown?.Reset();
         VendorDropdown?.Reset();
     }
 
@@ -199,6 +263,12 @@ public partial class STRForm
     {
         Model.Lines.Remove(line);
         await LinesTable.DataGrid.Reload();
+    }
+
+    bool SameSubsidiary(SubsidiaryVM? a, SubsidiaryVM? b)
+    {
+        if (a is null && b is null) return false;
+        return a?.Id == b?.Id;
     }
 
     void Return()

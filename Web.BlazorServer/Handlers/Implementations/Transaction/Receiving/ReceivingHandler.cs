@@ -5,12 +5,14 @@ using Mapster;
 using MediatR;
 using Microsoft.EntityFrameworkCore.Scaffolding.Metadata;
 using Shared.Entities;
+using Web.BlazorServer.Components.Security;
 using Web.BlazorServer.Handlers.Repositories.Transaction.Receiving;
 using Web.BlazorServer.ViewModels.Transaction.Receiving;
 
 namespace Web.BlazorServer.Handlers.Implementations.Transaction.Receiving;
 
 public class ReceivingHandler(
+    AppAuthenticationService authService,
     ISender Sender) 
     : IReceivingHandler
 {
@@ -35,6 +37,8 @@ public class ReceivingHandler(
 
         var x = Data.Select(x => new PurchaseOrderDataGridVM
         {
+
+            Status = x.Status,
             Id = x.Id,
             ReferenceNumber = x.ReferenceNumber,
             Date = x.Date,
@@ -51,6 +55,7 @@ public class ReceivingHandler(
         (var data, var count) = await Sender.Send(qry);
         var x = data.Select(x => new ReturnsDataGridVM
         {
+            Status = x.Status,
             ReferenceNumber = x.ReferenceNumber,
             Date = x.Date,
             FromSubsidiary = x.SourceSubsidiary,
@@ -72,6 +77,7 @@ public class ReceivingHandler(
 
         var x = Data.Select(x => new TransferOrderDataGridVM
         {
+            Status = x.Status,
             Id = x.Id,
             ReferenceNumber = x.ReferenceNumber,
             Date = x.Date,
@@ -174,7 +180,21 @@ public class ReceivingHandler(
             _ => throw new NotImplementedException(),
         };
 
+        if (int.TryParse(authService.GetClaimValue("com.direcbusiness.wms.nsEmployeeId"), out int nsId))
+        {
+            dto.PreparedById = nsId;
+        }
+
         var cmd = new CreateItemReceiptCmd(dto);
         return await Sender.Send(cmd);
+    }
+
+    public async Task<BarcodeVM?> GetBarcodeData(string barcode)
+    {
+        GetBarcodeDataQry query = new(barcode);
+        var code = await Sender.Send(query);
+        if (code is null) return null;
+
+        return code.Adapt<BarcodeVM>();
     }
 }

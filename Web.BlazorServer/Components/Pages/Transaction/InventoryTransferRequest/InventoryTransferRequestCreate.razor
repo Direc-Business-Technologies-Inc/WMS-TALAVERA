@@ -1,0 +1,18 @@
+﻿@using Web.BlazorServer.Components.Pages.Transaction.InventoryTransferRequest.Components
+@using Web.BlazorServer.Components.Security
+@using Web.BlazorServer.ViewModels.Transaction.InventoryTransferRequest
+
+@inherits BaseForm<InventoryTransferRequestVM>
+@layout ProtectedLayout
+@attribute [AppAuthorizationAttribute("VIEW", "OITR")]
+@attribute [Route(ITRRoutes.CREATE)];
+
+
+<PageTitle>Create Inventory Transfer Request</PageTitle>
+
+<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" class="rz-mb-4">
+    <AppBreadCrumbs ModuleCode="OITR" />
+</RadzenStack>
+<AppContent>
+    <ITRForm Model="@FormData" EditContext="@EditContext" OnReturn="OnReturn" OnSubmit="OnSubmit"/>
+</AppContent>

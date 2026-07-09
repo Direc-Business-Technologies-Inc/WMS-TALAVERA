@@ -15,10 +15,12 @@ using Web.BlazorServer.Handlers.Implementations.Transaction.Packing.ItemReceipt;
 using Web.BlazorServer.Handlers.Implementations.Transaction.Packing.Returns;
 using Web.BlazorServer.Handlers.Implementations.Transaction.Packing.STR;
 using Web.BlazorServer.Handlers.Implementations.Transaction.Packing.VendorReturnAuthorization;
+using Web.BlazorServer.Handlers.Implementations.Transaction.TripTicket;
+using Web.BlazorServer.Handlers.Implementations.Transaction.InventoryTransferRequest;
 using Web.BlazorServer.Handlers.Implementations.Transaction.Receiving;
 using Web.BlazorServer.Handlers.Implementations.Transaction.SalesReturn;
 using Web.BlazorServer.Handlers.Implementations.Transaction.StockTransferRequest;
-using Web.BlazorServer.Handlers.Implementations.Transaction.TripTicket;
+using Web.BlazorServer.Handlers.Implementations.Transaction.SupplierReturn;
 using Web.BlazorServer.Handlers.Repositories.Administration.Authorization;
 using Web.BlazorServer.Handlers.Repositories.Administration.Role;
 using Web.BlazorServer.Handlers.Repositories.Administration.User;
@@ -31,15 +33,18 @@ using Web.BlazorServer.Handlers.Repositories.Transaction.GoodsReturn;
 using Web.BlazorServer.Handlers.Repositories.Transaction.InventoryAdjustment;
 using Web.BlazorServer.Handlers.Repositories.Transaction.InventoryCounting;
 using Web.BlazorServer.Handlers.Repositories.Transaction.InventoryTransfer;
-// using Web.BlazorServer.Handlers.Repositories.Transaction.InventoryTransferRequest;
 using Web.BlazorServer.Handlers.Repositories.Transaction.Packing.ItemReceipt;
 using Web.BlazorServer.Handlers.Repositories.Transaction.Packing.Returns;
 using Web.BlazorServer.Handlers.Repositories.Transaction.Packing.STR;
 using Web.BlazorServer.Handlers.Repositories.Transaction.Packing.VendorReturnAuthorization;
+using Web.BlazorServer.Handlers.Repositories.Transaction.TripTicket;
+using Web.BlazorServer.Handlers.Repositories.Transaction.InventoryTransferRequest;
 using Web.BlazorServer.Handlers.Repositories.Transaction.Receiving;
 using Web.BlazorServer.Handlers.Repositories.Transaction.SalesReturn;
 using Web.BlazorServer.Handlers.Repositories.Transaction.StockTransferRequest;
-using Web.BlazorServer.Handlers.Repositories.Transaction.TripTicket;
+using Web.BlazorServer.Handlers.Repositories.Transaction.SupplierReturn;
+using Web.BlazorServer.Handlers.Repositories.Administration.Settings;
+using Web.BlazorServer.Handlers.Implementations.Administration.Settings;
 
 namespace Web.BlazorServer.Handlers;
 
@@ -72,9 +77,6 @@ public static class BlazorServerHandlersDI
         services.TryAddTransient<ILocationHandler, LocationHandler>();
         services.TryAddTransient<ISubsidiaryHandler, SubsidiaryHandler>();
         services.TryAddTransient<IVendorHandler, VendorHandler>();
-        //services.TryAddTransient<ISupplierReturnHandler, SupplierReturnHandler>();
-        //services.TryAddTransient<ICustomerHandler, CustomerHandler>();
-        //services.TryAddTransient<IInventoryTransferRequestHandler, InventoryTransferRequestHandler>();
         services.TryAddTransient<IStockTransferRequestPackingHandler, StockTransferRequestPackingHandler>();
         services.TryAddTransient<IItemReceiptPackingHandler, ItemReceiptPackingHandler>();
         services.TryAddTransient<IReturnPackingHandler, ReturnPackingHandler>();
@@ -82,11 +84,12 @@ public static class BlazorServerHandlersDI
         services.TryAddTransient<IVendorReturnAuthorizationPackingHandler, VendorReturnAuthorizationPackingHandler>();
         services.TryAddTransient<IVendorReturnAuthorizationItemReceiptPackingHandler, VendorReturnAuthorizationItemReceiptPackingHandler>();
         services.TryAddTransient<ITripTicketHandler, TripTicketHandler>();
-
-        if (environment.IsDevelopment())
-        {
-            services.TryAddTransient<IStockTransferRequestHandler, StockTransferRequestHandler>();
-        }
+        services.TryAddTransient<ISupplierReturnHandler, SupplierReturnHandler>();
+        services.TryAddTransient<ICustomerHandler, CustomerHandler>();
+        services.TryAddTransient<IInventoryTransferRequestHandler, InventoryTransferRequestHandler>();
+        services.TryAddTransient<IInventoryHandler, InventoryHandler>();
+        services.TryAddTransient<ISettingsHandler, SettingsHandler>();
+        services.TryAddTransient<IStockTransferRequestHandler, StockTransferRequestHandler>();
         services.TryAddTransient<IBusinessAccountHandler, BusinessAccountHandler>();
         services.TryAddTransient<IInventoryAdjustmentHandler, InventoryAdjustmentHandler>();
         services.TryAddTransient<ITripTicketHandler, TripTicketHandler>();

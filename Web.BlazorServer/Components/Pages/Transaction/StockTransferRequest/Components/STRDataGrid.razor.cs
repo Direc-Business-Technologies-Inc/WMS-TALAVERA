@@ -84,6 +84,7 @@ partial class STRDataGrid
     async Task LoadGridSettings()
     {
         await GridSettingsService.SetGridSettings(DataGrid.DataGrid, settings => DataGridSettings = settings ?? new());
+        DataGridSettings.CurrentPage = null;
         GridSettingsLoaded = true;
 
         await DataGrid.DataGrid.ReloadSettings();
@@ -92,9 +93,6 @@ partial class STRDataGrid
 
     async Task<(IEnumerable<TransferOrderStatusVM>, int count)> TranferOrderStatusProvider(DataGridIntent intent)
     {
-        intent.Filters.Add(
-            DataGridFilterUtilities.In(nameof(TransferOrderStatusVM.Id), new string[] { "C", "A" }
-        ));
         return await strHandler.GetTransferOrderStatuses(intent);
     }
 

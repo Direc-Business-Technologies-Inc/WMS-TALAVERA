@@ -1,5 +1,6 @@
 ﻿using Domain.Entities.Administration.User.Management;
 using Domain.Entities.Administration.User.Role;
+using Domain.Entities.Entities.Administration.User.Management;
 using Domain.Entities.Entities.Transaction.InventoryCounting;
 using Domain.Entities.System;
 using Domain.Entities.Transaction.Common;
@@ -21,6 +22,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<RolePermissionDEM> ROL1 { get; set; }
     public DbSet<ModulePermissionDEM> OMPR { get; set; }
     public DbSet<InventoryCountingDocumentDEM> OICD { get; set; }
+    public DbSet<SettingsDEM> OSTN { get; set; }
     #endregion DbSets
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)

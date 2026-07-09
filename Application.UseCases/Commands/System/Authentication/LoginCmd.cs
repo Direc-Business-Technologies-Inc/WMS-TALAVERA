@@ -1,10 +1,13 @@
 ﻿using Application.DataTransferObjects.Administration.Role;
 using Application.DataTransferObjects.Administration.User;
+using Application.DataTransferObjects.Others;
 using Application.DataTransferObjects.System.Security;
 using Application.UseCases.Repositories.Bases;
+using Application.UseCases.Repositories.Integration.Others;
 using DataCipher;
 using Domain.Entities.Administration.User.Management;
 using Domain.Entities.Administration.User.Role;
+using Domain.Entities.Entities.Administration.User.Management;
 using Domain.Providers;
 using Mapster;
 using MediatR;
@@ -14,10 +17,12 @@ namespace Application.UseCases.Commands.System.Authentication;
 public record LoginCmd(AuthenticationPayloadDTO Login) : ITransactionalRequest<AuthenticationResponseDTO>;
 
 public class LoginCmdHandler(
+    ISubsidiaryIntegration subsidiaryIntegration,
     IAppReadRepository appRead,
     IAppCommandRepository appCommand)
     : IRequestHandler<LoginCmd, AuthenticationResponseDTO>
 {
+    const int DEFAULT_MAX_LOGINS = 5;
     public async Task<AuthenticationResponseDTO> Handle(LoginCmd request, CancellationToken cancellationToken)
     {
         if (!await appRead.ExistsAsync<UserDEM>(x => x.Account.UserName.Value == request.Login.UserName))
@@ -33,13 +38,27 @@ public class LoginCmdHandler(
         if (user.Account.LockoutEnabled && user.Account.Locked)
             return AuthenticationResponseDTO.Fail("User Account is Locked");
 
+        List<int> allowedSubsidiaries = [];
+        if (user.EmployeeNs != null && user.EmployeeNs.NsSubsidiaryId != null)
+        {
+            int parentSubsidiary = (int)user.EmployeeNs.NsSubsidiaryId;
+            var childSubsidiaries = await subsidiaryIntegration.GetChildSubsidiariesAsync(parentSubsidiary);
+
+            allowedSubsidiaries.AddRange(childSubsidiaries.Select(x => x.Id));
+            allowedSubsidiaries.Add(parentSubsidiary);
+        }
+
         login ??= LoginDEM.Create(false, user.Id);
         user.AddNewLogin(login);
+
+        var loginSetting = await appRead.FirstOrDefaultAsync<SettingsDEM>(x => x.Code.Equals("wms.max_login_attemts"));
+        int maxLogins = loginSetting is null ? DEFAULT_MAX_LOGINS :
+            int.TryParse(loginSetting.Value, out int intval) ? intval : DEFAULT_MAX_LOGINS;
 
         if (!Encryption.Decrypt(user.Account.HashedPassword).Equals(request.Login.Password))
         {
             login.NewAttempt();
-            if (login.AttemptCount > 3)
+            if (login.AttemptCount > maxLogins)
                 user.Account.Lock();
 
             appCommand.Update(user);
@@ -57,6 +76,7 @@ public class LoginCmdHandler(
             return AuthenticationResponseDTO.Fail("User Role not found");
 
         UserDTO dto = user.Adapt<UserDTO>();
+        dto.AllowedSubsidiaryIds = [.. allowedSubsidiaries];
         dto.Role = role.Adapt<RoleDTO>();
 
         appCommand.Update(user);

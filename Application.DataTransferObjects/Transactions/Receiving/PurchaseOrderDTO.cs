@@ -10,10 +10,12 @@ namespace Application.DataTransferObjects.Transactions.Receiving;
 
 public class PurchaseOrderDTO
 {
+    public int SubsidiaryId { get; set; }
     public int Id { get; set; }
     public string ReferenceNumber { get; set; } = string.Empty;
     public string VendorName { get; set; } = string.Empty;
     public string ReceivedBy { get; set; } = string.Empty;
+    public string Memo { get; set; } = string.Empty;
     public DateTime Date { get; set; }
     public DateTime DeliveryDate { get; set; }
     public List<PurchaseOrderLineDTO> Lines { get; set; } = [];

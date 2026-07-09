@@ -18,6 +18,7 @@ partial class ItemDataGrid
     [Parameter] public int? LocationId { get; set; }
     [Parameter] public EventCallback<List<ItemsVM>> OnItemsSelected { get; set; }
     [Parameter] public SelectionModes SelectionMode { get; set; } = SelectionModes.Single;
+    [Parameter] public List<AppFilterDescriptor> Filters { get; set; } = [];
     [Inject] IGridSettingsService GridSettingsService { get; set; } = default!;
     [Inject] IItemsHandler ItemsHandler { get; set; } = default!;
 
@@ -42,9 +43,13 @@ partial class ItemDataGrid
         {
             AppBusyService.SetBusy(ActionGetItems, true);
 
+            if (Filters.Count > 0) intent.Filters.AddRange(Filters);
             var response = LocationId is null ?
                 await ItemsHandler.GetItemsDataGridAsync(intent) :
                 await ItemsHandler.GetItemsAtLocationDataGridAsync(intent, (int)LocationId);
+
+
+            if (Filters.Count > 0) intent.Filters.AddRange(Filters);
 
             return response;
 
@@ -71,9 +76,18 @@ partial class ItemDataGrid
 
     async Task SelectItem(ItemsVM item)
     {
-        if (SelectionMode == SelectionModes.Single) SelectedItems.Clear();
-        SelectedItems.Add(item);
-        if (SelectionMode == SelectionModes.Single) await Submit();
+        if (SelectionMode == SelectionModes.Single) { 
+            SelectedItems.Clear(); 
+            SelectedItems.Add(item);
+            await Submit();
+        }
+        else if (SelectionMode == SelectionModes.Multiple)
+        {
+            if (!SelectedItems.Remove(item))
+            {
+                SelectedItems.Add(item);
+            } 
+        }
     }
 
     public enum SelectionModes

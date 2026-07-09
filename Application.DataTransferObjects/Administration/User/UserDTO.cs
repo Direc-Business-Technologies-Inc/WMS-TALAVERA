@@ -17,4 +17,5 @@ public class UserDTO : AuditableDTO
     public bool Active { get; set; }
 
     public List<UserPermissionDTO> Permissions { get; set; } = [];
+    public List<int> AllowedSubsidiaryIds { get; set; } = [];
 }

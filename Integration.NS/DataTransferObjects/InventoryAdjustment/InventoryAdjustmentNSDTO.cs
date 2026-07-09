@@ -17,5 +17,12 @@ public class InventoryAdjustmentNSDTO
     public string AccountName { get; set; } = string.Empty;
     public int AccountId { get; set; }
     public string Memo { get; set; } = string.Empty;
+    public string ReasonName { get; set; } = string.Empty;
+    public int ReasonId { get; set; }
+    public int ReasonAccountId { get; set; }
+    public string ReasonAccountName { get; set; } = string.Empty;
     public string PreparedBy { get; set; } = string.Empty;
+    public int CategoryId { get; set; }
+    public string CategoryName { get; set; } = string.Empty;
+    public DateTime Date { get; set; }
 }

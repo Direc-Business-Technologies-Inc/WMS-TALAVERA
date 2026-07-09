@@ -1,6 +1,5 @@
 ﻿@using Mobile.MAUI.Components.Base
 @using Shared.Libraries.ViewModel
-@using Shared.Libraries.ViewModel.Returns
 
 @inherits BaseComponent
 <RadzenStack>
@@ -30,7 +29,7 @@
                                     class="trans-list">
                         <Template Context="row">
                             <RadzenStack class="trans-card"
-                                         @onclick="@(() => NavManager.NavigateTo($"/receiving/returns/{row.OrderNumber}"))"
+                                         @onclick="@(() => NavManager.NavigateTo($"/returns/{row.OrderNumber}"))"
                                          Orientation="Orientation.Horizontal"
                                          AlignItems="AlignItems.Center"
                                          JustifyContent="JustifyContent.SpaceBetween">

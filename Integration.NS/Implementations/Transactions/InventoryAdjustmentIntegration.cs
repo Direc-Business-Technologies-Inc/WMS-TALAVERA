@@ -1,24 +1,23 @@
 ﻿using Application.DataTransferObjects.Others;
+using Application.DataTransferObjects.Others.NS;
 using Application.DataTransferObjects.Transactions.InventoryAdjustment;
 using Application.DataTransferObjects.Transactions.Receiving;
 using Application.UseCases.Repositories.Integration.Others;
 using Application.UseCases.Repositories.Integration.Transaction.InventoryAdjustment;
 using Integration.NS.DataTransferObjects.InventoryAdjustment;
+using Integration.NS.Helpers;
 using Integration.NS.Services;
 using Mapster;
+using Microsoft.AspNetCore.Http;
 using Shared.Entities;
 using Shared.Libraries.Utilities;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Text.Json;
-using System.Threading.Tasks;
 
 namespace Integration.NS.Implementations.Transactions;
 
 public class InventoryAdjustmentIntegration(
     INetSuiteApiClientService netsuiteService,
+    IHttpContextAccessor httpContextAccessor,
     SuiteQLQueryBuilderFactoryService builderFactory) : IInventoryAdjustmentIntegration
 {
     public async Task<InventoryAdjustmentDTO?> GetInventoryAdjustmentAsync(string id)
@@ -28,21 +27,32 @@ public class InventoryAdjustmentIntegration(
                 ("t.id", nameof(InventoryAdjustmentNSDTO.Id)),
                 ("t.tranid", nameof(InventoryAdjustmentNSDTO.ReferenceNumber)),
                 ("t.memo", nameof(InventoryAdjustmentNSDTO.Memo)),
-                ("t.custbody_dbti_prepared_by", nameof(InventoryAdjustmentNSDTO.PreparedBy)),
+                ("CONCAT(e.firstname,CONCAT(' ',e.lastname))", nameof(InventoryAdjustmentNSDTO.PreparedBy)),
                 ("BUILTIN.DF(tl.location)", nameof(InventoryAdjustmentNSDTO.LocationName)),
                 ("tl.location", nameof(InventoryAdjustmentNSDTO.LocationId)),
                 ("BUILTIN.DF(t.account)", nameof(InventoryAdjustmentNSDTO.AccountName)),
                 ("t.account", nameof(InventoryAdjustmentNSDTO.AccountId)),
                 ("BUILTIN.DF(t.subsidiary)", nameof(InventoryAdjustmentNSDTO.SubsidiaryName)),
-                ("t.subsidiary", nameof(InventoryAdjustmentNSDTO.SubsidiaryId))
+                ("t.subsidiary", nameof(InventoryAdjustmentNSDTO.SubsidiaryId)),
+                ("NVL(t.custbody_atlas_inv_adj_reason, -1)", nameof(InventoryAdjustmentNSDTO.ReasonId)),
+                ("iar.name", nameof(InventoryAdjustmentNSDTO.ReasonName)),
+                ("iar.custrecord_atlas_glaccount", nameof(InventoryAdjustmentNSDTO.ReasonAccountId)),
+                ("BUILTIN.DF(iar.custrecord_atlas_glaccount)", nameof(InventoryAdjustmentNSDTO.ReasonAccountName)),
+                ("iac.id", nameof(InventoryAdjustmentNSDTO.CategoryId)),
+                ("iac.name", nameof(InventoryAdjustmentNSDTO.CategoryName)),
+                ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS') ", nameof(InventoryAdjustmentNSDTO.Date))
             )
             .From("transaction t")
             .Join("transactionline tl", on: "tl.transaction = t.id")
+            .LeftJoin("CUSTOMRECORD_ATLAS_INV_ADJ_REASN iar", on: "iar.id = t.custbody_atlas_inv_adj_reason")
+            .LeftJoin("CUSTOMLIST_DBTI_ADJUSTMENT_CATEGORY_LI iac", on: "iac.id = t.custbody_dbti_adjustment_category")
+            .LeftJoin("employee e", on: "e.id = t.custbody_dbti_prepared_by")
             .WithFilters(
                 DataGridFilterUtilities.Equal("t.recordtype", "inventoryadjustment"),
                 DataGridFilterUtilities.Equal("t.tranid", id),
                 DataGridFilterUtilities.Equal("tl.mainline", "T")
             )
+            .WithSubsidiaries(httpContextAccessor, "t")
             .Build();
 
         var response = await netsuiteService.ExecuteSuiteQLQuery<InventoryAdjustmentNSDTO>(query.Query, query.Limit, query.Offset);
@@ -55,7 +65,14 @@ public class InventoryAdjustmentIntegration(
         result.Subsidiary = new SubsidiaryDTO { Id = nsdto.SubsidiaryId, Name = nsdto.SubsidiaryName };
         result.Location = new LocationDTO { Id = nsdto.LocationId, Name = nsdto.LocationName };
         result.Account = new BusinessAccountDTO { Id = nsdto.AccountId, Name = nsdto.AccountName };
-
+        result.Category = new InventoryAdjustmentCategoryDTO { Id = nsdto.CategoryId, Name = nsdto.CategoryName };
+        result.Reason = nsdto.ReasonId < 0 ? null : new InventoryAdjustmentReasonDTO 
+        { 
+            Name = nsdto.ReasonName,
+            Id  = nsdto.ReasonId,
+            AccountId = nsdto.AccountId,
+            AccountName = nsdto.ReasonAccountName
+        };
         return result;
     }
 
@@ -96,23 +113,83 @@ public class InventoryAdjustmentIntegration(
                 ("t.id", nameof(InventoryAdjustmentDataGridDTO.Id)),
                 ("t.tranid", nameof(InventoryAdjustmentDataGridDTO.ReferenceNumber)),
                 ("t.memo", nameof(InventoryAdjustmentDataGridDTO.Memo)),
-                ("t.custbody_dbti_prepared_by", nameof(InventoryAdjustmentDataGridDTO.PreparedBy)),
+                ("CONCAT(e.firstname,CONCAT(' ',e.lastname))", nameof(InventoryAdjustmentDataGridDTO.PreparedBy)),
                 ("BUILTIN.DF(tl.location)", nameof(InventoryAdjustmentDataGridDTO.Location)),
                 ("BUILTIN.DF(t.account)", nameof(InventoryAdjustmentDataGridDTO.Account)),
-                ("BUILTIN.DF(t.subsidiary)", nameof(InventoryAdjustmentDataGridDTO.Subsidiary))
+                ("BUILTIN.DF(t.subsidiary)", nameof(InventoryAdjustmentDataGridDTO.Subsidiary)),
+                ("iar.name", nameof(InventoryAdjustmentDataGridDTO.AdjustmentReason)),
+                ("NVL(receipt.total, 0)", nameof(InventoryAdjustmentDataGridDTO.QuantityReceivedTotal)),
+                ("NVL(issue.total, 0)", nameof(InventoryAdjustmentDataGridDTO.QuantityIssuedTotal)),
+                ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS') ", nameof(InventoryAdjustmentDataGridDTO.Date))
             )
             .From("transaction t")
             .Join("transactionline tl", on:"tl.transaction = t.id")
+            .LeftJoin("CUSTOMRECORD_ATLAS_INV_ADJ_REASN iar", on: "iar.id = t.custbody_atlas_inv_adj_reason")
+            .LeftJoin($"({ReceiptQuery}) receipt", on: "receipt.transactionid = t.id")
+            .LeftJoin($"({IssueQuery}) issue", on: "issue.transactionid = t.id")
+            .LeftJoin("employee e", on: "e.id = t.custbody_dbti_prepared_by")
             .WithFilters(
                 DataGridFilterUtilities.Equal("t.recordtype", "inventoryadjustment"),
                 DataGridFilterUtilities.Equal("tl.mainline", "T")
             )
             .WithDatagridIntent(intent)
+            .WithSubsidiaries(httpContextAccessor, "t")
             .Build();
 
         var response = await netsuiteService.ExecuteSuiteQLQuery<InventoryAdjustmentDataGridDTO>(query.Query, query.Limit, query.Offset);
         return (response.items, response.totalResults);
     }
+    public Task<(IEnumerable<InventoryAdjustmentDataGridDTO> Data, int Count)> GetReceiptsAdjustmentsAsync(DataGridIntent intent)
+    {
+        DataGridIntent newIntent = intent.Adapt<DataGridIntent>();
+        newIntent.Filters.AddRange([
+            DataGridFilterUtilities.GreaterThan(nameof(InventoryAdjustmentDataGridDTO.QuantityReceivedTotal), 0),
+            DataGridFilterUtilities.LessThanOrEqual(nameof(InventoryAdjustmentDataGridDTO.QuantityIssuedTotal), 0),
+        ]);
+        return GetInventoryAdjustmentsAsync(newIntent);
+    }
+    public Task<(IEnumerable<InventoryAdjustmentDataGridDTO> Data, int Count)> GetIssuesAdjustmentsAsync(DataGridIntent intent)
+    {
+        DataGridIntent newIntent = intent.Adapt<DataGridIntent>();
+        newIntent.Filters.AddRange([
+            DataGridFilterUtilities.GreaterThan(nameof(InventoryAdjustmentDataGridDTO.QuantityIssuedTotal), 0),
+            DataGridFilterUtilities.LessThanOrEqual(nameof(InventoryAdjustmentDataGridDTO.QuantityReceivedTotal), 0),
+        ]);
+        return GetInventoryAdjustmentsAsync(newIntent);
+    }
+
+    public async Task<(IEnumerable<InventoryAdjustmentReasonDTO> Data, int Count)> GetInventoryAdjustmentReasonsAsync(DataGridIntent intent)
+    {
+        var query = builderFactory.Create()
+            .Select(
+                ("custrecord_atlas_glaccount", nameof(InventoryAdjustmentReasonDTO.AccountId)),
+                ("BUILTIN.DF(custrecord_atlas_glaccount)", nameof(InventoryAdjustmentReasonDTO.AccountName)),
+                ("name", nameof(InventoryAdjustmentReasonDTO.Name)),
+                ("id", nameof(InventoryAdjustmentReasonDTO.Id))
+            )
+            .From("CUSTOMRECORD_ATLAS_INV_ADJ_REASN")
+            .WithDatagridIntent(intent)
+            .Build();
+
+        var response = await query.ExecuteWithPaging<InventoryAdjustmentReasonDTO>(netsuiteService);
+        return (response.items, response.totalResults);
+    }
+
+    public async Task<(IEnumerable<InventoryAdjustmentCategoryDTO> Data, int Count)> GetInventoryAdjustmentCategoriesAsync(DataGridIntent intent)
+    {
+        var query = builderFactory.Create()
+            .Select(
+                ("id", nameof(InventoryAdjustmentCategoryDTO.Id)),
+                ("name", nameof(InventoryAdjustmentCategoryDTO.Name))
+            )
+            .From("CUSTOMLIST_DBTI_ADJUSTMENT_CATEGORY_LI")
+            .WithDatagridIntent(intent)
+            .Build();
+
+        var response = await query.ExecuteWithPaging<InventoryAdjustmentCategoryDTO>(netsuiteService);
+        return (response.items, response.totalResults);
+    }
+
 
     public async Task<bool> CreateInventoryAdjustment(InventoryAdjustmentDTO value)
     {
@@ -133,6 +210,14 @@ public class InventoryAdjustmentIntegration(
 
     private string CreateIAPayload(InventoryAdjustmentDTO dto)
     {
+        var issueLinesCount = dto.Lines.Count(x => x.QuantityAlloted < 0);
+        var receiptLinesCount = dto.Lines.Count(x => x.QuantityAlloted > 0);
+        if (issueLinesCount > 0 && receiptLinesCount > 0)
+            throw new Exception("WMS does not allow goods issue lines and goods receipt lines in the same document");
+        int category = issueLinesCount > 0
+            ? 1 : // issue category
+            2; // receipt category
+
         var anon = new
         {
             account = new { id = dto.Account!.Id },
@@ -140,6 +225,10 @@ public class InventoryAdjustmentIntegration(
             subsidiary = new { id = dto.Subsidiary!.Id },
             adjLocation = new { id = dto.Location!.Id },
             department = new { id = 4 },
+            custbody_atlas_inv_adj_reason = dto.Reason?.Id ?? null,
+            custbody_dbti_prepared_by = dto.PreparedById,
+            custbody_dbti_adjustment_category = category,
+            Class = 1,
             inventory = new
             {
                 items = dto.Lines.Select(line => new
@@ -158,14 +247,14 @@ public class InventoryAdjustmentIntegration(
                                 quantity = line.QuantityAlloted < 0 ? -d.QuantityAlloted :  d.QuantityAlloted
                             })
                         }
-                    }
+                    },
+                    units = line.UoM?.Id.ToString() ?? null
                 })
             }
         };
 
         return JsonSerializer.Serialize(anon, jsonSerializerOptions);
     }
-
 
     private readonly JsonSerializerOptions jsonSerializerOptions = new()
     {
@@ -191,4 +280,33 @@ public class InventoryAdjustmentIntegration(
         };
         return dto;
     }
+
+
+    readonly string IssueQuery = """
+            SELECT
+                SUM(- itl.quantity) AS total,
+                itl.transaction AS transactionid
+            FROM
+                transactionline itl
+                JOIN transaction it ON it.recordtype = 'inventoryadjustment'
+                AND it.id = itl.transaction
+            WHERE
+                itl.quantity <= 0
+                AND itl.mainline = 'F'
+            GROUP BY itl.transaction 
+        """;
+
+    readonly string ReceiptQuery = """
+            SELECT
+                SUM(rtl.quantity) AS total,
+                rtl.transaction AS transactionid
+            FROM
+                transactionline rtl
+                JOIN transaction rt ON rt.recordtype = 'inventoryadjustment'
+                AND rt.id = rtl.transaction
+            WHERE
+                rtl.quantity >= 0
+                AND rtl.mainline = 'F'
+            GROUP BY rtl.transaction 
+        """;
 }

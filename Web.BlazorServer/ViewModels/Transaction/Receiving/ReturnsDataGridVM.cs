@@ -12,5 +12,6 @@ public class ReturnsDataGridVM
     public string SourceWarehouse { get; set; } = string.Empty;
     public string DestinationWarehouse { get; set; } = string.Empty;
     public string Remarks { get; set; } = string.Empty;
+    public string Status { get; set; } = string.Empty;
     public DateTime Date { get; set; }
 }

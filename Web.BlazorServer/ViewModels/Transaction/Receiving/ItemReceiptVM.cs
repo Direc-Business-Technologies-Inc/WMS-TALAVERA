@@ -14,6 +14,7 @@ public class ItemReceiptVM
     public string Department { get; set; } = string.Empty;
     public string Vendor { get; set; } = string.Empty;
     public string ReceivedBy { get; set; } = string.Empty;
+    public string PreparedBy { get; set; } = string.Empty;
 
     public string Location { get; set; } = string.Empty;
     public string TransferLocation { get; set; } = string.Empty;

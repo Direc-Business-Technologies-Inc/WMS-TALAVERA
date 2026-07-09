@@ -20,4 +20,5 @@ public class StockTransferRequestInfoVM
     public TransferCategory Category { get; set; } = TransferCategory.Transfer;
     public bool IsReturn => Category.IsReturn;
     public bool IsIntercompany => Category.IsInterCompany;
+    public bool IsEditable { get; set; }
 }

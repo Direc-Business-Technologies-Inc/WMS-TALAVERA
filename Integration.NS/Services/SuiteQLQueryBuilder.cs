@@ -3,6 +3,7 @@ using Mapster;
 using Microsoft.Net.Http.Headers;
 using Shared.Entities;
 using System.Collections;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using static System.Net.WebRequestMethods;
@@ -20,7 +21,8 @@ public class SuiteQLQueryBuilderFactoryService
 
 public class SuiteQLQueryBuilder
 {
-    const string DATETIME_FORMAT_STRING = "YYYY-MM-DDTHH:mm:ss";
+    const string DATETIME_FORMAT_STRING = "yyyy-MM-ddTHH:mm:ss";
+    const string NETSUITE_DATETIME_FORMAT_STRING = "YYYY-MM-DD\"T\"HH24:MI:SS";
     public int? Take { get; set; }
     public int? Skip { get; set; }
     public List<AppFilterDescriptor> Filters { get; set; } = [];
@@ -153,15 +155,12 @@ public class SuiteQLQueryBuilder
                 return _binary(filter.Property, "<", filter.Value, propertyMap);
             case ComparisonOperatorEnum.LessThanOrEqual  :
                 return _binary(filter.Property, "<=", filter.Value, propertyMap);
-            case ComparisonOperatorEnum.Contains :
-                if (filter.Value is not string) throw new InvalidOperationException($"{filter.Property} is not a string and does not support the contains operation");
-                return _binary(filter.Property, "LIKE", $"%{filter.Value}%", propertyMap);
+            case ComparisonOperatorEnum.Contains:
+                return _stringOp(filter.Property, ComparisonOperatorEnum.Contains, filter.Value, propertyMap);
             case ComparisonOperatorEnum.StartsWith:
-                if (filter.Value is not string) throw new InvalidOperationException($"{filter.Property} is not a string and does not support the starts with operation");
-                return _binary(filter.Property, "LIKE", $"{filter.Value}%", propertyMap);
+                return _stringOp(filter.Property, ComparisonOperatorEnum.StartsWith, filter.Value, propertyMap);
             case ComparisonOperatorEnum.EndsWith:
-                if (filter.Value is not string) throw new InvalidOperationException($"{filter.Property} is not a string and does not support the ends with operation");
-                return _binary(filter.Property, "LIKE", $"%{filter.Value}", propertyMap);
+                return _stringOp(filter.Property, ComparisonOperatorEnum.EndsWith, filter.Value, propertyMap);
             case ComparisonOperatorEnum.In :
                 return _listOp(filter.Property, "IN", filter.Value, propertyMap);
             case ComparisonOperatorEnum.NotIn :
@@ -179,15 +178,32 @@ public class SuiteQLQueryBuilder
     private string _stringifyValue(object value)
     {
         if (value is string strVal) return $"'{strVal}'";
+        if (value is Literal literalVal) return literalVal.Value;
         if (value is DateTime dateVal) return $"'{dateVal.ToString(DATETIME_FORMAT_STRING)}'";
         if (value is null) return "NULL";
         if (value is object[] arrayVal) return "(" + string.Join(", ", arrayVal.Select(_stringifyValue)) + ")";
+        if (value is IEnumerable enumerable)
+        {
+            bool firstItem = true;
+            StringBuilder builder = new();
+            builder.Append("(");
+            foreach (var item in enumerable) { 
+                if (!firstItem)
+                {
+                    builder.Append(',');
+                }
+                builder.Append(_stringifyValue(item));
+                firstItem = false;
+            }
+            builder.Append(")");
+            return builder.ToString();
+        }
         return JsonSerializer.Serialize(value);
     }
 
     private string _listOp(string prop, string op, object? value, Dictionary<string, string>? propertyMap = null)
     {
-        if (value is null || value is not object[] arrayVal) throw new InvalidOperationException($"operation {op} requires an array type as its value");
+        if (value is null || value is not IEnumerable) throw new InvalidOperationException($"operation {op} requires an array type as its value");
 
         prop = propertyMap != null && propertyMap.ContainsKey(prop) ? propertyMap[prop] : prop;
 
@@ -223,8 +239,24 @@ public class SuiteQLQueryBuilder
         if (value is null) throw new InvalidOperationException($"no value given for {prop}");
 
         prop = propertyMap != null && propertyMap.ContainsKey(prop) ? propertyMap[prop] : prop;
-
+        if (value is DateTime dtVal) return $"TO_DATE({prop}, '{NETSUITE_DATETIME_FORMAT_STRING}') {op} TO_DATE({_stringifyValue(dtVal)}, '{NETSUITE_DATETIME_FORMAT_STRING}')";
         return $"{prop} {op} {_stringifyValue(value)}";
+    }
+
+    private string _stringOp(string prop, ComparisonOperatorEnum op, object? value, Dictionary<string, string>? propertyMap = null)
+    {
+        if (value is null) throw new InvalidOperationException($"no value given for {prop}");
+        if (value is not string strVal) throw new InvalidOperationException($"'{value}' is not a string and does not support {op}");
+
+        prop = propertyMap != null && propertyMap.ContainsKey(prop) ? propertyMap[prop] : prop;
+
+        return op switch
+        {
+            ComparisonOperatorEnum.Contains => $"LOWER({prop}) LIKE LOWER('%{strVal}%')",
+            ComparisonOperatorEnum.EndsWith => $"LOWER({prop}) LIKE LOWER('%{strVal}')",
+            ComparisonOperatorEnum.StartsWith => $"LOWER({prop}) LIKE LOWER('{strVal}%')",
+            _ => throw new NotImplementedException($"string operation {op} is not implemented in this version of wms")
+        };
     }
 
     private string _parseFilterGroup(AppFilterDescriptor filter, Dictionary<string, string>? propertyMap = null)
@@ -314,4 +346,6 @@ public class SuiteQLQueryBuilder
         }  
         return this;
     }
+
+    public record Literal(string Value);
 }

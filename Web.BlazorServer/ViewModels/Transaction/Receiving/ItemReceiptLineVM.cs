@@ -22,17 +22,19 @@ public class ItemReceiptLineVM
     public int LineNumber { get; set; }
     public int PrefferedBinAssignmentId { get; set; }
 
+    public int ItemId { get; set; }
     public string ItemCode { get; set; } = string.Empty;
     public string ItemDescription { get; set; } =  string.Empty;
     public string UoM { get; set; } = string.Empty;
     public string Department { get; set; } = string.Empty;
     public string Location { get; set; } = string.Empty;
-    public decimal WeightReceived { get; set; }
-    public decimal WeightTotal { get; set; }
+    public decimal UoMRate { get; set; }
+    public decimal WeightActual { get; set; }
+    public decimal WeightPerItem { get; set; }
+    public decimal WeightRecord => WeightPerItem * (QuantityGood + QuantityBad);
     public decimal QuantityPlanned { get; set; }
     public decimal QuantityOpen { get; set; }
     public decimal QuantityReceived { get; set; }
     public decimal QuantityBad { get; set; }
     public decimal QuantityGood { get; set; }
-
 }

@@ -16,3 +16,10 @@ public class QuickDataGridTitle : System.Attribute
         Title = title;
     }
 }
+
+[AttributeUsage(AttributeTargets.Property)]
+public class QuickDataGridStringFormat : Attribute
+{
+    public string Format;
+    public QuickDataGridStringFormat(string format) { Format = format; }
+}

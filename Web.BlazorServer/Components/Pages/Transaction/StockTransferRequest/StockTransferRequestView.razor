@@ -15,13 +15,19 @@
 @attribute [Route(STRRoutes.View)]
 
 
-<PageTitle>Receiving</PageTitle>
+<PageTitle>Stock Transfer Request @Ref</PageTitle>
 
+
+<PageTitle>Updating Stock Transfer Request @Ref</PageTitle>
+
+<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" class="rz-mb-4">
+    <AppBreadCrumbs ModuleCode="OSTR" />
+</RadzenStack>
 <AppContent>
 <AppFormSkeleton TItem="StockTransferRequestInfoVM" Loading="@IsLoadingData"/>
 @if (!IsLoadingData)
 {
-    <STRForm Model="@FormData" EditContext="@EditContext" ReadOnly ActionURI="@(STRRoutes.Update + $"?ref={Ref}")" ActionLabel="Edit" ReturnURI="@STRRoutes.Root"/>
+    <STRForm Model="@FormData" EditContext="@EditContext" ReadOnly ActionURI="@(ActionURI)" ActionLabel="Edit" ReturnURI="@STRRoutes.Root"/>
 }
 </AppContent>
 
@@ -34,6 +40,7 @@
     bool IsLoadingData => AppBusyService.IsBusy(ActionGetStockTransferRequest);
 
     readonly string ActionGetStockTransferRequest = "Get Stock Transfer Request";
+    string? ActionURI = null;
 
     protected override void OnParametersSet()
     {
@@ -69,20 +76,26 @@
         {
             res.Adapt(FormData);
             FormData.Category = res.Category;
+            ActionURI = res.IsEditable ?
+                STRRoutes.Update + $"?ref={Ref}" :
+                null;
             await InvokeAsync(StateHasChanged);
         });
 
         action.OnFailure(ex =>
         {
-            NavError(ex.Message);
-            return Task.CompletedTask;
+            ActionURI = null;
+            return Task.Delay(100).ContinueWith(_ =>
+            {
+                NavManager.NavigateTo(STRRoutes.Root);
+            });
         });
     }
 
     void NavError(string message)
     {
         ToastService.Error(message);
-        NavManager.NavigateTo(STRRoutes.Root, true);
+        NavManager.NavigateTo(STRRoutes.Root);
     }
 
 

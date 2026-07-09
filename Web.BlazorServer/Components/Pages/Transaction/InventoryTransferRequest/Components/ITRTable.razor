@@ -1,0 +1,17 @@
+﻿@using Web.BlazorServer.Components.Custom
+@using Web.BlazorServer.ViewModels.Transaction.InventoryTransferRequest
+@inherits BaseComponent
+
+<QuickDataGrid @ref="@DataGrid" Id="inventory_transfer_request_table" ActionName="@ActionGetList" DataGetter="@GetList">
+    <HeaderStart>
+        <RadzenFormField Text="Filter by status" class="rz-mt-0">
+            <QuickVirtualizedDropdown TItem="InventoryTransferRequestStatusVM" DataGetter="@StatusProvider" TextProperty="@nameof(InventoryTransferRequestStatusVM.Name)" @bind-Value="@FilterStatus" @bind-Value:after="FilterChanged" />
+        </RadzenFormField>
+    </HeaderStart>
+    <HeaderEnd>
+        <RadzenButton ButtonStyle="ButtonStyle.Success" Icon="Add" Size="ButtonSize.Small" Click="@(() => NavManager.NavigateTo(ITRRoutes.CREATE))" />
+    </HeaderEnd>
+    <RowActions>
+        <RadzenButton Icon="arrow_right_alt" Size="ButtonSize.ExtraSmall" Click="@(() => OnRowAction(context))" />
+    </RowActions>
+</QuickDataGrid>

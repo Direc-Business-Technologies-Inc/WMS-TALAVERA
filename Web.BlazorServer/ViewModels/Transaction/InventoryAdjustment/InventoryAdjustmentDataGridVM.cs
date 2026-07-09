@@ -9,6 +9,8 @@ public class InventoryAdjustmentDataGridVM
     public int Id { get; set; }
     [QuickDataGridTitle("Reference Number")]
     public string ReferenceNumber { get; set; } = string.Empty;
+    [QuickDataGridStringFormat("{0:MMMM dd, yyyy}")]
+    public DateTime Date { get; set; }
     public string Subsidiary { get; set; } = string.Empty;
     [QuickDataGridTitle("Warehouse")]
     public string Location { get; set; } = string.Empty;
@@ -17,4 +19,6 @@ public class InventoryAdjustmentDataGridVM
     public string Memo { get; set; } = string.Empty;
     [QuickDataGridTitle("Prepared By")]
     public string PreparedBy { get; set; } = string.Empty;
+    [QuickDataGridTitle("Adjustment Reason")]
+    public string AdjustmentReason { get; set; } = string.Empty;
 }

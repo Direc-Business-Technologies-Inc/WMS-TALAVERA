@@ -1,0 +1,16 @@
+﻿@using Web.BlazorServer.Components.Custom
+@using Web.BlazorServer.ViewModels.Others
+@inherits BaseComponent
+
+<AppContent>
+    <ItemDataGrid SelectionMode="ItemDataGrid.SelectionModes.Multiple" LocationId="@LocationId" Id="itr_items_datagrid"/>
+</AppContent>
+
+@code {
+    [Parameter] public int? LocationId { get; set; } = null;
+
+    async Task OnItemsSelected(List<ItemsVM> items)
+    {
+        DialogService.Close(items);
+    }
+}

@@ -25,6 +25,7 @@ public class ItemsIntegration(
                 ("itemid", nameof(ItemsNSDTO.ItemNumber)),
                 ("id", nameof(ItemsNSDTO.Id)),
                 ("displayname", nameof(ItemsNSDTO.Name)),
+                ("usebins", nameof(ItemsNSDTO.UseBins)),
                 ("description", nameof(ItemsNSDTO.Description)),
                 ("purchaseunit", nameof(ItemsNSDTO.PurchaseUnitId)),
                 ("saleunit", nameof(ItemsNSDTO.SaleUnitId)),
@@ -61,6 +62,7 @@ public class ItemsIntegration(
                 ("i.displayname", nameof(ItemsNSDTO.Name)),
                 ("i.description", nameof(ItemsNSDTO.Description)),
                 ("i.purchaseunit", nameof(ItemsNSDTO.PurchaseUnitId)),
+                ("i.usebins", nameof(ItemsNSDTO.UseBins)),
                 ("i.saleunit", nameof(ItemsNSDTO.SaleUnitId)),
                 ("i.stockunit", nameof(ItemsNSDTO.StockUnitId)),
                 ("BUILTIN.DF(i.purchaseunit)", nameof(ItemsNSDTO.PurchaseUnitName)),
@@ -89,11 +91,12 @@ public class ItemsIntegration(
     {
         var query = builderFactory.Create()
             .Select(
-                ("(SELECT SUM(quantityonhand) FROM aggregateitemlocation WHERE item = item.id)", nameof(ItemsNSDTO.QuantityOnHand)),
+                ("(SELECT SUM(quantityonhand) FROM aggregateitemlocation WHERE item = i.id)", nameof(ItemsNSDTO.QuantityOnHand)),
                 ("i.itemid", nameof(ItemsNSDTO.ItemNumber)),
                 ("i.id", nameof(ItemsNSDTO.Id)),
                 ("i.displayname", nameof(ItemsNSDTO.Name)),
                 ("i.description", nameof(ItemsNSDTO.Description)),
+                ("i.usebins", nameof(ItemsNSDTO.UseBins)),
                 ("i.purchaseunit", nameof(ItemsNSDTO.PurchaseUnitId)),
                 ("i.saleunit", nameof(ItemsNSDTO.SaleUnitId)),
                 ("i.stockunit", nameof(ItemsNSDTO.StockUnitId)),
@@ -104,7 +107,7 @@ public class ItemsIntegration(
                 ("u2.conversionrate", nameof(ItemsNSDTO.StockUnitRate)),
                 ("u3.conversionrate", nameof(ItemsNSDTO.PurchaseUnitRate))
             )
-            .From("item")
+            .From("item i")
             .LeftJoin("unitsTypeUom u1", on: "u1.internalid = i.saleunit")
             .LeftJoin("unitsTypeUom u2", on: "u2.internalid = i.stockunit")
             .LeftJoin("unitsTypeUom u3", on: "u3.internalid = i.purchaseunit")

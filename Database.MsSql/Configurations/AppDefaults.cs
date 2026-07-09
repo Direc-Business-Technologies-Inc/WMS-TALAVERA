@@ -3,6 +3,7 @@ using Domain.Entities.Administration.User.Role;
 using Domain.Entities.System;
 using Domain.ValueObjects.Others;
 using DataCipher;
+using Domain.Entities.Entities.Administration.User.Management;
 
 namespace Database.MsSql.Configurations;
 
@@ -68,7 +69,7 @@ internal static class AppDefaults
             name: "Delivery",
             code: "ODLV",
             root: false,
-            navRouteId: WebStructure.SubRouteList2.First(x => x.Name.Equals("Delivery")).Id,
+            navRouteId: WebStructure.ParentRouteList.ElementAt(0).Id,
             permissions: [AppDefaults.NewPermission("VIEW"), AppDefaults.NewPermission("CREATE"), AppDefaults.NewPermission("UPDATE")]),
         ModuleDEM.Create(
             name: "Sales Return",
@@ -76,47 +77,47 @@ internal static class AppDefaults
             root: false,
             navRouteId: WebStructure.SubRouteList2.First(x => x.Name.Equals("Sales Return")).Id,
             permissions: [AppDefaults.NewPermission("VIEW"), AppDefaults.NewPermission("CREATE"), AppDefaults.NewPermission("UPDATE")]),
-        //ModuleDEM.Create(
-        //    name: "Goods Issue",
-        //    code: "OGIS",
-        //    root: false,
-        //    navRouteId: WebStructure.SubRouteList2.First(x => x.Name.Equals("Goods Issue")).Id,
-        //    permissions: [AppDefaults.NewPermission("VIEW"), AppDefaults.NewPermission("CREATE"), AppDefaults.NewPermission("UPDATE")]),
-        //ModuleDEM.Create(
-        //    name: "Goods Receipt",
-        //    code: "OGRC",
-        //    root: false,
-        //    navRouteId: WebStructure.SubRouteList2.First(x => x.Name.Equals("Goods Receipt")).Id,
-        //    permissions: [AppDefaults.NewPermission("VIEW"), AppDefaults.NewPermission("CREATE"), AppDefaults.NewPermission("UPDATE")]),
-        //ModuleDEM.Create(
-        //    name: "Inventory Transfer",
-        //    code: "OITR",
-        //    root: false,
-        //    navRouteId: WebStructure.SubRouteList2.First(x => x.Name.Equals("Inventory Transfer")).Id,
-        //    permissions: [AppDefaults.NewPermission("VIEW"), AppDefaults.NewPermission("CREATE"), AppDefaults.NewPermission("UPDATE")]),
+        ModuleDEM.Create(
+            name: "Inventory Adjustment",
+            code: "OIAJ",
+            root: false,
+            navRouteId: WebStructure.ParentRouteList.ElementAt(0).Id,
+            permissions: [AppDefaults.NewPermission("VIEW"), AppDefaults.NewPermission("CREATE"), AppDefaults.NewPermission("UPDATE")]),
+        ModuleDEM.Create(
+            name: "Stock Transfer Request",
+            code: "OSTR",
+            root: false,
+            navRouteId: WebStructure.ParentRouteList.ElementAt(0).Id,
+            permissions: [AppDefaults.NewPermission("VIEW"), AppDefaults.NewPermission("CREATE"), AppDefaults.NewPermission("UPDATE")]),
+        ModuleDEM.Create(
+            name: "Inventory Transfer",
+            code: "OITR",
+            root: false,
+            navRouteId: WebStructure.ParentRouteList.ElementAt(0).Id,
+            permissions: [AppDefaults.NewPermission("VIEW"), AppDefaults.NewPermission("CREATE"), AppDefaults.NewPermission("UPDATE")]),
         ModuleDEM.Create(
             name: "Inventory Counting",
             code: "OICT",
             root: false,
-            navRouteId: WebStructure.SubRouteList2.First(x => x.Name.Equals("Inventory Counting")).Id,
+            navRouteId: WebStructure.ParentRouteList.ElementAt(0).Id,
             permissions: [AppDefaults.NewPermission("VIEW"), AppDefaults.NewPermission("CREATE"), AppDefaults.NewPermission("UPDATE")]),
         ModuleDEM.Create(
             name: "Inventory Worksheet",
             code: "OIWK",
             root: false,
-            navRouteId: WebStructure.SubRouteList2.First(x => x.Name.Equals("Inventory Worksheet")).Id,
+            navRouteId: WebStructure.ParentRouteList.ElementAt(0).Id,
             permissions: [AppDefaults.NewPermission("VIEW"), AppDefaults.NewPermission("CREATE"), AppDefaults.NewPermission("UPDATE")]),
         ModuleDEM.Create(
             name: "Packing",
             code: "OPCK",
             root: false,
-            navRouteId: WebStructure.SubRouteList2.First(x => x.Name.Equals("Packing")).Id,
+            navRouteId: WebStructure.ParentRouteList.ElementAt(0).Id,
             permissions: [AppDefaults.NewPermission("VIEW")]),
         ModuleDEM.Create(
             name: "Trip Ticket",
             code: "OTTX",
             root: false,
-            navRouteId: WebStructure.SubRouteList2.First(x => x.Name.Equals("Trip Ticket")).Id,
+            navRouteId: WebStructure.ParentRouteList.ElementAt(0).Id,
             permissions: [AppDefaults.NewPermission("VIEW"), AppDefaults.NewPermission("CREATE")]),
     ];
 
@@ -177,6 +178,15 @@ internal static class AppDefaults
                            "APHI")),
     ];
 
+    public static readonly IEnumerable<SettingsDEM> Settings = [
+        SettingsDEM.Create(
+            "wms.max_login_attemts", 
+            "Maximum Failed Login Attempts",
+            "Number of consecutive failed login attempts before the user account is locked. Must be a positive integer. Defaults to 5 if not configured.",
+            SettingsDEM.Types.Integer,
+            "5"
+        )
+    ];
     public static IEnumerable<ModuleDEM> RoleModules(RoleDEM role)
     {
 

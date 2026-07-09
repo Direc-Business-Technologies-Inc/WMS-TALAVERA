@@ -11,6 +11,7 @@ public class StockTransferRequestDataGridVM
     public string PreparedBy { get; set; } = string.Empty;
     public string Remarks { get; set; } = string.Empty;
     public string StatusDisplayString => Status.Name;
+    public bool IsEditable { get; set; }
     public TransferOrderStatusVM Status { get; set; } = new();
     public DateTime Date { get; set; }
 }
