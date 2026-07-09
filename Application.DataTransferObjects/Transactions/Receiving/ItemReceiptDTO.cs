@@ -56,7 +56,7 @@ public class ItemReceiptLineDTO
 
     public decimal UoMRate { get; set; }
     public decimal WeightActual { get; set; }
-    public decimal WeightRecord { get; set; }
+    public decimal WeightPerItem { get; set; }
     public decimal QuantityPlanned { get; set; }
     public decimal QuantityOpen { get; set; }
     public decimal QuantityReceived { get; set; }

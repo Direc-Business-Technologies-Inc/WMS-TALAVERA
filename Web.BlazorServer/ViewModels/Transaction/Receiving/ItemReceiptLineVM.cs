@@ -30,7 +30,8 @@ public class ItemReceiptLineVM
     public string Location { get; set; } = string.Empty;
     public decimal UoMRate { get; set; }
     public decimal WeightActual { get; set; }
-    public decimal WeightRecord { get; set; }
+    public decimal WeightPerItem { get; set; }
+    public decimal WeightRecord => WeightPerItem * (QuantityGood + QuantityBad);
     public decimal QuantityPlanned { get; set; }
     public decimal QuantityOpen { get; set; }
     public decimal QuantityReceived { get; set; }
