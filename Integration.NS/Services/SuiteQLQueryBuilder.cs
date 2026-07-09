@@ -3,6 +3,7 @@ using Mapster;
 using Microsoft.Net.Http.Headers;
 using Shared.Entities;
 using System.Collections;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using static System.Net.WebRequestMethods;
@@ -181,12 +182,28 @@ public class SuiteQLQueryBuilder
         if (value is DateTime dateVal) return $"'{dateVal.ToString(DATETIME_FORMAT_STRING)}'";
         if (value is null) return "NULL";
         if (value is object[] arrayVal) return "(" + string.Join(", ", arrayVal.Select(_stringifyValue)) + ")";
+        if (value is IEnumerable enumerable)
+        {
+            bool firstItem = true;
+            StringBuilder builder = new();
+            builder.Append("(");
+            foreach (var item in enumerable) { 
+                if (!firstItem)
+                {
+                    builder.Append(',');
+                }
+                builder.Append(_stringifyValue(item));
+                firstItem = false;
+            }
+            builder.Append(")");
+            return builder.ToString();
+        }
         return JsonSerializer.Serialize(value);
     }
 
     private string _listOp(string prop, string op, object? value, Dictionary<string, string>? propertyMap = null)
     {
-        if (value is null || value is not object[] arrayVal) throw new InvalidOperationException($"operation {op} requires an array type as its value");
+        if (value is null || value is not IEnumerable) throw new InvalidOperationException($"operation {op} requires an array type as its value");
 
         prop = propertyMap != null && propertyMap.ContainsKey(prop) ? propertyMap[prop] : prop;
 

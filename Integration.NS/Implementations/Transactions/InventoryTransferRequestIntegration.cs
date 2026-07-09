@@ -3,8 +3,10 @@ using Application.UseCases.Repositories.Integration.Others;
 using Application.UseCases.Repositories.Integration.Transaction.InventoryTransferRequest;
 using Integration.NS.DataTransferObjects.InventoryAdjustment;
 using Integration.NS.DataTransferObjects.InventoryTransferRequest;
+using Integration.NS.Helpers;
 using Integration.NS.Services;
 using Mapster;
+using Microsoft.AspNetCore.Http;
 using Shared.Entities;
 using Shared.Libraries.Utilities;
 using System;
@@ -19,6 +21,7 @@ namespace Integration.NS.Implementations.Transactions;
 
 public class InventoryTransferRequestIntegration(
     INetSuiteApiClientService netsuiteService,
+    IHttpContextAccessor httpContextAccessor,
     SuiteQLQueryBuilderFactoryService builderFactory)
     : IInventoryTransferRequestIntegration
 {
@@ -41,6 +44,7 @@ public class InventoryTransferRequestIntegration(
             )
             .From("transaction t")
             .Join("transactionline tl", "tl.transaction = t.id AND tl.mainline='T'")
+            .WithSubsidiaries(httpContextAccessor, "t")
             .WithFilters(
                 DataGridFilterUtilities.Equal("t.recordtype", "inventorytransfer"),
                 DataGridFilterUtilities.Equal("t.tranid", Ref)
@@ -110,6 +114,7 @@ public class InventoryTransferRequestIntegration(
             .WithFilters(
                 DataGridFilterUtilities.Equal("t.recordtype", "inventorytransfer")
             )
+            .WithSubsidiaries(httpContextAccessor, "t")
             .WithDatagridIntent(intent)
             .Build();
 

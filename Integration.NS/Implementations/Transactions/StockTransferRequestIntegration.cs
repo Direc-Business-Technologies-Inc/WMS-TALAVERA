@@ -6,6 +6,7 @@ using Integration.NS.DataTransferObjects.StockTransferRequest;
 using Integration.NS.Helpers;
 using Integration.NS.Services;
 using Mapster;
+using Microsoft.AspNetCore.Http;
 using Shared.Entities;
 using Shared.Libraries.Utilities;
 using System;
@@ -20,6 +21,7 @@ namespace Integration.NS.Implementations.Transactions;
 
 internal class StockTransferRequestIntegration(
     INetSuiteApiClientService netsuiteService,
+    IHttpContextAccessor httpContextAccessor,
     SuiteQLQueryBuilderFactoryService builderFactory) : IStockTransferRequestIntegration
 {
     public async Task<(IEnumerable<StockTransferRequestDataGridDTO> Data, int Count)> GetIntercompanyTransferOrderList(DataGridIntent intent)
@@ -48,6 +50,7 @@ internal class StockTransferRequestIntegration(
                     DataGridFilterUtilities.NotEqual("t.custbody_dbti_transfer_category", 3),
                     DataGridFilterUtilities.NotEqual("t.custbody_dbti_transfer_category", 4)
                 )
+                .WithSubsidiaries(httpContextAccessor, "t")
                 .WithDatagridIntent(intent)
                 .Build();
 
@@ -74,6 +77,7 @@ internal class StockTransferRequestIntegration(
                 .Join("transactionline tl", on: "tl.transaction = t.id")
                 .LeftJoin("CUSTOMLIST_DBTI_CR_APPROVAL_STATUSES s", on: "s.id = t.custbody_dbti_custom_approval_status")
                 .LeftJoin("employee e", on: "e.id = t.custbody_dbti_prepared_by")
+                .WithSubsidiaries(httpContextAccessor, "t")
                 .WithFilters(
                     DataGridFilterUtilities.Equal("tl.mainline", "T"),
                     DataGridFilterUtilities.In("t.recordtype", new string[] { "intercompanytransferorder", "transferorder" }),
@@ -114,6 +118,7 @@ internal class StockTransferRequestIntegration(
                     DataGridFilterUtilities.NotEqual("t.custbody_dbti_transfer_category", 3),
                     DataGridFilterUtilities.NotEqual("t.custbody_dbti_transfer_category", 4)
                 )
+                .WithSubsidiaries(httpContextAccessor, "t")
                 .WithDatagridIntent(intent)
                 .Build();
 
@@ -151,6 +156,7 @@ internal class StockTransferRequestIntegration(
                 .Join("transactionline tl", on: "tl.transaction = t.id")
                 .LeftJoin("CUSTOMLIST_DBTI_CR_APPROVAL_STATUSES s", on: "s.id = t.custbody_dbti_custom_approval_status")
                 .LeftJoin("employee e", on: "e.id = t.custbody_dbti_prepared_by")
+                .WithSubsidiaries(httpContextAccessor, "t")
                 .WithFilters(
                     DataGridFilterUtilities.In("t.status", new string[] { "C", "A" }),
                     DataGridFilterUtilities.Equal("t.tranid", id),

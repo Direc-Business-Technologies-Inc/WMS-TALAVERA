@@ -5,9 +5,11 @@ using Application.DataTransferObjects.Transactions.Receiving.SAP;
 using Application.UseCases.Repositories.Integration.Others;
 using Application.UseCases.Repositories.Integration.Transaction.Receiving;
 using Integration.NS.DataTransferObjects.Receiving;
+using Integration.NS.Helpers;
 using Integration.NS.Services;
 using Integration.SAP.Entities.Transactional.Receiving;
 using Mapster;
+using Microsoft.AspNetCore.Http;
 using Shared.Entities;
 using Shared.Libraries.Utilities;
 using Shared.Libraries.ViewModel;
@@ -21,6 +23,7 @@ namespace Integration.NS.Implementations.Transactions;
 
 public class ReceivingIntegration(
     INetSuiteApiClientService netsuiteService,
+    IHttpContextAccessor httpContext,
     SuiteQLQueryBuilderFactoryService builderFactory)
     : IReceivingIntegration
 {
@@ -103,7 +106,8 @@ public class ReceivingIntegration(
             .WithFilters(
                 Equal("t.recordtype", "purchaseorder"),
                 In("t.status", new string[] { "B", "E" })
-            );
+            )
+            .WithSubsidiaries(httpContext, "t");
 
         SuiteQLQuery query = builder.Build();
 
@@ -135,6 +139,7 @@ public class ReceivingIntegration(
                 NotEqual("t.custbody_dbti_transfer_category", 3), // returns - good items
                 In("t.status", new string[] { "F", "E" }))
             .WithDatagridIntent(intent)
+            .WithSubsidiaries(httpContext, "t")
             .Build();
 
         var response = await netsuiteService.ExecuteSuiteQLQuery<TransferOrderDataGridDTO>(query.Query, limit: query.Limit, offset: query.Offset);
@@ -167,6 +172,7 @@ public class ReceivingIntegration(
             )
             .From("transaction t")
             .Join("transactionline tl", on: "tl.transaction = t.id")
+            .WithSubsidiaries(httpContext, "t")
             .WithFilters(
                 In("t.recordtype", new string[] { "transferorder", "intercompanytransferorder" }),
                 Equal("tl.mainline", "T"),
@@ -226,6 +232,7 @@ public class ReceivingIntegration(
             .From("transaction t")
             .LeftJoin("transferorderstatus s", on: "s.id = t.status")
             .WithDatagridIntent(intent)
+            .WithSubsidiaries(httpContext, "t")
             .WithFilters(
                 Equal("t.recordtype", "intercompanytransferorder"),
                 In("t.status", new string[] { "F", "E" }),
@@ -252,6 +259,7 @@ public class ReceivingIntegration(
             )
             .From("transaction t")
             .Join("transactionline tl", "tl.transaction = t.id AND tl.mainline = 'T'")
+            .WithSubsidiaries(httpContext, "t")
             .WithFilters(
                 Equal("t.recordtype", "intercompanytransferorder"),
                 Any(

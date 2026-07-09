@@ -10,6 +10,7 @@ namespace Application.DataTransferObjects.Transactions.Receiving;
 
 public class PurchaseOrderDTO
 {
+    public int SubsidiaryId { get; set; }
     public int Id { get; set; }
     public string ReferenceNumber { get; set; } = string.Empty;
     public string VendorName { get; set; } = string.Empty;

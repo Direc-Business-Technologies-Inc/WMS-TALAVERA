@@ -1,7 +1,9 @@
 ﻿using Application.DataTransferObjects.Administration.Role;
 using Application.DataTransferObjects.Administration.User;
+using Application.DataTransferObjects.Others;
 using Application.DataTransferObjects.System.Security;
 using Application.UseCases.Repositories.Bases;
+using Application.UseCases.Repositories.Integration.Others;
 using DataCipher;
 using Domain.Entities.Administration.User.Management;
 using Domain.Entities.Administration.User.Role;
@@ -14,6 +16,7 @@ namespace Application.UseCases.Commands.System.Authentication;
 public record LoginCmd(AuthenticationPayloadDTO Login) : ITransactionalRequest<AuthenticationResponseDTO>;
 
 public class LoginCmdHandler(
+    ISubsidiaryIntegration subsidiaryIntegration,
     IAppReadRepository appRead,
     IAppCommandRepository appCommand)
     : IRequestHandler<LoginCmd, AuthenticationResponseDTO>
@@ -32,6 +35,16 @@ public class LoginCmdHandler(
             return AuthenticationResponseDTO.Fail("User Account is marked as Inactive");
         if (user.Account.LockoutEnabled && user.Account.Locked)
             return AuthenticationResponseDTO.Fail("User Account is Locked");
+
+        List<int> allowedSubsidiaries = [];
+        if (user.EmployeeNs != null && user.EmployeeNs.NsSubsidiaryId != null)
+        {
+            int parentSubsidiary = (int)user.EmployeeNs.NsSubsidiaryId;
+            var childSubsidiaries = await subsidiaryIntegration.GetChildSubsidiariesAsync(parentSubsidiary);
+
+            allowedSubsidiaries.AddRange(childSubsidiaries.Select(x => x.Id));
+            allowedSubsidiaries.Add(parentSubsidiary);
+        }
 
         login ??= LoginDEM.Create(false, user.Id);
         user.AddNewLogin(login);
@@ -57,6 +70,7 @@ public class LoginCmdHandler(
             return AuthenticationResponseDTO.Fail("User Role not found");
 
         UserDTO dto = user.Adapt<UserDTO>();
+        dto.AllowedSubsidiaryIds = [.. allowedSubsidiaries];
         dto.Role = role.Adapt<RoleDTO>();
 
         appCommand.Update(user);

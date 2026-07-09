@@ -8,6 +8,7 @@ using Integration.NS.DataTransferObjects.InventoryAdjustment;
 using Integration.NS.Helpers;
 using Integration.NS.Services;
 using Mapster;
+using Microsoft.AspNetCore.Http;
 using Shared.Entities;
 using Shared.Libraries.Utilities;
 using System.Text.Json;
@@ -16,6 +17,7 @@ namespace Integration.NS.Implementations.Transactions;
 
 public class InventoryAdjustmentIntegration(
     INetSuiteApiClientService netsuiteService,
+    IHttpContextAccessor httpContextAccessor,
     SuiteQLQueryBuilderFactoryService builderFactory) : IInventoryAdjustmentIntegration
 {
     public async Task<InventoryAdjustmentDTO?> GetInventoryAdjustmentAsync(string id)
@@ -50,6 +52,7 @@ public class InventoryAdjustmentIntegration(
                 DataGridFilterUtilities.Equal("t.tranid", id),
                 DataGridFilterUtilities.Equal("tl.mainline", "T")
             )
+            .WithSubsidiaries(httpContextAccessor, "t")
             .Build();
 
         var response = await netsuiteService.ExecuteSuiteQLQuery<InventoryAdjustmentNSDTO>(query.Query, query.Limit, query.Offset);
@@ -130,6 +133,7 @@ public class InventoryAdjustmentIntegration(
                 DataGridFilterUtilities.Equal("tl.mainline", "T")
             )
             .WithDatagridIntent(intent)
+            .WithSubsidiaries(httpContextAccessor, "t")
             .Build();
 
         var response = await netsuiteService.ExecuteSuiteQLQuery<InventoryAdjustmentDataGridDTO>(query.Query, query.Limit, query.Offset);
