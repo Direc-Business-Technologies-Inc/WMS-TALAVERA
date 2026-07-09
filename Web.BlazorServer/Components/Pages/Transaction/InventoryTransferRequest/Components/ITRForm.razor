@@ -118,10 +118,21 @@
         var type = InventoryDetailsDialog.Types.Outgoing;
         if (Model.SourceLocation is null) return;
 
+        
+        DialogOptions opts = new()
+        {
+            CloseDialogOnOverlayClick = true,
+            CloseDialogOnEsc = true,
+            Draggable = true,
+            Resizable = true,
+            Width = "80%",
+            ShowClose = true
+        };
+
         List<InventoryDetailVM> details = await DialogService.OpenAsync(
             "Enter Inventory Details",
             ds => @<InventoryDetailsDialog LocationId="@(Model.SourceLocation.Id)" ItemId="itemId" Amount="totalQuantity" Type="@type"/>,
-            options: GridSettingsService.GetDialogOptions()
+            options: opts
         );
 
         if (details is not null) line.InventoryDetails = [.. details];
