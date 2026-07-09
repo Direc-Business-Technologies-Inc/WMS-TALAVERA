@@ -16,6 +16,7 @@ partial class ItemReceiptForm
     [Parameter] public ItemReceiptVM Data { get; set; } = new();
     [Parameter] public EditContext? EditContext { get; set; } = null;
     [Parameter] public EventCallback<ItemReceiptVM> OnValidSubmit { get; set; }
+    [Parameter] public bool Disabled { get; set; } = false;
     [Inject] IReceivingHandler receivingHandler { get; set; } = default!;
 
     Dictionary<string, BarcodeCollection> Barcodes { get; set; } = new();

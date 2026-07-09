@@ -18,6 +18,7 @@ partial class ItemReceiptCreatePage
     readonly string ActionCreateItemReceipt = "Create Item Receipt";
 
     bool IsLoadingData => AppBusyService.IsBusy(ActionGetItemReceiptSource);
+    bool IsBusy = false;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -62,7 +63,7 @@ partial class ItemReceiptCreatePage
     async Task OnValidSubmit(ItemReceiptVM model)
     {
 
-        AppBusyService.SetBusy(ActionGetItemReceiptSource, true);
+        IsBusy = true;
         await InvokeAsync(StateHasChanged);
 
         var action = await AppActionFactory.RunAsync(async () =>
@@ -78,6 +79,10 @@ partial class ItemReceiptCreatePage
 
             NavManager.NavigateTo("/transactions/purchasing/receiving");
         });
+
+        IsBusy = false;
+        await InvokeAsync(StateHasChanged);
+
     }
 
     protected override Task CancelEditing()
