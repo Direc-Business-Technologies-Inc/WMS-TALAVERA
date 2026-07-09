@@ -16,6 +16,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Folder Include="Transactions\Receiving\NS\Request\" />
     <Folder Include="Transactions\TripTicket\NS\Request\" />
     <Folder Include="Transactions\Packing\Return\" />
     <Folder Include="Transactions\Packing\VRA\" />

@@ -1,8 +1,6 @@
 ﻿using Application.DataTransferObjects.Transactions.Commons.NS;
 using Application.DataTransferObjects.Transactions.Commons.NS.Request;
-using Application.DataTransferObjects.Transactions.Receiving.NS;
 using Application.DataTransferObjects.Transactions.Receiving.NS.Request;
-using Application.UseCases.Commands.Transaction.Receiving.NS.PurchaseOrder;
 using Application.UseCases.Commands.Transaction.Receiving.NS.TransferOrder;
 using Application.UseCases.Queries.Transaction.Receiving.NS.TransferOrder;
 using Mapster;

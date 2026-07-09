@@ -17,20 +17,25 @@ public partial class ModulesNavigation
 
     async Task ConfirmModule(ModuleNavigation module)
     {
-
         switch (module)
         {
             case ModuleNavigation.Receiving:
                 NavManager.NavigateTo("/receiving", true, true);
                 break;
-            case ModuleNavigation.ItemFulfillment:
-                NavManager.NavigateTo("/itemfulfillment", true, true);
+            case ModuleNavigation.Packing:
+                NavManager.NavigateTo("/packing", true, true);
+                break;
+            case ModuleNavigation.TripTicket:
+                NavManager.NavigateTo("/tripticket/create", true, true);
                 break;
             case ModuleNavigation.InventoryCounting:
                 NavManager.NavigateTo("/inventorycounting", true, true);
                 break;
             case ModuleNavigation.InventoryWorksheet:
                 NavManager.NavigateTo("/inventorycounting/worksheet", true, true);
+                break;
+            default:
+                NavManager.NavigateTo("/", true, true);
                 break;
         }
     }
