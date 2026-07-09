@@ -8,6 +8,7 @@ using Integration.NS.DataTransferObjects.SupplierReturn;
 using Integration.NS.Helpers;
 using Integration.NS.Services;
 using Mapster;
+using Microsoft.AspNetCore.Http;
 using Shared.Entities;
 using Shared.Libraries.Utilities;
 using System;
@@ -22,6 +23,7 @@ namespace Integration.NS.Implementations.Transactions;
 
 public class SupplierReturnIntegration(
     INetSuiteApiClientService netsuiteService,
+    IHttpContextAccessor httpContextAccessor,
     SuiteQLQueryBuilderFactoryService builderFactory
     ) : ISupplierReturnIntegration
 {
@@ -50,6 +52,7 @@ public class SupplierReturnIntegration(
                 .From("transaction t")
                 .LeftJoin("transactionline ml", "ml.mainline = 'T' and ml.transaction = t.id")
                 .Join("VendorReturnAuthorizationStatus s", on: "t.status = s.id")
+                .WithSubsidiaries(httpContextAccessor, "t")
                 .WithFilters(
                     DataGridFilterUtilities.Equal("t.recordtype", "vendorreturnauthorization"),
                     DataGridFilterUtilities.Equal("t.tranid", referenceNumber)
@@ -129,6 +132,7 @@ public class SupplierReturnIntegration(
                 .From("transaction t")
                 .Join("VendorReturnAuthorizationStatus s", on: "t.status = s.id")
                 .LeftJoin("employee e", on: "e.id = t.custbody_dbti_prepared_by")
+                .WithSubsidiaries(httpContextAccessor, "t")
                 .WithFilter(DataGridFilterUtilities.Equal("t.recordtype", "vendorreturnauthorization"))
                 .WithDatagridIntent(intent)
                 .Build();
@@ -216,6 +220,7 @@ public class SupplierReturnIntegration(
                 )
                 .From("transaction t")
                 .LeftJoin("transactionline ml", "ml.mainline = 'T' and ml.transaction = t.id")
+                .WithSubsidiaries(httpContextAccessor, "t")
                 .Join("VendorReturnAuthorizationStatus s", "t.status = s.id")
                 .WithFilters(
                     DataGridFilterUtilities.Equal("t.recordtype", "purchaseorder"),
@@ -277,6 +282,7 @@ public class SupplierReturnIntegration(
                 ("BUILTIN.DF(t.entity)", nameof(PurchaseOrderDataGridDTO.VendorName))
             )
             .From("transaction t")
+            .WithSubsidiaries(httpContextAccessor, "t")
             .WithDatagridIntent(intent)
             .WithFilters(
                 DataGridFilterUtilities.Equal("t.recordtype", "purchaseorder"),
