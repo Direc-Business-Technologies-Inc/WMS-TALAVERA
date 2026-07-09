@@ -396,7 +396,17 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
 
     async Task SaveScan()
     {
-        VRAItems = GoodVRAItems.Where(x => x.NSLineQuantityPacked != 0)
+        VRAItems = GoodVRAItems
+            .Where(g =>
+            {
+                var bad = BadVRAItems.FirstOrDefault(b =>
+                    b.LineSequenceNumber == g.LineSequenceNumber);
+
+                var badQty = bad?.ScannedQuantity ?? 0;
+
+                return g.ScannedQuantity > 0 ||
+                        (g.ScannedQuantity + badQty) < g.NSLineQuantityPacked;
+            })
             .Concat(BadVRAItems.Where(x => x.NSLineQuantityPacked != 0))
             .Select(x => new VendorReturnAuthorizationLineVM
             {

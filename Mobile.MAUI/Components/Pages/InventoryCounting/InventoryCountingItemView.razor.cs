@@ -298,8 +298,8 @@ public partial class InventoryCountingItemView : IAsyncDisposable
 
     async Task SaveScan()
     {
-        ICItems = GoodICItems.Where(x => x.ScannedQuantity != 0)
-            .Concat(BadICItems.Where(x => x.ScannedQuantity != 0))
+        ICItems = GoodICItems
+            .Concat(BadICItems)
             .Select(x => new InventoryCountingLineVM
             {
                 NetsuiteOrderInternalId = x.NetsuiteOrderInternalId,

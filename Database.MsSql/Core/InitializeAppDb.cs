@@ -18,8 +18,8 @@ public class InitializeAppDb
                 .GetRequiredService<ILogger<InitializeAppDb>>();
 
             //await AppDbContext!.Database.EnsureDeletedAsync();
-            //await AppDbContext!.Database.EnsureCreatedAsync();
-            await AppDbSeeding.SeedStoredProcedures(AppDbContext, logger, CancellationToken.None);
+            await AppDbContext!.Database.EnsureCreatedAsync();
+            //await AppDbSeeding.SeedStoredProcedures(AppDbContext, logger, CancellationToken.None);
             await AppDbMigration.MigrateAsync(AppDbContext);
 
 			await AppDbSeeding.SeedData(AppDbContext, CancellationToken.None);

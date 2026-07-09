@@ -393,7 +393,17 @@ public partial class TransferOrderItemView : IAsyncDisposable
 
     async Task SaveScan()
     {
-        TOItems = GoodTOItems.Where(x => x.NSLineQuantityReceived != 0)
+        TOItems = GoodTOItems
+            .Where(g =>
+            {
+                var bad = BadTOItems.FirstOrDefault(b =>
+                    b.LineSequenceNumber == g.LineSequenceNumber);
+
+                var badQty = bad?.ScannedQuantity ?? 0;
+
+                return g.ScannedQuantity > 0 ||
+                        (g.ScannedQuantity + badQty) < g.NSLineQuantityReceived;
+            })
             .Concat(BadTOItems.Where(x => x.NSLineQuantityReceived != 0))
             .Select(x => new TransferOrderLineVM
             {

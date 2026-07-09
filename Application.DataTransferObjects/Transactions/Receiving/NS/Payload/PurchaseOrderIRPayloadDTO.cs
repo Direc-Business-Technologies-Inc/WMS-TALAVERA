@@ -14,7 +14,6 @@ public class PurchaseOrderIRPayloadDTO
         List<PostPurchaseOrderDTO> lines,
         int receivingCategory)
     {
-        return null;
         // Make it nullable if its not included in json
         return new PurchaseOrderIRPayloadDTO
         {
