@@ -29,6 +29,8 @@ public partial class STRForm
     [Parameter]
     public bool ReadOnly { get; set; } = false;
     [Parameter]
+    public bool IsBusy { get; set; } = false;
+    [Parameter]
     public string? ReturnURI { get; set; }
     [Parameter]
     public string? ActionURI { get; set; }

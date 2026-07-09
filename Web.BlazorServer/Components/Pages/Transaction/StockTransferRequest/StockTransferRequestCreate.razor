@@ -22,7 +22,7 @@
     <AppBreadCrumbs ModuleCode="OSTR" />
 </RadzenStack>
 <AppContent>
-<STRForm OnSubmit="@Create" Model="@FormData" EditContext="@EditContext" ReturnURI="@STRRoutes.Root" />
+<STRForm OnSubmit="@Create" Model="@FormData" EditContext="@EditContext" ReturnURI="@STRRoutes.Root" IsBusy="@IsBusy" />
 </AppContent>
 
 @code {
@@ -39,6 +39,7 @@
     readonly string ActionCreateStockTransferRequest = "Create Stock Transfer Request";
 
     bool IsLoadingData => AppBusyService.IsBusy(ActionGetStockTransferRequest);
+    bool IsBusy = false;
 
 
     protected override async Task OnParametersSetAsync()
@@ -64,6 +65,8 @@
 
     async Task<bool> Create(StockTransferRequestInfoVM model)
     {
+        IsBusy = true;
+        await InvokeAsync(StateHasChanged);
         var action = await AppActionFactory.RunAsync(async () =>
         {
             return await handler.CreateStockTransferRequest(model);
@@ -77,10 +80,10 @@
 
         action.OnFailure(ex =>
         {
-            ToastService.Error(ex.Message);
             return Task.CompletedTask;
         });
-
+        IsBusy = false;
+        await InvokeAsync(StateHasChanged);
         return true;
     }
 

@@ -24,7 +24,7 @@
 <AppFormSkeleton TItem="StockTransferRequestInfoVM" Loading="@IsLoadingData" />
 @if (!IsLoadingData)
 {
-    <STRForm OnSubmit="@Update" Model="@FormData" EditContext="@EditContext" ReturnURI="@(STRRoutes.View + $"?ref={Ref}")"/>
+    <STRForm OnSubmit="@Update" Model="@FormData" EditContext="@EditContext" ReturnURI="@(STRRoutes.View + $"?ref={Ref}")" IsBusy="@IsUploadingData"/>
 }
 </AppContent>
     @code {
@@ -67,7 +67,7 @@
             if (response is null) throw new Exception($"Stock transfer request \"{Ref}\" could not be found");
             if (!response.IsEditable)
                 throw new Exception($"Stock transfer request \"{Ref}\" is not editable and cannot be updated");
-                
+
             return response;
         }, AppActionOptionPresets.Loading(ActionGetStockTransferRequest));
 
@@ -88,6 +88,8 @@
 
     async Task<bool> Update(StockTransferRequestInfoVM model)
     {
+        AppBusyService.SetBusy(ActionUpdateStockTransferRequest, true);
+        await InvokeAsync(StateHasChanged);
         var action = await AppActionFactory.RunAsync(async () =>
         {
             return await handler.UpdateStockTransferRequest(model);
@@ -99,6 +101,8 @@
             return Task.CompletedTask;
         });
 
+        AppBusyService.SetBusy(ActionUpdateStockTransferRequest, false);
+        await InvokeAsync(StateHasChanged);
         return true;
     }
 

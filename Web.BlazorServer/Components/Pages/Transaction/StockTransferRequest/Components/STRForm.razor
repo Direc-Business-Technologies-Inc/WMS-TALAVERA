@@ -8,14 +8,22 @@
 @inherits BaseComponent
 
 
-<RadzenStack Orientation="Orientation.Horizontal"
-             AlignItems="AlignItems.Center"
-             JustifyContent="JustifyContent.End"
-             Gap="32px"
-             class="rz-mb-0 rz-mt-2">
-    <AppContentBadge Title="Status" Content="@(StatusString)" />
-    <AppContentBadge Title="Doc" Content="@ReferenceString" />
-    <AppContentBadge Title="Doc Date" Content="@Model.Date.ToString("MM-dd-yy")" ChildBadgeStyle="BadgeStyle.Secondary" ChildShade="Shade.Default" />
+<RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween">
+    <RadzenStack Orientation="Orientation.Horizontal">
+        <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5em" Visible="@IsBusy">
+            <RadzenProgressBarCircular ShowValue="false" Mode="ProgressBarMode.Indeterminate" Size="ProgressBarCircularSize.ExtraSmall" AriaLabel="Loading, extra small" />
+            <RadzenText TextStyle="TextStyle.Caption">Please wait...</RadzenText>
+        </RadzenStack>
+    </RadzenStack>
+    <RadzenStack Orientation="Orientation.Horizontal"
+                 AlignItems="AlignItems.Center"
+                 JustifyContent="JustifyContent.End"
+                 Gap="32px"
+                 class="rz-mb-0 rz-mt-2">
+        <AppContentBadge Title="Status" Content="@(StatusString)" />
+        <AppContentBadge Title="Doc" Content="@ReferenceString" />
+        <AppContentBadge Title="Doc Date" Content="@Model.Date.ToString("MM-dd-yy")" ChildBadgeStyle="BadgeStyle.Secondary" ChildShade="Shade.Default" />
+    </RadzenStack>
 </RadzenStack>
 
 <RadzenTemplateForm TItem="StockTransferRequestInfoVM" Submit="@HandleSubmit" EditContext="@EditContext">
@@ -24,20 +32,20 @@
             <RadzenRow>
                 <RadzenColumn SizeLG="3" SizeMD="6">
                     <RadzenFormField AllowFloatingLabel="false" Text="Stock Transfer Request Number" class="rz-w-100">
-                        <RadzenTextBox ReadOnly Value="@Model.ReferenceNumber" Placeholder="@(ReadOnly ? "-" : "Auto-Generated")" />
+                        <RadzenTextBox Disabled="@IsBusy" ReadOnly Value="@Model.ReferenceNumber" Placeholder="@(ReadOnly ? "-" : "Auto-Generated")" />
                     </RadzenFormField>
                 </RadzenColumn>
                 <RadzenColumn SizeLG="3" SizeMD="6">
                     <RadzenFormField AllowFloatingLabel="@(!ReadOnly)" Text="Document Date" class="rz-w-100">
-                        <RadzenDatePicker DateFormat="d" ShowTime="false" ReadOnly @bind-Value="@Model.Date" />
+                        <RadzenDatePicker Disabled="@IsBusy" DateFormat="d" ShowTime="false" ReadOnly @bind-Value="@Model.Date" />
                     </RadzenFormField>
                 </RadzenColumn>
                 <RadzenColumn SizeLG="@(Model.IsReturn ? 3 : 6)" SizeMD="@(Model.IsReturn ? 6 : 12)">
                     <RadzenFormField Visible="@(!Model.IsReturn)" AllowFloatingLabel="false" Text="Transfer Category" class="rz-w-100">
-                        <RadzenTextBox ReadOnly Value="@Model.Category.Name" />
+                        <RadzenTextBox Disabled="@IsBusy" ReadOnly Value="@Model.Category.Name" />
                     </RadzenFormField>
                     <RadzenFormField Visible="@(Model.IsReturn)" AllowFloatingLabel="@(!ReadOnly)" Text="Transfer Category" class="rz-w-100">
-                        <RadzenDropDown ReadOnly="@ReadOnly"
+                        <RadzenDropDown Disabled="@IsBusy" ReadOnly="@ReadOnly"
                                         @bind-Value="@Model.Category"
                                         TValue="TransferCategory"
                                         Data="@TransferCategory.ReturnCategories"
@@ -47,8 +55,9 @@
                 <RadzenColumn Visible="@Model.IsReturn" SizeLG="3" SizeMD="6">
                     <RadzenFormField AllowFloatingLabel="@(!ReadOnly)" Text="Vendor" class="rz-w-100">
                         <ChildContent>
-                            <RadzenTextBox Visible="@ReadOnly" ReadOnly Value="@(Model.Vendor?.Name ?? null)" />
+                            <RadzenTextBox Disabled="@IsBusy"  Visible="@ReadOnly" ReadOnly Value="@(Model.Vendor?.Name ?? null)" />
                             <QuickVirtualizedDropdown Visible="@(!ReadOnly)"
+                                                      Disabled="@IsBusy"
                                                       @ref="@VendorDropdown"
                                                       TItem="VendorVM"
                                                       Name="str_vendor_dropdown"
@@ -67,9 +76,10 @@
                 <RadzenColumn SizeLG="@(Model.IsIntercompany ? 3 : 6)" SizeMD="@(Model.IsIntercompany ? 6 : 12)">
                     <RadzenFormField AllowFloatingLabel="@(!ReadOnly)" Text="Subsidiary" class="rz-w-100">
                         <ChildContent>
-                            <RadzenTextBox Visible="@ReadOnly" ReadOnly Value="@(Model.Subsidiary?.Name ?? null)" />
+                            <RadzenTextBox Disabled="@IsBusy" Visible="@ReadOnly" ReadOnly Value="@(Model.Subsidiary?.Name ?? null)" />
                             <QuickVirtualizedDropdown Visible="@(!ReadOnly)"
                                                       TItem="SubsidiaryVM"
+                                                      Disabled="@IsBusy"
                                                       ActionName="@ActionGetSubsidiaries"
                                                       DataGetter="@SubsidiaryProvider"
                                                       @bind-Value:get="Model.Subsidiary"
@@ -87,8 +97,9 @@
                 <RadzenColumn Visible="@Model.IsIntercompany" SizeLG="3" SizeMD="6">
                     <RadzenFormField AllowFloatingLabel="@(!ReadOnly)" Text="To Subsidiary" class="rz-w-100">
                         <ChildContent>
-                            <RadzenTextBox Visible="@ReadOnly" ReadOnly Value="@(Model.ToSubsidiary?.Name ?? null)" />
+                            <RadzenTextBox Disabled="@IsBusy" Visible="@ReadOnly" ReadOnly Value="@(Model.ToSubsidiary?.Name ?? null)" />
                             <QuickVirtualizedDropdown Visible="@(!ReadOnly)"
+                                                      Disabled="@IsBusy"
                                                       TItem="SubsidiaryVM"
                                                       ActionName="@ActionGetSubsidiaries"
                                                       DataGetter="@SubsidiaryProvider"
@@ -107,12 +118,13 @@
                 <RadzenColumn SizeLG="3" SizeMD="6">
                     <RadzenFormField AllowFloatingLabel="@(!ReadOnly)" Text="Source Location" class="rz-w-100">
                         <ChildContent>
-                            <RadzenTextBox Visible="@ReadOnly" ReadOnly Value="@(Model.SourceLocation?.Name ?? null)" />
+                            <RadzenTextBox Disabled="@IsBusy" Visible="@ReadOnly" ReadOnly Value="@(Model.SourceLocation?.Name ?? null)" />
                             <QuickVirtualizedDropdown Visible="@(!ReadOnly)"
                                                       @ref="SourceLocationDropdown"
                                                       TItem="LocationVM"
                                                       ActionName="@ActionGetLocations"
-                                                      DataGetter="@SourceLocationProvider"
+                                                      DataGetter="@SourceLocationProvider" 
+                                                      Disabled="@IsBusy"
                                                       @bind-Value:get="Model.SourceLocation"
                                                       @bind-Value:set="@OnLocationChanged"
                                                       TextProperty="@nameof(LocationVM.Name)"
@@ -128,7 +140,7 @@
                 <RadzenColumn SizeLG="3" SizeMD="6">
                     <RadzenFormField Text="Destination Location" class="rz-w-100">
                         <ChildContent>
-                            <RadzenTextBox Visible="@ReadOnly" ReadOnly Value="@(Model.DestinationLocation?.Name ?? null)" />
+                            <RadzenTextBox Disabled="@IsBusy" Visible="@ReadOnly" ReadOnly Value="@(Model.DestinationLocation?.Name ?? null)" />
                             <QuickVirtualizedDropdown Visible="@(!ReadOnly)"
                                                       @ref="@DestinationLocationDropdown"
                                                       TItem="LocationVM"
@@ -138,6 +150,7 @@
                                                       @bind-Value:set="OnDestinationLocationChanged"
                                                       TextProperty="@nameof(LocationVM.Name)"
                                                       Name="str_to_location"
+                                                      Disabled="@IsBusy"
                                                       AllowClear
                                                       AllowFiltering />
                         </ChildContent>
@@ -175,8 +188,8 @@
                                           Property="@nameof(StockTransferRequestLineVM.UoM)"
                                           Title="UoM">
                         <Template Context="data">
-                            <RadzenTextBox ReadOnly Visible="@ReadOnly" Value="@(data.UoM?.Name)" />
-                            <QuickVirtualizedDropdown Visible="@(!ReadOnly)" TItem="ItemUnitVM" DataGetter="@(x => ItemUnitProvider(data.ItemId, x))" ActionName="@ActionGetItemUnits" @bind-Value="@data.UoM" TextProperty="@nameof(ItemUnitVM.Name)" />
+                            <RadzenTextBox Disabled="@IsBusy" ReadOnly Visible="@ReadOnly" Value="@(data.UoM?.Name)" />
+                            <QuickVirtualizedDropdown Disabled="@IsBusy" Visible="@(!ReadOnly)" TItem="ItemUnitVM" DataGetter="@(x => ItemUnitProvider(data.ItemId, x))" ActionName="@ActionGetItemUnits" @bind-Value="@data.UoM" TextProperty="@nameof(ItemUnitVM.Name)" />
                         </Template>
                     </RadzenDataGridColumn>
                     <RadzenDataGridColumn TItem="StockTransferRequestLineVM"
@@ -193,7 +206,7 @@
                                           Property="@nameof(StockTransferRequestLineVM.QuantityAlloted)"
                                           Title="Alloted Quantity">
                         <Template Context="data">
-                            <RadzenNumeric Max="@(data.QuantityOnHand / (data.UoM?.ConversionRate ?? 1))" Min="0" @bind-Value="@data.QuantityAlloted" ReadOnly="@ReadOnly" class="rz-w-100" ShowUpDown="@(!ReadOnly)" Format="#,##0.##" />
+                            <RadzenNumeric Disabled="@IsBusy" Max="@(data.QuantityOnHand / (data.UoM?.ConversionRate ?? 1))" Min="0" @bind-Value="@data.QuantityAlloted" ReadOnly="@ReadOnly" class="rz-w-100" ShowUpDown="@(!ReadOnly)" Format="#,##0.##" />
                         </Template>
                     </RadzenDataGridColumn>
                     @if (!ReadOnly)
@@ -215,20 +228,20 @@
             <RadzenRow>
                 <RadzenColumn SizeMD="4">
                     <RadzenFormField AllowFloatingLabel="@(!ReadOnly)" Text="Remarks" class="rz-w-100">
-                        <RadzenTextArea ReadOnly="@ReadOnly" @bind-Value="@Model.Remarks" />
+                        <RadzenTextArea Disabled="@IsBusy" ReadOnly="@ReadOnly" @bind-Value="@Model.Remarks" />
                     </RadzenFormField>
                 </RadzenColumn>
                 <RadzenColumn SizeMD="4" OffsetMD="4">
                     <RadzenFormField AllowFloatingLabel="false" Text="Prepared By" class="rz-w-100">
-                        <RadzenTextBox ReadOnly @bind-Value="@Model.PreparedBy" Placeholder="@(ReadOnly ? "-" : "Auto-Generated")" />
+                        <RadzenTextBox Disabled="@IsBusy" ReadOnly @bind-Value="@Model.PreparedBy" Placeholder="@(ReadOnly ? "-" : "Auto-Generated")" />
                     </RadzenFormField>
                 </RadzenColumn>
             </RadzenRow>
         </RadzenFieldset>
         <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween">
-            <RadzenButton Text="@ReturnLabel" ButtonStyle="ButtonStyle.Light" ButtonType="ButtonType.Button" Click="@Return" />
-            <RadzenButton Visible="@(ReadOnly && !string.IsNullOrEmpty(ActionURI))" Text="@ActionLabel" ButtonStyle="ButtonStyle.Success" ButtonType="@(ButtonType.Button)" Click="@ActionClicked" />
-            <RadzenButton Visible="@(!ReadOnly)" Text="@ActionLabel" ButtonStyle="ButtonStyle.Success" ButtonType="@(ButtonType.Submit)" />
+            <RadzenButton Disabled="@IsBusy" Text="@ReturnLabel" ButtonStyle="ButtonStyle.Light" ButtonType="ButtonType.Button" Click="@Return" />
+            <RadzenButton Disabled="@IsBusy" Visible="@(ReadOnly && !string.IsNullOrEmpty(ActionURI))" Text="@ActionLabel" ButtonStyle="ButtonStyle.Success" ButtonType="@(ButtonType.Button)" Click="@ActionClicked" />
+            <RadzenButton Disabled="@IsBusy" Visible="@(!ReadOnly)" Text="@ActionLabel" ButtonStyle="ButtonStyle.Success" ButtonType="@(ButtonType.Submit)" />
         </RadzenStack>
     </RadzenStack>
 </RadzenTemplateForm>
