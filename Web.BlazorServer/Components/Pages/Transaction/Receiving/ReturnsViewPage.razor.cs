@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Components;
 using Web.BlazorServer.Defaults;
 using Web.BlazorServer.Handlers.Repositories.Transaction.Receiving;
+using Web.BlazorServer.ViewModels.System;
 using Web.BlazorServer.ViewModels.Transaction.Receiving;
 
 namespace Web.BlazorServer.Components.Pages.Transaction.Receiving;
@@ -14,6 +15,13 @@ partial class ReturnsViewPage
 
     readonly string ActionGetReturns = "Get Return";
     bool IsLoadingData => AppBusyService.IsBusy(ActionGetReturns);
+
+    List<NavigationRouteVM> AdditionalRoutes { get; set; } = [new() {
+        Name = "Returns",
+        Position = 0,
+        Icon = "assignment",
+    }];
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         await base.OnAfterRenderAsync(firstRender);

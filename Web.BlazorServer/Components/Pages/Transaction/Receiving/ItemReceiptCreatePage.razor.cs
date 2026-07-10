@@ -4,6 +4,7 @@ using Web.BlazorServer.Components.Security;
 using Web.BlazorServer.Defaults;
 using Web.BlazorServer.Handlers.Implementations.Transaction.Receiving;
 using Web.BlazorServer.Handlers.Repositories.Transaction.Receiving;
+using Web.BlazorServer.ViewModels.System;
 using Web.BlazorServer.ViewModels.Transaction.Receiving;
 
 namespace Web.BlazorServer.Components.Pages.Transaction.Receiving;
@@ -19,6 +20,12 @@ partial class ItemReceiptCreatePage
 
     bool IsLoadingData => AppBusyService.IsBusy(ActionGetItemReceiptSource);
     bool IsBusy = false;
+
+    List<NavigationRouteVM> AdditionalRoutes { get; set; } = [new() {
+        Name = "Create Item Receipt",
+        Position = 0,
+        Icon = "assignment_add",
+    }];
 
     protected override async Task OnParametersSetAsync()
     {
