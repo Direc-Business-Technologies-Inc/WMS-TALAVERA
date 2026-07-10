@@ -13,6 +13,7 @@ public partial class SupplierReturnCreate
 
     readonly string ActionCreateSupplierReturn = "Create Return to Supplier";
 
+    bool IsBusy = false;
     protected override void OnParametersSet()
     {
         base.OnParametersSet();
@@ -42,6 +43,8 @@ public partial class SupplierReturnCreate
 
     async Task Submit(SupplierReturnVM data)
     {
+        IsBusy = true;
+        await InvokeAsync(StateHasChanged);
         var action = await AppActionFactory.RunConfirmedAsync(async () =>
         {
             await returnHandler.CreateSupplierReturnAsync(data);
@@ -51,6 +54,9 @@ public partial class SupplierReturnCreate
         {
             await Task.Delay(100);
             NavManager.NavigateTo(SupplierReturnRoutes.INDEX);
-        }); 
+        });
+
+        IsBusy = false;
+        await InvokeAsync(StateHasChanged);
     }
 }

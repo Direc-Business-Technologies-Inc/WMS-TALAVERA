@@ -32,6 +32,7 @@ public partial class SupplierReturnForm
     [Parameter] public string SubmitString { get; set; } = "Submit";
     [Parameter] public string ReturnString { get; set; } = "Return";
     [Parameter] public bool ReadOnly { get; set; } = false;
+    [Parameter] public bool Disabled { get; set; } = false;
 
     QuickVirtualizedDropdown<LocationVM> LocationDropdown { get; set; } = default!;
     QuickVirtualizedDropdown<SubsidiaryVM> SubsidiaryDropdown { get; set; } = default!;
@@ -42,6 +43,8 @@ public partial class SupplierReturnForm
     bool canSelectPO = true;
     bool IsEditable => !ReadOnly && Model.SourcePO is null;
     bool IsFromPo => Model.SourcePO is not null;
+    bool IsDisabled => Disabled || LoadingPO;
+    bool LoadingPO = false;
 
     readonly string[] StatusIdsNormal = ["A", "B"];
     readonly string[] StatusIdsBad = ["B"];
@@ -176,18 +179,22 @@ public partial class SupplierReturnForm
 
     async Task GetPurchaseOrder(string poRef)
     {
+        LoadingPO = true;
+        await InvokeAsync(StateHasChanged);
+
         var action = await AppActionFactory.RunLoadingAsync(async () =>
         {
-            return await returnHandler.GetReturnFromPurchaseOrderAsync(poRef);
+            var x = await returnHandler.GetReturnFromPurchaseOrderAsync(poRef);
+            return x;
         }, ActionGetPO);
 
-        action.OnSuccess(po =>
+        action.OnSuccess(async (po) =>
         {
             po.Adapt(Model);
             canSelectPO = false;
-            return Task.CompletedTask;
         });
 
+        LoadingPO = false;
         await InvokeAsync(StateHasChanged);
     }
 

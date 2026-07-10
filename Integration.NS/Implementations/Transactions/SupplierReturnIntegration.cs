@@ -281,7 +281,8 @@ public class SupplierReturnIntegration(
                 ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(PurchaseOrderDataGridDTO.Date)),
                 ("TO_CHAR(t.custbody_dbti_order_date, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(PurchaseOrderDataGridDTO.DeliveryDate)),
                 ("t.memo", nameof(PurchaseOrderDataGridDTO.Memo)),
-                ("BUILTIN.DF(t.entity)", nameof(PurchaseOrderDataGridDTO.VendorName))
+                ("BUILTIN.DF(t.entity)", nameof(PurchaseOrderDataGridDTO.VendorName)),
+                ("t.status", nameof(PurchaseOrderDataGridDTO.Status))
             )
             .From("transaction t")
             .WithSubsidiaries(httpContextAccessor, "t")
