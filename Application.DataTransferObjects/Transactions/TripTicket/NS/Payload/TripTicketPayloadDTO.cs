@@ -16,7 +16,7 @@ public class TripTicketPayloadDTO
     public ReferenceValue Driver { get; set; }
 
     [JsonPropertyName("custrecord_dbti_trt_date")]
-    public DateTime Date { get; set; }
+    public string Date { get; set; }
 
     [JsonPropertyName("custrecord_dbti_trt_helper")]
     public ReferenceValue Helper { get; set; }
@@ -56,7 +56,7 @@ public class TripTicketPayloadDTO
                 Id = tripticket.Driver!.NetsuiteEmployeeInternalId.ToString()
             },
 
-            Date = tripticket.TripDate,
+            Date = tripticket.TripDate.ToString("yyyy-MM-dd"),
 
             Helper = new ReferenceValue
             {
