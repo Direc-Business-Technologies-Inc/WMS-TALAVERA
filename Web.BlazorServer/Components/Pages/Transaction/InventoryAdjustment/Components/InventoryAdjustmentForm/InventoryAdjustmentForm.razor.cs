@@ -130,6 +130,17 @@ public partial class InventoryAdjustmentForm
         if (OnReturnClicked.HasDelegate) await OnReturnClicked.InvokeAsync(Model);
     }
 
+    async Task LineSetUoM(InventoryAdjustmentLineVM line, ItemUnitVM? uom)
+    {
+        decimal oldcr = line.UoM?.ConversionRate ?? 1;
+        decimal newcr = uom?.ConversionRate ?? 1;
+
+        line.QuantityAlloted *= oldcr / newcr;
+        line.UoM = uom;
+
+        await InvokeAsync(StateHasChanged);
+    }
+
     async Task OnValidSubmit()
     {
         if (Model.Lines.Sum(x => x.QuantityAlloted) <= 0)

@@ -17,6 +17,7 @@ public class InventoryAdjustmentLineVM
     public string ItemCode { get; set; } = string.Empty;
     public string ItemDescription { get; set; } = string.Empty;
     public decimal QuantityOnHand { get; set;  }
+    public decimal QuantityOnHandByUoM => QuantityOnHand / (UoM?.ConversionRate ?? 1);
     public decimal QuantityAlloted { get; set;  }
     public ItemUnitVM? UoM { get; set; } = null;
     public LocationVM? Location { get; set; } = null;
@@ -26,8 +27,8 @@ public class InventoryAdjustmentLineVM
 
     public decimal? QuantityAllotedMax => Type == Types.Receipt ? null : QuantityOnHand;
     public decimal QuantityAssignedToBins => InventoryDetails.Sum(x => x.QuantityAlloted);
-    public decimal QuantityNew => Type == Types.Issue ? QuantityOnHand - QuantityAlloted : QuantityOnHand + QuantityAlloted;
-    public decimal QuantityOld => Type == Types.Issue ? QuantityOnHand + QuantityAlloted : QuantityOnHand - QuantityAlloted;
+    public decimal QuantityNew => Type == Types.Issue ? QuantityOnHandByUoM - QuantityAlloted : QuantityOnHandByUoM + QuantityAlloted;
+    public decimal QuantityOld => Type == Types.Issue ? QuantityOnHandByUoM + QuantityAlloted : QuantityOnHandByUoM - QuantityAlloted;
     public bool IsAllAssignedToBins => !UsesBins || QuantityAssignedToBins == QuantityAlloted;
 
     public Types Type { get; set; } = Types.Receipt;

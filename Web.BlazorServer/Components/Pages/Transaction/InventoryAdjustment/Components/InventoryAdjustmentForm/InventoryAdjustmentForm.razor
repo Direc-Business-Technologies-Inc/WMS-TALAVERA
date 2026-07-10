@@ -74,11 +74,11 @@
                 <RadzenDataGridColumn TItem="InventoryAdjustmentLineVM" Property="@nameof(InventoryAdjustmentLineVM.UoM)" Title="UoM">
                     <Template Context="data">
                         <RadzenTextBox Disabled="Disabled" Visible="@ReadOnly" ReadOnly Value="@(data.UoM?.Name ?? "No unit data")" Placeholder="Enter location" class="rz-w-100" />
-                        <QuickVirtualizedDropdown Disabled="Disabled" Visible="@(!ReadOnly)" ActionName="@ActionGetItemUnits" TItem="ItemUnitVM" @bind-Value="@data.UoM" DataGetter="@(intent => UnitsProvider(data.ItemId, intent))" TextProperty="@nameof(ItemUnitVM.Name)" />
+                        <QuickVirtualizedDropdown Disabled="Disabled" Visible="@(!ReadOnly)" ActionName="@ActionGetItemUnits" TItem="ItemUnitVM" @bind-Value:get="@data.UoM" @bind-Value:set="@(val => LineSetUoM(data,val))" DataGetter="@(intent => UnitsProvider(data.ItemId, intent))" TextProperty="@nameof(ItemUnitVM.Name)" />
                     </Template>
                 </RadzenDataGridColumn>
                 <RadzenDataGridColumn Visible="@ReadOnly" TItem="InventoryAdjustmentLineVM" Type="typeof(decimal)" Property="@nameof(InventoryAdjustmentLineVM.QuantityOld)" Title="On hand Quantity" FormatString="{0:#,##0.##}"/>
-                <RadzenDataGridColumn Visible="@(!ReadOnly)" TItem="InventoryAdjustmentLineVM" Type="typeof(decimal)" Property="@nameof(InventoryAdjustmentLineVM.QuantityOnHand)" Title="On hand Quantity" FormatString="{0:#,##0.##}" />
+                <RadzenDataGridColumn Visible="@(!ReadOnly)" TItem="InventoryAdjustmentLineVM" Type="typeof(decimal)" Property="@nameof(InventoryAdjustmentLineVM.QuantityOnHandByUoM)" Title="On hand Quantity" FormatString="{0:#,##0.##}" />
                 <RadzenDataGridColumn TItem="InventoryAdjustmentLineVM" Property="@nameof(InventoryAdjustmentLineVM.QuantityAlloted)" Title="Alloted Quantity">
                     <Template Context="data">
                         <RadzenFormField Text="@(data.Type == InventoryAdjustmentLineVM.Types.Issue ? "Issue" : "Receipt")">
@@ -103,14 +103,14 @@
                                                            Validator="@(() => data.QuantityAlloted > 0)"
                                                            Text="Assign Quantity" />
                                     <RadzenCustomValidator Component="line_details"
-                                                           Validator="@(() => data.QuantityAlloted <= (data.QuantityOnHand / (data.UoM?.ConversionRate ?? 1)))"
+                                                           Validator="@(() => data.QuantityAlloted <= data.QuantityOnHandByUoM)"
                                                            Text="Assign Quantity" />
                                 }
                             </Helper>
                         </RadzenFormField>
                     </Template>
                 </RadzenDataGridColumn>
-                <RadzenDataGridColumn Visible="@ReadOnly" TItem="InventoryAdjustmentLineVM" Property="@nameof(InventoryAdjustmentLineVM.QuantityOnHand)" FormatString="{0:#,##0.##}" Title="New Quantity" />
+                <RadzenDataGridColumn Visible="@ReadOnly" TItem="InventoryAdjustmentLineVM" Property="@nameof(InventoryAdjustmentLineVM.QuantityOnHandByUoM)" FormatString="{0:#,##0.##}" Title="New Quantity" />
                 <RadzenDataGridColumn Visible="@(!ReadOnly)" TItem="InventoryAdjustmentLineVM" Property="@nameof(InventoryAdjustmentLineVM.QuantityNew)" FormatString="{0:#,##0.##}" Title="New Quantity" />
                 @if (!ReadOnly)
                 {
