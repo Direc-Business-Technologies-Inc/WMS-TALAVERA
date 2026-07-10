@@ -16,6 +16,7 @@ public static class BlazorServerDI
         services.TryAddScoped<IBusyService, BusyService>();
         services.TryAddScoped<IToastService, ToastService>();
         services.TryAddScoped<IGridSettingsService, GridSettingsService>();
+        services.TryAddScoped<IBusyDialogService, BusyDialogService>();
 
         return services;
     }

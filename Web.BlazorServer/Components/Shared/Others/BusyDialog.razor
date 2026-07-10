@@ -1,0 +1,11 @@
+﻿﻿<RadzenStack Gap="0.5em" JustifyContent="JustifyContent.Center">
+    <RadzenProgressBarCircular ShowValue="true" Mode="ProgressBarMode.Indeterminate" Size="ProgressBarCircularSize.Large" AriaLabel="Loading, large">
+        <Template>@Title</Template>
+    </RadzenProgressBarCircular>
+    <RadzenText TextStyle="TextStyle.Body2" Text="@Message" />
+</RadzenStack>
+
+@code {
+    [Parameter] public string Title { get; set; } = "Please Wait...";
+    [Parameter] public string Message { get; set; } = "Processing your request. Please wait.";
+}
