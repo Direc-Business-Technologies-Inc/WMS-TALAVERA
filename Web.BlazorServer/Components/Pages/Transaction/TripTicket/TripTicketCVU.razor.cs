@@ -137,7 +137,9 @@ partial class TripTicketCVU
         var action = await AppActionFactory.RunAsync(async () =>
         {
             AppBusyService.SetBusy(ActionCreate, true);
-            return await TripTicketHandler.PostTripTicketAsync(FormData);
+            var result =  await TripTicketHandler.PostTripTicketAsync(FormData);
+            if (!result) throw new Exception("Failed to create Trip Ticket.");
+            return result;
         }, AppActionOptionPresets.Confirmed(ActionCreate));
 
         AppBusyService.SetBusy(ActionCreate, false);
