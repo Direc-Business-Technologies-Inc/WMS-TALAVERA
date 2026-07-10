@@ -15,6 +15,12 @@ public partial class InventoryAdjustmentCreatePage
     bool IsBusy = false;
     readonly string ActionCreateInventoryAdjustment = "Create Inventory Adjustment";
 
+    List<ViewModels.System.NavigationRouteVM> AdditionalRoutes { get; set; } = [new() {
+        Name = "Inventory Adjustment Document",
+        Position = 0,
+        Icon = "assignment_add",
+    }];
+
     async Task OnSubmit(InventoryAdjustmentVM data)
     {
         IsBusy = true;
@@ -51,6 +57,7 @@ public partial class InventoryAdjustmentCreatePage
                 Name = IsIssue ? "Goods Issue" : "Goods Receipt",
                 Id = -1
             };
+            AdditionalRoutes[0].Name = IsIssue ? "Goods Issue" : "Goods Receipt";
             await InvokeAsync(StateHasChanged);
         }
     }
