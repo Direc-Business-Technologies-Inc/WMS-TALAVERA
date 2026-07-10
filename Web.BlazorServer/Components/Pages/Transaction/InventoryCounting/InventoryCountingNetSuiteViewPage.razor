@@ -98,6 +98,28 @@
                                 </RadzenFormField>
                             </Template>
                         </RadzenDataGridColumn>
+
+                        <RadzenDataGridColumn TItem="InventoryCountingLineVM"
+                                              Property="@nameof(InventoryCountingLineVM.BadQuantity)"
+                                              Title="Bad Quantity"
+                                              Width="170px"
+                                              Type="@typeof(decimal)">
+                            <Template Context="line">
+                                <RadzenFormField class="rz-w-100">
+                                    <TextTemplate>
+                                        <RadzenText class="rz-color-danger" Text="Bad" TextStyle="TextStyle.Caption" />
+                                    </TextTemplate>
+                                    <ChildContent>
+                                        <RadzenNumeric TValue="decimal"
+                                                       Name="line_quantity_bad"
+                                                       @bind-Value="@line.BadQuantity"
+                                                       Min="0"
+                                                       ShowUpDown="false"
+                                                       class="rz-w-100" />
+                                    </ChildContent>
+                                </RadzenFormField>
+                            </Template>
+                        </RadzenDataGridColumn>
                     </Columns>
                 </AppTableWithSettings>
             </RadzenFieldset>

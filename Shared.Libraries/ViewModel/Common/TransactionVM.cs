@@ -47,6 +47,7 @@ public class TransactionVM : InventoryItemVM
 
     // Keep existing total scanned quantity for backward compat
     public decimal ScannedQuantity { get; set; }
+    public decimal BadQuantity { get; set; }
     public decimal ScannedWeight { get; set; }
 
     // New: classification flag - true = Bad, false = Good (default)
