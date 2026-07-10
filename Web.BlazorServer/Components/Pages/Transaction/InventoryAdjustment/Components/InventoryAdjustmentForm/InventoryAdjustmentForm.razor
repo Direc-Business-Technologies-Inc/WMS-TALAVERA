@@ -110,8 +110,8 @@
                         </RadzenFormField>
                     </Template>
                 </RadzenDataGridColumn>
-                <RadzenDataGridColumn Visible="@ReadOnly" TItem="InventoryAdjustmentLineVM" Property="@nameof(InventoryAdjustmentLineVM.QuantityOnHand)" Title="New Quantity" />
-                <RadzenDataGridColumn Visible="@(!ReadOnly)" TItem="InventoryAdjustmentLineVM" Property="@nameof(InventoryAdjustmentLineVM.QuantityNew)" Title="New Quantity" />
+                <RadzenDataGridColumn Visible="@ReadOnly" TItem="InventoryAdjustmentLineVM" Property="@nameof(InventoryAdjustmentLineVM.QuantityOnHand)" FormatString="{0:#,##0.##}" Title="New Quantity" />
+                <RadzenDataGridColumn Visible="@(!ReadOnly)" TItem="InventoryAdjustmentLineVM" Property="@nameof(InventoryAdjustmentLineVM.QuantityNew)" FormatString="{0:#,##0.##}" Title="New Quantity" />
                 @if (!ReadOnly)
                 {
                     <RadzenDataGridColumn TItem="InventoryAdjustmentLineVM"
