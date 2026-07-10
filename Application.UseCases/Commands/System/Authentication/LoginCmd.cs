@@ -38,16 +38,6 @@ public class LoginCmdHandler(
         if (user.Account.LockoutEnabled && user.Account.Locked)
             return AuthenticationResponseDTO.Fail("User Account is Locked");
 
-        List<int> allowedSubsidiaries = [];
-        if (user.EmployeeNs != null && user.EmployeeNs.NsSubsidiaryId != null)
-        {
-            int parentSubsidiary = (int)user.EmployeeNs.NsSubsidiaryId;
-            var childSubsidiaries = await subsidiaryIntegration.GetChildSubsidiariesAsync(parentSubsidiary);
-
-            allowedSubsidiaries.AddRange(childSubsidiaries.Select(x => x.Id));
-            allowedSubsidiaries.Add(parentSubsidiary);
-        }
-
         login ??= LoginDEM.Create(false, user.Id);
         user.AddNewLogin(login);
 
@@ -76,7 +66,6 @@ public class LoginCmdHandler(
             return AuthenticationResponseDTO.Fail("User Role not found");
 
         UserDTO dto = user.Adapt<UserDTO>();
-        dto.AllowedSubsidiaryIds = [.. allowedSubsidiaries];
         dto.Role = role.Adapt<RoleDTO>();
 
         appCommand.Update(user);
