@@ -371,11 +371,9 @@ public class ReceivingIntegration(
 
     public async Task<bool> PostItemReceipt(ItemReceiptDTO dto)
     {
-        var uri = dto.SourceType switch
-        {
-            ItemReceiptDTO.SourceTypes.PurchaseOrder => $"{netsuiteService.GetRestAPIURI}/record/v1/purchaseOrder/{dto.SourceInternalId}/!transform/itemReceipt",
-            _ => $"{netsuiteService.GetRestletURI}?script=1853&deploy=1"
-        };
+        var uri = dto.SourceType == ItemReceiptDTO.SourceTypes.PurchaseOrder ? 
+            $"{netsuiteService.GetRestAPIURI}/record/v1/purchaseOrder/{dto.SourceInternalId}/!transform/itemReceipt" :
+            $"{netsuiteService.GetRestletURI}?script=1853&deploy=1";
 
         (string goodPayload, string badPayload) = dto.SourceType switch
         {
@@ -458,6 +456,8 @@ public class ReceivingIntegration(
         {
             transferOrderId = dto.SourceInternalId,
             transferCategory = isGood ? 1 : 2,
+            custbody_dbti_prepared_by = dto.PreparedById,
+            custbody_dbti_received_by = dto.PreparedById,
             lines = dto.Lines.Where(x => (isGood ? x.QuantityGood : x.QuantityBad) > 0).Select(line =>
             {
                 return new
