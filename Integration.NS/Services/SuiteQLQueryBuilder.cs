@@ -29,7 +29,7 @@ public class SuiteQLQueryBuilder
     public List<AppSortDescriptor> Sorts { get; set; } = [];
     public List<(string col, string? alias)> SelectColumns { get; set; } = [];
     public Dictionary<string, string> PropertyMap { get; set; } = new();
-
+    private string? _groupBy;
     private string? _tableName;
     private List<string> _joins = [];
     private HashSet<string> _uniqueColumns = new();
@@ -115,7 +115,7 @@ public class SuiteQLQueryBuilder
 
         return new()
         {
-            Query = BuildSelect() + BuildFrom() + BuildFilters() + BuildSorts(),
+            Query = BuildSelect() + BuildFrom() + BuildFilters() + BuildSorts() + _groupBy,
             Limit = Take,
             Offset = Skip
         };
@@ -348,4 +348,13 @@ public class SuiteQLQueryBuilder
     }
 
     public record Literal(string Value);
+
+    public SuiteQLQueryBuilder GroupBy(string GroupBy, Dictionary<string, string>? propertyMap = null)
+    {
+        propertyMap ??= PropertyMap;
+
+        _groupBy = " GROUP BY " + (propertyMap.ContainsKey(GroupBy) ? propertyMap[GroupBy] : GroupBy);
+
+        return this;
+    }
 }
