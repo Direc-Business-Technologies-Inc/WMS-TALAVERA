@@ -189,7 +189,7 @@
                                           Title="UoM">
                         <Template Context="data">
                             <RadzenTextBox Disabled="@IsBusy" ReadOnly Visible="@ReadOnly" Value="@(data.UoM?.Name)" />
-                            <QuickVirtualizedDropdown Disabled="@IsBusy" Visible="@(!ReadOnly)" TItem="ItemUnitVM" DataGetter="@(x => ItemUnitProvider(data.ItemId, x))" ActionName="@ActionGetItemUnits" @bind-Value="@data.UoM" TextProperty="@nameof(ItemUnitVM.Name)" />
+                            <QuickVirtualizedDropdown Disabled="@IsBusy" Visible="@(!ReadOnly)" TItem="ItemUnitVM" DataGetter="@(x => ItemUnitProvider(data.ItemId, x))" ActionName="@ActionGetItemUnits" @bind-Value:get="@data.UoM" @bind-Value:set="@(val => SetLineUoM(data, val))" TextProperty="@nameof(ItemUnitVM.Name)" />
                         </Template>
                     </RadzenDataGridColumn>
                     <RadzenDataGridColumn TItem="StockTransferRequestLineVM"

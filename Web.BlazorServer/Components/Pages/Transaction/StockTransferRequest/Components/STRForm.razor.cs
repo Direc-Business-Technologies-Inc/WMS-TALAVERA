@@ -267,6 +267,16 @@ public partial class STRForm
         await LinesTable.DataGrid.Reload();
     }
 
+    async Task SetLineUoM(StockTransferRequestLineVM line, ItemUnitVM? uom)
+    {
+        decimal oldcr = line.UoM?.ConversionRate ?? 1;
+        decimal newcr = uom?.ConversionRate ?? 1;
+
+        line.QuantityAlloted *= oldcr / newcr;
+
+        line.UoM = uom;
+    }
+
     bool SameSubsidiary(SubsidiaryVM? a, SubsidiaryVM? b)
     {
         if (a is null && b is null) return false;
