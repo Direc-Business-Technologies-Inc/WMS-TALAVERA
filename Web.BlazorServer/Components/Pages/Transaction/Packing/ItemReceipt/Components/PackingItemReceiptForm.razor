@@ -21,8 +21,8 @@
                     </RadzenFormField>
                 </RadzenColumn>
                 <RadzenColumn SizeMD="6">
-                    <RadzenFormField AllowFloatingLabel="false" Text="To Subsidiary" class="rz-w-100">
-                        <RadzenTextBox Value="@Data.ToSubsidiary" ReadOnly />
+                    <RadzenFormField AllowFloatingLabel="false" Text="Department" class="rz-w-100">
+                        <RadzenTextBox Value="@Data.Department" ReadOnly />
                     </RadzenFormField>
                 </RadzenColumn>
                 <RadzenColumn SizeMD="6">
@@ -33,11 +33,6 @@
                 <RadzenColumn SizeMD="6">
                     <RadzenFormField AllowFloatingLabel="false" Text="To Warehouse" class="rz-w-100">
                         <RadzenTextBox Value="@Data.TransferLocation" ReadOnly />
-                    </RadzenFormField>
-                </RadzenColumn>
-                <RadzenColumn SizeMD="6">
-                    <RadzenFormField AllowFloatingLabel="false" Text="Department" class="rz-w-100">
-                        <RadzenTextBox Value="@Data.Department" ReadOnly />
                     </RadzenFormField>
                 </RadzenColumn>
             </RadzenRow>
@@ -57,7 +52,7 @@
                     <RadzenDataGridColumn TItem="ItemReceiptLinePackingVM" Property="@nameof(ItemReceiptLinePackingVM.QuantityPlanned)" Title="Planned Quantity" />
                     <RadzenDataGridColumn TItem="ItemReceiptLinePackingVM" Property="@nameof(ItemReceiptLinePackingVM.QuantityReceived)" Title="Received Quantity" />
                     <RadzenDataGridColumn TItem="ItemReceiptLinePackingVM" Property="@nameof(ItemReceiptLinePackingVM.QuantityBackOrdered)" Title="Back Ordered Quantity" />
-                    <RadzenDataGridColumn TItem="ItemReceiptLinePackingVM" Property="@nameof(ItemReceiptLinePackingVM.QuantityBad)" Title="Quantity">
+                    <RadzenDataGridColumn TItem="ItemReceiptLinePackingVM" Property="@nameof(ItemReceiptLinePackingVM.QuantityBad)" Title="Good Quantity">
                         <Template Context="data">
                             <RadzenStack>
                                 <RadzenFormField>

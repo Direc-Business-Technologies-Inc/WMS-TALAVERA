@@ -47,11 +47,6 @@ else
                                     <RadzenTextBox ReadOnly Value="@Model.FromSubsidiary" />
                                 </RadzenFormField>
                             </RadzenColumn>
-                            <RadzenColumn SizeMD="6">
-                                <RadzenFormField Text="To Subsidiary" class="rz-w-100" AllowFloatingLabel="false">
-                                    <RadzenTextBox ReadOnly Value="@Model.ToSubsidiary" />
-                                </RadzenFormField>
-                            </RadzenColumn>
 
                             <RadzenColumn SizeMD="6">
                                 <RadzenFormField Text="Source Warehouse" class="rz-w-100" AllowFloatingLabel="false">
@@ -61,6 +56,12 @@ else
                             <RadzenColumn SizeMD="6">
                                 <RadzenFormField Text="Destination Warehouse" class="rz-w-100" AllowFloatingLabel="false">
                                     <RadzenTextBox ReadOnly Value="@Model.DestinationWarehouse" />
+                                </RadzenFormField>
+                            </RadzenColumn>
+
+                            <RadzenColumn SizeMD="6">
+                                <RadzenFormField Text="Transfer Category" class="rz-w-100" AllowFloatingLabel="false">
+                                    <RadzenTextBox ReadOnly Value="Transfer" />
                                 </RadzenFormField>
                             </RadzenColumn>
 
