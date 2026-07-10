@@ -60,6 +60,7 @@ partial class ItemReceiptCreatePage
             res.Adapt(FormData);
             var nsEmployee = authService.GetClaimValue("com.direcbusiness.wms.nsEmployeeName");
             FormData.PreparedBy = string.IsNullOrEmpty(nsEmployee) ? "No Netsuite Account Registered" : nsEmployee;
+            FormData.ReceivedBy = FormData.PreparedBy;
 
             return Task.CompletedTask;
         });

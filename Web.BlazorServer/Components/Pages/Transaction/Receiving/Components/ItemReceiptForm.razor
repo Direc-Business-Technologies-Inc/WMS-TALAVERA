@@ -107,6 +107,7 @@
                                         <RadzenNumeric Name="line_quantity_good" @bind-Value="@data.QuantityGood" Disabled="@(!data.IsReceived || Disabled)" Max="@(data.QuantityOpen)" Min="0"/>
                                     </ChildContent>
                                     <Helper>
+                                        <RadzenText TextStyle="TextStyle.Caption" Visible="@(data.QuantityOpen < data.QuantityBad + data.QuantityGood)" class="rz-color-danger">Cannot receive more than the open quantity</RadzenText>
                                         <RadzenCustomValidator Component="line_quantity_good" Validator="@(() => data.QuantityOpen >= data.QuantityGood + data.QuantityBad)" Text="Cannot receive more than the open quantity" />
                                     </Helper>
                                 </RadzenFormField>
@@ -130,6 +131,15 @@
                     </RadzenDataGridColumn>
                 </Columns>
             </AppTableWithSettings>
+        </RadzenFieldset>
+        <RadzenFieldset Text="Additional Details">
+            <RadzenRow>
+                <RadzenColumn SizeMD="4" OffsetMD="8">
+                    <RadzenFormField Text="Received by" class="rz-w-100">
+                        <RadzenTextBox Value="@Data.ReceivedBy" ReadOnly />
+                    </RadzenFormField>
+                </RadzenColumn>
+            </RadzenRow>
         </RadzenFieldset>
         <RadzenStack JustifyContent="JustifyContent.SpaceBetween" Orientation="Orientation.Horizontal">
             <RadzenButton Disabled="Disabled" ButtonStyle="ButtonStyle.Light" ButtonType="ButtonType.Button" Click="@Return" Text="Return" />

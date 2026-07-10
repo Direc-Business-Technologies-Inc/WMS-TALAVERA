@@ -31,6 +31,12 @@ partial class ItemReceiptForm
 
     public void Submit()
     {
+        if (Data.Lines.Count(x => x.QuantityOpen < x.QuantityGood + x.QuantityBad) > 0)
+        {
+            ToastService.Error("Cannot receive more than the open quantity");
+            return;
+        }
+
         if (OnValidSubmit.HasDelegate && EditContext is not null && EditContext.Validate())
         {
             Barcodes.Clear();

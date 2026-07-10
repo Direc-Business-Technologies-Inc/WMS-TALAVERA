@@ -494,7 +494,8 @@ public class ReceivingIntegration(
                 {
                     decimal lineQuantity = isGood ? line.QuantityGood : line.QuantityBad;
                     bool isItemReceived = line.IsReceived && lineQuantity > 0;
-                    string? preferredBin = line.IsLocationBinUsed ? (dto.VendorPrefferedBin != 0 ? $"{dto.VendorPrefferedBin}" : $"{line.PrefferedBinAssignmentId}") : null;
+                    int? preferredBin = line.IsLocationBinUsed ? (dto.VendorPrefferedBin != 0 ? dto.VendorPrefferedBin : line.PrefferedBinAssignmentId) : null;
+                    if (preferredBin == 0) preferredBin = null;
                     return new
                     {
                         itemreceive = isItemReceived,
