@@ -2,6 +2,7 @@
 @using Web.BlazorServer.Components.Pages.Transaction.Others
 @using Web.BlazorServer.ViewModels.Others
 @using Web.BlazorServer.ViewModels.Transaction.InventoryTransferRequest
+
 @inherits BaseComponent
 
 <RadzenTemplateForm TItem="InventoryTransferRequestVM" Data="@Model" EditContext="@EditContext" Submit="@Submit">
@@ -102,7 +103,7 @@
     {
         List<ItemsVM> items = await DialogService.OpenAsync(
             "Select Items",
-            ds => @<ItemSelectionDialog Location="@(Model.SourceLocation?.Id ?? null)" Filters="@ItemFilters" />,
+            ds => @<Web.BlazorServer.Components.Pages.Transaction.InventoryTransferRequest.Components.ItemSelectionDialog Location="@(Model.SourceLocation?.Id ?? null)" Filters="@ItemFilters" />,
     options: GridSettingsService.GetDialogOptions());
 
         if (items is not null) await AddItems(items);
