@@ -36,7 +36,6 @@ public partial class SupplierReturnForm
 
     QuickVirtualizedDropdown<LocationVM> LocationDropdown { get; set; } = default!;
     QuickVirtualizedDropdown<SubsidiaryVM> SubsidiaryDropdown { get; set; } = default!;
-    QuickVirtualizedDropdown<ReturnStatusVM> StatusDropdown { get; set; } = default!;
     QuickVirtualizedDropdown<PurchaseSubcategoryVM> PurchaseSubcategoryDropdown { get; set; } = default!;
 
     readonly string ActionGetPO = "Get Purchase Order";
@@ -58,17 +57,6 @@ public partial class SupplierReturnForm
     async Task<(IEnumerable<ReturnCategoryVM>, int)> CategoryProvider(DataGridIntent intent)
     {
         return await returnHandler.GetReturnCategories(intent);
-    }
-
-    async Task<(IEnumerable<ReturnStatusVM>, int)> StatusProvider(DataGridIntent intent)
-    {
-
-        intent.Filters.Add(
-            DataGridFilterUtilities.In(
-                nameof(ReturnStatusVM.Id), 
-                Model.ReturnCategory?.Id == 1 ? StatusIdsBad : StatusIdsNormal));
-
-        return await returnHandler.GetReturnStatuses(intent);
     }
 
     async Task<(IEnumerable<LocationVM>, int)> LocationProvider(DataGridIntent intent)
@@ -115,11 +103,6 @@ public partial class SupplierReturnForm
 
     async Task CategorySet(ReturnCategoryVM? val)
     {
-        if (val?.Id == null && (!Model.Status?.Id.Equals("B", StringComparison.OrdinalIgnoreCase) ?? false))
-        {
-            Model.Status = null;
-            StatusDropdown.Reset();
-        }
         Model.ReturnCategory = val;
     }
 

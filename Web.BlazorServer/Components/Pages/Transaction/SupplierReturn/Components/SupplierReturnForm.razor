@@ -78,10 +78,8 @@
                 <RadzenColumn SizeMD="3">
                     <RadzenFormField Text="Status" class="rz-w-100">
                         <ChildContent>
-                            <RadzenTextBox Disabled="IsDisabled" Visible="@(ReadOnly)" Value="@Model.Status?.Name" Placeholder="No status given" />
-                            <QuickVirtualizedDropdown Disabled="IsDisabled" Name="str_return_status" @ref="@StatusDropdown" @bind-Value="@Model.Status" Visible="@(!ReadOnly)" TItem="ReturnStatusVM" DataGetter="@StatusProvider" TextProperty="@nameof(ReturnStatusVM.Name)" />
+                            <RadzenTextBox Disabled="IsDisabled" ReadOnly Value="@Model.Status?.Name" Placeholder="No status given" />
                         </ChildContent>
-
                         <Helper>
                             <RadzenRequiredValidator Visible="@IsEditable" Component="str_return_status" />
                         </Helper>

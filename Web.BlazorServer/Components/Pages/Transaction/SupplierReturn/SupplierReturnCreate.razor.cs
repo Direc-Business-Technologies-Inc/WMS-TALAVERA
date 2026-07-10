@@ -19,6 +19,7 @@ public partial class SupplierReturnCreate
         base.OnParametersSet();
         FormData.Memo = "Created via WMS";
         FormData.Date = DateTime.Now;
+        FormData.Status = new() { Name = "Pending Approval" };
         var employeeName = authService.GetClaimValue("com.direcbusiness.wms.nsEmployeeName");
         FormData.PreparedBy = string.IsNullOrEmpty(employeeName) ? "No Netsuite Account Registered" : employeeName;
     }

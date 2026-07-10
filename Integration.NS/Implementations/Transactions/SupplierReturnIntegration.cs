@@ -338,7 +338,6 @@ public class SupplierReturnIntegration(
             subsidiary = data.Subsidiary?.Id ?? null,
             custbody_dbti_prepared_by = data.PreparedById,
             custbody_dbti_return_category = data.ReturnCategory?.Id ?? null,
-            orderstatus = data.Status?.Id ?? null,
             custbody_dbti_purchase_category = data.PurchaseSubcategory != null ? data.PurchaseSubcategory.PurchaseCategoryId : data.PurchaseCategory?.Id ?? null,
             custbody_dbti_purchase_subcategory = data.PurchaseSubcategory?.Id ?? null,
             memo = data.Memo,
