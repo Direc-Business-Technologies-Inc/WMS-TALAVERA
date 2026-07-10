@@ -24,7 +24,7 @@
                  Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
                  JustifyContent="JustifyContent.End" Gap="1rem" class="rz-mb-2">
         <AppContentBadge Title="TTX No." Content="@FormData.Id.ToString()" />
-        <AppContentBadge Title="Trip Date." Content="@FormData.TripDate?.ToString("MMMM dd, yyyy")" />
+        <AppContentBadge Title="Trip Date." Content="@FormData.TripDate?.ToString("MM-dd-yy")" />
     </RadzenStack>
 
     <RadzenTemplateForm Visible="@(!IsLoadingData)" @ref="@TemplateForm"
@@ -45,7 +45,7 @@
                                                           @bind-Value="@FormData.TripDate"
                                                           Change="(args) => OnFieldChanged(nameof(FormData.TripDate))"
                                                           Name="tt_trip_date"
-                                                          DateFormat="MM/dd/yyyy"
+                                                          DateFormat="MMMM dd, yyyy"
                                                           class="rz-w-100" />
                                     </ChildContent>
                                     <Helper>
@@ -109,7 +109,7 @@
 
                         <RadzenRow Gap="1rem">
                             <RadzenColumn Size="12" SizeMD="4">
-                                <RadzenFormField Text="Destination" class="rz-w-100" AllowFloatingLabel="false">
+                                <RadzenFormField Text="Destination Location" class="rz-w-100" AllowFloatingLabel="false">
                                     <ChildContent>
                                         <RadzenTextBox Visible="@Viewing" ReadOnly
                                                        Value="@GetDestinationsText()"
@@ -119,13 +119,14 @@
                                                         Multiple
                                                         @bind-Value="@FormData.Destinations"
                                                         Change="(args) => OnFieldChanged(nameof(FormData.Destinations))"
-                                                        Data="@Locations"
+                                                        Data="@DestinationLocations"
                                                         AllowClear
                                                         AllowFiltering
                                                         Name="tt_destinations"
                                                         TextProperty="@nameof(LocationVM.LocationName)"
                                                         Placeholder="Select Destination"
                                                         class="rz-w-100" />
+
                                     </ChildContent>
                                     <Helper>
                                         <RadzenCustomValidator Visible="@Creating" Component="tt_destinations" Popup
@@ -135,7 +136,7 @@
                                 </RadzenFormField>
                             </RadzenColumn>
                             <RadzenColumn Size="12" SizeMD="4">
-                                <RadzenFormField Text="Location" class="rz-w-100" AllowFloatingLabel="false">
+                                <RadzenFormField Text="Source Location" class="rz-w-100" AllowFloatingLabel="false">
                                     <ChildContent>
                                         <RadzenTextBox Visible="@Viewing" ReadOnly
                                                        Value="@GetLocationName(FormData.OriginLocation)"

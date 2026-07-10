@@ -1,14 +1,18 @@
 using Mapster;
 using Microsoft.AspNetCore.Components;
 using Radzen;
+using Shared.Entities;
 using Shared.Kernel;
 using Shared.Libraries.ViewModel;
 using Shared.Libraries.ViewModel.Common;
 using Shared.Libraries.ViewModel.TripTicket;
+using Shared.Services.Repository;
 using Web.BlazorServer.Components.Shared.Abstraction;
 using Web.BlazorServer.Defaults;
+using Web.BlazorServer.Handlers.Repositories.Others;
 using Web.BlazorServer.Handlers.Repositories.Transaction.TripTicket;
 using Web.BlazorServer.Helpers;
+using Web.BlazorServer.Services.Implementation;
 using Web.BlazorServer.Services.Repositories;
 using Web.BlazorServer.ViewModels.Enums;
 using Web.BlazorServer.ViewModels.System;
@@ -23,6 +27,8 @@ partial class TripTicketCVU
     #region Injects
     [Inject] ITripTicketHandler TripTicketHandler { get; set; } = default!;
     [Inject] IGridSettingsService GridSettingsService { get; set; } = default!;
+    [Inject] ILocationHandler locationHandler { get; set; } = default!;
+    [Inject] ICurrentUserService currentUser { get; set; } = default!; 
     #endregion Injects
 
     PageActionTypeEnum PageAction { get; set; }
@@ -45,6 +51,7 @@ partial class TripTicketCVU
     List<DriverVM> Drivers { get; set; } = [];
     List<HelperVM> Helpers { get; set; } = [];
     List<LocationVM> Locations { get; set; } = [];
+    List<LocationVM> DestinationLocations { get; set; } = [];
     List<TruckPlateNumberVM> TruckPlateNumbers { get; set; } = [];
 
     List<NavigationRouteVM> AdditionalRoutes { get; set; } =
@@ -169,6 +176,7 @@ partial class TripTicketCVU
             await LoadDriversAsync();
             await LoadHelpersAsync();
             await LoadLocationsAsync();
+            await LoadDestLocationsAsync();
             await LoadTruckPlateNumbersAsync();
             AdaptToClone();
             UnsavedChangesService.MarkClean();
@@ -234,16 +242,45 @@ partial class TripTicketCVU
         var action = await AppActionFactory.RunAsync(async () =>
         {
             AppBusyService.SetBusy(ActionGetLocations, true);
-            return await TripTicketHandler.GetLocationsAsync();
+
+            var userSubsidiary = CurrentUserService.NsSubsidiaryId;
+
+            return await locationHandler.GetLocationsBySubsidiaryAsync(new() { Take = -1 }, userSubsidiary);
+
         }, AppActionOptionPresets.Loading(ActionGetLocations));
 
         AppBusyService.SetBusy(ActionGetLocations, false);
         action.OnSuccess(result =>
         {
-            Locations = result is null ? [] : [.. result];
+            Locations = result.Count == 0 ? [] : [.. result.Data.Select(x => new LocationVM {
+                NetsuiteLocationInternalId = x.Id,
+                LocationName = x.Name,
+            })];
             return Task.CompletedTask;
         });
     }
+
+    async Task LoadDestLocationsAsync()
+    {
+        var action = await AppActionFactory.RunAsync(async () =>
+        {
+            AppBusyService.SetBusy(ActionGetLocations, true);
+
+            return await locationHandler.GetLocationsAsync(new() { Take = -1 });
+
+        }, AppActionOptionPresets.Loading(ActionGetLocations));
+
+        AppBusyService.SetBusy(ActionGetLocations, false);
+        action.OnSuccess(result =>
+        {
+            DestinationLocations = result.Count == 0 ? [] : [.. result.Data.Select(x => new LocationVM {
+                NetsuiteLocationInternalId = x.Id,
+                LocationName = x.Name,
+            })];
+            return Task.CompletedTask;
+        });
+    }
+
 
     async Task LoadTruckPlateNumbersAsync()
     {
