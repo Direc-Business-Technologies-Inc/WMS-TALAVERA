@@ -11,6 +11,11 @@
 
 <PageTitle>Return to Supplier: @Ref</PageTitle>
 
+
+<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" class="rz-mb-4">
+    <AppBreadCrumbs ModuleCode="OSRN" />
+</RadzenStack>
+
 <AppContent>
     <RadzenStack Visible="@(!IsLoadingData)" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween">
         <RadzenStack Orientation="Orientation.Horizontal">
