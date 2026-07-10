@@ -14,12 +14,10 @@ public partial class VendorReturnAuthorizationItemReceiptForm
 
     List<VendorReturnAuthorizationItemReceiptLinePackingVM> FulfillableLines => [.. Data.Lines.Where(line => !line.IsComplete)];
 
-    public void Submit()
+    public async Task Submit()
     {
         if (OnValidSubmit.HasDelegate && EditContext is not null && EditContext.Validate())
-        {
-            OnValidSubmit.InvokeAsync(Data);
-        }
+            await OnValidSubmit.InvokeAsync(Data);
     }
 
     void Return()

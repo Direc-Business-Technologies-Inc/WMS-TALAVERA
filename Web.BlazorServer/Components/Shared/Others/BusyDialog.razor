@@ -1,8 +1,20 @@
-﻿﻿<RadzenStack Gap="0.5em" JustifyContent="JustifyContent.Center">
-    <RadzenProgressBarCircular ShowValue="true" Mode="ProgressBarMode.Indeterminate" Size="ProgressBarCircularSize.Large" AriaLabel="Loading, large">
-        <Template>@Title</Template>
-    </RadzenProgressBarCircular>
-    <RadzenText TextStyle="TextStyle.Body2" Text="@Message" />
+<RadzenStack Orientation="Orientation.Vertical"
+             AlignItems="AlignItems.Center"
+             JustifyContent="JustifyContent.Center"
+             Gap="1rem">
+    <RadzenProgressBarCircular ShowValue="false"
+                               Mode="ProgressBarMode.Indeterminate"
+                               Size="ProgressBarCircularSize.Large"
+                               ProgressBarStyle="ProgressBarStyle.Primary"
+                               AriaLabel="@Title" />
+
+    <RadzenStack Gap="0.25rem"
+                 AlignItems="AlignItems.Center"
+                 JustifyContent="JustifyContent.Center"
+                 class="rz-w-fit-content">
+        <RadzenText TextStyle="TextStyle.Subtitle1" Text="@Title" />
+        <RadzenText TextStyle="TextStyle.Body2" Text="@Message" />
+    </RadzenStack>
 </RadzenStack>
 
 @code {
