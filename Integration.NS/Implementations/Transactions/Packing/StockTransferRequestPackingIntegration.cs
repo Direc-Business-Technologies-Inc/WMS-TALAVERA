@@ -90,9 +90,9 @@ internal class StockTransferRequestPackingIntegration(
                 ("q.MaterialName", nameof(StrPackingLineNSDTO.ItemDescription)),
                 ("q.UoMName", nameof(StrPackingLineNSDTO.UoM)),
                 ("q.LocationName", nameof(StrPackingLineNSDTO.Warehouse)),
-                ("q.LineQuantity", nameof(StrPackingLineNSDTO.QuantityPlanned)),
-                ("q.LineQuantityPacked", nameof(StrPackingLineNSDTO.QuantityReceived)),
-                ("q.LineQuantityBackOrdered", nameof(StrPackingLineNSDTO.QuantityBackOrdered))
+                ("(q.LineQuantity / q.UoMRate)", nameof(StrPackingLineNSDTO.QuantityPlanned)),
+                ("(q.LineQuantityPacked / q.UoMRate)", nameof(StrPackingLineNSDTO.QuantityReceived)),
+                ("(q.LineQuantityBackOrdered / q.UoMRate)", nameof(StrPackingLineNSDTO.QuantityBackOrdered))
             )
             .From($"({mobileLineQuery}) q")
             .WithDatagridIntent(intent)

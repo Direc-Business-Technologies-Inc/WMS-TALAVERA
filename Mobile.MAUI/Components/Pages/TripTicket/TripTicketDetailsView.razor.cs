@@ -136,6 +136,7 @@ public partial class TripTicketDetailsView
             await ActionFactory.ExecuteAppActionAsync(ActionGetDrivers);
             await ActionFactory.ExecuteAppActionAsync(ActionGetHelpers);
             await ActionFactory.ExecuteAppActionAsync(ActionGetTruckPlateNumbers);
+            await ActionFactory.ExecuteAppActionAsync(ActionGetOriginLocations);
         }
     }
 
