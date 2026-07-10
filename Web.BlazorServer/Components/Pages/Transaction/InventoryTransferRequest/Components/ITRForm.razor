@@ -55,12 +55,12 @@
                             </RadzenFormField>
                         </Template>
                     </RadzenDataGridColumn>
-                    <RadzenDataGridColumn TItem="InventoryTransferRequestLineVM" Type="typeof(decimal)" Property="@nameof(InventoryTransferRequestLineVM.QuantityOnHand)" FormatString="{0:#,##0.##}" Title="On Hand Quantity" />
+                    <RadzenDataGridColumn TItem="InventoryTransferRequestLineVM" Type="typeof(decimal)" Property="@nameof(InventoryTransferRequestLineVM.QuantityOnHandByUoM)" FormatString="{0:#,##0.##}" Title="On Hand Quantity" />
                     <RadzenDataGridColumn TItem="InventoryTransferRequestLineVM" Title="Alloted Quantity">
                         <Template Context="data">
                             <RadzenFormField class="rz-w-100">
                                 <ChildContent>
-                                    <RadzenNumeric Disabled="Disabled" ReadOnly="@ReadOnly" @bind-Value="@data.QuantityAlloted" Min="0" Max="@(data.QuantityOnHand / (data.UoM?.ConversionRate ?? 1))" Format="#,##0.##" />
+                                    <RadzenNumeric Disabled="Disabled" ReadOnly="@ReadOnly" @bind-Value="@data.QuantityAlloted" Min="0" Max="@(data.QuantityOnHandByUoM / (data.UoM?.ConversionRate ?? 1))" Format="#,##0.##" />
                                 </ChildContent>
                                 <End>
                                     <RadzenButton Visible="@(!ReadOnly && data.UsesBins)" 

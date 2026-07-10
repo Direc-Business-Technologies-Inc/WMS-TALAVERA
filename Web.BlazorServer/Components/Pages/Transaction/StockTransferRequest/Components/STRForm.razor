@@ -197,7 +197,7 @@
                                           Type="@typeof(string)"
                                           Title="Warehouse" Width="125px" />
                     <RadzenDataGridColumn TItem="StockTransferRequestLineVM"
-                                          Property="@nameof(StockTransferRequestLineVM.QuantityOnHand)"
+                                          Property="@nameof(StockTransferRequestLineVM.QuantityOnHandByUoM)"
                                           Type="@typeof(decimal)"
                                           FormatString="{0:#,##0.##}"
                                           Title="On hand Quantity" />
@@ -206,7 +206,7 @@
                                           Property="@nameof(StockTransferRequestLineVM.QuantityAlloted)"
                                           Title="Alloted Quantity">
                         <Template Context="data">
-                            <RadzenNumeric Disabled="@IsBusy" Max="@(data.QuantityOnHand / (data.UoM?.ConversionRate ?? 1))" Min="0" @bind-Value="@data.QuantityAlloted" ReadOnly="@ReadOnly" class="rz-w-100" ShowUpDown="@(!ReadOnly)" Format="#,##0.##" />
+                            <RadzenNumeric Disabled="@IsBusy" Max="@(data.QuantityOnHandByUoM)" Min="0" @bind-Value="@data.QuantityAlloted" ReadOnly="@ReadOnly" class="rz-w-100" ShowUpDown="@(!ReadOnly)" Format="#,##0.##" />
                         </Template>
                     </RadzenDataGridColumn>
                     @if (!ReadOnly)
