@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Components;
 using Web.BlazorServer.Components.Pages.Transaction.Packing;
 using Web.BlazorServer.Defaults;
 using Web.BlazorServer.Handlers.Repositories.Transaction.Packing.Returns;
+using Web.BlazorServer.Services.Repositories;
 using Web.BlazorServer.ViewModels.Transaction.Packing.Returns;
 
 namespace Web.BlazorServer.Components.Pages.Transaction.Packing.Returns.ItemReceipt;
@@ -10,6 +11,7 @@ public partial class ReturnsItemReceiptCreatePage
 {
     [SupplyParameterFromQuery] public string? Ref { get; set; }
     [Inject] IReturnsItemReceiptPackingHandler ItemReceiptPackingHandler { get; set; } = default!;
+    [Inject] IBusyDialogService BusyDialogService { get; set; } = default!;
 
     readonly string ActionGetItemReceiptSource = "Get Returns Item Receipt Source";
     readonly string ActionFulfillItem = "Fulfill Returns Item";
@@ -20,6 +22,12 @@ public partial class ReturnsItemReceiptCreatePage
     {
         await base.OnParametersSetAsync();
         await LoadDataAsync();
+    }
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        AppBusyService.BusyChanged += OnBusyChanged;
     }
 
     async Task LoadDataAsync()
@@ -76,4 +84,21 @@ public partial class ReturnsItemReceiptCreatePage
     protected override Task CancelEditing() => throw new NotImplementedException();
     protected override Task HandleSubmit() => throw new NotImplementedException();
     protected override Task InitializeEditing() => throw new NotImplementedException();
+
+    void OnBusyChanged(string key, bool isBusy)
+    {
+        if (!key.Equals(ActionFulfillItem))
+            return;
+
+        if (isBusy)
+            BusyDialogService.Show(title: ActionFulfillItem);
+        else
+            BusyDialogService.Hide();
+    }
+
+    public override void Dispose()
+    {
+        AppBusyService.BusyChanged -= OnBusyChanged;
+        base.Dispose();
+    }
 }

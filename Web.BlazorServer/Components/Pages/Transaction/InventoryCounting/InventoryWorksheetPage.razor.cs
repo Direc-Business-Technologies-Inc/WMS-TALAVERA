@@ -10,16 +10,18 @@ using Web.BlazorServer.Components.Pages.Transaction.InventoryCounting.Components
 using Web.BlazorServer.Defaults;
 using Web.BlazorServer.Handlers.Repositories.Others;
 using Web.BlazorServer.Handlers.Repositories.Transaction.InventoryCounting;
+using Web.BlazorServer.Services.Repositories;
 using Web.BlazorServer.ViewModels.Transaction.InventoryCounting;
 using WebLocationVM = Web.BlazorServer.ViewModels.Others.LocationVM;
 
 namespace Web.BlazorServer.Components.Pages.Transaction.InventoryCounting;
 
-public partial class InventoryWorksheetPage
+public partial class InventoryWorksheetPage : IDisposable
 {
     [Inject] IInventoryCountingHandler InventoryCountingHandler { get; set; } = default!;
     [Inject] ILocationHandler LocationHandler { get; set; } = default!;
     [Inject] ICurrentUserService _currentUser { get; set; } = default!;
+    [Inject] IBusyDialogService BusyDialogService { get; set; } = default!;
 
     readonly string ActionGetItems = EnumHelper.GetEnumDescription(AppActions.GetInventoryWorksheetItems);
     readonly string ActionGetLocations = EnumHelper.GetEnumDescription(AppActions.GetInventoryWorksheetLocations);
@@ -35,6 +37,12 @@ public partial class InventoryWorksheetPage
     bool LocationHasBins { get; set; }
 
     AppTableWithSettings<InventoryWorksheetCreateLineVM> WorksheetTable { get; set; } = default!;
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        AppBusyService.BusyChanged += OnBusyChanged;
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -315,6 +323,22 @@ public partial class InventoryWorksheetPage
 
     void GoBack() =>
         NavManager.NavigateTo("/transactions/inventory/inventory-counting", true);
+
+    void OnBusyChanged(string key, bool isBusy)
+    {
+        if (!key.Equals(ActionPost))
+            return;
+
+        if (isBusy)
+            BusyDialogService.Show(title: ActionPost);
+        else
+            BusyDialogService.Hide();
+    }
+
+    public void Dispose()
+    {
+        AppBusyService.BusyChanged -= OnBusyChanged;
+    }
 
     static LocationVM CreateLocation(WebLocationVM location) =>
         new()

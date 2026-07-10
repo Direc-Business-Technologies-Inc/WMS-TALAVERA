@@ -1,0 +1,23 @@
+<RadzenStack Orientation="Orientation.Vertical"
+             AlignItems="AlignItems.Center"
+             JustifyContent="JustifyContent.Center"
+             Gap="1rem">
+    <RadzenProgressBarCircular ShowValue="false"
+                               Mode="ProgressBarMode.Indeterminate"
+                               Size="ProgressBarCircularSize.Large"
+                               ProgressBarStyle="ProgressBarStyle.Primary"
+                               AriaLabel="@Title" />
+
+    <RadzenStack Gap="0.25rem"
+                 AlignItems="AlignItems.Center"
+                 JustifyContent="JustifyContent.Center"
+                 class="rz-w-fit-content">
+        <RadzenText TextStyle="TextStyle.Subtitle1" Text="@Title" />
+        <RadzenText TextStyle="TextStyle.Body2" Text="@Message" />
+    </RadzenStack>
+</RadzenStack>
+
+@code {
+    [Parameter] public string Title { get; set; } = "Please Wait...";
+    [Parameter] public string Message { get; set; } = "Processing your request. Please wait.";
+}

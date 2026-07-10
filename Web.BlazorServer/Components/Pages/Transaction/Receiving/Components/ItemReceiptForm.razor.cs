@@ -29,7 +29,7 @@ partial class ItemReceiptForm
         new() {Name = "Confiscated", Value = true},
     };
 
-    public void Submit()
+    public async Task Submit()
     {
         if (Data.Lines.Count(x => x.QuantityOpen < x.QuantityGood + x.QuantityBad) > 0)
         {
@@ -40,7 +40,7 @@ partial class ItemReceiptForm
         if (OnValidSubmit.HasDelegate && EditContext is not null && EditContext.Validate())
         {
             Barcodes.Clear();
-            OnValidSubmit.InvokeAsync(Data);
+            await OnValidSubmit.InvokeAsync(Data);
         }
     }
 

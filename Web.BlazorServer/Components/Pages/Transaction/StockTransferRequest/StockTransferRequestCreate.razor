@@ -6,6 +6,7 @@
 @using Web.BlazorServer.Components.Shared.Skeletons
 @using Web.BlazorServer.Defaults
 @using Web.BlazorServer.Handlers.Repositories.Transaction.StockTransferRequest
+@using Web.BlazorServer.Services.Repositories
 @using Web.BlazorServer.ViewModels.Administration.User
 @using Web.BlazorServer.ViewModels.Transaction.Receiving
 @using Web.BlazorServer.ViewModels.Transaction.StockTransferRequest
@@ -28,6 +29,7 @@
 @code {
     [Inject] IStockTransferRequestHandler handler { get; set; } = default!;
     [Inject] AppAuthenticationService authService { get; set; } = default!;
+    [Inject] IBusyDialogService BusyDialogService { get; set; } = default!;
 
     [SupplyParameterFromQuery]
     public string? Ref { get; set; }
@@ -46,6 +48,12 @@
         Position = 0,
         Icon = "assignment_add",
     }];
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        AppBusyService.BusyChanged += OnBusyChanged;
+    }
 
     protected override async Task OnParametersSetAsync()
     {
@@ -99,6 +107,27 @@
         IsBusy = false;
         await InvokeAsync(StateHasChanged);
         return true;
+    }
+
+    void OnBusyChanged(string key, bool isBusy)
+    {
+        if (!key.Equals(ActionCreateStockTransferRequest))
+            return;
+
+        IsBusy = isBusy;
+
+        if (isBusy)
+            BusyDialogService.Show(title: ActionCreateStockTransferRequest);
+        else
+            BusyDialogService.Hide();
+
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    public override void Dispose()
+    {
+        AppBusyService.BusyChanged -= OnBusyChanged;
+        base.Dispose();
     }
 
     protected override Task InitializeEditing() => throw new NotImplementedException();
