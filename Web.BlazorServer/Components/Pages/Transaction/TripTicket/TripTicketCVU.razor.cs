@@ -17,17 +17,14 @@ namespace Web.BlazorServer.Components.Pages.Transaction.TripTicket;
 
 partial class TripTicketCVU
 {
-    #region Parameters
     [SupplyParameterFromQuery]
     [Parameter] public int Ref { get; set; }
-    #endregion Parameters
 
     #region Injects
     [Inject] ITripTicketHandler TripTicketHandler { get; set; } = default!;
     [Inject] IGridSettingsService GridSettingsService { get; set; } = default!;
     #endregion Injects
 
-    #region Primitives
     PageActionTypeEnum PageAction { get; set; }
     bool Creating => PageAction == PageActionTypeEnum.Create;
     bool Viewing => PageAction == PageActionTypeEnum.View;
@@ -41,9 +38,7 @@ partial class TripTicketCVU
     readonly string ActionGetHelpers = EnumHelper.GetEnumDescription(AppActions.GetTripTicketHelpers);
     readonly string ActionGetLocations = EnumHelper.GetEnumDescription(AppActions.GetTripTicketLocations);
     readonly string ActionGetTruckPlateNumbers = EnumHelper.GetEnumDescription(AppActions.GetTripTicketTruckPlateNumbers);
-    #endregion Primitives
 
-    #region Data Structures
     AppTable<ItemFulfillmentVM> FulfillmentLinesTable { get; set; } = default!;
     DataGridSettings FulfillmentLinesTableSettings { get; set; } = new();
     List<ItemFulfillmentVM> PackedFulfillments { get; set; } = [];
@@ -62,9 +57,7 @@ partial class TripTicketCVU
             Uri = TripTicketRoutes.Root
         }
     ];
-    #endregion Data Structures
 
-    #region Overrides
     protected override void OnParametersSet()
     {
         PageAction = PageActionHelper.GetPageActionType(NavManager.Uri);
@@ -162,7 +155,6 @@ partial class TripTicketCVU
             return Task.CompletedTask;
         });
     }
-    #endregion Overrides
 
     #region Custom Functions
     async Task LoadDataAsync()

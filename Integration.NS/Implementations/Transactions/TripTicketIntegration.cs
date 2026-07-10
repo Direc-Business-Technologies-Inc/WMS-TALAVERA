@@ -81,14 +81,21 @@ public class TripTicketIntegration(
             .Select(
                 ("tt.id", nameof(TripTicketDataGridDTO.NetsuiteTripTicketInternalId)),
                 ("tt.name", nameof(TripTicketDataGridDTO.Name)),
+                ("tp.name", nameof(TripTicketDataGridDTO.TruckPlateNumber)),
+                ("tp.id", nameof(TripTicketDataGridDTO.TruckPlateNumberId)),
                 ("BUILTIN.DF(tt.custrecord_dbti_destination)", nameof(TripTicketDataGridDTO.Destination)),
                 ("CONCAT(e.firstname, CONCAT(' ', e.lastname))", nameof(TripTicketDataGridDTO.Driver)),
+                ("CONCAT(eh.firstname, CONCAT(' ', eh.lastname))", nameof(TripTicketDataGridDTO.HelperName)),
+                ("eh.id", nameof(TripTicketDataGridDTO.HelperId)),
                 ("BUILTIN.DF(tt.custrecord_dbti_trt_origin_location)", nameof(TripTicketDataGridDTO.Location)),
                 ("TO_CHAR(tt.custrecord_dbti_trt_date, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(TripTicketDataGridDTO.TripDate))
             )
             .From("customrecord_dbti_trip_ticket tt")
-            .LeftJoin("employee e", "e.id = tt.custrecord_dbti_trt_assigned_driver")
             .LeftJoin(($"({transactionBuilder.Query}) ms" ), "ms.TicketNumber = tt.id")
+            .LeftJoin("employee e", "e.id = tt.custrecord_dbti_trt_assigned_driver")
+            .LeftJoin("MAP_customrecord_dbti_trip_ticket_custrecord_dbti_trt_helper m1", "tt.id = m1.mapone")
+            .LeftJoin("employee eh", "eh.id = m1.maptwo")
+            .LeftJoin("CUSTOMRECORD_DBTI_TRUCK_PLATE_NO tp", "tp.id = tt.custrecord_dbti_trp_truck_plate_no")
             .WithFilter(
                 GreaterThan("ms.MatchedSubsidiaries", 0));
     }
