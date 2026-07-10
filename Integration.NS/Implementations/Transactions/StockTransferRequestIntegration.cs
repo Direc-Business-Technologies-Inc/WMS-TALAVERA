@@ -46,7 +46,6 @@ internal class StockTransferRequestIntegration(
                 .WithFilters(
                     DataGridFilterUtilities.Equal("tl.mainline", "T"),
                     DataGridFilterUtilities.Equal("t.recordtype", "intercompanytransferorder"),
-                    DataGridFilterUtilities.In("t.status", new string[] { "C", "A" }),
                     DataGridFilterUtilities.NotEqual("t.custbody_dbti_transfer_category", 3),
                     DataGridFilterUtilities.NotEqual("t.custbody_dbti_transfer_category", 4)
                 )
@@ -81,7 +80,6 @@ internal class StockTransferRequestIntegration(
                 .WithFilters(
                     DataGridFilterUtilities.Equal("tl.mainline", "T"),
                     DataGridFilterUtilities.In("t.recordtype", new string[] { "intercompanytransferorder", "transferorder" }),
-                    DataGridFilterUtilities.In("t.status", new string[] { "C", "A" }),
                     DataGridFilterUtilities.Any(
                         DataGridFilterUtilities.Equal("t.custbody_dbti_transfer_category", 3),
                         DataGridFilterUtilities.Equal("t.custbody_dbti_transfer_category", 4))
@@ -114,7 +112,6 @@ internal class StockTransferRequestIntegration(
                 .WithFilters(
                     DataGridFilterUtilities.Equal("tl.mainline", "T"),
                     DataGridFilterUtilities.Equal("t.recordtype", "transferorder"),
-                    DataGridFilterUtilities.In("t.status", new string[] { "C", "A" }),
                     DataGridFilterUtilities.NotEqual("t.custbody_dbti_transfer_category", 3),
                     DataGridFilterUtilities.NotEqual("t.custbody_dbti_transfer_category", 4)
                 )
@@ -158,7 +155,6 @@ internal class StockTransferRequestIntegration(
                 .LeftJoin("employee e", on: "e.id = t.custbody_dbti_prepared_by")
                 .WithSubsidiaries(httpContextAccessor, "t")
                 .WithFilters(
-                    DataGridFilterUtilities.In("t.status", new string[] { "C", "A" }),
                     DataGridFilterUtilities.Equal("t.tranid", id),
                     DataGridFilterUtilities.Equal("tl.mainline", "T"),
                     DataGridFilterUtilities.In("t.recordtype", new string[] { "transferorder", "intercompanytransferorder" })
