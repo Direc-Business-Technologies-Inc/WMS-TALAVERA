@@ -229,7 +229,19 @@ public partial class SupplierReturnForm
                 ItemDescription = x.Description,
                 UoM = x.StockUnit,
                 Location = Model.Location,
+                QuantityOnHand = x.QuantityOnHand,
                 QuantityAlloted = 0
             }));
+    }
+
+    async Task LineUoMSet(SupplierReturnLineVM line, ItemUnitVM? uom)
+    {
+        var oldcr = line.UoM?.ConversionRate ?? 1;
+        var newcr = uom?.ConversionRate ?? 1;
+
+        line.QuantityAlloted *= oldcr / newcr;
+        line.UoM = uom;
+
+        await InvokeAsync(StateHasChanged);
     }
 }
