@@ -159,6 +159,16 @@ public partial class ITRForm
         await InvokeAsync(StateHasChanged);
     }
 
+    async Task SetLineUoM(InventoryTransferRequestLineVM line, ItemUnitVM? uom)
+    {
+        decimal oldcr = line.UoM?.ConversionRate ?? 1;
+        decimal newcr = uom?.ConversionRate ?? 1;
+
+        line.QuantityAlloted *= oldcr / newcr;
+
+        line.UoM = uom;
+        await InvokeAsync(StateHasChanged);
+    }
 
     bool _areEqual(LocationVM? a, LocationVM? b) => (a is null || b is null) ? false : a?.Id == b?.Id;
 }

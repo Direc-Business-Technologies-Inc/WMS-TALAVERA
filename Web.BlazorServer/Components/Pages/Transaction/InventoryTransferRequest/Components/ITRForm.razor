@@ -51,7 +51,7 @@
                         <Template Context="data">
                             <RadzenFormField>
                                 <RadzenTextBox Disabled="Disabled" Visible="@ReadOnly" ReadOnly Value="@data.UoM?.Name" Placeholder="No item unit given" />
-                                <QuickVirtualizedDropdown Disabled="Disabled" Visible="@(!ReadOnly)" TItem="ItemUnitVM" DataGetter="@(intent => ItemUnitProvider(intent, data.ItemID))" TextProperty="@nameof(ItemUnitVM.Name)" @bind-Value="@data.UoM" />
+                                <QuickVirtualizedDropdown Disabled="Disabled" Visible="@(!ReadOnly)" TItem="ItemUnitVM" DataGetter="@(intent => ItemUnitProvider(intent, data.ItemID))" TextProperty="@nameof(ItemUnitVM.Name)" @bind-Value:get="@data.UoM" @bind-Value:set="@(val => SetLineUoM(data, val))" />
                             </RadzenFormField>
                         </Template>
                     </RadzenDataGridColumn>
@@ -60,7 +60,7 @@
                         <Template Context="data">
                             <RadzenFormField class="rz-w-100">
                                 <ChildContent>
-                                    <RadzenNumeric Disabled="Disabled" ReadOnly="@ReadOnly" @bind-Value="@data.QuantityAlloted" Min="0" Format="#,##0.##" />
+                                    <RadzenNumeric Disabled="Disabled" ReadOnly="@ReadOnly" @bind-Value="@data.QuantityAlloted" Min="0" Max="@(data.QuantityOnHand / (data.UoM?.ConversionRate ?? 1))" Format="#,##0.##" />
                                 </ChildContent>
                                 <End>
                                     <RadzenButton Visible="@(!ReadOnly && data.UsesBins)" 
