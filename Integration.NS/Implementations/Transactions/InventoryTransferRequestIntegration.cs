@@ -3,6 +3,7 @@ using Application.UseCases.Repositories.Integration.Others;
 using Application.UseCases.Repositories.Integration.Transaction.InventoryTransferRequest;
 using Integration.NS.DataTransferObjects.InventoryAdjustment;
 using Integration.NS.DataTransferObjects.InventoryTransferRequest;
+using Integration.NS.DataTransferObjects.SupplierReturn;
 using Integration.NS.Helpers;
 using Integration.NS.Services;
 using Mapster;
@@ -40,10 +41,12 @@ public class InventoryTransferRequestIntegration(
                 ("tl.entity", nameof(InventoryTransferRequestNSDTO.CustomerId)),
                 ("BUILTIN.DF(t.transferlocation)", nameof(InventoryTransferRequestNSDTO.DestinationLocationName)),
                 ("t.transferlocation", nameof(InventoryTransferRequestNSDTO.DestinationLocationId)),
-                ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(InventoryTransferRequestNSDTO.Date))
+                ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(InventoryTransferRequestNSDTO.Date)),
+                ("CONCAT(e.firstname,CONCAT(' ',e.lastname))", nameof(InventoryTransferRequestNSDTO.PreparedBy))
             )
             .From("transaction t")
             .Join("transactionline tl", "tl.transaction = t.id AND tl.mainline='T'")
+            .LeftJoin("employee e", on: "e.id = t.custbody_dbti_prepared_by")
             .WithSubsidiaries(httpContextAccessor, "t")
             .WithFilters(
                 DataGridFilterUtilities.Equal("t.recordtype", "inventorytransfer"),
