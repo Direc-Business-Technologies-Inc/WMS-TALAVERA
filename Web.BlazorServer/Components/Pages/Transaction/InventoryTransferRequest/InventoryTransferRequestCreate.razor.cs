@@ -3,6 +3,7 @@ using Web.BlazorServer.Components.Base;
 using Web.BlazorServer.Components.Security;
 using Web.BlazorServer.Handlers.Repositories.Transaction.InventoryTransferRequest;
 using Web.BlazorServer.Helpers;
+using Web.BlazorServer.Services.Repositories;
 using Web.BlazorServer.ViewModels.Transaction.InventoryTransferRequest;
 
 namespace Web.BlazorServer.Components.Pages.Transaction.InventoryTransferRequest;
@@ -11,9 +12,16 @@ public partial class InventoryTransferRequestCreate : BaseForm<InventoryTransfer
 {
     [Inject] IInventoryTransferRequestHandler itrHandler { get; set; } = default!;
     [Inject] AppAuthenticationService authService { get; set; } = default!;
+    [Inject] IBusyDialogService BusyDialogService { get; set; } = default!;
 
     readonly string ActionCreate = "Create Inventory transfer request";
     bool IsBusy = false;
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        AppBusyService.BusyChanged += OnBusyChanged;
+    }
 
     protected override void OnParametersSet()
     {
@@ -72,6 +80,27 @@ public partial class InventoryTransferRequestCreate : BaseForm<InventoryTransfer
 
         IsBusy = false;
         await InvokeAsync(StateHasChanged);
+    }
+
+    void OnBusyChanged(string key, bool isBusy)
+    {
+        if (!key.Equals(ActionCreate))
+            return;
+
+        IsBusy = isBusy;
+
+        if (isBusy)
+            BusyDialogService.Show(title: ActionCreate);
+        else
+            BusyDialogService.Hide();
+
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    public override void Dispose()
+    {
+        AppBusyService.BusyChanged -= OnBusyChanged;
+        base.Dispose();
     }
 
     private bool LinesNeedAssignment(InventoryTransferRequestVM data, out List<InventoryTransferRequestLineVM> lines)

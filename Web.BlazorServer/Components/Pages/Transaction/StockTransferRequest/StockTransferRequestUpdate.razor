@@ -5,6 +5,7 @@
 @using Web.BlazorServer.Components.Shared.Skeletons
 @using Web.BlazorServer.Defaults
 @using Web.BlazorServer.Handlers.Repositories.Transaction.StockTransferRequest
+@using Web.BlazorServer.Services.Repositories
 @using Web.BlazorServer.ViewModels.Administration.User
 @using Web.BlazorServer.ViewModels.Transaction.Receiving
 @using Web.BlazorServer.ViewModels.Transaction.StockTransferRequest
@@ -29,6 +30,7 @@
 </AppContent>
     @code {
     [Inject] IStockTransferRequestHandler handler { get; set; } = default!;
+    [Inject] IBusyDialogService BusyDialogService { get; set; } = default!;
 
     [SupplyParameterFromQuery]
     public string? Ref { get; set; }
@@ -50,6 +52,12 @@
     {
         base.OnParametersSet();
         if (string.IsNullOrEmpty(Ref)) NavError("Please select a stock transfer request from the list");
+    }
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        AppBusyService.BusyChanged += OnBusyChanged;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -96,8 +104,6 @@
 
     async Task<bool> Update(StockTransferRequestInfoVM model)
     {
-        AppBusyService.SetBusy(ActionUpdateStockTransferRequest, true);
-        await InvokeAsync(StateHasChanged);
         var action = await AppActionFactory.RunAsync(async () =>
         {
             return await handler.UpdateStockTransferRequest(model);
@@ -109,9 +115,27 @@
             return Task.CompletedTask;
         });
 
-        AppBusyService.SetBusy(ActionUpdateStockTransferRequest, false);
         await InvokeAsync(StateHasChanged);
         return true;
+    }
+
+    void OnBusyChanged(string key, bool isBusy)
+    {
+        if (!key.Equals(ActionUpdateStockTransferRequest))
+            return;
+
+        if (isBusy)
+            BusyDialogService.Show(title: ActionUpdateStockTransferRequest);
+        else
+            BusyDialogService.Hide();
+
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    public override void Dispose()
+    {
+        AppBusyService.BusyChanged -= OnBusyChanged;
+        base.Dispose();
     }
 
     void NavError(string message)

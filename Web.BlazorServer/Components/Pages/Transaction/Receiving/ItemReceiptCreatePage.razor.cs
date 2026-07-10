@@ -4,6 +4,7 @@ using Web.BlazorServer.Components.Security;
 using Web.BlazorServer.Defaults;
 using Web.BlazorServer.Handlers.Implementations.Transaction.Receiving;
 using Web.BlazorServer.Handlers.Repositories.Transaction.Receiving;
+using Web.BlazorServer.Services.Repositories;
 using Web.BlazorServer.ViewModels.System;
 using Web.BlazorServer.ViewModels.Transaction.Receiving;
 
@@ -14,6 +15,7 @@ partial class ItemReceiptCreatePage
     [SupplyParameterFromQuery] public string? Ref { get; set; }
     [Inject] IReceivingHandler? receivingHandler { get; set; }
     [Inject] AppAuthenticationService authService { get; set; } = default!;
+    [Inject] IBusyDialogService BusyDialogService { get; set; } = default!;
 
     readonly string ActionGetItemReceiptSource = "Get Item Receipt Source";
     readonly string ActionCreateItemReceipt = "Create Item Receipt";
@@ -26,6 +28,12 @@ partial class ItemReceiptCreatePage
         Position = 0,
         Icon = "assignment_add",
     }];
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        AppBusyService.BusyChanged += OnBusyChanged;
+    }
 
     protected override async Task OnParametersSetAsync()
     {
@@ -78,7 +86,7 @@ partial class ItemReceiptCreatePage
             if (receivingHandler is null) throw new Exception("No handlers registered for item receipt");
             return await receivingHandler.PostItemReceipt(model);
 
-        }, AppActionOptionPresets.Confirmed(ActionGetItemReceiptSource));
+        }, AppActionOptionPresets.Confirmed(ActionCreateItemReceipt));
 
         action.OnSuccess(async (res) =>
         {
@@ -90,6 +98,27 @@ partial class ItemReceiptCreatePage
         IsBusy = false;
         await InvokeAsync(StateHasChanged);
 
+    }
+
+    void OnBusyChanged(string key, bool isBusy)
+    {
+        if (!key.Equals(ActionCreateItemReceipt))
+            return;
+
+        IsBusy = isBusy;
+
+        if (isBusy)
+            BusyDialogService.Show(title: ActionCreateItemReceipt);
+        else
+            BusyDialogService.Hide();
+
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    public override void Dispose()
+    {
+        AppBusyService.BusyChanged -= OnBusyChanged;
+        base.Dispose();
     }
 
     protected override Task CancelEditing()

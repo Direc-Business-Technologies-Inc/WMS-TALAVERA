@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Components;
 using Web.BlazorServer.Components.Security;
 using Web.BlazorServer.Handlers.Repositories.Transaction.InventoryAdjustment;
 using Web.BlazorServer.Helpers;
+using Web.BlazorServer.Services.Repositories;
 using Web.BlazorServer.ViewModels.Transaction.InventoryAdjustment;
 
 namespace Web.BlazorServer.Components.Pages.Transaction.InventoryAdjustment;
@@ -10,6 +11,7 @@ public partial class InventoryAdjustmentCreatePage
 {
     [Inject] public IInventoryAdjustmentHandler? inventoryAdjustmentHandler { get; set; }
     [Inject] public AppAuthenticationService authService { get; set; } = default!;
+    [Inject] public IBusyDialogService BusyDialogService { get; set; } = default!;
     [SupplyParameterFromQuery] public string? Type { get; set; }
     bool IsIssue => Type is not null && Type.Equals("issue", StringComparison.OrdinalIgnoreCase);
     bool IsBusy = false;
@@ -20,6 +22,12 @@ public partial class InventoryAdjustmentCreatePage
         Position = 0,
         Icon = "assignment_add",
     }];
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        AppBusyService.BusyChanged += OnBusyChanged;
+    }
 
     async Task OnSubmit(InventoryAdjustmentVM data)
     {
@@ -41,6 +49,27 @@ public partial class InventoryAdjustmentCreatePage
 
         IsBusy = false;
         await InvokeAsync(StateHasChanged);
+    }
+
+    void OnBusyChanged(string key, bool isBusy)
+    {
+        if (!key.Equals(ActionCreateInventoryAdjustment))
+            return;
+
+        IsBusy = isBusy;
+
+        if (isBusy)
+            BusyDialogService.Show(title: ActionCreateInventoryAdjustment);
+        else
+            BusyDialogService.Hide();
+
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    public override void Dispose()
+    {
+        AppBusyService.BusyChanged -= OnBusyChanged;
+        base.Dispose();
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
