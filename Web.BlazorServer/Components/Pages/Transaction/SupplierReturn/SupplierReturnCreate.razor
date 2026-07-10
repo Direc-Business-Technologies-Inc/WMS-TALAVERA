@@ -28,5 +28,5 @@
             <AppContentBadge Title="Doc Date" Content="@DateTime.Now.ToString("MM-dd-yy")" ChildBadgeStyle="BadgeStyle.Secondary" ChildShade="Shade.Default" />
         </RadzenStack>
     </RadzenStack>
-    <SupplierReturnForm Model="@FormData" EditContext="@EditContext" OnReturn="@Return" OnSubmit="Submit"/>
+    <SupplierReturnForm Model="@FormData" EditContext="@EditContext" OnReturn="@Return" OnSubmit="Submit" Disabled="IsBusy"/>
 </AppContent>
