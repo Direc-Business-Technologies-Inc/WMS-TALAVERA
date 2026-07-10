@@ -2,17 +2,19 @@ using Microsoft.AspNetCore.Components;
 using Shared.Kernel;
 using Web.BlazorServer.Defaults;
 using Web.BlazorServer.Handlers.Repositories.Transaction.InventoryCounting;
+using Web.BlazorServer.Services.Repositories;
 using InventoryCountingHeaderVM = global::Shared.Libraries.ViewModel.InventoryCounting.InventoryCountingVM;
 using InventoryCountingLineVM = global::Shared.Libraries.ViewModel.InventoryCounting.InventoryCountingLineVM;
 
 namespace Web.BlazorServer.Components.Pages.Transaction.InventoryCounting;
 
-public partial class InventoryCountingNetSuiteViewPage
+public partial class InventoryCountingNetSuiteViewPage : IDisposable
 {
     [SupplyParameterFromQuery]
     [Parameter] public string? OrderNumber { get; set; }
 
     [Inject] IInventoryCountingHandler InventoryCountingHandler { get; set; } = default!;
+    [Inject] IBusyDialogService BusyDialogService { get; set; } = default!;
 
     bool IsLoadingData => AppBusyService.IsBusy(ActionView);
 
@@ -26,6 +28,7 @@ public partial class InventoryCountingNetSuiteViewPage
     {
         base.OnInitialized();
         AppBusyService.SetBusy(ActionView, true);
+        AppBusyService.BusyChanged += OnBusyChanged;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -131,4 +134,20 @@ public partial class InventoryCountingNetSuiteViewPage
 
     void GoBack() =>
         NavManager.NavigateTo("/transactions/inventory/inventory-counting", true);
+
+    void OnBusyChanged(string key, bool isBusy)
+    {
+        if (!key.Equals(ActionPatch))
+            return;
+
+        if (isBusy)
+            BusyDialogService.Show(title: ActionPatch);
+        else
+            BusyDialogService.Hide();
+    }
+
+    public void Dispose()
+    {
+        AppBusyService.BusyChanged -= OnBusyChanged;
+    }
 }
