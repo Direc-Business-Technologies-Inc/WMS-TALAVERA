@@ -24,6 +24,7 @@
                  Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
                  JustifyContent="JustifyContent.End" Gap="1rem" class="rz-mb-2">
         <AppContentBadge Title="TTX No." Content="@FormData.Id.ToString()" />
+        <AppContentBadge Title="Trip Date." Content="@FormData.TripDate?.ToString("MMMM dd, yyyy")" />
     </RadzenStack>
 
     <RadzenTemplateForm Visible="@(!IsLoadingData)" @ref="@TemplateForm"
@@ -38,7 +39,7 @@
                                 <RadzenFormField Text="Trip Date" class="rz-w-100" AllowFloatingLabel="false">
                                     <ChildContent>
                                         <RadzenTextBox Visible="@Viewing" ReadOnly
-                                                       Value="@FormData.TripDate?.ToString("MM/dd/yyyy")"
+                                                       Value="@FormData.TripDate?.ToString("MMMM dd, yyyy")"
                                                        class="rz-w-100" />
                                         <RadzenDatePicker Visible="@Creating"
                                                           @bind-Value="@FormData.TripDate"
