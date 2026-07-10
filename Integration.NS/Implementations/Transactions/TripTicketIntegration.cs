@@ -3,6 +3,7 @@ using Application.UseCases.Repositories.Integration.Others;
 using Application.UseCases.Repositories.Integration.Transaction.TripTicket;
 using Integration.NS.Helpers;
 using Integration.NS.Services;
+using Microsoft.AspNetCore.Http;
 using Shared.Entities;
 using static Shared.Libraries.Utilities.DataGridFilterUtilities;
 
@@ -10,13 +11,13 @@ namespace Integration.NS.Implementations.Transactions;
 
 public class TripTicketIntegration(
     INetSuiteApiClientService netsuiteService,
+    IHttpContextAccessor httpContextAccessor,
     SuiteQLQueryBuilderFactoryService builderFactory)
     : ITripTicketIntegration
 {
     public async Task<(IEnumerable<TripTicketDataGridDTO> Data, int Count)> GetTripTicketsAsync(DataGridIntent intent, int subsidiaryId)
     {
         var query = CreateTripTicketListQuery()
-            .WithFilters(Equal("t.subsidiary", subsidiaryId))
             .WithDatagridIntent(intent)
             .Build();
 
@@ -65,6 +66,17 @@ public class TripTicketIntegration(
 
     private SuiteQLQueryBuilder CreateTripTicketListQuery()
     {
+        var transactionBuilder = builderFactory.Create()
+            .Select(
+                ("COUNT(t.id)", "MatchedSubsidiaries"),
+                ("ttf.custrecord_dbti_ttf_trip_ticket_num", "TicketNumber")
+            )
+            .From("transaction t")
+            .Join("customrecord_dbti_trip_ticket_if ttf", on: "ttf.custrecord_dbti_ttf_item_fulfillment_num = t.id")
+            .WithSubsidiaries(httpContextAccessor, "t")
+            .GroupBy("TicketNumber")
+            .Build();
+
         return builderFactory.Create()
             .Select(
                 ("tt.id", nameof(TripTicketDataGridDTO.NetsuiteTripTicketInternalId)),
@@ -72,14 +84,12 @@ public class TripTicketIntegration(
                 ("BUILTIN.DF(tt.custrecord_dbti_destination)", nameof(TripTicketDataGridDTO.Destination)),
                 ("CONCAT(e.firstname, CONCAT(' ', e.lastname))", nameof(TripTicketDataGridDTO.Driver)),
                 ("BUILTIN.DF(tt.custrecord_dbti_trt_origin_location)", nameof(TripTicketDataGridDTO.Location)),
-                ("TO_CHAR(tt.custrecord_dbti_trt_date, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(TripTicketDataGridDTO.TripDate)))
+                ("TO_CHAR(tt.custrecord_dbti_trt_date, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(TripTicketDataGridDTO.TripDate))
+            )
             .From("customrecord_dbti_trip_ticket tt")
-        .Join(
-            "customrecord_dbti_trip_ticket_if ttif",
-            on: "tt.id = ttif.custrecord_dbti_ttf_trip_ticket_num")
-        .Join(
-            "transaction t",
-            on: "ttif.custrecord_dbti_ttf_item_fulfillment_num = t.id")
-        .LeftJoin("employee e", "e.id = tt.custrecord_dbti_trt_assigned_driver");
+            .LeftJoin("employee e", "e.id = tt.custrecord_dbti_trt_assigned_driver")
+            .LeftJoin(($"({transactionBuilder.Query}) ms" ), "ms.TicketNumber = tt.id")
+            .WithFilter(
+                GreaterThan("ms.MatchedSubsidiaries", 0));
     }
 }
