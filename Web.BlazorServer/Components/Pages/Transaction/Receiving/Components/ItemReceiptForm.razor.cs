@@ -4,6 +4,8 @@ using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Razor.Internal;
 using Radzen;
+using Shared.Entities;
+using Shared.Libraries.Utilities;
 using Web.BlazorServer.Handlers.Repositories.Transaction.Receiving;
 using Web.BlazorServer.ViewModels.Others;
 using Web.BlazorServer.ViewModels.Transaction.Commons;
@@ -30,6 +32,12 @@ partial class ItemReceiptForm
         new() {Name = "Good", Value = false},
         new() {Name = "Confiscated", Value = true},
     };
+
+    readonly List<AppFilterDescriptor> StatusFilters = [
+        DataGridFilterUtilities.In(
+            nameof(InventoryStatusVM.Id),
+            new List<int> { 1, 3 })
+    ];
 
     public async Task Submit()
     {
