@@ -1,3 +1,4 @@
+using Mapster;
 using Microsoft.AspNetCore.Components;
 using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Shared.Entities;
@@ -17,6 +18,7 @@ public partial class InventoryDetailsDialog
     [Parameter] public Types Type { get; set; } = Types.Outgoing;
     [Parameter] public int? ItemId { get; set; } = null;
     [Parameter] public int? StatusId { get; set; } = null;
+    [Parameter] public List<AppFilterDescriptor> StatusFilters { get; set; } = [];
 
     List<DetailItem> Details = [];
     List<InventoryBalanceVM> InventoryBalance = [];
@@ -106,7 +108,12 @@ public partial class InventoryDetailsDialog
             return ([.. statuses], statuses.Count());
         }
 
-        return await inventoryHandler.GetInventoryStatusAsync(intent);
+        var newIntent = intent.Adapt<DataGridIntent>();
+        if (StatusFilters.Count > 0)
+        {
+            newIntent.Filters.AddRange(StatusFilters);
+        }
+        return await inventoryHandler.GetInventoryStatusAsync(newIntent);
     }
 
     async Task Submit()
