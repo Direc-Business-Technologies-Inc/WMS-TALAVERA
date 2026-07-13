@@ -22,6 +22,7 @@ public class ItemsIntegration(
         var query = builderFactory.Create()
             .Select(
                 ("(SELECT SUM(quantityonhand) FROM aggregateitemlocation WHERE item = item.id)", nameof(ItemsNSDTO.QuantityOnHand)),
+                ("(SELECT SUM(quantityavailable) FROM aggregateitemlocation WHERE item = item.id)", nameof(ItemsNSDTO.QuantityAvailable)),
                 ("itemid", nameof(ItemsNSDTO.ItemNumber)),
                 ("id", nameof(ItemsNSDTO.Id)),
                 ("displayname", nameof(ItemsNSDTO.Name)),
@@ -71,7 +72,8 @@ public class ItemsIntegration(
                 ("u1.conversionrate", nameof(ItemsNSDTO.SaleUnitRate)),
                 ("u2.conversionrate", nameof(ItemsNSDTO.StockUnitRate)),
                 ("u3.conversionrate", nameof(ItemsNSDTO.PurchaseUnitRate)),
-                ("ail.quantityonhand", nameof(ItemsDTO.QuantityOnHand))
+                ("ail.quantityonhand", nameof(ItemsDTO.QuantityOnHand)),
+                ("ail.quantityavailable", nameof(ItemsDTO.QuantityAvailable))
             )
             .From("item i")
             .LeftJoin("aggregateitemlocation ail", on:"ail.item = i.id")
@@ -92,6 +94,7 @@ public class ItemsIntegration(
         var query = builderFactory.Create()
             .Select(
                 ("(SELECT SUM(quantityonhand) FROM aggregateitemlocation WHERE item = i.id)", nameof(ItemsNSDTO.QuantityOnHand)),
+                ("(SELECT SUM(quantityavailable) FROM aggregateitemlocation WHERE item = i.id)", nameof(ItemsNSDTO.QuantityAvailable)),
                 ("i.itemid", nameof(ItemsNSDTO.ItemNumber)),
                 ("i.id", nameof(ItemsNSDTO.Id)),
                 ("i.displayname", nameof(ItemsNSDTO.Name)),

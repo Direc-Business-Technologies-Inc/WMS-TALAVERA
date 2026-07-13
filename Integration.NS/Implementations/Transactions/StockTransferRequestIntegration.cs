@@ -46,7 +46,6 @@ internal class StockTransferRequestIntegration(
                 .WithFilters(
                     DataGridFilterUtilities.Equal("tl.mainline", "T"),
                     DataGridFilterUtilities.Equal("t.recordtype", "intercompanytransferorder"),
-                    DataGridFilterUtilities.In("t.status", new string[] { "C", "A" }),
                     DataGridFilterUtilities.NotEqual("t.custbody_dbti_transfer_category", 3),
                     DataGridFilterUtilities.NotEqual("t.custbody_dbti_transfer_category", 4)
                 )
@@ -81,7 +80,6 @@ internal class StockTransferRequestIntegration(
                 .WithFilters(
                     DataGridFilterUtilities.Equal("tl.mainline", "T"),
                     DataGridFilterUtilities.In("t.recordtype", new string[] { "intercompanytransferorder", "transferorder" }),
-                    DataGridFilterUtilities.In("t.status", new string[] { "C", "A" }),
                     DataGridFilterUtilities.Any(
                         DataGridFilterUtilities.Equal("t.custbody_dbti_transfer_category", 3),
                         DataGridFilterUtilities.Equal("t.custbody_dbti_transfer_category", 4))
@@ -114,7 +112,6 @@ internal class StockTransferRequestIntegration(
                 .WithFilters(
                     DataGridFilterUtilities.Equal("tl.mainline", "T"),
                     DataGridFilterUtilities.Equal("t.recordtype", "transferorder"),
-                    DataGridFilterUtilities.In("t.status", new string[] { "C", "A" }),
                     DataGridFilterUtilities.NotEqual("t.custbody_dbti_transfer_category", 3),
                     DataGridFilterUtilities.NotEqual("t.custbody_dbti_transfer_category", 4)
                 )
@@ -158,7 +155,6 @@ internal class StockTransferRequestIntegration(
                 .LeftJoin("employee e", on: "e.id = t.custbody_dbti_prepared_by")
                 .WithSubsidiaries(httpContextAccessor, "t")
                 .WithFilters(
-                    DataGridFilterUtilities.In("t.status", new string[] { "C", "A" }),
                     DataGridFilterUtilities.Equal("t.tranid", id),
                     DataGridFilterUtilities.Equal("tl.mainline", "T"),
                     DataGridFilterUtilities.In("t.recordtype", new string[] { "transferorder", "intercompanytransferorder" })
@@ -203,7 +199,7 @@ internal class StockTransferRequestIntegration(
                 ("BUILTIN.DF(ml.location)", nameof(StockTransferRequestLineNSDTO.Warehouse)),
                 ("item.displayname", nameof(StockTransferRequestLineNSDTO.ItemDescription)),
                 ("tl.linesequencenumber", nameof(StockTransferRequestLineNSDTO.LineNumber)),
-                ("(iil.quantityonhand / uom.conversionrate)", nameof(StockTransferRequestLineNSDTO.QuantityOnHand)),
+                ("(iil.quantityavailable / uom.conversionrate)", nameof(StockTransferRequestLineNSDTO.QuantityOnHand)),
                 ("(-tl.quantity / uom.conversionrate)", nameof(StockTransferRequestLineNSDTO.QuantityAlloted)) // idk why this is negative
             )
             .From("transactionline tl")
@@ -323,7 +319,6 @@ internal class StockTransferRequestIntegration(
             } : null,
             custbody_dbti_transfer_category = new { id = dto.TransferCategory.Id },
             custbody_dbti_prepared_by = dto.PreparedById,
-            custbody_dbti_custom_approval_status = 2, // draft
             custbody_dbti_return_to_vendor = dto.TransferCategory.IsReturn && dto.Vendor != null ? new { id = dto.Vendor.Id.ToString() } : null,
             Department = new { id = "4" },
             Class = new { id = "1" },

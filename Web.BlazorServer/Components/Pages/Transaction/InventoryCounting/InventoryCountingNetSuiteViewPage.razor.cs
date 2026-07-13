@@ -1,18 +1,21 @@
 using Microsoft.AspNetCore.Components;
+using Microsoft.SqlServer.Server;
 using Shared.Kernel;
 using Web.BlazorServer.Defaults;
 using Web.BlazorServer.Handlers.Repositories.Transaction.InventoryCounting;
+using Web.BlazorServer.Services.Repositories;
 using InventoryCountingHeaderVM = global::Shared.Libraries.ViewModel.InventoryCounting.InventoryCountingVM;
 using InventoryCountingLineVM = global::Shared.Libraries.ViewModel.InventoryCounting.InventoryCountingLineVM;
 
 namespace Web.BlazorServer.Components.Pages.Transaction.InventoryCounting;
 
-public partial class InventoryCountingNetSuiteViewPage
+public partial class InventoryCountingNetSuiteViewPage : IDisposable
 {
     [SupplyParameterFromQuery]
     [Parameter] public string? OrderNumber { get; set; }
 
     [Inject] IInventoryCountingHandler InventoryCountingHandler { get; set; } = default!;
+    [Inject] IBusyDialogService BusyDialogService { get; set; } = default!;
 
     bool IsLoadingData => AppBusyService.IsBusy(ActionView);
 
@@ -21,11 +24,14 @@ public partial class InventoryCountingNetSuiteViewPage
 
     InventoryCountingHeaderVM Header { get; set; } = new();
     List<InventoryCountingLineVM> Lines { get; set; } = [];
+    const string PRINTABLE_URL = "https://11608969.extforms.netsuite.com/app/site/hosting/scriptlet.nl?script=1927&deploy=1&compid=11608969&ns-at=AAEJ7tMQyE6umQKz0wSLDGoip59M2L9IFfjxppQ3QPUA4iQyXVo";
+
 
     protected override void OnInitialized()
     {
         base.OnInitialized();
         AppBusyService.SetBusy(ActionView, true);
+        AppBusyService.BusyChanged += OnBusyChanged;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -131,4 +137,21 @@ public partial class InventoryCountingNetSuiteViewPage
 
     void GoBack() =>
         NavManager.NavigateTo("/transactions/inventory/inventory-counting", true);
+
+    void OnBusyChanged(string key, bool isBusy)
+    {
+        if (!key.Equals(ActionPatch))
+            return;
+
+        if (isBusy)
+            BusyDialogService.Show(title: ActionPatch);
+        else
+            BusyDialogService.Hide();
+    }
+    string PrintableURL => $"{PRINTABLE_URL}&id={Header.NetsuiteOrderInternalId}";
+
+    public void Dispose()
+    {
+        AppBusyService.BusyChanged -= OnBusyChanged;
+    }
 }

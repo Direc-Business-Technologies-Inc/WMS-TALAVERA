@@ -21,7 +21,7 @@
 <PageTitle>Updating Stock Transfer Request @Ref</PageTitle>
 
 <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" class="rz-mb-4">
-    <AppBreadCrumbs ModuleCode="OSTR" />
+    <AppBreadCrumbs ModuleCode="OSTR" AdditionalRoutes="AdditionalRoutes" />
 </RadzenStack>
 <AppContent>
 <AppFormSkeleton TItem="StockTransferRequestInfoVM" Loading="@IsLoadingData"/>
@@ -41,6 +41,12 @@
 
     readonly string ActionGetStockTransferRequest = "Get Stock Transfer Request";
     string? ActionURI = null;
+
+    List<ViewModels.System.NavigationRouteVM> AdditionalRoutes { get; set; } = [new() {
+        Name = "Stock Transfer Document",
+        Position = 0,
+        Icon = "assignment",
+    }];
 
     protected override void OnParametersSet()
     {
@@ -79,6 +85,7 @@
             ActionURI = res.IsEditable ?
                 STRRoutes.Update + $"?ref={Ref}" :
                 null;
+            AdditionalRoutes[0].Name = FormData.Category.Name;
             await InvokeAsync(StateHasChanged);
         });
 

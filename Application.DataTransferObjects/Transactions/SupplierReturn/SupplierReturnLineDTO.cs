@@ -15,5 +15,6 @@ public class SupplierReturnLineDTO
     public ItemUnitDTO? UoM { get; set; }
     public LocationDTO? Location { get; set; }
     public decimal QuantityAlloted { get; set; }
+    public decimal QuantityAvailable { get; set; }
     public int? LineNumber { get; set; }
 }

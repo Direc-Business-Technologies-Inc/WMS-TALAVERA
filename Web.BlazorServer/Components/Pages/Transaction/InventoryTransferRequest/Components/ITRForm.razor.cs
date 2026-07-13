@@ -26,6 +26,7 @@ public partial class ITRForm
     [Parameter] public string SubmitLabel { get; set; } = "Submit";
     [Parameter] public string SecondaryActionLabel { get; set; } = "Action";
     [Parameter] public bool ReadOnly { get; set; } = false;
+    [Parameter] public bool Disabled { get; set; } = false;
 
     QuickVirtualizedDropdown<LocationVM> SourceLocationDropdown { get; set; } = default!;
     QuickVirtualizedDropdown<LocationVM> DestinationLocationDropdown { get; set; } = default!;
@@ -158,6 +159,16 @@ public partial class ITRForm
         await InvokeAsync(StateHasChanged);
     }
 
+    async Task SetLineUoM(InventoryTransferRequestLineVM line, ItemUnitVM? uom)
+    {
+        decimal oldcr = line.UoM?.ConversionRate ?? 1;
+        decimal newcr = uom?.ConversionRate ?? 1;
+
+        line.QuantityAlloted *= oldcr / newcr;
+
+        line.UoM = uom;
+        await InvokeAsync(StateHasChanged);
+    }
 
     bool _areEqual(LocationVM? a, LocationVM? b) => (a is null || b is null) ? false : a?.Id == b?.Id;
 }

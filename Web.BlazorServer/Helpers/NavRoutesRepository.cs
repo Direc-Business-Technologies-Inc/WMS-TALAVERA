@@ -81,7 +81,7 @@ public class NavRoutesRepository
 
         List<NavigationRouteVM> purchaseSubroutes = [
             Register("ORCV", new() {Name = "Receiving", Icon="stacked_inbox", Protected=true, Uri = "/transactions/purchasing/receiving" }),
-            Register("ORDN",new() {Name = "Return to Supplier", Icon="assignment_return", Protected=true, Uri = SupplierReturnRoutes.INDEX })
+            Register("OSRN",new() {Name = "Return to Supplier", Icon="assignment_return", Protected=true, Uri = SupplierReturnRoutes.INDEX })
         ];
 
         List<NavigationRouteVM> deliverySubroutes = [

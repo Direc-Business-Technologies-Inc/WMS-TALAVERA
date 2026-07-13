@@ -4,7 +4,7 @@
 
 @inherits BaseForm<InventoryTransferRequestVM>
 @layout ProtectedLayout
-@attribute [AppAuthorizationAttribute("VIEW", "OITR")]
+@attribute [AppAuthorizationAttribute("CREATE", "OITR")]
 @attribute [Route(ITRRoutes.CREATE)];
 
 
@@ -14,5 +14,21 @@
     <AppBreadCrumbs ModuleCode="OITR" />
 </RadzenStack>
 <AppContent>
-    <ITRForm Model="@FormData" EditContext="@EditContext" OnReturn="OnReturn" OnSubmit="OnSubmit"/>
+    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween">
+        <RadzenStack Orientation="Orientation.Horizontal">
+            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5em" Visible="@IsBusy">
+                <RadzenProgressBarCircular ShowValue="false" Mode="ProgressBarMode.Indeterminate" Size="ProgressBarCircularSize.ExtraSmall" AriaLabel="Loading, extra small" />
+                <RadzenText TextStyle="TextStyle.Caption">Please wait...</RadzenText>
+            </RadzenStack>
+        </RadzenStack>
+        <RadzenStack Orientation="Orientation.Horizontal"
+                     AlignItems="AlignItems.Center"
+                     JustifyContent="JustifyContent.End"
+                     Gap="32px"
+                     class="rz-mb-2">
+            <AppContentBadge Title="Doc" Content="Auto Generated" />
+            <AppContentBadge Title="Doc Date" Content="@DateTime.Now.ToString("MM-dd-yy")" ChildBadgeStyle="BadgeStyle.Secondary" ChildShade="Shade.Default" />
+        </RadzenStack>
+    </RadzenStack>
+    <ITRForm Disabled="IsBusy" Model="@FormData" EditContext="@EditContext" OnReturn="OnReturn" OnSubmit="OnSubmit"/>
 </AppContent>

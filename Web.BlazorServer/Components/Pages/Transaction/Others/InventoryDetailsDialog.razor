@@ -17,6 +17,7 @@
                     <RadzenTableHeaderCell>Status</RadzenTableHeaderCell>
                     <RadzenTableHeaderCell>On-hand Quantity</RadzenTableHeaderCell>
                     <RadzenTableHeaderCell>Allocated Quantity</RadzenTableHeaderCell>
+                    <RadzenTableHeaderCell Style="width:60px"></RadzenTableHeaderCell>
                 </RadzenTableHeaderRow>
             </RadzenTableHeader>
             <RadzenTableBody>
@@ -42,6 +43,9 @@
                             <RadzenFormField class="rz-w-100">
                                 <RadzenNumeric class="rz-w-100" Format="#,##0.##" @bind-Value="detail.Detail.QuantityAlloted" Min="0" Max="@(detail.MaxValue)" />
                             </RadzenFormField>
+                        </RadzenTableCell>
+                        <RadzenTableCell>
+                            <RadzenButton ButtonStyle="ButtonStyle.Danger" Icon="delete" Click="@(() => RemoveLine(detail))" Size="ButtonSize.Small" />
                         </RadzenTableCell>
                     </RadzenTableRow>
                 }

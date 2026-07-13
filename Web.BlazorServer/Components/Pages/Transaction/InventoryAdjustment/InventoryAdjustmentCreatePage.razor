@@ -6,7 +6,7 @@
 
 @inherits BaseForm<InventoryAdjustmentVM>
 @layout ProtectedLayout
-@attribute [AppAuthorizationAttribute("VIEW", "OIAJ")]
+@attribute [AppAuthorizationAttribute("CREATE", "OIAJ")]
 @attribute [Route(InventoryAdjustmentRoutes.CREATE)];
 
 
@@ -14,18 +14,26 @@
 <PageTitle>Creating Inventory Adjustment </PageTitle>
 
 <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" class="rz-mb-4">
-    <AppBreadCrumbs ModuleCode="OIAJ" />
+    <AppBreadCrumbs ModuleCode="OIAJ" AdditionalRoutes="AdditionalRoutes"/>
 </RadzenStack>
 
 <AppContent>
-    <RadzenStack Orientation="Orientation.Horizontal"
-                 AlignItems="AlignItems.Center"
-                 JustifyContent="JustifyContent.End"
-                 Gap="32px"
-                 class="rz-mb-2">
-        <AppContentBadge Title="Doc" Content="To be generated" />
-        <AppContentBadge Title="Type" Content="@(IsIssue ? "Issue" : "Receipt")" />
-        <AppContentBadge Title="Doc Date" Content="@FormData.Date.ToString("MM-dd-yy")" ChildBadgeStyle="BadgeStyle.Secondary" ChildShade="Shade.Default" />
+    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween">
+        <RadzenStack Orientation="Orientation.Horizontal">
+            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5em" Visible="@IsBusy">
+                <RadzenProgressBarCircular Mode="ProgressBarMode.Indeterminate" Size="ProgressBarCircularSize.ExtraSmall" AriaLabel="Loading, extra small" />
+                <RadzenText TextStyle="TextStyle.Caption">Please wait...</RadzenText>
+            </RadzenStack>
+        </RadzenStack>
+        <RadzenStack Orientation="Orientation.Horizontal"
+                     AlignItems="AlignItems.Center"
+                     JustifyContent="JustifyContent.End"
+                     Gap="32px"
+                     class="rz-mb-2">
+            <AppContentBadge Title="Doc" Content="To be generated" />
+            <AppContentBadge Title="Type" Content="@(IsIssue ? "Issue" : "Receipt")" />
+            <AppContentBadge Title="Doc Date" Content="@FormData.Date.ToString("MM-dd-yy")" ChildBadgeStyle="BadgeStyle.Secondary" ChildShade="Shade.Default" />
+        </RadzenStack>
     </RadzenStack>
-    <InventoryAdjustmentForm Model="@FormData" EditContext="@EditContext" OnReturnClicked="OnReturn" OnSubmit="@OnSubmit" Issue="@IsIssue"/>
+    <InventoryAdjustmentForm Disabled="IsBusy" Model="@FormData" EditContext="@EditContext" OnReturnClicked="OnReturn" OnSubmit="@OnSubmit" Issue="@IsIssue"/>
 </AppContent>

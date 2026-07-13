@@ -10,6 +10,7 @@ public class InventoryTransferRequestLineVM
     public ItemUnitVM? UoM { get; set; }
     public LocationVM? Location { get; set; }
     public decimal QuantityOnHand { get; set; }
+    public decimal QuantityOnHandByUoM => QuantityOnHand / (UoM?.ConversionRate ?? 1);
     public decimal QuantityAlloted { get; set; }
 
     public bool UsesBins { get; set; }

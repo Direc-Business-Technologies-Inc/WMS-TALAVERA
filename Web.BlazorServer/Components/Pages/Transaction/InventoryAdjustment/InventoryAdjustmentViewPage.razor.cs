@@ -22,6 +22,12 @@ public partial class InventoryAdjustmentViewPage
         if (string.IsNullOrEmpty(Ref)) NavError("Please select a inventory adjustment from the list");
     }
 
+    List<ViewModels.System.NavigationRouteVM> AdditionalRoutes { get; set; } = [new() {
+        Name = "Inventory Adjustment Document",
+        Position = 0,
+        Icon = "assignment",
+    }];
+
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -51,6 +57,7 @@ public partial class InventoryAdjustmentViewPage
         action.OnSuccess(async res =>
         {
             res.Adapt(FormData);
+            AdditionalRoutes[0].Name = FormData.IsIssue ? "Goods Issue" : "Goods Receipt";
             await InvokeAsync(StateHasChanged);
         });
 

@@ -29,6 +29,8 @@ public partial class STRForm
     [Parameter]
     public bool ReadOnly { get; set; } = false;
     [Parameter]
+    public bool IsBusy { get; set; } = false;
+    [Parameter]
     public string? ReturnURI { get; set; }
     [Parameter]
     public string? ActionURI { get; set; }
@@ -61,6 +63,9 @@ public partial class STRForm
     private QuickVirtualizedDropdown<VendorVM>? VendorDropdown { get; set; }
 
     private List<TransferCategory> ReturnCategories = [.. TransferCategory.ReturnCategories];
+
+    const string PRINTABLE_URL_INTERCOMPANY = "https://11608969.extforms.netsuite.com/app/site/hosting/scriptlet.nl?script=1671&deploy=1&compid=11608969&ns-at=AAEJ7tMQ9evIwFEEUifIBokQgQ0jhowAItpfjv5Smu7B76K41lU&recordType=tranferOrder&isPickingTicket=true";
+    const string PRINTABLE_URL_TO = "https://11608969.extforms.netsuite.com/app/site/hosting/scriptlet.nl?script=1671&deploy=1&compid=11608969&ns-at=AAEJ7tMQ9evIwFEEUifIBokQgQ0jhowAItpfjv5Smu7B76K41lU&recordType=tranferOrder&isPickingTicket=true";
 
     public string ReferenceString => string.IsNullOrEmpty(Model.ReferenceNumber) ? 
         ReadOnly ? "N/A" : "Auto-Generated" : 
@@ -116,7 +121,7 @@ public partial class STRForm
                 ItemDescription = item.Name,
                 Warehouse = Model.SourceLocation?.Name ?? string.Empty,
                 UoM = item.StockUnit,
-                QuantityOnHand = item.QuantityOnHand,
+                QuantityOnHand = item.QuantityAvailable,
                 QuantityAlloted = 0
             });
         }
@@ -265,12 +270,24 @@ public partial class STRForm
         await LinesTable.DataGrid.Reload();
     }
 
+    async Task SetLineUoM(StockTransferRequestLineVM line, ItemUnitVM? uom)
+    {
+        decimal oldcr = line.UoM?.ConversionRate ?? 1;
+        decimal newcr = uom?.ConversionRate ?? 1;
+
+        line.QuantityAlloted *= oldcr / newcr;
+
+        line.UoM = uom;
+    }
+
     bool SameSubsidiary(SubsidiaryVM? a, SubsidiaryVM? b)
     {
         if (a is null && b is null) return false;
         return a?.Id == b?.Id;
     }
 
+    string PrintableURL => Model.Category.IsInterCompany ? $"{PRINTABLE_URL_INTERCOMPANY}&recordId={Model.Id}" : $"{PRINTABLE_URL_TO}&recordId={Model.Id}";
+        
     void Return()
     {
         if (!string.IsNullOrEmpty(ReturnURI)) NavManager.NavigateTo(ReturnURI, true);

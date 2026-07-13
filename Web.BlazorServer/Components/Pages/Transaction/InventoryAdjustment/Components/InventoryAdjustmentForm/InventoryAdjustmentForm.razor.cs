@@ -21,6 +21,7 @@ public partial class InventoryAdjustmentForm
     [Parameter] public string SubmitString { get; set; } = "Submit";
     [Parameter] public string SecondaryActionString { get; set; } = "Action";
     [Parameter] public bool ReadOnly { get; set; } = false;
+    [Parameter] public bool Disabled { get; set; } = false;
     [Parameter] public bool Issue { get; set; } = false;
 
     [Inject] ISubsidiaryHandler subsidiaryHandler { get; set; } = default!;
@@ -127,6 +128,17 @@ public partial class InventoryAdjustmentForm
     async Task ReturnClicked()
     {
         if (OnReturnClicked.HasDelegate) await OnReturnClicked.InvokeAsync(Model);
+    }
+
+    async Task LineSetUoM(InventoryAdjustmentLineVM line, ItemUnitVM? uom)
+    {
+        decimal oldcr = line.UoM?.ConversionRate ?? 1;
+        decimal newcr = uom?.ConversionRate ?? 1;
+
+        line.QuantityAlloted *= oldcr / newcr;
+        line.UoM = uom;
+
+        await InvokeAsync(StateHasChanged);
     }
 
     async Task OnValidSubmit()

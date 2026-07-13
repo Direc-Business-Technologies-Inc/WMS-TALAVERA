@@ -6,28 +6,30 @@
 @using Web.BlazorServer.Components.Shared.Skeletons
 @using Web.BlazorServer.Defaults
 @using Web.BlazorServer.Handlers.Repositories.Transaction.StockTransferRequest
+@using Web.BlazorServer.Services.Repositories
 @using Web.BlazorServer.ViewModels.Administration.User
 @using Web.BlazorServer.ViewModels.Transaction.Receiving
 @using Web.BlazorServer.ViewModels.Transaction.StockTransferRequest
 
 @inherits BaseForm<StockTransferRequestInfoVM>
 @layout ProtectedLayout
-@attribute [AppAuthorizationAttribute("VIEW", "OSTR")]
+@attribute [AppAuthorizationAttribute("CREATE", "OSTR")]
 @attribute [Route(STRRoutes.Create)]
 
 
 <PageTitle>Creating Stock Transfer Request</PageTitle>
 
 <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" class="rz-mb-4">
-    <AppBreadCrumbs ModuleCode="OSTR" />
+    <AppBreadCrumbs ModuleCode="OSTR" AdditionalRoutes="AdditionalRoutes" />
 </RadzenStack>
 <AppContent>
-<STRForm OnSubmit="@Create" Model="@FormData" EditContext="@EditContext" ReturnURI="@STRRoutes.Root" />
+<STRForm OnSubmit="@Create" Model="@FormData" EditContext="@EditContext" ReturnURI="@STRRoutes.Root" IsBusy="@IsBusy" />
 </AppContent>
 
 @code {
     [Inject] IStockTransferRequestHandler handler { get; set; } = default!;
     [Inject] AppAuthenticationService authService { get; set; } = default!;
+    [Inject] IBusyDialogService BusyDialogService { get; set; } = default!;
 
     [SupplyParameterFromQuery]
     public string? Ref { get; set; }
@@ -39,20 +41,41 @@
     readonly string ActionCreateStockTransferRequest = "Create Stock Transfer Request";
 
     bool IsLoadingData => AppBusyService.IsBusy(ActionGetStockTransferRequest);
+    bool IsBusy = false;
 
+    List<ViewModels.System.NavigationRouteVM> AdditionalRoutes { get; set; } = [new() {
+        Name = "Stock Transfer Document",
+        Position = 0,
+        Icon = "assignment_add",
+    }];
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        AppBusyService.BusyChanged += OnBusyChanged;
+    }
 
     protected override async Task OnParametersSetAsync()
     {
         await base.OnParametersSetAsync();
         if (Type is not null)
         {
-            FormData.Category = Type.ToLowerInvariant() switch
+            switch (Type.ToLowerInvariant())
             {
-                "intercompanytransferorder" => TransferCategory.IntercompanyTransfer,
-                "returns" => TransferCategory.ReturnsGood,
-                "transferorder" => TransferCategory.Transfer,
-                _ => TransferCategory.Transfer
-            };
+                case "intercompanytransferorder" :
+                    FormData.Category = TransferCategory.IntercompanyTransfer;
+                    AdditionalRoutes[0].Name = "Intercompany Transfer Order";
+                    break;
+                case "returns" :
+                    FormData.Category = TransferCategory.ReturnsGood;
+                    AdditionalRoutes[0].Name = "Returns";
+                    break;
+                case "transferorder":
+                default:
+                    FormData.Category = TransferCategory.Transfer;
+                    AdditionalRoutes[0].Name = "Transfer Order";
+                    break;
+            }
         }
         FormData.Date = DateTime.Now;
         FormData.Remarks = "Created via WMS";
@@ -64,6 +87,8 @@
 
     async Task<bool> Create(StockTransferRequestInfoVM model)
     {
+        IsBusy = true;
+        await InvokeAsync(StateHasChanged);
         var action = await AppActionFactory.RunAsync(async () =>
         {
             return await handler.CreateStockTransferRequest(model);
@@ -77,11 +102,32 @@
 
         action.OnFailure(ex =>
         {
-            ToastService.Error(ex.Message);
             return Task.CompletedTask;
         });
-
+        IsBusy = false;
+        await InvokeAsync(StateHasChanged);
         return true;
+    }
+
+    void OnBusyChanged(string key, bool isBusy)
+    {
+        if (!key.Equals(ActionCreateStockTransferRequest))
+            return;
+
+        IsBusy = isBusy;
+
+        if (isBusy)
+            BusyDialogService.Show(title: ActionCreateStockTransferRequest);
+        else
+            BusyDialogService.Hide();
+
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    public override void Dispose()
+    {
+        AppBusyService.BusyChanged -= OnBusyChanged;
+        base.Dispose();
     }
 
     protected override Task InitializeEditing() => throw new NotImplementedException();

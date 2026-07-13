@@ -1,3 +1,4 @@
+using Mapster;
 using Microsoft.AspNetCore.Components;
 using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Shared.Entities;
@@ -17,6 +18,8 @@ public partial class InventoryDetailsDialog
     [Parameter] public Types Type { get; set; } = Types.Outgoing;
     [Parameter] public int? ItemId { get; set; } = null;
     [Parameter] public int? StatusId { get; set; } = null;
+    [Parameter] public List<AppFilterDescriptor> StatusFilters { get; set; } = [];
+    [Parameter] public List<InventoryDetailVM> InventoryDetails { get; set; } = [];
 
     List<DetailItem> Details = [];
     List<InventoryBalanceVM> InventoryBalance = [];
@@ -40,6 +43,13 @@ public partial class InventoryDetailsDialog
             LoadLocation(),
             base.OnParametersSetAsync()
         );
+        Details.AddRange(
+            InventoryDetails.Select(x => new DetailItem(this)
+            {
+                Detail = x
+            })
+        );
+
     }
 
     async Task LoadLocation()
@@ -65,8 +75,17 @@ public partial class InventoryDetailsDialog
 
             InventoryBalance = [.. data];
         }, ActionGetInventoryBalance);
+
+        await InvokeAsync(StateHasChanged);
     }
 
+
+    async Task RemoveLine(DetailItem item)
+    {
+        Details.Remove(item);
+
+        await InvokeAsync(StateHasChanged);
+    }
 
     async Task<(IEnumerable<LocationBinVM>, int)> LocationBinProvider(DataGridIntent intent)
     {
@@ -106,7 +125,12 @@ public partial class InventoryDetailsDialog
             return ([.. statuses], statuses.Count());
         }
 
-        return await inventoryHandler.GetInventoryStatusAsync(intent);
+        var newIntent = intent.Adapt<DataGridIntent>();
+        if (StatusFilters.Count > 0)
+        {
+            newIntent.Filters.AddRange(StatusFilters);
+        }
+        return await inventoryHandler.GetInventoryStatusAsync(newIntent);
     }
 
     async Task Submit()

@@ -44,6 +44,12 @@ public class TripTicketHandler(ISender Sender) : ITripTicketHandler
             OriginLocation = string.IsNullOrWhiteSpace(response.Location)
                 ? null
                 : new LocationVM { LocationName = response.Location },
+            Helper = string.IsNullOrWhiteSpace(response.HelperName) ?
+                null :
+                new HelperVM { NetsuiteEmployeeInternalId = response.HelperId, FirstName = response.HelperName },
+            TruckPlateNumber = string.IsNullOrWhiteSpace(response.TruckPlateNumber) ?
+                null :
+                new TruckPlateNumberVM { NetsuiteTruckPlateNoInternalId = response.TruckPlateNumberId, TruckPlateNoName = response.TruckPlateNumber },
             ItemFulfillments = [.. await GetTripTicketFulfillmentsAsync(id)]
         };
     }

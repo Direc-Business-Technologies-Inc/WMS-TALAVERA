@@ -11,7 +11,24 @@
 
 <PageTitle>Return to Supplier: @Ref</PageTitle>
 
+
+<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" class="rz-mb-4">
+    <AppBreadCrumbs ModuleCode="OSRN" />
+</RadzenStack>
+
 <AppContent>
+    <RadzenStack Visible="@(!IsLoadingData)" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween">
+        <RadzenStack Orientation="Orientation.Horizontal">
+        </RadzenStack>
+        <RadzenStack Orientation="Orientation.Horizontal"
+                     AlignItems="AlignItems.Center"
+                     JustifyContent="JustifyContent.End"
+                     Gap="32px"
+                     class="rz-mb-0 rz-mt-2">
+            <AppContentBadge Title="Doc" Content="@FormData.ReferenceNumber" />
+            <AppContentBadge Title="Doc Date" Content="@FormData.Date.ToString("MM-dd-yy")" ChildBadgeStyle="BadgeStyle.Secondary" ChildShade="Shade.Default" />
+        </RadzenStack>
+    </RadzenStack>
     <AppFormSkeleton Loading="@IsLoadingData" TItem="SupplierReturnVM" />
     @if (!IsLoadingData)
     {

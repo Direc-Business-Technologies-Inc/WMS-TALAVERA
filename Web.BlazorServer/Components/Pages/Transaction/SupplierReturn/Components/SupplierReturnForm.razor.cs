@@ -32,19 +32,22 @@ public partial class SupplierReturnForm
     [Parameter] public string SubmitString { get; set; } = "Submit";
     [Parameter] public string ReturnString { get; set; } = "Return";
     [Parameter] public bool ReadOnly { get; set; } = false;
+    [Parameter] public bool Disabled { get; set; } = false;
 
     QuickVirtualizedDropdown<LocationVM> LocationDropdown { get; set; } = default!;
     QuickVirtualizedDropdown<SubsidiaryVM> SubsidiaryDropdown { get; set; } = default!;
-    QuickVirtualizedDropdown<ReturnStatusVM> StatusDropdown { get; set; } = default!;
     QuickVirtualizedDropdown<PurchaseSubcategoryVM> PurchaseSubcategoryDropdown { get; set; } = default!;
 
     readonly string ActionGetPO = "Get Purchase Order";
     bool canSelectPO = true;
     bool IsEditable => !ReadOnly && Model.SourcePO is null;
     bool IsFromPo => Model.SourcePO is not null;
+    bool IsDisabled => Disabled || LoadingPO;
+    bool LoadingPO = false;
 
     readonly string[] StatusIdsNormal = ["A", "B"];
     readonly string[] StatusIdsBad = ["B"];
+    const string PRINTABLE_URL = "https://11608969.extforms.netsuite.com/app/site/hosting/scriptlet.nl?script=1671&deploy=1&compid=11608969&ns-at=AAEJ7tMQ9evIwFEEUifIBokQgQ0jhowAItpfjv5Smu7B76K41lU&recordType=vendorreturnauthorization&transactionDefault=true";
 
     protected override void OnParametersSet()
     {
@@ -55,17 +58,6 @@ public partial class SupplierReturnForm
     async Task<(IEnumerable<ReturnCategoryVM>, int)> CategoryProvider(DataGridIntent intent)
     {
         return await returnHandler.GetReturnCategories(intent);
-    }
-
-    async Task<(IEnumerable<ReturnStatusVM>, int)> StatusProvider(DataGridIntent intent)
-    {
-
-        intent.Filters.Add(
-            DataGridFilterUtilities.In(
-                nameof(ReturnStatusVM.Id), 
-                Model.ReturnCategory?.Id == 1 ? StatusIdsBad : StatusIdsNormal));
-
-        return await returnHandler.GetReturnStatuses(intent);
     }
 
     async Task<(IEnumerable<LocationVM>, int)> LocationProvider(DataGridIntent intent)
@@ -112,11 +104,6 @@ public partial class SupplierReturnForm
 
     async Task CategorySet(ReturnCategoryVM? val)
     {
-        if (val?.Id == null && (!Model.Status?.Id.Equals("B", StringComparison.OrdinalIgnoreCase) ?? false))
-        {
-            Model.Status = null;
-            StatusDropdown.Reset();
-        }
         Model.ReturnCategory = val;
     }
 
@@ -176,18 +163,22 @@ public partial class SupplierReturnForm
 
     async Task GetPurchaseOrder(string poRef)
     {
+        LoadingPO = true;
+        await InvokeAsync(StateHasChanged);
+
         var action = await AppActionFactory.RunLoadingAsync(async () =>
         {
-            return await returnHandler.GetReturnFromPurchaseOrderAsync(poRef);
+            var x = await returnHandler.GetReturnFromPurchaseOrderAsync(poRef);
+            return x;
         }, ActionGetPO);
 
-        action.OnSuccess(po =>
+        action.OnSuccess(async (po) =>
         {
             po.Adapt(Model);
             canSelectPO = false;
-            return Task.CompletedTask;
         });
 
+        LoadingPO = false;
         await InvokeAsync(StateHasChanged);
     }
 
@@ -222,7 +213,21 @@ public partial class SupplierReturnForm
                 ItemDescription = x.Description,
                 UoM = x.StockUnit,
                 Location = Model.Location,
+                QuantityOnHand = x.QuantityOnHand,
+                QuantityAvailable = x.QuantityAvailable,
                 QuantityAlloted = 0
             }));
+    }
+
+    string PrintableURL => $"{PRINTABLE_URL}&recordId={Model.Id}";
+    async Task LineUoMSet(SupplierReturnLineVM line, ItemUnitVM? uom)
+    {
+        var oldcr = line.UoM?.ConversionRate ?? 1;  
+        var newcr = uom?.ConversionRate ?? 1;
+
+        line.QuantityAlloted *= oldcr / newcr;
+        line.UoM = uom;
+
+        await InvokeAsync(StateHasChanged);
     }
 }

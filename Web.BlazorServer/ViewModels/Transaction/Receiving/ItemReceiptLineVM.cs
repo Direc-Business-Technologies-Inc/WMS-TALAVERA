@@ -1,4 +1,5 @@
 ﻿using System.Numerics;
+using Web.BlazorServer.ViewModels.Others;
 
 namespace Web.BlazorServer.ViewModels.Transaction.Receiving;
 
@@ -27,14 +28,17 @@ public class ItemReceiptLineVM
     public string ItemDescription { get; set; } =  string.Empty;
     public string UoM { get; set; } = string.Empty;
     public string Department { get; set; } = string.Empty;
-    public string Location { get; set; } = string.Empty;
+    public string LocationName { get; set; } = string.Empty;
+    public int LocationId { get; set; }
     public decimal UoMRate { get; set; }
     public decimal WeightActual { get; set; }
     public decimal WeightPerItem { get; set; }
-    public decimal WeightRecord => WeightPerItem * (QuantityGood + QuantityBad);
+    public decimal WeightRecord => WeightPerItem * QuantityAlloted;
     public decimal QuantityPlanned { get; set; }
     public decimal QuantityOpen { get; set; }
     public decimal QuantityReceived { get; set; }
-    public decimal QuantityBad { get; set; }
-    public decimal QuantityGood { get; set; }
+    public decimal QuantityAlloted { get; set; }
+    public bool IsAllAssigned => InventoryDetails.Sum(x => x.QuantityAlloted) == QuantityAlloted;
+    public List<InventoryDetailVM> InventoryDetails { get; set; } = [];
+
 }

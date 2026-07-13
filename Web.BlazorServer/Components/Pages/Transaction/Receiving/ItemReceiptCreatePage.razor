@@ -7,22 +7,39 @@
 @inherits BaseForm<ItemReceiptVM>
 @page "/transactions/purchasing/receiving/create-item-receipt"
 @layout ProtectedLayout
-@attribute [AppAuthorizationAttribute("VIEW", "ORCV")]
+@attribute [AppAuthorizationAttribute("CREATE", "ORCV")]
 
 
 <PageTitle>Creating Item Receipt</PageTitle>
 
 <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" class="rz-mb-4">
-    <AppBreadCrumbs ModuleCode="ORCV" />
+    <AppBreadCrumbs ModuleCode="ORCV" AdditionalRoutes="AdditionalRoutes" />
 </RadzenStack>
 
 
 <AppContent>
     
+
     <AppFormSkeleton TItem="ItemReceiptVM" Loading="@IsLoadingData" />
 
+    <RadzenStack Visible="!IsLoadingData" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween">
+        <RadzenStack Orientation="Orientation.Horizontal">
+            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5em" Visible="@IsBusy">
+                <RadzenProgressBarCircular ShowValue="false" Mode="ProgressBarMode.Indeterminate" Size="ProgressBarCircularSize.ExtraSmall" AriaLabel="Loading, extra small" />
+                <RadzenText TextStyle="TextStyle.Caption">Please wait...</RadzenText>
+            </RadzenStack>
+        </RadzenStack>
+        <RadzenStack Orientation="Orientation.Horizontal"
+                     AlignItems="AlignItems.Center"
+                     JustifyContent="JustifyContent.End"
+                     Gap="32px"
+                     class="rz-mb-0 rz-mt-2">
+            <AppContentBadge Title="Doc" Content="Auto Generated" />
+            <AppContentBadge Title="Doc Date" Content="@DateTime.Now.ToString("MM-dd-yy")" ChildBadgeStyle="BadgeStyle.Secondary" ChildShade="Shade.Default" />
+        </RadzenStack>
+    </RadzenStack>
     @if (!IsLoadingData)
     {
-        <ItemReceiptForm Data="@FormData" EditContext="EditContext" OnValidSubmit="@OnValidSubmit"/>
+        <ItemReceiptForm Disabled="IsBusy" Data="@FormData" EditContext="EditContext" OnValidSubmit="@OnValidSubmit"/>
     }
 </AppContent>

@@ -1,14 +1,18 @@
 using Mapster;
 using Microsoft.AspNetCore.Components;
 using Radzen;
+using Shared.Entities;
 using Shared.Kernel;
 using Shared.Libraries.ViewModel;
 using Shared.Libraries.ViewModel.Common;
 using Shared.Libraries.ViewModel.TripTicket;
+using Shared.Services.Repository;
 using Web.BlazorServer.Components.Shared.Abstraction;
 using Web.BlazorServer.Defaults;
+using Web.BlazorServer.Handlers.Repositories.Others;
 using Web.BlazorServer.Handlers.Repositories.Transaction.TripTicket;
 using Web.BlazorServer.Helpers;
+using Web.BlazorServer.Services.Implementation;
 using Web.BlazorServer.Services.Repositories;
 using Web.BlazorServer.ViewModels.Enums;
 using Web.BlazorServer.ViewModels.System;
@@ -17,17 +21,16 @@ namespace Web.BlazorServer.Components.Pages.Transaction.TripTicket;
 
 partial class TripTicketCVU
 {
-    #region Parameters
     [SupplyParameterFromQuery]
     [Parameter] public int Ref { get; set; }
-    #endregion Parameters
 
     #region Injects
     [Inject] ITripTicketHandler TripTicketHandler { get; set; } = default!;
     [Inject] IGridSettingsService GridSettingsService { get; set; } = default!;
+    [Inject] ILocationHandler locationHandler { get; set; } = default!;
+    [Inject] ICurrentUserService currentUser { get; set; } = default!; 
     #endregion Injects
 
-    #region Primitives
     PageActionTypeEnum PageAction { get; set; }
     bool Creating => PageAction == PageActionTypeEnum.Create;
     bool Viewing => PageAction == PageActionTypeEnum.View;
@@ -41,17 +44,17 @@ partial class TripTicketCVU
     readonly string ActionGetHelpers = EnumHelper.GetEnumDescription(AppActions.GetTripTicketHelpers);
     readonly string ActionGetLocations = EnumHelper.GetEnumDescription(AppActions.GetTripTicketLocations);
     readonly string ActionGetTruckPlateNumbers = EnumHelper.GetEnumDescription(AppActions.GetTripTicketTruckPlateNumbers);
-    #endregion Primitives
 
-    #region Data Structures
     AppTable<ItemFulfillmentVM> FulfillmentLinesTable { get; set; } = default!;
     DataGridSettings FulfillmentLinesTableSettings { get; set; } = new();
     List<ItemFulfillmentVM> PackedFulfillments { get; set; } = [];
     List<DriverVM> Drivers { get; set; } = [];
     List<HelperVM> Helpers { get; set; } = [];
     List<LocationVM> Locations { get; set; } = [];
+    List<LocationVM> DestinationLocations { get; set; } = [];
     List<TruckPlateNumberVM> TruckPlateNumbers { get; set; } = [];
 
+    const string PRINTABLE_URL = "https://11608969.extforms.netsuite.com/app/site/hosting/scriptlet.nl?script=1671&deploy=1&compid=11608969&ns-at=AAEJ7tMQ9evIwFEEUifIBokQgQ0jhowAItpfjv5Smu7B76K41lU&recordType=customrecord_dbti_trip_ticket&transactionDefault=false";
     List<NavigationRouteVM> AdditionalRoutes { get; set; } =
     [
         new()
@@ -62,9 +65,7 @@ partial class TripTicketCVU
             Uri = TripTicketRoutes.Root
         }
     ];
-    #endregion Data Structures
 
-    #region Overrides
     protected override void OnParametersSet()
     {
         PageAction = PageActionHelper.GetPageActionType(NavManager.Uri);
@@ -144,7 +145,9 @@ partial class TripTicketCVU
         var action = await AppActionFactory.RunAsync(async () =>
         {
             AppBusyService.SetBusy(ActionCreate, true);
-            return await TripTicketHandler.PostTripTicketAsync(FormData);
+            var result =  await TripTicketHandler.PostTripTicketAsync(FormData);
+            if (!result) throw new Exception("Failed to create Trip Ticket.");
+            return result;
         }, AppActionOptionPresets.Confirmed(ActionCreate));
 
         AppBusyService.SetBusy(ActionCreate, false);
@@ -162,7 +165,6 @@ partial class TripTicketCVU
             return Task.CompletedTask;
         });
     }
-    #endregion Overrides
 
     #region Custom Functions
     async Task LoadDataAsync()
@@ -175,6 +177,7 @@ partial class TripTicketCVU
             await LoadDriversAsync();
             await LoadHelpersAsync();
             await LoadLocationsAsync();
+            await LoadDestLocationsAsync();
             await LoadTruckPlateNumbersAsync();
             AdaptToClone();
             UnsavedChangesService.MarkClean();
@@ -240,16 +243,45 @@ partial class TripTicketCVU
         var action = await AppActionFactory.RunAsync(async () =>
         {
             AppBusyService.SetBusy(ActionGetLocations, true);
-            return await TripTicketHandler.GetLocationsAsync();
+
+            var userSubsidiary = CurrentUserService.NsSubsidiaryId;
+
+            return await locationHandler.GetLocationsBySubsidiaryAsync(new() { Take = -1 }, userSubsidiary);
+
         }, AppActionOptionPresets.Loading(ActionGetLocations));
 
         AppBusyService.SetBusy(ActionGetLocations, false);
         action.OnSuccess(result =>
         {
-            Locations = result is null ? [] : [.. result];
+            Locations = result.Count == 0 ? [] : [.. result.Data.Select(x => new LocationVM {
+                NetsuiteLocationInternalId = x.Id,
+                LocationName = x.Name,
+            })];
             return Task.CompletedTask;
         });
     }
+
+    async Task LoadDestLocationsAsync()
+    {
+        var action = await AppActionFactory.RunAsync(async () =>
+        {
+            AppBusyService.SetBusy(ActionGetLocations, true);
+
+            return await locationHandler.GetLocationsAsync(new() { Take = -1 });
+
+        }, AppActionOptionPresets.Loading(ActionGetLocations));
+
+        AppBusyService.SetBusy(ActionGetLocations, false);
+        action.OnSuccess(result =>
+        {
+            DestinationLocations = result.Count == 0 ? [] : [.. result.Data.Select(x => new LocationVM {
+                NetsuiteLocationInternalId = x.Id,
+                LocationName = x.Name,
+            })];
+            return Task.CompletedTask;
+        });
+    }
+
 
     async Task LoadTruckPlateNumbersAsync()
     {
@@ -340,6 +372,8 @@ partial class TripTicketCVU
         employee is null
             ? string.Empty
             : employee.FullName.Trim();
+
+    string PrintableURL => $"{PRINTABLE_URL}&recordId={FormData.Id}";
 
     string GetLocationName(LocationVM? location) =>
         location?.LocationName ?? string.Empty;

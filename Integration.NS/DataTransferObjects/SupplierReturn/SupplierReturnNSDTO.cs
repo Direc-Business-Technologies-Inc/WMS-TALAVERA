@@ -25,6 +25,7 @@ public class SupplierReturnNSDTO
     public string ReferenceNumber { get; set; } = string.Empty;
     public string Memo { get; set; } = string.Empty;
     public int? SourcePO { get; set; }
+    public string PreparedBy { get; set; } = string.Empty;
 
     public string PurchaseCategoryName { get; set; } = string.Empty;
     public int PurchaseCategoryId { get; set; }

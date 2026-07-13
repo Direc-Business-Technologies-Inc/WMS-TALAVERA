@@ -19,7 +19,7 @@
                               Type="@typeof(DateTime)"
                               Title="Trip Date">
             <Template>
-                @context.TripDate?.ToString("MM/dd/yyyy")
+                @context.TripDate?.ToString("MMMM dd, yyyy")
             </Template>
         </RadzenDataGridColumn>
         <RadzenDataGridColumn TItem="TripTicketDataGridVM"

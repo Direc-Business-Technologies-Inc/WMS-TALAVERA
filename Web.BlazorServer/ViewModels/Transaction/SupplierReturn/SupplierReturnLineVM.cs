@@ -9,6 +9,9 @@ public class SupplierReturnLineVM
     public string ItemDescription { get; set; } = string.Empty;
     public ItemUnitVM? UoM { get; set; }
     public LocationVM? Location { get; set; }
+    public decimal QuantityOnHand { get; set; }
     public decimal QuantityAlloted { get; set; }
+    public decimal QuantityAvailable { get; set; }
+    public decimal QuantityOnHandByUoM => QuantityAvailable / (UoM?.ConversionRate ?? 1);
     public int? LineNumber { get; set; }
 }
