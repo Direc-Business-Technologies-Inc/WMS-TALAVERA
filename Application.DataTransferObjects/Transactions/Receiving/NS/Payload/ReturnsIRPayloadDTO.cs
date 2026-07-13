@@ -32,6 +32,46 @@ public class ReturnsIRPayloadDTO
                     }
                     else
                     {
+                        var assignment = new InventoryAssignment
+                        {
+                            Items =
+                            [
+                                new InventoryAssignmentItem
+                                {
+                                    InventoryStatus = new ReferenceValue
+                                    {
+                                        Id = /*line.IsBad ? "3" :*/ "1"
+                                    },
+                                    Quantity = line.ScannedQuantity,
+                                    BinNumber = !line.IsLocationUsedBin ? null :
+                                        line.NetsuiteMaterialVendorAssignedBin != 0
+                                        ? new ReferenceValue
+                                        {
+                                            Id = line.NetsuiteMaterialVendorAssignedBin.ToString()
+                                        }
+                                        : line.NetsuiteMaterialPrefferedBinId != 0
+                                        ? new ReferenceValue
+                                        {
+                                            Id = line.NetsuiteMaterialPrefferedBinId.ToString()
+                                        }
+                                        : null
+                                }
+                            ]
+                        };
+
+                        var inventoryDetail = line.NetsuiteMaterialPrefferedBinId != 0
+                        ? new InventoryDetail
+                        {
+                            InventoryAssignmentList = new InventoryAssignmentList
+                            {
+                                InventoryAssignment = assignment
+                            }
+                        }
+                        : new InventoryDetail
+                        {
+                            InventoryAssignment = assignment
+                        };
+
                         return new OrderLineItem
                         {
                             OrderLine = line.LineSequenceNumber,
@@ -40,6 +80,7 @@ public class ReturnsIRPayloadDTO
                             RecordWeight = line.TotalWeight,
                             ActualWeight = line.ScannedWeight,
                             Rate = line.IsBad ? 0 : null,
+                            InventoryDetail = inventoryDetail
                         };
                     }
                 }).ToList()
