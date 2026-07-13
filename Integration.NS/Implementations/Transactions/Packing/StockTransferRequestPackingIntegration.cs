@@ -34,7 +34,6 @@ internal class StockTransferRequestPackingIntegration(
             .From("transaction t")
             .Join("transactionline tl", on: "tl.transaction = t.id")
             .LeftJoin("transferorderstatus s", on: "s.id = t.status")
-            .WithSubsidiaries(httpContextAccessor, "t")
             .WithFilters(
                 Equal("tl.mainline", "T"),
                 Equal("t.tosubsidiary", subsidiaryId))
