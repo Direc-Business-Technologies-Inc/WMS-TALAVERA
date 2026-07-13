@@ -26,6 +26,7 @@ partial class ReturnsPackingDetails
     string ActionGetLines => "Get Packing Return Lines";
     string ActionGetInfo => "Get Packing Return Information";
     string ErrorMessage = "Something went wrong while loading the packing return details. Please try again.";
+    const string PRINTABLE_URL = "https://11608969.extforms.netsuite.com/app/site/hosting/scriptlet.nl?script=1922&deploy=1&compid=11608969&ns-at=AAEJ7tMQ70cbDMgsewbx6YHr0oQkl5HAZi1-qpSrLgdV9mevdZI";
 
     ReturnsInfoPackingVM Model = new();
     AppDataGrid<ReturnsLinePackingVM>? DataGrid { get; set; }
@@ -81,6 +82,8 @@ partial class ReturnsPackingDetails
         });
     }
 
+    string PrintableURL => $"{PRINTABLE_URL}&id={Model.Id}";
+    
     async Task<DataGridResultVM<ReturnsLinePackingVM>> LoadDataAsync(DataGridIntent intent)
     {
         var action = await AppActionFactory.RunAsync(async () =>

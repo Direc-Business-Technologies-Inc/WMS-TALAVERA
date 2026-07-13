@@ -47,6 +47,7 @@ public partial class SupplierReturnForm
 
     readonly string[] StatusIdsNormal = ["A", "B"];
     readonly string[] StatusIdsBad = ["B"];
+    const string PRINTABLE_URL = "https://11608969.extforms.netsuite.com/app/site/hosting/scriptlet.nl?script=1671&deploy=1&compid=11608969&ns-at=AAEJ7tMQ9evIwFEEUifIBokQgQ0jhowAItpfjv5Smu7B76K41lU&recordType=vendorreturnauthorization&transactionDefault=true";
 
     protected override void OnParametersSet()
     {
@@ -218,9 +219,10 @@ public partial class SupplierReturnForm
             }));
     }
 
+    string PrintableURL => $"{PRINTABLE_URL}&recordId={Model.Id}";
     async Task LineUoMSet(SupplierReturnLineVM line, ItemUnitVM? uom)
     {
-        var oldcr = line.UoM?.ConversionRate ?? 1;
+        var oldcr = line.UoM?.ConversionRate ?? 1;  
         var newcr = uom?.ConversionRate ?? 1;
 
         line.QuantityAlloted *= oldcr / newcr;

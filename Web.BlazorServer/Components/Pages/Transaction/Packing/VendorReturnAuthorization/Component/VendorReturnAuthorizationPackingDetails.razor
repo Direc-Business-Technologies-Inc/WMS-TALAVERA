@@ -81,6 +81,10 @@ else
                 </AppDataGrid>
             </RadzenFieldset>
             <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween">
+
+                <RadzenButton Icon="print" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light">
+                    <RadzenLink Path="@PrintableURL" Text="Print" target="_blank" Icon="print" />
+                </RadzenButton>
                 <RadzenButton ButtonType="ButtonType.Button" ButtonStyle="ButtonStyle.Light" Text="Return" Click="@(_ => NavManager.NavigateTo($"{PackingRoutes.Root}?tab=vendorreturnauthorization"))" />
                 <RadzenButton ButtonType="ButtonType.Button" ButtonStyle="ButtonStyle.Success" Text="Fulfill Item" Click="@(_ => NavManager.NavigateTo($"{PackingRoutes.CreateVendorReturnAuthorizationItemReceipt}?ref={Model.ReferenceNumber}"))" />
             </RadzenStack>

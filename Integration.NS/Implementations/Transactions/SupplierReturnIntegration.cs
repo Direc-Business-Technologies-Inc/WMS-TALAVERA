@@ -32,6 +32,7 @@ public class SupplierReturnIntegration(
         var query = builderFactory.Create()
                 .Select(
                     ("BUILTIN.DF(t.entity)", nameof(SupplierReturnNSDTO.VendorName)),
+                    ("t.id", nameof(SupplierReturnNSDTO.Id)),
                     ("t.entity", nameof(SupplierReturnNSDTO.VendorId)),
                     ("BUILTIN.DF(t.custbody_dbti_return_category)", nameof(SupplierReturnNSDTO.CategoryName)),
                     ("t.custbody_dbti_return_category", nameof(SupplierReturnNSDTO.CategoryId)),

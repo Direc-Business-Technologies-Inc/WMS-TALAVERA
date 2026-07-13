@@ -26,6 +26,7 @@ partial class STRPackingDetails
     string ActionGetLines => "Get Packing Stock Transfer Request Lines";
     string ActionGetInfo => "Get Packing Stock Transfer Request Information";
     string ErrorMessage = "Something went wrong while loading the packing stock transfer request details. Please try again.";
+    const string PRINTABLE_URL = "https://11608969.extforms.netsuite.com/app/site/hosting/scriptlet.nl?script=1922&deploy=1&compid=11608969&ns-at=AAEJ7tMQ70cbDMgsewbx6YHr0oQkl5HAZi1-qpSrLgdV9mevdZI";
 
     StockTransferRequestInfoPackingVM Model = new();
     AppDataGrid<StockTransferRequestLinePackingVM>? DataGrid { get; set; }
@@ -80,6 +81,8 @@ partial class STRPackingDetails
             await Task.CompletedTask;
         });
     }
+
+    string PrintableURL => $"{PRINTABLE_URL}&id={Model.Id}";
 
     async Task<DataGridResultVM<StockTransferRequestLinePackingVM>> LoadDataAsync(DataGridIntent intent)
     {

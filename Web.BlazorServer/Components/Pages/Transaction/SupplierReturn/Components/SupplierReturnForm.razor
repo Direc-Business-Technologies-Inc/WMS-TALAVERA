@@ -100,6 +100,10 @@
         <RadzenFieldset Text="Lines">
             <AppTableWithSettings TItem="SupplierReturnLineVM" Id="return_to_supplier_lines" Data="@Model.Lines">
                 <HeaderTemplate>
+
+                    <RadzenButton Icon="print" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Visible="@ReadOnly">
+                        <RadzenLink Path="@PrintableURL" Text="Print" target="_blank" Icon="print" />
+                    </RadzenButton>
                     <RadzenButton ButtonType="ButtonType.Button" Icon="add" Visible="@IsEditable" Disabled="@(Model.Location is null)" Size="ButtonSize.Small" Click="OpenItemDialog" ButtonStyle="ButtonStyle.Success" />
                 </HeaderTemplate>
                 <Columns>
