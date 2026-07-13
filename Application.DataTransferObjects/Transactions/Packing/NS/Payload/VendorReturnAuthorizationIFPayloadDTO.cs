@@ -43,7 +43,8 @@ public class VendorReturnAuthorizationIFPayloadDTO
                                         Id = /*line.IsBad ? "3" :*/ "1"
                                     },
                                     Quantity = line.ScannedQuantity,
-                                    BinNumber = line.NetsuiteMaterialVendorAssignedBin != 0
+                                    BinNumber = !line.IsLocationUsedBin ? null :
+                                        line.NetsuiteMaterialVendorAssignedBin != 0
                                         ? new ReferenceValue
                                         {
                                             Id = line.NetsuiteMaterialVendorAssignedBin.ToString()

@@ -37,7 +37,7 @@ internal class StockTransferRequestPackingIntegration(
             .WithSubsidiaries(httpContextAccessor, "t")
             .WithFilters(
                 Equal("tl.mainline", "T"),
-                Equal("t.subsidiary", subsidiaryId))
+                Equal("t.tosubsidiary", subsidiaryId))
             .WithFilters(PackingStockTransferRequestFilters())
             .WithDatagridIntent(intent)
             .Build();

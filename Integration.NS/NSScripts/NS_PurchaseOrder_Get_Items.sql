@@ -49,6 +49,7 @@ FROM item i
 	   WHERE ibq.preferredbin = 'T'
    ) ibq ON ibq.item = i.id  AND ibq.location = tl.location
 	LEFT JOIN bin b ON b.id = ibq.bin
+	LEFT JOIN customrecord_dbti_vendor_bin_assignment ba ON t.entity = ba.custrecord_dbti_vba_vendor
     JOIN unitstypeuom uom ON tl.units = uom.internalid
 WHERE
 	t.recordtype = 'purchaseorder'

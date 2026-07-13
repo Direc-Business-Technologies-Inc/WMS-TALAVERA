@@ -56,7 +56,7 @@ public class TripTicketPayloadDTO
                 Id = tripticket.Driver!.NetsuiteEmployeeInternalId.ToString()
             },
 
-            Date = tripticket.TripDate.ToString("yyyy-MM-dd"),
+            Date = tripticket.TripDate.ToString("MM/dd/yyyy"),
 
             Helper = new ReferenceValue
             {
