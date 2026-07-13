@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Razor.Internal;
+using Radzen;
 using Web.BlazorServer.Handlers.Repositories.Transaction.Receiving;
 using Web.BlazorServer.ViewModels.Others;
 using Web.BlazorServer.ViewModels.Transaction.Commons;
@@ -18,6 +19,7 @@ partial class ItemReceiptForm
     [Parameter] public EventCallback<ItemReceiptVM> OnValidSubmit { get; set; }
     [Parameter] public bool Disabled { get; set; } = false;
     [Inject] IReceivingHandler receivingHandler { get; set; } = default!;
+    [Inject] TooltipService tooltipService { get; set; } = default!;
 
     Dictionary<string, BarcodeCollection> Barcodes { get; set; } = new();
     string BarcodeSearchTerm = string.Empty;
@@ -31,7 +33,12 @@ partial class ItemReceiptForm
 
     public async Task Submit()
     {
-        if (Data.Lines.Count(x => x.QuantityOpen < x.QuantityGood + x.QuantityBad) > 0)
+        if (Data.Lines.Any(x => (!x.IsAllAssigned && x.IsReceived)))
+        {
+            ToastService.Error("Please assign inventory details to all lines");
+            return;
+        }
+        if (Data.Lines.Where(x => x.IsReceived).Count(x => x.QuantityOpen < x.QuantityAlloted) > 0)
         {
             ToastService.Error("Cannot receive more than the open quantity");
             return;
@@ -67,7 +74,7 @@ partial class ItemReceiptForm
 
         decimal piecesToAdd = input.barcode.UoM?.ConversionRate ?? 0;
         decimal diff = piecesToAdd / item.UoMRate;
-        if (input.isGood && item.QuantityOpen < item.QuantityGood + diff)
+        if (input.isGood && item.QuantityOpen < item.QuantityAlloted + diff)
             throw new Exception($"Scanned items exceed the expected quantity for item {item.ItemCode}");
 
         var key = input.barcode.Barcode;
@@ -77,31 +84,27 @@ partial class ItemReceiptForm
             {
                 Barcode = input.barcode,
                 Line = item,
-                GoodCount = 0,
-                BadCount = 0
+                Count = 0,
             };
         }
 
-        if (input.isGood)
-        {
-            Barcodes[key].GoodCount++;
-            Barcodes[key].Line.QuantityGood += diff;
-            Barcodes[key].QuantityGood += diff;
-        } 
-        else
-        {
-            Barcodes[key].BadCount++;
-            Barcodes[key].Line.QuantityBad += diff;
-            Barcodes[key].QuantityBad += diff;
-        }
+        Barcodes[key].Count++;
+        Barcodes[key].Line.QuantityAlloted += diff;
+        Barcodes[key].Quantity += diff;
+    }
+
+    async Task SetLineInventoryDetails(ItemReceiptLineVM line, List<InventoryDetailVM> details)
+    {
+        line.InventoryDetails = [.. details];
+
+        await InvokeAsync(StateHasChanged);
     }
 
     void ClearAddedBarcodes()
     {
         foreach (var item in Barcodes.Values)
         {
-            item.Line.QuantityBad -= item.QuantityBad;
-            item.Line.QuantityGood -= item.QuantityGood;
+            item.Line.QuantityAlloted -= item.Quantity;
         }
 
         Barcodes.Clear();
@@ -111,10 +114,8 @@ partial class ItemReceiptForm
     {
         public required BarcodeVM Barcode { get; init; } 
         public required ItemReceiptLineVM Line { get; init; }
-        public int GoodCount { get; set; }
-        public int BadCount { get; set; }
-        public decimal QuantityGood { get; set; }
-        public decimal QuantityBad { get; set; }
+        public int Count { get; set; }
+        public decimal Quantity { get; set; }
     }
 
     public async Task SearchBarcode()

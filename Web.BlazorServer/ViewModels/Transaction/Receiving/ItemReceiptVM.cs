@@ -1,4 +1,6 @@
-﻿namespace Web.BlazorServer.ViewModels.Transaction.Receiving;
+﻿using Web.BlazorServer.ViewModels.Others;
+
+namespace Web.BlazorServer.ViewModels.Transaction.Receiving;
 
 public class ItemReceiptVM
 {
@@ -16,7 +18,7 @@ public class ItemReceiptVM
     public string ReceivedBy { get; set; } = string.Empty;
     public string PreparedBy { get; set; } = string.Empty;
 
-    public string Location { get; set; } = string.Empty;
+    public LocationVM? Location { get; set; }
     public string TransferLocation { get; set; } = string.Empty;
     public string Subsidiary { get; set; } = string.Empty;
     public string ToSubsidiary { get; set; } = string.Empty;

@@ -15,7 +15,6 @@
                         <RadzenText TextStyle="TextStyle.Caption" class="rz-messages-error" Text="@HelperString" />
                     </Helper>
                     <End>
-                        <RadzenToggleButton Variant="Variant.Flat" @bind-Value="@IsGood" ButtonType="ButtonType.Button" ToggleButtonStyle="ButtonStyle.Success" ButtonStyle="ButtonStyle.Danger" Text="@(IsGood ? "Good" : "Bad")" Size="ButtonSize.Small" />
                         <RadzenButton Visible="@(!IsLoadingData)" Size="ButtonSize.Small" Disabled="@IsLoadingData" ButtonType="ButtonType.Submit" ButtonStyle="ButtonStyle.Success" Text="Search" />
                         <RadzenButton Visible="@(IsLoadingData)" Size="ButtonSize.Small" Disabled="@IsLoadingData" ButtonType="ButtonType.Submit" ButtonStyle="ButtonStyle.Success" Text="Search">
                             <RadzenProgressBarCircular Mode="ProgressBarMode.Indeterminate" Size="ProgressBarCircularSize.ExtraSmall" ShowValue="false" AriaLabel="Loading, extra small" />
@@ -33,8 +32,7 @@
                 <RadzenTableHeader>
                     <RadzenTableHeaderRow>
                         <RadzenTableHeaderCell colspan="2">Items</RadzenTableHeaderCell>
-                        <RadzenTableHeaderCell>Good</RadzenTableHeaderCell>
-                        <RadzenTableHeaderCell>Bad</RadzenTableHeaderCell>
+                        <RadzenTableHeaderCell></RadzenTableHeaderCell>
                     </RadzenTableHeaderRow>
                 </RadzenTableHeader>
                 @foreach (var item in Barcodes.Values.ToList())
@@ -47,10 +45,7 @@
                             @(item.Barcode.UoM?.Name ?? "NULL UOM")
                         </RadzenTableCell>
                         <RadzenTableCell>
-                            @("x" + item.GoodCount)
-                        </RadzenTableCell>
-                        <RadzenTableCell>
-                            @("x" + item.BadCount)
+                            @("x" + item.Quantity)
                         </RadzenTableCell>
                     </RadzenTableRow>
                 }

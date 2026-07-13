@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Application.DataTransferObjects.Others;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -19,7 +20,7 @@ public class ItemReceiptDTO
     public string Department { get; set; } = "Operations";
     public string Vendor { get; set; } = string.Empty;
     public string ReceivedBy { get; set; } = string.Empty;
-    public string Location { get; set; } = string.Empty;
+    public LocationDTO? Location { get; set; }
     public string TransferLocation { get; set; } = string.Empty;
     public string Subsidiary { get; set; } = string.Empty;
     public string ToSubsidiary { get; set; } = string.Empty;
@@ -47,7 +48,8 @@ public class ItemReceiptLineDTO
     public string ItemDescription { get; set; } = string.Empty;
     public string UoM { get; set; } = string.Empty;
     public string Department { get; set; } = "Operations";
-    public string Location { get; set; } = string.Empty;
+    public string LocationName { get; set; } = string.Empty;
+    public int LocationId { get; set; }
     public string LocationUsesBins 
     {
         get => _isLocationBinUsed ? "T" : "F";
@@ -60,8 +62,7 @@ public class ItemReceiptLineDTO
     public decimal QuantityPlanned { get; set; }
     public decimal QuantityOpen { get; set; }
     public decimal QuantityReceived { get; set; }
-    public decimal QuantityBad { get; set; }
-    public decimal QuantityGood { get; set; }
+    public decimal QuantityAlloted { get; set; }
 
     public bool IsLocationBinUsed {
         get => _isLocationBinUsed;
@@ -70,5 +71,7 @@ public class ItemReceiptLineDTO
 
     public bool _isLocationBinUsed = false;
     public bool IsReceived { get; set; } = true;
+
+    public List<InventoryDetailDTO> InventoryDetails { get; set; } = [];
 
 }
