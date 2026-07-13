@@ -33,7 +33,6 @@ internal class ReturnPackingIntegration(
                 ("t.memo", nameof(ReturnPackingDataGridNSDTO.Remarks))
             )
             .From("transaction t")
-            .WithSubsidiaries(httpContextAccessor, "t")
             .Join("transactionline tl", on: "tl.transaction = t.id")
             .LeftJoin("transferorderstatus s", on: "s.id = t.status")
             .WithFilters(
