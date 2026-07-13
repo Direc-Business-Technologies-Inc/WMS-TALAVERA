@@ -49,6 +49,7 @@ public partial class InventoryDetailsDialog
                 Detail = x
             })
         );
+
     }
 
     async Task LoadLocation()
@@ -74,8 +75,17 @@ public partial class InventoryDetailsDialog
 
             InventoryBalance = [.. data];
         }, ActionGetInventoryBalance);
+
+        await InvokeAsync(StateHasChanged);
     }
 
+
+    async Task RemoveLine(DetailItem item)
+    {
+        Details.Remove(item);
+
+        await InvokeAsync(StateHasChanged);
+    }
 
     async Task<(IEnumerable<LocationBinVM>, int)> LocationBinProvider(DataGridIntent intent)
     {
