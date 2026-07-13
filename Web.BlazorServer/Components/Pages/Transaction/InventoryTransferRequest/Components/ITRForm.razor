@@ -127,7 +127,7 @@
 
         List<InventoryDetailVM> details = await DialogService.OpenAsync(
             "Enter Inventory Details",
-            ds => @<InventoryDetailsDialog LocationId="@(Model.SourceLocation.Id)" ItemId="itemId" Amount="totalQuantity" Type="@type"/>,
+            ds => @<InventoryDetailsDialog LocationId="@(Model.SourceLocation.Id)" ItemId="itemId" Amount="totalQuantity" Type="@type" InventoryDetails="@line.InventoryDetails"/>,
             options: opts
         );
 

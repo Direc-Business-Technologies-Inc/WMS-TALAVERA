@@ -19,6 +19,7 @@ public partial class InventoryDetailsDialog
     [Parameter] public int? ItemId { get; set; } = null;
     [Parameter] public int? StatusId { get; set; } = null;
     [Parameter] public List<AppFilterDescriptor> StatusFilters { get; set; } = [];
+    [Parameter] public List<InventoryDetailVM> InventoryDetails { get; set; } = [];
 
     List<DetailItem> Details = [];
     List<InventoryBalanceVM> InventoryBalance = [];
@@ -41,6 +42,12 @@ public partial class InventoryDetailsDialog
         await Task.WhenAll(
             LoadLocation(),
             base.OnParametersSetAsync()
+        );
+        Details.AddRange(
+            InventoryDetails.Select(x => new DetailItem(this)
+            {
+                Detail = x
+            })
         );
     }
 
