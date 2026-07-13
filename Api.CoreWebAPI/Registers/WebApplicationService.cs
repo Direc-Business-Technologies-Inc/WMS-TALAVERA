@@ -13,6 +13,8 @@ public static class WebApplicationService
 {
     public static void ConfigureServices(this WebApplicationBuilder builder)
     {
+        builder.Services.AddHttpContextAccessor();
+
         #region Infrastructure Configuration
         builder.Services.AddDatabaseMsSqlServices();
         builder.Services.AddDatabaseLibrariesServices();

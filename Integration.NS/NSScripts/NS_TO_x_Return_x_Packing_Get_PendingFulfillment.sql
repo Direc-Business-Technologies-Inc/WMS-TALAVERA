@@ -14,5 +14,5 @@ WHERE
 	AND t.custbody_dbti_transfer_category IN ('3', '4')
 	AND t.ordpicked = 'F'
     AND t.status IN ('B', 'D', 'E') AND
-	t.subsidiary = @subsidiaryid
+	t.tosubsidiary = @subsidiaryid
 	

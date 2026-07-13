@@ -28,6 +28,7 @@ SELECT
 
     tls.quantityshiprecv AS LineQuantity,
     tl.quantityshiprecv AS LineQuantityReceived,
+    tl.quantitybackordered AS LineQuantityBackOrdered,
 
     tl.units AS NetsuiteUoMInternalId,
     uom.unitname AS UoMName,
