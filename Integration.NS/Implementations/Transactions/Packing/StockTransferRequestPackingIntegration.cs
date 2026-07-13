@@ -61,7 +61,6 @@ internal class StockTransferRequestPackingIntegration(
             )
             .From("transaction t")
             .Join("transactionline tl", on: "tl.transaction = t.id")
-            .WithSubsidiaries(httpContextAccessor, "t")
             .WithFilters(
                 Equal("t.tranid", id),
                 Equal("tl.mainline", "T"))
