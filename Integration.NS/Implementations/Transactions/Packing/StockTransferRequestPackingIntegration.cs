@@ -36,7 +36,17 @@ internal class StockTransferRequestPackingIntegration(
             .LeftJoin("transferorderstatus s", on: "s.id = t.status")
             .WithFilters(
                 Equal("tl.mainline", "T"),
-                Equal("t.tosubsidiary", subsidiaryId))
+                Any(
+                    All(
+                        Equal("t.recordtype", "transferorder"),
+                        Equal("tl.subsidiary", subsidiaryId)
+                    ),
+                    All(
+                        Equal("t.recordtype", "intercompanytransferorder"),
+                        Equal("t.tosubsidiary", subsidiaryId)
+                    )
+                )
+            )
             .WithFilters(PackingStockTransferRequestFilters())
             .WithDatagridIntent(intent)
             .Build();
