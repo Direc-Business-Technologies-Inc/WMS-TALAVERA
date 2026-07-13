@@ -35,7 +35,6 @@ internal class VendorReturnAuthorizationPackingIntegration(
             .From("transaction t")
             .Join("transactionline tl", on: "tl.transaction = t.id")
             .Join("entity e", on: "t.entity = e.id")
-            .WithSubsidiaries(httpContextAccessor, "t")
             .WithFilters(
                 Equal("tl.mainline", "T"),
                 Equal("t.subsidiary", subsidiaryId))
