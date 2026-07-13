@@ -244,6 +244,7 @@ public class InventoryAdjustmentIntegration(
                             items = line.InventoryDetails.Select(d => new
                             {
                                 binNumber = d.Bin != null ? new { id = d.Bin.Id } : null,
+                                inventoryStatus = d.Status?.Id,
                                 quantity = line.QuantityAlloted < 0 ? -d.QuantityAlloted :  d.QuantityAlloted
                             })
                         }
