@@ -30,5 +30,6 @@ public class ItemsNSDTO
     public decimal StockUnitRate { get; set; }
     public decimal SaleUnitRate { get; set; }
     public decimal QuantityOnHand { get; set; }
+    public decimal QuantityAvailable { get; set; }
     public bool UsesBins { get; set; }
 }

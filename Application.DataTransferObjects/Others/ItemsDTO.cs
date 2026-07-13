@@ -14,6 +14,7 @@ public class ItemsDTO
     public string Description { get; set; } = string.Empty;
     public string UnitTypeName { get; set; } = string.Empty;
     public decimal QuantityOnHand { get; set; }
+    public decimal QuantityAvailable { get; set; }
     public int UnitTypeId { get; set; }
     public ItemUnitDTO PurchaseUnit { get; set; } = new(); 
     public ItemUnitDTO StockUnit { get; set; } = new(); 

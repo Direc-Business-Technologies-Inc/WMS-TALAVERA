@@ -18,5 +18,6 @@ public class SupplierReturnLineNSDTO
     public string LocationName { get; set;} = string.Empty;
     public int LocationId { get; set; } 
     public decimal QuantityAlloted { get; set; }
+    public decimal QuantityAvailable { get; set; }
     public int? LineNumber { get; set; }
 }

@@ -118,7 +118,7 @@ public partial class STRForm
                 ItemDescription = item.Name,
                 Warehouse = Model.SourceLocation?.Name ?? string.Empty,
                 UoM = item.StockUnit,
-                QuantityOnHand = item.QuantityOnHand,
+                QuantityOnHand = item.QuantityAvailable,
                 QuantityAlloted = 0
             });
         }

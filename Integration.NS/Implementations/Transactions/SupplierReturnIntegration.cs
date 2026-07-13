@@ -103,12 +103,15 @@ public class SupplierReturnIntegration(
                 ("BUILTIN.DF(tl.location)", nameof(SupplierReturnLineNSDTO.LocationName)),
                 ("tl.location", nameof(SupplierReturnLineNSDTO.LocationId)),
                 ("item.displayname", nameof(SupplierReturnLineNSDTO.ItemDescription)),
-                ("-(tl.quantity / uom.conversionrate)", nameof(SupplierReturnLineNSDTO.QuantityAlloted))
+                ("-(tl.quantity / uom.conversionrate)", nameof(SupplierReturnLineNSDTO.QuantityAlloted)),
+                ("(iil.quantityavailable / uom.conversionrate)", nameof(SupplierReturnLineNSDTO.QuantityAvailable))
             )
             .From("transactionline tl")
             .Join("transaction t", on: "tl.transaction = t.id")
             .Join("item", on: "tl.item = item.id")
             .LeftJoin("unitsTypeUom uom", on: "tl.units = uom.internalid")
+            .LeftJoin("transactionline ml", on: "ml.mainline = 'T' AND ml.transaction = tl.transaction")
+            .LeftJoin("inventoryitemlocations iil", on: "tl.item = iil.item AND ml.location = iil.location")
             .WithFilters(
                 DataGridFilterUtilities.Equal("t.recordtype", "vendorreturnauthorization"),
                 DataGridFilterUtilities.Equal("t.tranid", referenceNumber)
@@ -256,11 +259,13 @@ public class SupplierReturnIntegration(
                 ("BUILTIN.DF(tl.location)", nameof(SupplierReturnLineNSDTO.LocationName)),
                 ("tl.location", nameof(SupplierReturnLineNSDTO.LocationId)),
                 ("item.displayname", nameof(SupplierReturnLineNSDTO.ItemDescription)),
+                ("(iil.quantityavailable / uom.conversionrate)", nameof(SupplierReturnLineNSDTO.QuantityAvailable)),
                 ("(tl.quantity / uom.conversionrate)", nameof(SupplierReturnLineNSDTO.QuantityAlloted))
             )
             .From("transactionline tl")
             .Join("transaction t", on: "tl.transaction = t.id")
             .Join("item", on: "tl.item = item.id")
+            .LeftJoin("inventoryitemlocations iil", on: "tl.item = iil.item AND tl.location = iil.location")
             .LeftJoin("unitsTypeUom uom", on: "tl.units = uom.internalid")
             .WithFilters(
                 DataGridFilterUtilities.Equal("t.recordtype", "purchaseorder"),

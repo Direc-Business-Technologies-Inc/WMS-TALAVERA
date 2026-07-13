@@ -213,6 +213,7 @@ public partial class SupplierReturnForm
                 UoM = x.StockUnit,
                 Location = Model.Location,
                 QuantityOnHand = x.QuantityOnHand,
+                QuantityAvailable = x.QuantityAvailable,
                 QuantityAlloted = 0
             }));
     }
