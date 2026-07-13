@@ -319,7 +319,6 @@ internal class StockTransferRequestIntegration(
             } : null,
             custbody_dbti_transfer_category = new { id = dto.TransferCategory.Id },
             custbody_dbti_prepared_by = dto.PreparedById,
-            custbody_dbti_custom_approval_status = 2, // draft
             custbody_dbti_return_to_vendor = dto.TransferCategory.IsReturn && dto.Vendor != null ? new { id = dto.Vendor.Id.ToString() } : null,
             Department = new { id = "4" },
             Class = new { id = "1" },
