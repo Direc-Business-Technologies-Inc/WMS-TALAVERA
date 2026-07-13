@@ -483,7 +483,7 @@ public class ReceivingIntegration(
             transferOrderId = dto.SourceInternalId,
             transferCategory = isGood ? 1 : 2,
             custbody_dbti_prepared_by = dto.PreparedById,
-            custbody_dbti_received_by = dto.PreparedById,
+            receiverEmployeeId = dto.PreparedById,
             lines = lines.Where(x => x.QuantityAlloted > 0).Select(line =>
             {
                 return new
