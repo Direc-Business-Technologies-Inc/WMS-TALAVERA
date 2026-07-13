@@ -199,7 +199,7 @@ internal class StockTransferRequestIntegration(
                 ("BUILTIN.DF(ml.location)", nameof(StockTransferRequestLineNSDTO.Warehouse)),
                 ("item.displayname", nameof(StockTransferRequestLineNSDTO.ItemDescription)),
                 ("tl.linesequencenumber", nameof(StockTransferRequestLineNSDTO.LineNumber)),
-                ("(iil.quantityonhand / uom.conversionrate)", nameof(StockTransferRequestLineNSDTO.QuantityOnHand)),
+                ("(iil.quantityavailable / uom.conversionrate)", nameof(StockTransferRequestLineNSDTO.QuantityOnHand)),
                 ("(-tl.quantity / uom.conversionrate)", nameof(StockTransferRequestLineNSDTO.QuantityAlloted)) // idk why this is negative
             )
             .From("transactionline tl")
