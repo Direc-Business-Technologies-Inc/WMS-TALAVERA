@@ -45,7 +45,7 @@ public static class SuiteQLQueryExtensions
         return responses[0];
     }
 
-    public static SuiteQLQueryBuilder WithSubsidiaries(this SuiteQLQueryBuilder builder, IHttpContextAccessor context, string transactionTablename)
+    public static SuiteQLQueryBuilder WithSubsidiaries(this SuiteQLQueryBuilder builder, IHttpContextAccessor context, string transactionTablename, bool destination = false)
     {
         if (string.IsNullOrWhiteSpace(transactionTablename)) return builder;
         string? claimValue = context.HttpContext?.User?.FindFirst("com.direcbusiness.wms.nsAllowedSubsidiaries")?.Value;
@@ -54,7 +54,7 @@ public static class SuiteQLQueryExtensions
         List<int> allowedSubsidiaries = JsonSerializer.Deserialize<List<int>>(claimValue) ?? [];
 
         if (allowedSubsidiaries.Count == 0) return builder;
-        return builder.WithFilter(
-            DataGridFilterUtilities.In($"{transactionTablename}.subsidiary", allowedSubsidiaries));
+        return destination ? builder.WithFilter(DataGridFilterUtilities.In($"{transactionTablename}.tosubsidiary", allowedSubsidiaries))
+            : builder.WithFilter(DataGridFilterUtilities.In($"{transactionTablename}.subsidiary", allowedSubsidiaries));
     }
 }
