@@ -150,6 +150,9 @@
                                       Data="[..FormData.DocumentLines]">
                                 <HeaderTemplate>
                                     <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" AlignItems="AlignItems.Center" Gap="8px">
+                                        <RadzenButton Icon="print" Size="ButtonSize.Small">
+                                            <RadzenLink Path="@PrintableURL" Text="Print" target="_blank" />
+                                        </RadzenButton>
                                         <RadzenButton Icon="settings" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@OpenLinesTableSettings" />
                                         <RadzenButton Icon="add" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Success"
                                                       Disabled="@(string.IsNullOrEmpty(FormData.Warehouse?.WhsCode) || IsLoadingWarehouseItems)"

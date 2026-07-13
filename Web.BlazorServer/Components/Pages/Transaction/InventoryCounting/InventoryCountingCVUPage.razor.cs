@@ -58,6 +58,8 @@ public partial class InventoryCountingCVUPage
     IDataGridIntentAdapter DatagridAdapter { get; set; } = default!;
     #endregion Data Structures
 
+    const string PRINTABLE_URL = "https://11608969.extforms.netsuite.com/app/site/hosting/scriptlet.nl?script=1927&deploy=1&compid=11608969&ns-at=AAEJ7tMQyE6umQKz0wSLDGoip59M2L9IFfjxppQ3QPUA4iQyXVo";
+
     #region Overrides
     protected override void OnParametersSet()
     {
@@ -135,6 +137,8 @@ public partial class InventoryCountingCVUPage
         });
     }
     #endregion Overrides
+
+    string PrintableURL => $"{PRINTABLE_URL}?id={FormData.Id}";
 
     #region Custom Functions
     async Task LoadDataAsync()

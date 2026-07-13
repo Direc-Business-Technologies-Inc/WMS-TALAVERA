@@ -54,6 +54,7 @@ partial class TripTicketCVU
     List<LocationVM> DestinationLocations { get; set; } = [];
     List<TruckPlateNumberVM> TruckPlateNumbers { get; set; } = [];
 
+    const string PRINTABLE_URL = "https://11608969.extforms.netsuite.com/app/site/hosting/scriptlet.nl?script=1671&deploy=1&compid=11608969&ns-at=AAEJ7tMQ9evIwFEEUifIBokQgQ0jhowAItpfjv5Smu7B76K41lU&recordType=customrecord_dbti_trip_ticket&transactionDefault=false";
     List<NavigationRouteVM> AdditionalRoutes { get; set; } =
     [
         new()
@@ -371,6 +372,8 @@ partial class TripTicketCVU
         employee is null
             ? string.Empty
             : employee.FullName.Trim();
+
+    string PrintableURL => $"{PRINTABLE_URL}&recordId={FormData.Id}";
 
     string GetLocationName(LocationVM? location) =>
         location?.LocationName ?? string.Empty;

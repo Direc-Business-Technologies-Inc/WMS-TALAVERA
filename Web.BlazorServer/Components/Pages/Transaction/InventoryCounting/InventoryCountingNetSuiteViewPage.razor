@@ -54,6 +54,11 @@
 
             <RadzenFieldset Text="Lines" AllowCollapse>
                 <AppTableWithSettings Data="@Lines" Id="inventory_counting_ns_lines">
+                    <HeaderTemplate>
+                        <RadzenButton Icon="print" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light">
+                            <RadzenLink Path="@PrintableURL" Text="Print" target="_blank" Icon="print"/>
+                        </RadzenButton>
+                    </HeaderTemplate>
                     <Columns>
                         <RadzenDataGridColumn TItem="InventoryCountingLineVM"
                                               Property="@nameof(InventoryCountingLineVM.MaterialCode)"

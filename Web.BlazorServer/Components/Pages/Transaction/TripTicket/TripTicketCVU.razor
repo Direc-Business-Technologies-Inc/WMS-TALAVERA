@@ -203,6 +203,7 @@
                                       Data="[..FormData.ItemFulfillments]">
                                 <HeaderTemplate>
                                     <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" AlignItems="AlignItems.Center" Gap="8px">
+
                                         <RadzenButton Icon="settings" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@OpenFulfillmentTableSettings" />
                                         <RadzenButton Icon="add" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Success"
                                                       Disabled="@IsLoadingFulfillments"
@@ -263,6 +264,9 @@
                     <RadzenStack class="rz-mt-4" Orientation="Orientation.Horizontal"
                                  AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
                         <RadzenButton Text="Back" ButtonStyle="ButtonStyle.Base" Click="@GoBack" />
+                        <RadzenButton Icon="print" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light">
+                            <RadzenLink Path="@PrintableURL" Text="Print" target="_blank" Icon="print" />
+                        </RadzenButton>
                         <RadzenButton Visible="@Creating"
                                       ButtonStyle="ButtonStyle.Success"
                                       ButtonType="ButtonType.Submit"
