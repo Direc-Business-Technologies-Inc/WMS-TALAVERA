@@ -94,6 +94,7 @@ public class ItemsIntegration(
         var query = builderFactory.Create()
             .Select(
                 ("(SELECT SUM(quantityonhand) FROM aggregateitemlocation WHERE item = i.id)", nameof(ItemsNSDTO.QuantityOnHand)),
+                ("(SELECT SUM(quantityavailable) FROM aggregateitemlocation WHERE item = i.id)", nameof(ItemsNSDTO.QuantityAvailable)),
                 ("i.itemid", nameof(ItemsNSDTO.ItemNumber)),
                 ("i.id", nameof(ItemsNSDTO.Id)),
                 ("i.displayname", nameof(ItemsNSDTO.Name)),
