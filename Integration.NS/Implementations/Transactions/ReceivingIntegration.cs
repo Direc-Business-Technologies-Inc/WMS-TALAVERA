@@ -11,6 +11,7 @@ using Integration.NS.Services;
 using Integration.SAP.Entities.Transactional.Receiving;
 using Mapster;
 using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
 using Shared.Entities;
 using Shared.Libraries.Utilities;
 using Shared.Libraries.ViewModel;
@@ -118,6 +119,13 @@ public class ReceivingIntegration(
 
     public async Task<(IEnumerable<TransferOrderDataGridDTO>, int count)> GetTransferOrderListAsync(DataGridIntent intent)
     {
+        List<int> allowedSubsidiaries = [];
+        string? claimValue = httpContext.HttpContext?.User?.FindFirst("com.direcbusiness.wms.nsAllowedSubsidiaries")?.Value;
+        if (claimValue is not null)
+        {
+            allowedSubsidiaries = JsonSerializer.Deserialize<List<int>>(claimValue) ?? [];
+        }
+
         var query = builderFactory.Create()
             .Select(
                 ("t.id", "Id"),
@@ -135,12 +143,21 @@ public class ReceivingIntegration(
             .LeftJoin("transferorderstatus s", on: "t.status = s.id")
             .WithFilters(
                 Equal("tl.mainline", "T"),
-                In("t.recordtype", new string[] { "transferorder", "intercompanytransferorder" }),
                 NotEqual("t.custbody_dbti_transfer_category", 4), // returns - bad items
                 NotEqual("t.custbody_dbti_transfer_category", 3), // returns - good items
-                In("t.status", new string[] { "F", "E" }))
+                In("t.status", new string[] { "F", "E" }),
+                Any(
+                    All(
+                        Equal("t.recordtype", "intercompanytransferorder"),
+                        In("t.tosubsidiary", allowedSubsidiaries)
+                    ),
+                    All(
+                        Equal("t.recordtype", "transferorder"),
+                        In("t.subsidiary", allowedSubsidiaries)
+                    )
+                )
+            )
             .WithDatagridIntent(intent)
-            .WithSubsidiaries(httpContext, "t", true)
             .Build();
 
         var response = await netsuiteService.ExecuteSuiteQLQuery<TransferOrderDataGridDTO>(query.Query, limit: query.Limit, offset: query.Offset);
@@ -173,7 +190,6 @@ public class ReceivingIntegration(
             )
             .From("transaction t")
             .Join("transactionline tl", on: "tl.transaction = t.id")
-            .WithSubsidiaries(httpContext, "t", true)
             .WithFilters(
                 In("t.recordtype", new string[] { "transferorder", "intercompanytransferorder" }),
                 Equal("tl.mainline", "T"),
