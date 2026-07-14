@@ -136,7 +136,7 @@ public class InventoryTransferRequestIntegration(
             .WithDatagridIntent(intent)
             .Build();
 
-        var response = await netsuiteService.ExecuteSuiteQLQuery<InventoryTransferRequestStatusDTO>(query.Query, query.Limit, query.Offset);
+        var response = await query.ExecuteWithPaging<InventoryTransferRequestStatusDTO>(netsuiteService);
         return (response.items, response.totalResults);
     }
 
