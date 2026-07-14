@@ -23,6 +23,12 @@ partial class ItemReceiptForm
     [Inject] IReceivingHandler receivingHandler { get; set; } = default!;
     [Inject] TooltipService tooltipService { get; set; } = default!;
 
+    readonly TooltipOptions LineDetailsTooltipOptions = new()
+    {
+        Position = TooltipPosition.Top
+    };
+
+
     Dictionary<string, BarcodeCollection> Barcodes { get; set; } = new();
     string BarcodeSearchTerm = string.Empty;
     bool BarcodeSearchDisabled = false;
@@ -105,6 +111,11 @@ partial class ItemReceiptForm
     {
         line.InventoryDetails = [.. details];
 
+        var countGood = details.Where(x => x.Status?.Id == 1).Sum(x => x.QuantityAlloted);
+        var countBad = details.Where(x => x.Status?.Id == 3).Sum(x => x.QuantityAlloted);
+
+        line.DetailsTooltipText = $"{countGood} Good, {countBad} Bad";
+
         await InvokeAsync(StateHasChanged);
     }
 
@@ -145,6 +156,12 @@ partial class ItemReceiptForm
         BarcodeSearchTerm = string.Empty;
         BarcodeSearchDisabled = false;
         await InvokeAsync(StateHasChanged);
+    }
+
+    void ShowLineTooltip(ElementReference reference, ItemReceiptLineVM line)
+    {
+        if (!string.IsNullOrEmpty(line.DetailsTooltipText))
+            tooltipService.Open(reference, line.DetailsTooltipText, LineDetailsTooltipOptions);
     }
 
     private class DropDownItem()

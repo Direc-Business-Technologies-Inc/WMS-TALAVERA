@@ -107,6 +107,7 @@
                                     </ChildContent>
                                     <End>
                                         <RadzenButton Icon="@(data.IsAllAssigned ? "assignment_turned_in" : "assignment_returned")"
+                                                      MouseEnter="@(args => ShowLineTooltip(args, data))"
                                                       ButtonStyle="@(data.IsAllAssigned ? ButtonStyle.Success : ButtonStyle.Warning)"
                                                       Size="ButtonSize.ExtraSmall"
                                                       Disabled="Disabled"
