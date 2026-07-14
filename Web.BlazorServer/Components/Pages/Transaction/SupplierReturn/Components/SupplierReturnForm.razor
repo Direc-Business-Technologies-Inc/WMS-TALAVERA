@@ -122,6 +122,19 @@
                             <RadzenNumeric Disabled="IsDisabled" Visible="@(IsEditable)" @bind-Value="@data.QuantityAlloted" Format="#,##0.##" />
                         </Template>
                     </RadzenDataGridColumn>
+
+                    @if (IsEditable)
+                    {
+                        <RadzenDataGridColumn TItem="SupplierReturnLineVM"
+                                              Frozen
+                                              FrozenPosition="FrozenColumnPosition.Right"
+                                              Width="35px"
+                                              Filterable="false" Sortable="false" Pickable="false">
+                            <Template Context="data">
+                                <RadzenButton Disabled="Disabled" Icon="delete" ButtonStyle="ButtonStyle.Danger" Size="ButtonSize.ExtraSmall" Click="_ => RemoveLine(data)" />
+                            </Template>
+                        </RadzenDataGridColumn>
+                    }
                 </Columns>
             </AppTableWithSettings>
         </RadzenFieldset>
