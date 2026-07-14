@@ -85,7 +85,7 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
                     NetsuiteMaterialVendorAssignedBin = line.NetsuiteMaterialVendorAssignedBin,
 
                     LineQuantity = line.LineQuantity,
-                    LineQuantityReceived = line.LineQuantityReceived,
+                    LineQuantityPacked = line.LineQuantityPacked,
 
                     NetsuiteUoMInternalId = line.NetsuiteUoMInternalId,
                     UoMName = line.UoMName,
@@ -437,7 +437,7 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
                 NetsuiteMaterialVendorAssignedBin = x.NetsuiteMaterialVendorAssignedBin,
 
                 LineQuantity = x.LineQuantity,
-                LineQuantityReceived = x.LineQuantityReceived,
+                LineQuantityPacked = x.LineQuantityPacked,
 
                 NetsuiteUoMInternalId = x.NetsuiteUoMInternalId,
                 UoMName = x.UoMName,

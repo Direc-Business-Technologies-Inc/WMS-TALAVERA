@@ -36,6 +36,7 @@ namespace Integration.NS.Services
         private static readonly string AccountId = Environment.GetEnvironmentVariable("ACCOUNT_ID") ?? string.Empty;
 
         private static readonly string ItemFulfillmentUrl = $"https://{AccountId}.suitetalk.api.netsuite.com/services/rest/record/v1/{{0}}/{{1}}/!transform/itemFulfillment?replace=item.inventoryDetail.inventoryAssignment";
+        private static readonly string ItemFulfillmentUrlNotUsedBin = $"https://{AccountId}.suitetalk.api.netsuite.com/services/rest/record/v1/{{0}}/{{1}}/!transform/itemFulfillment";
 
         private static readonly string PatchItemFulfillmentUrl = $"https://{AccountId}.suitetalk.api.netsuite.com/services/rest/record/v1/itemFulfillment/{{0}}";
 
@@ -187,7 +188,7 @@ namespace Integration.NS.Services
                 IssuedAt = now,
                 Claims = new Dictionary<string, object>
             {
-                { "scope", "rest_webservices" }
+                { "scope", "restlets rest_webservices" }
             },
                 SigningCredentials = signingCreds
             };
@@ -594,7 +595,9 @@ namespace Integration.NS.Services
         public async Task<bool> SaveTOItemFulfillment(List<PostTransferOrderDTO> Data)
         {
             var orderId = Data.Select(x => x.NetsuiteOrderInternalId).FirstOrDefault();
-            string url = string.Format(ItemFulfillmentUrl, "transferOrder", orderId);
+            var isUsedBin = Data.Select(x => x.IsLocationUsedBin).FirstOrDefault();
+
+            string url = string.Format(isUsedBin ? ItemFulfillmentUrl : ItemFulfillmentUrlNotUsedBin, "transferOrder", orderId);
 
             var badTO = Data.Where(x => x.IsBad).ToList();
 
@@ -602,7 +605,7 @@ namespace Integration.NS.Services
             {
                 try
                 {
-                    var payloadBad = TransferOrderIFPayloadDTO.CreateForItemFulfillment(badTO, "B");
+                    var payloadBad = TransferOrderIFPayloadDTO.CreateForItemFulfillment(badTO, "B", isUsedBin);
 
                     var jsonStringBad = JsonSerializer.Serialize(payloadBad, JsonSerializerOption);
 
@@ -620,7 +623,7 @@ namespace Integration.NS.Services
             {
                 try
                 {
-                    var payloadGood = TransferOrderIFPayloadDTO.CreateForItemFulfillment(goodTO, "B");
+                    var payloadGood = TransferOrderIFPayloadDTO.CreateForItemFulfillment(goodTO, "B", isUsedBin);
 
                     var jsonStringGood = JsonSerializer.Serialize(payloadGood, JsonSerializerOption);
 
@@ -637,11 +640,13 @@ namespace Integration.NS.Services
         public async Task<bool> SaveReturnsItemFulfillment(List<PostReturnsDTO> Data)
         {
             var orderId = Data.Select(x => x.NetsuiteOrderInternalId).FirstOrDefault();
-            string url = string.Format(ItemFulfillmentUrl, "transferOrder", orderId);
+            var isUsedBin = Data.Select(x => x.IsLocationUsedBin).FirstOrDefault();
+
+            string url = string.Format(isUsedBin ? ItemFulfillmentUrl : ItemFulfillmentUrlNotUsedBin, "transferOrder", orderId);
 
             try
             {
-                ReturnsIFPayloadDTO payloadGood = ReturnsIFPayloadDTO.CreateForItemFulfillment(Data, "B");
+                ReturnsIFPayloadDTO payloadGood = ReturnsIFPayloadDTO.CreateForItemFulfillment(Data, "B", isUsedBin);
 
                 var jsonStringGood = JsonSerializer.Serialize(payloadGood, JsonSerializerOption);
 
@@ -658,7 +663,9 @@ namespace Integration.NS.Services
         public async Task<bool> SaveVRAItemFulfillment(List<PostVendorReturnAuthorizationDTO> Data)
         {
             var orderId = Data.Select(x => x.NetsuiteOrderInternalId).FirstOrDefault();
-            string url = string.Format(ItemFulfillmentUrl, "vendorReturnAuthorization", orderId);
+            var isUsedBin = Data.Select(x => x.IsLocationUsedBin).FirstOrDefault();
+
+            string url = string.Format(isUsedBin ? ItemFulfillmentUrl : ItemFulfillmentUrlNotUsedBin, "vendorReturnAuthorization", orderId);
 
             var badTO = Data.Where(x => x.IsBad).ToList();
 
@@ -666,7 +673,7 @@ namespace Integration.NS.Services
             {
                 try
                 {
-                    var payloadBad = VendorReturnAuthorizationIFPayloadDTO.CreateForItemFulfillment(badTO, "B");
+                    var payloadBad = VendorReturnAuthorizationIFPayloadDTO.CreateForItemFulfillment(badTO, "B", isUsedBin);
 
                     var jsonStringBad = JsonSerializer.Serialize(payloadBad, JsonSerializerOption);
 
@@ -684,7 +691,7 @@ namespace Integration.NS.Services
             {
                 try
                 {
-                    var payloadGood = VendorReturnAuthorizationIFPayloadDTO.CreateForItemFulfillment(goodTO, "B");
+                    var payloadGood = VendorReturnAuthorizationIFPayloadDTO.CreateForItemFulfillment(goodTO, "B", isUsedBin);
 
                     var jsonStringGood = JsonSerializer.Serialize(payloadGood, JsonSerializerOption);
 

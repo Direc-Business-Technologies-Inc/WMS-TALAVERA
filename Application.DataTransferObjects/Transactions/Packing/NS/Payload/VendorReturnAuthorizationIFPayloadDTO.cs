@@ -12,7 +12,8 @@ public class VendorReturnAuthorizationIFPayloadDTO
 
     public static VendorReturnAuthorizationIFPayloadDTO CreateForItemFulfillment(
         List<PostVendorReturnAuthorizationDTO> lines,
-        string shipStatus)
+        string shipStatus,
+        bool isUsedBin)
     {
         // Make it nullable if its not included in json
         return new VendorReturnAuthorizationIFPayloadDTO
@@ -59,15 +60,14 @@ public class VendorReturnAuthorizationIFPayloadDTO
                             ]
                         };
 
-                        //var inventoryDetail = new InventoryDetail
-                        //{
-                        //    InventoryAssignmentList = new InventoryAssignmentList
-                        //    {
-                        //        InventoryAssignment = assignment
-                        //    }
-                        //};
-
-                        var inventoryDetail = new InventoryDetail
+                        var inventoryDetail = !isUsedBin ? new InventoryDetail
+                        {
+                            InventoryAssignmentList = new InventoryAssignmentList
+                            {
+                                InventoryAssignment = assignment
+                            }
+                        }
+                        : new InventoryDetail
                         {
                             InventoryAssignment = assignment
                         };
