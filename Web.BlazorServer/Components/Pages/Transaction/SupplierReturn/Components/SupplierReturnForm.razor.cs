@@ -45,8 +45,6 @@ public partial class SupplierReturnForm
     bool IsDisabled => Disabled || LoadingPO;
     bool LoadingPO = false;
 
-    readonly string[] StatusIdsNormal = ["A", "B"];
-    readonly string[] StatusIdsBad = ["B"];
     const string PRINTABLE_URL = "https://11608969.extforms.netsuite.com/app/site/hosting/scriptlet.nl?script=1671&deploy=1&compid=11608969&ns-at=AAEJ7tMQ9evIwFEEUifIBokQgQ0jhowAItpfjv5Smu7B76K41lU&recordType=vendorreturnauthorization&transactionDefault=true";
 
     protected override void OnParametersSet()
@@ -174,9 +172,11 @@ public partial class SupplierReturnForm
 
         action.OnSuccess(async (po) =>
         {
+            var prepBy = Model.PreparedBy;
             po.Adapt(Model);
             Model.CreatedFrom = po.ReferenceNumber;
             Model.Status = new ReturnStatusVM() { Name = "Pending Approval" };
+            Model.PreparedBy = prepBy;
             Model.ReturnCategory = null;
             canSelectPO = false;
         });
