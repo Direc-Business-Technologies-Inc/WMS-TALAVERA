@@ -75,16 +75,7 @@
                         </ChildContent>
                     </RadzenFormField>
                 </RadzenColumn>
-                <RadzenColumn SizeMD="3">
-                    <RadzenFormField Text="Status" class="rz-w-100">
-                        <ChildContent>
-                            <RadzenTextBox Disabled="IsDisabled" ReadOnly Value="@Model.Status?.Name" Placeholder="No status given" />
-                        </ChildContent>
-                        <Helper>
-                        </Helper>
-                    </RadzenFormField>
-                </RadzenColumn>
-                <RadzenColumn SizeMD="3">
+                <RadzenColumn SizeMD="6">
                     <RadzenFormField Text="Warehouse" class="rz-w-100">
                         <ChildContent>
                             <RadzenTextBox Disabled="IsDisabled" Visible="@(!IsEditable)" Value="@Model.Location?.Name" Placeholder="No location given" />
