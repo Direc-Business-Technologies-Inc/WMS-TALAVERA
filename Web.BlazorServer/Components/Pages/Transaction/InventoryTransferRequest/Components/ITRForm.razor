@@ -104,7 +104,7 @@
     {
         List<ItemsVM> items = await DialogService.OpenAsync(
             "Select Items",
-            ds => @<Web.BlazorServer.Components.Pages.Transaction.InventoryTransferRequest.Components.ItemSelectionDialog Location="@(Model.SourceLocation?.Id ?? null)" Filters="@ItemFilters" />,
+            ds => @<ItemSelectionDialog Location="@(Model.SourceLocation?.Id ?? null)" Filters="@ItemFilters" />,
     options: GridSettingsService.GetDialogOptions());
 
         if (items is not null) await AddItems(items);
