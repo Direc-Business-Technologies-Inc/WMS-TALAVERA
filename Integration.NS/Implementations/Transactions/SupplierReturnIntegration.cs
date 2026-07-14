@@ -226,13 +226,19 @@ public class SupplierReturnIntegration(
                     ("t.subsidiary", nameof(SupplierReturnNSDTO.SubsidiaryId)),
                     ("BUILTIN.DF(t.subsidiary)", nameof(SupplierReturnNSDTO.SubsidiaryName)),
                     ("BUILTIN.DF(ml.location)", nameof(SupplierReturnNSDTO.LocationName)),
+                    ("categ.id", nameof(SupplierReturnNSDTO.PurchaseCategoryId)),
+                    ("categ.name", nameof(SupplierReturnNSDTO.PurchaseCategoryName)),
+                    ("subcat.id", nameof(SupplierReturnNSDTO.PurchaseSubCategoryId)),
+                    ("subcat.name", nameof(SupplierReturnNSDTO.PurchaseSubCategoryName)),
                     ("t.memo", nameof(SupplierReturnNSDTO.Memo)),
                     ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(SupplierReturnNSDTO.Date))
                 )
                 .From("transaction t")
-                .LeftJoin("transactionline ml", "ml.mainline = 'T' and ml.transaction = t.id")
-                .WithSubsidiaries(httpContextAccessor, "t")
                 .Join("VendorReturnAuthorizationStatus s", "t.status = s.id")
+                .LeftJoin("transactionline ml", "ml.mainline = 'T' and ml.transaction = t.id")
+                .LeftJoin("CUSTOMLIST_DBTI_PURCHASE_CATEGORY_LIST categ", "t.custbody_dbti_purchase_category = categ.id")
+                .LeftJoin("CUSTOMRECORD_DBTI_PURCHASE_CATEGORIES subcat", "t.custbody_dbti_purchase_subcategory = subcat.id")
+                .WithSubsidiaries(httpContextAccessor, "t")
                 .WithFilters(
                     DataGridFilterUtilities.Equal("t.recordtype", "purchaseorder"),
                     DataGridFilterUtilities.Equal("t.status", "F"),
@@ -248,7 +254,9 @@ public class SupplierReturnIntegration(
         {
             Location = new() { Id = nsdto.LocationId, Name = nsdto.LocationName },
             Vendor = new() { Id = nsdto.VendorId, Name = nsdto.VendorName },
-            Subsidiary = new() { Id = nsdto.SubsidiaryId, Name = nsdto.SubsidiaryName }
+            Subsidiary = new() { Id = nsdto.SubsidiaryId, Name = nsdto.SubsidiaryName },
+            PurchaseCategory = new() { Id = nsdto.PurchaseCategoryId, Name = nsdto.PurchaseCategoryName },
+            PurchaseSubcategory = new() { Id = nsdto.PurchaseSubCategoryId, Name = nsdto.PurchaseSubCategoryName, PurchaseCategoryId = nsdto.PurchaseCategoryId },
         });
     }
 
