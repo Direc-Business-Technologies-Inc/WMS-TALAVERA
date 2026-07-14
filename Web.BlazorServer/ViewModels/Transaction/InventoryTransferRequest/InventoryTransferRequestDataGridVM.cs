@@ -8,6 +8,7 @@ public class InventoryTransferRequestDataGridVM
     public int Id { get; set; }
     [QuickDataGridTitle("Reference Number")]
     public string ReferenceNumber { get; set; } = string.Empty;
+    [QuickDataGridStringFormat("{0:MMMM dd, yyyy}")]
     public DateTime Date { get; set; }
     [QuickDataGridTitle("Subsidiary")]
     public string SubsidiaryName { get; set; } = string.Empty;
