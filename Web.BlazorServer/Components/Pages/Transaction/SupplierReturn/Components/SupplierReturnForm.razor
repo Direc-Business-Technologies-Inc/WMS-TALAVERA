@@ -30,7 +30,7 @@
                             <QuickVirtualizedDropdown  Disabled="IsDisabled" Name="str_return_categ" @bind-Value:get="@Model.ReturnCategory" @bind-Value:set="@CategorySet" Visible="@(!ReadOnly)" TItem="ReturnCategoryVM" DataGetter="@CategoryProvider" TextProperty="@nameof(ReturnCategoryVM.Name)" />
                         </ChildContent>
                         <Helper>
-                            <RadzenRequiredValidator Visible="@IsEditable" Component="str_return_categ" />
+                            <RadzenRequiredValidator Visible="@(!ReadOnly)" Component="str_return_categ" />
                         </Helper>
                     </RadzenFormField>
                 </RadzenColumn>
