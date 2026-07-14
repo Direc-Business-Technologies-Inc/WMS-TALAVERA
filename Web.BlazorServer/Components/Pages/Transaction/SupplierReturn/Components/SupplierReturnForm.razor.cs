@@ -174,6 +174,7 @@ public partial class SupplierReturnForm
 
         action.OnSuccess(async (po) =>
         {
+            Model.CreatedFrom = po.ReferenceNumber;
             po.Adapt(Model);
             canSelectPO = false;
         });

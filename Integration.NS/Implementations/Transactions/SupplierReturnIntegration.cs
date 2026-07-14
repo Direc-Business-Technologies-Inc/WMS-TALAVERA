@@ -49,12 +49,14 @@ public class SupplierReturnIntegration(
                     ("BUILTIN.DF(t.custbody_dbti_purchase_category)", nameof(SupplierReturnNSDTO.PurchaseCategoryName)),
                     ("t.custbody_dbti_purchase_subcategory", nameof(SupplierReturnNSDTO.PurchaseSubCategoryId)),
                     ("BUILTIN.DF(t.custbody_dbti_purchase_subcategory)", nameof(SupplierReturnNSDTO.PurchaseSubCategoryName)),
+                    ("tf.tranid", nameof(SupplierReturnNSDTO.CreatedFrom)),
                     ("CONCAT(e.firstname,CONCAT(' ',e.lastname))", nameof(SupplierReturnNSDTO.PreparedBy))
                 )
                 .From("transaction t")
                 .Join("VendorReturnAuthorizationStatus s", on: "t.status = s.id")
                 .LeftJoin("transactionline ml", "ml.mainline = 'T' and ml.transaction = t.id")
                 .LeftJoin("employee e", on: "e.id = t.custbody_dbti_prepared_by")
+                .LeftJoin("transaction tf", on: "tf.id = ml.createdfrom")
                 .WithSubsidiaries(httpContextAccessor, "t")
                 .WithFilters(
                     DataGridFilterUtilities.Equal("t.recordtype", "vendorreturnauthorization"),
