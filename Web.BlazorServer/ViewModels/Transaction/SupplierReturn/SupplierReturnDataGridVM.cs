@@ -10,6 +10,8 @@ public class SupplierReturnDataGridVM
     public DateTime Date { get; set; }
     [QuickDataGridTitle("Vendor")]
     public string VendorName { get; set; } = string.Empty;
+    [QuickDataGridTitle("Created From")]
+    public string CreatedFrom { get; set; } = string.Empty;
     [QuickDataGridTitle("Category")]
     public string CategoryName { get; set; } = string.Empty;
     [QuickDataGridTitle("Remarks")]
