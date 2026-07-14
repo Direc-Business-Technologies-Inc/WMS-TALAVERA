@@ -196,7 +196,6 @@ public class SupplierReturnIntegration(
         var payload = new
         {
             custbody_dbti_return_category = data.ReturnCategory?.Id ?? null,
-            orderstatus = data.Status?.Id ?? null,
         };
         var payloadString = JsonSerializer.Serialize(payload, jsonOpts);
         var uri = netsuiteService.GetRestAPIURI + $"/record/v1/purchaseOrder/{data.SourcePO}/!transform/vendorReturnAuthorization";
@@ -362,7 +361,7 @@ public class SupplierReturnIntegration(
             custbody_dbti_return_category = data.ReturnCategory?.Id ?? null,
             custbody_dbti_purchase_category = data.PurchaseSubcategory != null ? data.PurchaseSubcategory.PurchaseCategoryId : data.PurchaseCategory?.Id ?? null,
             custbody_dbti_purchase_subcategory = data.PurchaseSubcategory?.Id ?? null,
-            memo = data.Memo,
+            memo = data.Memo,       
             item = new
             {
                 items = data.Lines.Select(x => new
