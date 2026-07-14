@@ -81,6 +81,8 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
                     MaterialCode = line.MaterialCode,
                     MaterialName = line.MaterialName,
                     MaterialWeight = line.MaterialWeight,
+                    NetsuiteMaterialPrefferedBinId = line.NetsuiteMaterialPrefferedBinId,
+
                     LineQuantity = line.LineQuantity,
                     LineQuantityReceived = line.LineQuantityReceived,
                     NetsuiteUoMInternalId = line.NetsuiteUoMInternalId,
@@ -118,8 +120,11 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
                     MaterialCode = line.MaterialCode,
                     MaterialName = line.MaterialName,
                     MaterialWeight = line.MaterialWeight,
+                    NetsuiteMaterialPrefferedBinId = line.NetsuiteMaterialPrefferedBinId,
+
                     LineQuantity = line.LineQuantity,
                     LineQuantityReceived = line.LineQuantityReceived,
+
                     NetsuiteUoMInternalId = line.NetsuiteUoMInternalId,
                     UoMName = line.UoMName,
                     UoMRate = line.UoMRate,
@@ -425,8 +430,11 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
                 MaterialCode = x.MaterialCode,
                 MaterialName = x.MaterialName,
                 MaterialWeight = x.MaterialWeight,
+                NetsuiteMaterialPrefferedBinId = x.NetsuiteMaterialPrefferedBinId,
+
                 LineQuantity = x.LineQuantity,
                 LineQuantityReceived = x.LineQuantityReceived,
+
                 NetsuiteUoMInternalId = x.NetsuiteUoMInternalId,
                 UoMName = x.UoMName,
                 UoMRate = x.UoMRate,

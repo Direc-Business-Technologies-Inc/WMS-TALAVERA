@@ -59,15 +59,7 @@ public class ReturnsIFPayloadDTO
                             ]
                         };
 
-                        var inventoryDetail = line.NetsuiteMaterialPrefferedBinId != 0
-                        ? new InventoryDetail
-                        {
-                            InventoryAssignmentList = new InventoryAssignmentList
-                            {
-                                InventoryAssignment = assignment
-                            }
-                        }
-                        : new InventoryDetail
+                        var inventoryDetail = new InventoryDetail
                         {
                             InventoryAssignment = assignment
                         };
@@ -79,6 +71,49 @@ public class ReturnsIFPayloadDTO
                             Quantity = line.ScannedQuantity,
                             InventoryDetail = inventoryDetail
                         };
+
+                        //var assignment = new InventoryAssignment
+                        //{
+                        //    Items =
+                        //    [
+                        //        new InventoryAssignmentItem
+                        //        {
+                        //            InventoryStatus = new ReferenceValue
+                        //            {
+                        //                Id = /*line.IsBad ? "3" :*/ "1"
+                        //            },
+                        //            Quantity = line.ScannedQuantity,
+                        //            BinNumber = !line.IsLocationUsedBin ? null :
+                        //                line.NetsuiteMaterialVendorAssignedBin != 0
+                        //                ? new ReferenceValue
+                        //                {
+                        //                    Id = line.NetsuiteMaterialVendorAssignedBin.ToString()
+                        //                }
+                        //                : line.NetsuiteMaterialPrefferedBinId != 0
+                        //                ? new ReferenceValue
+                        //                {
+                        //                    Id = line.NetsuiteMaterialPrefferedBinId.ToString()
+                        //                }
+                        //                : null
+                        //        }
+                        //    ]
+                        //};
+
+                        //var inventoryDetail = new InventoryDetail
+                        //{
+                        //    InventoryAssignmentList = new InventoryAssignmentList
+                        //    {
+                        //        InventoryAssignment = assignment
+                        //    }
+                        //};
+
+                        //return new OrderLineItem
+                        //{
+                        //    OrderLine = line.LineSequenceNumber,
+                        //    isReceived = true,
+                        //    Quantity = line.ScannedQuantity,
+                        //    InventoryDetail = inventoryDetail
+                        //};
                     }
                 }).ToList()
             }

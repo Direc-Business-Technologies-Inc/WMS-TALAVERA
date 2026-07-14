@@ -35,7 +35,7 @@ namespace Integration.NS.Services
 
         private static readonly string AccountId = Environment.GetEnvironmentVariable("ACCOUNT_ID") ?? string.Empty;
 
-        private static readonly string ItemFulfillmentUrl = $"https://{AccountId}.suitetalk.api.netsuite.com/services/rest/record/v1/{{0}}/{{1}}/!transform/itemFulfillment";
+        private static readonly string ItemFulfillmentUrl = $"https://{AccountId}.suitetalk.api.netsuite.com/services/rest/record/v1/{{0}}/{{1}}/!transform/itemFulfillment?replace=item.inventoryDetail.inventoryAssignment";
 
         private static readonly string PatchItemFulfillmentUrl = $"https://{AccountId}.suitetalk.api.netsuite.com/services/rest/record/v1/itemFulfillment/{{0}}";
 
@@ -567,7 +567,7 @@ namespace Integration.NS.Services
         public async Task<bool> SaveReturnsItemReceipt(List<PostReturnsDTO> Data)
         {
             var orderId = Data.Select(x => x.NetsuiteOrderInternalId).FirstOrDefault();
-            string url = string.Format(ItemReceiptUrl, "transferOrder", orderId);
+            string url = string.Format(ItemReceiptUrl + "?replace=item.inventoryDetail.inventoryAssignment", "transferOrder", orderId);
 
             try
             {

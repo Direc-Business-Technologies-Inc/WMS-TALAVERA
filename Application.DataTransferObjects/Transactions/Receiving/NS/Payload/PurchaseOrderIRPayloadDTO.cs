@@ -32,6 +32,52 @@ public class PurchaseOrderIRPayloadDTO
                     }
                     else
                     {
+                        //var assignment = new InventoryAssignment
+                        //{
+                        //    Items =
+                        //    [
+                        //        new InventoryAssignmentItem
+                        //        {
+                        //            InventoryStatus = new ReferenceValue
+                        //            {
+                        //                Id = /*line.IsBad ? "3" :*/ "1"
+                        //            },
+                        //            Quantity = line.ScannedQuantity,
+                        //            BinNumber = !line.IsLocationUsedBin ? null :
+                        //                line.VendorBinAssignmentId != 0
+                        //                ? new ReferenceValue
+                        //                {
+                        //                    Id = line.VendorBinAssignmentId.ToString()
+                        //                }
+                        //                : line.NetsuiteMaterialPrefferedBinId != 0
+                        //                ? new ReferenceValue
+                        //                {
+                        //                    Id = line.NetsuiteMaterialPrefferedBinId.ToString()
+                        //                }
+                        //                : null
+                        //        }
+                        //    ]
+                        //};
+
+                        //var inventoryDetail = new InventoryDetail
+                        //{
+                        //    InventoryAssignmentList = new InventoryAssignmentList
+                        //    {
+                        //        InventoryAssignment = assignment
+                        //    }
+                        //};
+
+                        //return new OrderLineItem
+                        //{
+                        //    OrderLine = line.LineSequenceNumber,
+                        //    isReceived = true,
+                        //    Quantity = line.ScannedQuantity,
+                        //    RecordWeight = line.TotalWeight,
+                        //    ActualWeight = line.ScannedWeight,
+                        //    Rate = line.IsBad ? 0 : null,
+                        //    InventoryDetail = inventoryDetail
+                        //};
+
                         return new OrderLineItem
                         {
                             OrderLine = line.LineSequenceNumber,

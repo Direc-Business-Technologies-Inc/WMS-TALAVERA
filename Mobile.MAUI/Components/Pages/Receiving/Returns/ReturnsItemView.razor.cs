@@ -70,8 +70,11 @@ public partial class ReturnsItemView : IAsyncDisposable
                     MaterialCode = line.MaterialCode,
                     MaterialName = line.MaterialName,
                     MaterialWeight = line.MaterialWeight,
+                    NetsuiteMaterialPrefferedBinId = line.NetsuiteMaterialPrefferedBinId,
+
                     LineQuantity = line.LineQuantity,
                     LineQuantityReceived = line.LineQuantityReceived,
+
                     NetsuiteUoMInternalId = line.NetsuiteUoMInternalId,
                     UoMName = line.UoMName,
                     UoMRate = line.UoMRate,
