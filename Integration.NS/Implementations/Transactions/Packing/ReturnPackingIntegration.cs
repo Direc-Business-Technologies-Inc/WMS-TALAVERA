@@ -59,10 +59,11 @@ internal class ReturnPackingIntegration(
                 ("BUILTIN.DF(tl.location)", nameof(ReturnPackingHeaderNSDTO.Location)),
                 ("BUILTIN.DF(t.transferlocation)", nameof(ReturnPackingHeaderNSDTO.TransferLocation)),
                 ("BUILTIN.DF(t.custbody_dbti_transfer_category)", nameof(ReturnPackingHeaderNSDTO.TransferCategory)),
-                ("BUILTIN.DF(t.custbody_dbti_prepared_by)", nameof(ReturnPackingHeaderNSDTO.PreparedBy))
+                ("CONCAT(e.firstname,CONCAT(' ',e.lastname))", nameof(ReturnPackingHeaderNSDTO.PreparedBy))
             )
             .From("transaction t")
             .Join("transactionline tl", on: "tl.transaction = t.id")
+            .LeftJoin("employee e", "t.custbody_dbti_prepared_by = e.id")
             .WithFilters(
                 Equal("t.tranid", id),
                 Equal("tl.mainline", "T"))

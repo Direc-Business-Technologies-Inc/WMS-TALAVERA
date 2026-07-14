@@ -57,11 +57,12 @@ internal class VendorReturnAuthorizationPackingIntegration(
                 ("BUILTIN.DF(t.subsidiary)", nameof(VendorReturnAuthorizationPackingHeaderNSDTO.FromSubsidiary)),
                 ("BUILTIN.DF(tl.location)", nameof(VendorReturnAuthorizationPackingHeaderNSDTO.Location)),
                 ("BUILTIN.DF(t.transferlocation)", nameof(VendorReturnAuthorizationPackingHeaderNSDTO.TransferLocation)),
-                ("BUILTIN.DF(t.custbody_dbti_prepared_by)", nameof(VendorReturnAuthorizationPackingHeaderNSDTO.PreparedBy))
+                ("CONCAT(em.firstname,CONCAT(' ',em.lastname))", nameof(VendorReturnAuthorizationPackingHeaderNSDTO.PreparedBy))
             )
             .From("transaction t")
             .Join("transactionline tl", on: "tl.transaction = t.id")
             .Join("entity e", on: "t.entity = e.id")
+            .LeftJoin("employee em", "t.custbody_dbti_prepared_by = em.id")
             .WithFilters(
                 Equal("t.tranid", id),
                 Equal("tl.mainline", "T"))
