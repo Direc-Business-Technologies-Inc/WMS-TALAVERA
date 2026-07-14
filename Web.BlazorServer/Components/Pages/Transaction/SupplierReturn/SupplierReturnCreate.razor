@@ -29,6 +29,7 @@
                      JustifyContent="JustifyContent.End"
                      Gap="32px"
                      class="rz-mb-0 rz-mt-2">
+            <AppContentBadge Visible="@(!string.IsNullOrEmpty(FormData.CreatedFrom))" Title="From" Content="@FormData.CreatedFrom" />
             <AppContentBadge Title="Doc" Content="Auto Generated" />
             <AppContentBadge Title="Doc Date" Content="@DateTime.Now.ToString("MM-dd-yy")" ChildBadgeStyle="BadgeStyle.Secondary" ChildShade="Shade.Default" />
         </RadzenStack>
