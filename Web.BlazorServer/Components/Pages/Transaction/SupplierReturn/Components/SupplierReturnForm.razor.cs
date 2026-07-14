@@ -178,6 +178,7 @@ public partial class SupplierReturnForm
             Model.Status = new ReturnStatusVM() { Name = "Pending Approval" };
             Model.PreparedBy = prepBy;
             Model.ReturnCategory = null;
+            Model.Date = DateTime.Now;
             canSelectPO = false;
         });
 
