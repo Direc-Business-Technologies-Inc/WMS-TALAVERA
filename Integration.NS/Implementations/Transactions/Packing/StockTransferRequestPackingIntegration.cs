@@ -66,11 +66,12 @@ internal class StockTransferRequestPackingIntegration(
                 ("BUILTIN.DF(t.subsidiary)", nameof(StrPackingHeaderNSDTO.FromSubsidiary)),
                 ("BUILTIN.DF(t.tosubsidiary)", nameof(StrPackingHeaderNSDTO.ToSubsidiary)),
                 ("BUILTIN.DF(tl.location)", nameof(StrPackingHeaderNSDTO.Location)),
-                ("BUILTIN.DF(t.transferlocation)", nameof(StrPackingHeaderNSDTO.TransferLocation)),
-                ("BUILTIN.DF(t.custbody_dbti_prepared_by)", nameof(StrPackingHeaderNSDTO.PreparedBy))
+                ("BUILTIN.DF(t.transferlocation)", nameof(StrPackingHeaderNSDTO.TransferLocation)), 
+                ("CONCAT(e.firstname,CONCAT(' ',e.lastname))", nameof(StrPackingHeaderNSDTO.PreparedBy))
             )
             .From("transaction t")
             .Join("transactionline tl", on: "tl.transaction = t.id")
+            .LeftJoin("employee e", "t.custbody_dbti_prepared_by = e.id")
             .WithFilters(
                 Equal("t.tranid", id),
                 Equal("tl.mainline", "T"))
