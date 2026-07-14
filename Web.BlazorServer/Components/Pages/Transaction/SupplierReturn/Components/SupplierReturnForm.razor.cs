@@ -179,6 +179,7 @@ public partial class SupplierReturnForm
             Model.PreparedBy = prepBy;
             Model.ReturnCategory = null;
             Model.Date = DateTime.Now;
+            Model.Memo = $"Created via WMS from {po.ReferenceNumber}";
             canSelectPO = false;
         });
 
