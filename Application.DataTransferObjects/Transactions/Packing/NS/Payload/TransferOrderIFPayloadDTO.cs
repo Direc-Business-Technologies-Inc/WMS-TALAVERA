@@ -11,7 +11,8 @@ public class TransferOrderIFPayloadDTO
 
     public static TransferOrderIFPayloadDTO CreateForItemFulfillment(
         List<PostTransferOrderDTO> lines,
-        string shipStatus)
+        string shipStatus,
+        bool isUsedBin)
     {
         // Make it nullable if its not included in json
         return new TransferOrderIFPayloadDTO
@@ -58,15 +59,14 @@ public class TransferOrderIFPayloadDTO
                             ]
                         };
 
-                        //var inventoryDetail = new InventoryDetail
-                        //{
-                        //    InventoryAssignmentList = new InventoryAssignmentList
-                        //    {
-                        //        InventoryAssignment = assignment
-                        //    }
-                        //};
-
-                        var inventoryDetail = new InventoryDetail
+                        var inventoryDetail = !isUsedBin ? new InventoryDetail
+                        {
+                            InventoryAssignmentList = new InventoryAssignmentList
+                            {
+                                InventoryAssignment = assignment
+                            }
+                        }
+                        : new InventoryDetail
                         {
                             InventoryAssignment = assignment
                         };
