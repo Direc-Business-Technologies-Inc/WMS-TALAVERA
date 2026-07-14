@@ -26,7 +26,7 @@ SELECT
 	ivb.custrecord_dbti_vba_assigned_bin AS NetsuiteMaterialVendorAssignedBin,
     i.weight AS MaterialWeight,
 
-    tl.quantity AS LineQuantity,
+    tls.quantityshiprecv AS LineQuantity,
     tl.quantityshiprecv AS LineQuantityReceived,
     tl.quantitybackordered AS LineQuantityBackOrdered,
 
@@ -55,6 +55,16 @@ LEFT JOIN (
    AND ibq.location = tl.location
 
 LEFT JOIN bin b ON b.id = ibq.bin
+
+LEFT JOIN (
+	SELECT 
+		x.transaction,
+		x.item,
+		x.quantityshiprecv
+	FROM transactionline x
+	WHERE x.transactionlinetype = 'SHIPPING'
+) tls ON tls.transaction = tl.transaction
+	AND tls.item = tl.item
 
 LEFT JOIN (
     SELECT
