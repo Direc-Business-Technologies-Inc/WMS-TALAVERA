@@ -12,7 +12,8 @@ public class ReturnsIFPayloadDTO
 
     public static ReturnsIFPayloadDTO CreateForItemFulfillment(
         List<PostReturnsDTO> lines,
-        string shipStatus)
+        string shipStatus,
+        bool isUsedBin)
     {
         // Make it nullable if its not included in json
         return new ReturnsIFPayloadDTO
@@ -59,7 +60,14 @@ public class ReturnsIFPayloadDTO
                             ]
                         };
 
-                        var inventoryDetail = new InventoryDetail
+                        var inventoryDetail = !isUsedBin ? new InventoryDetail
+                        {
+                            InventoryAssignmentList = new InventoryAssignmentList
+                            {
+                                InventoryAssignment = assignment
+                            }
+                        }
+                        : new InventoryDetail
                         {
                             InventoryAssignment = assignment
                         };
