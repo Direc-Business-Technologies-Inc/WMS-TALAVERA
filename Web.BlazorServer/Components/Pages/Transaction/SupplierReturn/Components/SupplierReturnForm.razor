@@ -150,12 +150,22 @@
 </RadzenTemplateForm>
 
 @code {
+    readonly DialogOptions dialogOptions = new()
+    {
+        CloseDialogOnOverlayClick = true,
+        CloseDialogOnEsc = true,
+        Draggable = true,
+        Resizable = true,
+        ShowClose = true,
+        Width = "75%"
+    };
+
     async Task OpenItemDialog()
     {
         List<ItemsVM> items = await DialogService.OpenAsync(
             "Select Items",
             ds => @<ItemSelectionDialog Location="@(Model.Location?.Id ?? null)" />,
-    options: GridSettingsService.GetDialogOptions());
+    options: dialogOptions);
 
         if (items is not null) await AddItems(items);
     }
@@ -165,7 +175,7 @@
         string? poRef = await DialogService.OpenAsync(
             "Select Purchase Order",
             ds => @<PurchaseOrderDialog />,
-    options: GridSettingsService.GetDialogOptions());
+    options: dialogOptions);
 
         if (poRef != null) await GetPurchaseOrder(poRef);
     }

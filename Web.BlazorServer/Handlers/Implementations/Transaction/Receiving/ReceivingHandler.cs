@@ -43,7 +43,7 @@ public class ReceivingHandler(
             ReferenceNumber = x.ReferenceNumber,
             Date = x.Date,
             DeliveryDate = x.DeliveryDate,
-            Vendor = x.VendorName,
+            VendorName = x.VendorName,
             Remarks = x.Memo
         });
 
