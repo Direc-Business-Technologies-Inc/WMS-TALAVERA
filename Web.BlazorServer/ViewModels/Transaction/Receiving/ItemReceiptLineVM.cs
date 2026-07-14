@@ -39,6 +39,7 @@ public class ItemReceiptLineVM
     public decimal QuantityReceived { get; set; }
     public decimal QuantityAlloted { get; set; }
     public bool IsAllAssigned => InventoryDetails.Sum(x => x.QuantityAlloted) == QuantityAlloted;
+    public string DetailsTooltipText { get; set; } = string.Empty;
     public List<InventoryDetailVM> InventoryDetails { get; set; } = [];
 
 }
