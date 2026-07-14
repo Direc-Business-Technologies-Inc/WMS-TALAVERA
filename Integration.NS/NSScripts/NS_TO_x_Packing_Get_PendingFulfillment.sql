@@ -12,6 +12,10 @@ WHERE
     t.recordtype IN ('intercompanytransferorder', 'transferorder')
 	AND t.custbody_dbti_transfer_category IN ('1', '2')
 	AND t.ordpicked = 'F'
-    AND t.status IN ('B', 'D', 'E') AND
-	t.tosubsidiary = @subsidiaryid
+    AND t.status IN ('B', 'D', 'E')
+	AND (
+        (t.recordtype = 'intercompanytransferorder' AND t.tosubsidiary = @subsidiaryid)
+        OR
+        (t.recordtype = 'transferorder' AND t.subsidiary = @subsidiaryid)
+    )
 	

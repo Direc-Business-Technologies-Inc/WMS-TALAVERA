@@ -9,6 +9,8 @@ public class TransferOrderIRRestletPayloadDTO
     public int TransferOrderId { get; set; }
     [JsonPropertyName("transferCategory")]
     public int TransferCategory { get; set; }
+    [JsonPropertyName("receiverEmployeeId")]
+    public int EmployeeId { get; set; }
     [JsonPropertyName("lines")]
     public List<LinesContainer> Lines { get; set; } = new();
 
@@ -20,6 +22,7 @@ public class TransferOrderIRRestletPayloadDTO
         return new TransferOrderIRRestletPayloadDTO
         {
             TransferOrderId = transferOrderId,
+            EmployeeId = 23, // Hardcoded for now, should be dynamic based on the logged-in user
             TransferCategory = receivingCategory,
 
             Lines = lines.Select(line => new LinesContainer
