@@ -10,7 +10,9 @@ public class PurchaseOrderDataGridVM
     public string ReferenceNumber { get; set; } = string.Empty;
     public DateTime? Date { get; set; }
     public DateTime? DeliveryDate { get; set; }
-    public string Vendor { get; set; } = string.Empty;
+    public string VendorName { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;
+    [QuickDataGridIgnore]
+    public string StatusId { get; set; } = string.Empty;
     public string Remarks { get; set; } = string.Empty;
 }

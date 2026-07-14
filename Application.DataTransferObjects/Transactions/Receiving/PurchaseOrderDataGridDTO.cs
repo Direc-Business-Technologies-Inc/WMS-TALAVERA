@@ -13,6 +13,7 @@ public class PurchaseOrderDataGridDTO
     public string VendorName { get; set; } = string.Empty;
     public string Memo { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;
+    public string StatusId { get; set; } = string.Empty;
     public DateTime Date { get; set; }
     public DateTime DeliveryDate { get; set; }
 }

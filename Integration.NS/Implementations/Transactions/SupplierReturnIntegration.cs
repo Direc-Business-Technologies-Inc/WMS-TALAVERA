@@ -286,12 +286,15 @@ public class SupplierReturnIntegration(
                 ("t.tranid", nameof(PurchaseOrderDataGridDTO.ReferenceNumber)),
                 ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(PurchaseOrderDataGridDTO.Date)),
                 ("TO_CHAR(t.custbody_dbti_order_date, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(PurchaseOrderDataGridDTO.DeliveryDate)),
+                ("BUILTIN.DF(tl.entity)", nameof(PurchaseOrderDataGridDTO.VendorName)),
                 ("t.memo", nameof(PurchaseOrderDataGridDTO.Memo)),
-                ("BUILTIN.DF(t.entity)", nameof(PurchaseOrderDataGridDTO.VendorName)),
-                ("t.status", nameof(PurchaseOrderDataGridDTO.Status))
+                ("s.name", nameof(PurchaseOrderDataGridDTO.Status)),
+                ("s.id", nameof(PurchaseOrderDataGridDTO.StatusId))
             )
             .From("transaction t")
             .WithSubsidiaries(httpContextAccessor, "t")
+            .LeftJoin("transactionline tl", on: "t.id = tl.transaction AND tl.mainline = 'T'")
+            .LeftJoin("purchaseorderstatus s", on: "t.status = s.id")
             .WithDatagridIntent(intent)
             .WithFilters(
                 DataGridFilterUtilities.Equal("t.recordtype", "purchaseorder"),
