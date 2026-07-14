@@ -115,6 +115,13 @@ public partial class ITRForm
         await InvokeAsync(StateHasChanged);
     }
 
+    async Task RemoveLine(InventoryTransferRequestLineVM line)
+    {
+        Model.Lines.Remove(line);
+
+        await InvokeAsync(StateHasChanged);
+    }
+
     async Task LocationSet(LocationVM? value)
     {
         var oldValue = Model.SourceLocation;
