@@ -1,4 +1,5 @@
 ﻿using Application.DataTransferObjects.Others.NS;
+using Application.DataTransferObjects.Transactions.InventoryTransferRequest;
 using Application.DataTransferObjects.Transactions.Receiving;
 using Application.DataTransferObjects.Transactions.Receiving.NS.Payload;
 using Application.DataTransferObjects.Transactions.Receiving.SAP;
@@ -186,10 +187,11 @@ public class ReceivingIntegration(
                 ("BUILTIN.DF(t.tosubsidiary)", "ToSubsidiary"),
                 ("BUILTIN.DF(tl.location)", "Location"),
                 ("BUILTIN.DF(t.transferlocation)", "TransferLocation"),
-                ("t.custbody_dbti_prepared_by", "PreparedBy")
+                ("CONCAT(e.firstname,CONCAT(' ',e.lastname))", "PreparedBy")
             )
             .From("transaction t")
             .Join("transactionline tl", on: "tl.transaction = t.id")
+            .LeftJoin("employee e", on: "e.id = t.custbody_dbti_prepared_by")
             .WithFilters(
                 In("t.recordtype", new string[] { "transferorder", "intercompanytransferorder" }),
                 Equal("tl.mainline", "T"),
@@ -272,10 +274,11 @@ public class ReceivingIntegration(
                 ("BUILTIN.DF(t.custbody_dbti_return_to_vendor)", "Vendor"),
                 ("BUILTIN.DF(tl.location)", "FromWarehouse"),
                 ("BUILTIN.DF(t.transferlocation)", "ToWarehouse"),
-                ("t.custbody_dbti_prepared_by", "PreparedBy")
+                ("CONCAT(e.firstname,CONCAT(' ',e.lastname))", "PreparedBy")
             )
             .From("transaction t")
             .Join("transactionline tl", "tl.transaction = t.id AND tl.mainline = 'T'")
+            .LeftJoin("employee e", "e.id = t.custbody_dbti_prepared_by")
             .WithSubsidiaries(httpContext, "t", true)
             .WithFilters(
                 Equal("t.recordtype", "intercompanytransferorder"),
