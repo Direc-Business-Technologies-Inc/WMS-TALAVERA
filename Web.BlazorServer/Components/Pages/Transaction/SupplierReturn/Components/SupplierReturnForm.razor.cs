@@ -222,6 +222,13 @@ public partial class SupplierReturnForm
             }));
     }
 
+    async Task RemoveLine(SupplierReturnLineVM line)
+    {
+        Model.Lines.Remove(line);
+
+        await InvokeAsync(StateHasChanged);
+    }
+
     string PrintableURL => $"{PRINTABLE_URL}&recordId={Model.Id}";
     async Task LineUoMSet(SupplierReturnLineVM line, ItemUnitVM? uom)
     {
