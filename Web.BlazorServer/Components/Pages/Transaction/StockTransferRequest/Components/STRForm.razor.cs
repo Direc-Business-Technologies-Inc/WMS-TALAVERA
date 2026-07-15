@@ -64,6 +64,8 @@ public partial class STRForm
 
     private List<TransferCategory> ReturnCategories = [.. TransferCategory.ReturnCategories];
 
+    private static readonly SemaphoreSlim _concurrencySemaphore = new SemaphoreSlim(2, 2);
+
     const string PRINTABLE_URL_INTERCOMPANY = "https://11608969.extforms.netsuite.com/app/site/hosting/scriptlet.nl?script=1671&deploy=1&compid=11608969&ns-at=AAEJ7tMQ9evIwFEEUifIBokQgQ0jhowAItpfjv5Smu7B76K41lU&recordType=tranferOrder&isPickingTicket=true";
     const string PRINTABLE_URL_TO = "https://11608969.extforms.netsuite.com/app/site/hosting/scriptlet.nl?script=1671&deploy=1&compid=11608969&ns-at=AAEJ7tMQ9evIwFEEUifIBokQgQ0jhowAItpfjv5Smu7B76K41lU&recordType=tranferOrder&isPickingTicket=true";
 
@@ -133,31 +135,54 @@ public partial class STRForm
     {
         if (Model.Subsidiary is null) return ([], 0);
 
-        return await LocationHandler.GetLocationsBySubsidiaryAsync(intent, Model.Subsidiary.Id);
+        await _concurrencySemaphore.WaitAsync();
+
+        var result =  await LocationHandler.GetLocationsBySubsidiaryAsync(intent, Model.Subsidiary.Id);
+
+        _concurrencySemaphore.Release();
+        return result;
     }
 
     async Task<(IEnumerable<LocationVM>, int)> DestinationLocationProvider(DataGridIntent intent)
     {
         if (Model.ToSubsidiary is null) return ([], 0);
 
-        return await LocationHandler.GetLocationsBySubsidiaryAsync(intent, Model.ToSubsidiary.Id);
+        await _concurrencySemaphore.WaitAsync();
+        var result = await LocationHandler.GetLocationsBySubsidiaryAsync(intent, Model.ToSubsidiary.Id);
+
+        _concurrencySemaphore.Release();
+        return result;
     }
 
     async Task<(IEnumerable<VendorVM>, int)> VendorProvider(DataGridIntent intent)
     {
         if (Model.ToSubsidiary is null) return ([], 0);
 
-        return await VendorHandler.GetVendorsListBySubsidiaryAsync(intent, Model.ToSubsidiary.Id);
+        await _concurrencySemaphore.WaitAsync();
+        var result = await VendorHandler.GetVendorsListBySubsidiaryAsync(intent, Model.ToSubsidiary.Id);
+
+        _concurrencySemaphore.Release();
+        return result;
     }
 
     async Task<(IEnumerable<SubsidiaryVM>, int)> SubsidiaryProvider(DataGridIntent intent)
     {
-        return await SubsidiaryHandler.GetSubsidiariesAsync(intent);
+
+        await _concurrencySemaphore.WaitAsync();
+        var result = await SubsidiaryHandler.GetSubsidiariesAsync(intent);
+
+        _concurrencySemaphore.Release();
+        return result;
     }
 
     async Task<(IEnumerable<ItemUnitVM>, int)> ItemUnitProvider(int itemId, DataGridIntent intent)
     {
-        return await ItemsHandler.GetItemUnits(itemId, intent);
+
+        await _concurrencySemaphore.WaitAsync();
+        var result = await ItemsHandler.GetItemUnits(itemId, intent);
+
+        _concurrencySemaphore.Release();
+        return result;
     }
 
     async Task OnSubsidiaryChanged(SubsidiaryVM? value)
