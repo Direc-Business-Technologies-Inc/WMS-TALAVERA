@@ -64,7 +64,7 @@ public partial class STRForm
 
     private List<TransferCategory> ReturnCategories = [.. TransferCategory.ReturnCategories];
 
-    private static readonly SemaphoreSlim _concurrencySemaphore = new SemaphoreSlim(2, 2);
+    private readonly SemaphoreSlim _concurrencySemaphore = new SemaphoreSlim(2, 2);
 
     const string PRINTABLE_URL_INTERCOMPANY = "https://11608969.extforms.netsuite.com/app/site/hosting/scriptlet.nl?script=1671&deploy=1&compid=11608969&ns-at=AAEJ7tMQ9evIwFEEUifIBokQgQ0jhowAItpfjv5Smu7B76K41lU&recordType=tranferOrder&isPickingTicket=true";
     const string PRINTABLE_URL_TO = "https://11608969.extforms.netsuite.com/app/site/hosting/scriptlet.nl?script=1671&deploy=1&compid=11608969&ns-at=AAEJ7tMQ9evIwFEEUifIBokQgQ0jhowAItpfjv5Smu7B76K41lU&recordType=tranferOrder&isPickingTicket=true";
