@@ -196,6 +196,7 @@ public class SupplierReturnIntegration(
         var payload = new
         {
             custbody_dbti_return_category = data.ReturnCategory?.Id ?? null,
+            memo = data.Memo,
         };
         var payloadString = JsonSerializer.Serialize(payload, jsonOpts);
         var uri = netsuiteService.GetRestAPIURI + $"/record/v1/purchaseOrder/{data.SourcePO}/!transform/vendorReturnAuthorization";
@@ -265,7 +266,7 @@ public class SupplierReturnIntegration(
             .Select(
                 ("item.itemid", nameof(SupplierReturnLineNSDTO.ItemCode)),
                 ("item.id", nameof(SupplierReturnLineNSDTO.ItemId)),
-                ("tl.linesequencenumber", nameof(SupplierReturnLineNSDTO.LineNumber)),
+                ("tl.id", nameof(SupplierReturnLineNSDTO.LineNumber)),
                 ("uom.unitName", nameof(SupplierReturnLineNSDTO.UoMName)),
                 ("uom.internalid", nameof(SupplierReturnLineNSDTO.UoMId)),
                 ("uom.conversionrate", nameof(SupplierReturnLineNSDTO.UoMRate)),
