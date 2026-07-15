@@ -75,11 +75,12 @@ public class ReceivingIntegration(
                 ("BUILTIN.DF(tl.location)", nameof(PurchaseOrderLineDTO.Location)),
                 ("item.displayname", nameof(PurchaseOrderLineDTO.ItemDescription)),
                 ("item.itemid", nameof(PurchaseOrderLineDTO.ItemCode)),
-                ("tl.quantity", nameof(PurchaseOrderLineDTO.QuantityPlanned))
+                ("(tl.quantity / NVL(uom.conversionrate, 1))", nameof(PurchaseOrderLineDTO.QuantityPlanned))
             )
             .From("transaction t")
             .Join("transactionline tl", on: "tl.transaction = t.id")
             .Join("item", on: "item.id = tl.item")
+            .LeftJoin("unitstypeuom uom", on: "uom.internalid = tl.units")
             .WithFilters(
                 Equal("t.tranid", docEntry),
                 Equal("tl.mainline", "F")
@@ -213,12 +214,13 @@ public class ReceivingIntegration(
                 ("BUILTIN.DF(tl.units)", "UoM"),
                 ("BUILTIN.DF(tl.location)", "Warehouse"),
                 ("item.displayname", "ItemDescription"),
-                ("tl.quantity", "QuantityPlanned"),
-                ("tl.quantityshiprecv", "QuantityReceived"),
-                ("(tl.quantity - tl.quantityshiprecv)", "QuantityOpen"))
+                ("(tl.quantity / NVL(uom.conversionrate, 1))", "QuantityPlanned"),
+                ("(tl.quantityshiprecv / NVL(uom.conversionrate, 1))", "QuantityReceived"),
+                ("((tl.quantity - tl.quantityshiprecv) / NVL(uom.conversionrate, 1))", "QuantityOpen"))
             .From("transactionline tl")
             .Join("item item", on: "item.id = tl.item")
             .Join("transaction t", on: "t.id = tl.transaction")
+            .LeftJoin("unitstypeuom uom", on: "uom.internalid = tl.units")
             .WithFilters(
                 NotEqual("t.custbody_dbti_transfer_category", 3),
                 NotEqual("t.custbody_dbti_transfer_category", 4),
