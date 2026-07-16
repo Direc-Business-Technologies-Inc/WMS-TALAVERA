@@ -191,14 +191,16 @@
                                           Property="@nameof(StockTransferRequestLineVM.UoM)"
                                           Title="UoM">
                         <Template Context="data">
-                            <RadzenTextBox Disabled="@IsBusy" ReadOnly Visible="@ReadOnly" Value="@(data.UoM?.Name)" />
-                            <QuickVirtualizedDropdown Disabled="@IsBusy" Visible="@(!ReadOnly)" TItem="ItemUnitVM" DataGetter="@(x => ItemUnitProvider(data.ItemId, x))" ActionName="@ActionGetItemUnits" @bind-Value:get="@data.UoM" @bind-Value:set="@(val => SetLineUoM(data, val))" TextProperty="@nameof(ItemUnitVM.Name)" />
+                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center">
+                                <RadzenText Visible="@ReadOnly" TextStyle="TextStyle.Body2">@(data.UoM?.Name ?? "No UoM given")</RadzenText>
+                                <QuickVirtualizedDropdown Disabled="@IsBusy" Visible="@(!ReadOnly)" TItem="ItemUnitVM" DataGetter="@(x => ItemUnitProvider(data.ItemId, x))" ActionName="@ActionGetItemUnits" @bind-Value:get="@data.UoM" @bind-Value:set="@(val => SetLineUoM(data, val))" TextProperty="@nameof(ItemUnitVM.Name)" />
+                            </RadzenStack>
                         </Template>
                     </RadzenDataGridColumn>
                     <RadzenDataGridColumn TItem="StockTransferRequestLineVM"
                                           Property="@nameof(StockTransferRequestLineVM.Warehouse)"
                                           Type="@typeof(string)"
-                                          Title="Warehouse" Width="125px" />
+                                          Title="Warehouse"/>
                     <RadzenDataGridColumn TItem="StockTransferRequestLineVM"
                                           Property="@nameof(StockTransferRequestLineVM.QuantityOnHandByUoM)"
                                           Type="@typeof(decimal)"
@@ -209,7 +211,10 @@
                                           Property="@nameof(StockTransferRequestLineVM.QuantityAlloted)"
                                           Title="Alloted Quantity">
                         <Template Context="data">
-                            <RadzenNumeric Disabled="@IsBusy" Max="@(data.QuantityOnHandByUoM)" Min="0" @bind-Value="@data.QuantityAlloted" ReadOnly="@ReadOnly" class="rz-w-100" ShowUpDown="@(!ReadOnly)" Format="#,##0.##" />
+                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center">
+                                <RadzenText Visible="@ReadOnly" TextStyle="TextStyle.Body2">@(data.QuantityAlloted.ToString("#,##0.##"))</RadzenText>
+                                <RadzenNumeric Visible="@(!ReadOnly)" Disabled="@IsBusy" Max="@(data.QuantityOnHandByUoM)" Min="0" @bind-Value="@data.QuantityAlloted" ReadOnly="@ReadOnly" class="rz-w-100" ShowUpDown="@(!ReadOnly)" Format="#,##0.##" />
+                            </RadzenStack>
                         </Template>
                     </RadzenDataGridColumn>
                     @if (!ReadOnly)
