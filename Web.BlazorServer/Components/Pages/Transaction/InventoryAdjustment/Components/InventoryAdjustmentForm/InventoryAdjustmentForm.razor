@@ -67,21 +67,29 @@
                 <RadzenDataGridColumn TItem="InventoryAdjustmentLineVM" Property="@nameof(InventoryAdjustmentLineVM.ItemDescription)" Title="Item Description" />
                 <RadzenDataGridColumn TItem="InventoryAdjustmentLineVM" Property="@nameof(InventoryAdjustmentLineVM.Location)" Title="Warehouse">
                     <Template Context="data">
-                        <RadzenTextBox Disabled="Disabled" Visible="@ReadOnly" ReadOnly Value="@(data.Location?.Name ?? "No location data")" Placeholder="Enter location" class="rz-w-100" />
+                        <RadzenStack AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal">
+
+                        <RadzenText Visible="@ReadOnly" TextStyle="TextStyle.Body1">@(data.Location?.Name ?? "No location data")</RadzenText>
                         <QuickVirtualizedDropdown Visible="@(!ReadOnly)" Disabled="@(Model.Subsidiary is null || Disabled)" ActionName="@ActionGetLocations" TItem="LocationVM" @bind-Value="@data.Location" DataGetter="@LocationProvider" TextProperty="@nameof(LocationVM.Name)" />
+                        </RadzenStack>
                     </Template>
                 </RadzenDataGridColumn>
-                <RadzenDataGridColumn TItem="InventoryAdjustmentLineVM" Property="@nameof(InventoryAdjustmentLineVM.UoM)" Title="UoM">
+                <RadzenDataGridColumn TItem="InventoryAdjustmentLineVM" Property="@nameof(InventoryAdjustmentLineVM.UoM)" Title="UoM" >
                     <Template Context="data">
-                        <RadzenTextBox Disabled="Disabled" Visible="@ReadOnly" ReadOnly Value="@(data.UoM?.Name ?? "No unit data")" Placeholder="Enter location" class="rz-w-100" />
-                        <QuickVirtualizedDropdown Disabled="Disabled" Visible="@(!ReadOnly)" ActionName="@ActionGetItemUnits" TItem="ItemUnitVM" @bind-Value:get="@data.UoM" @bind-Value:set="@(val => LineSetUoM(data,val))" DataGetter="@(intent => UnitsProvider(data.ItemId, intent))" TextProperty="@nameof(ItemUnitVM.Name)" />
+                        <RadzenStack AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal">
+                            <RadzenText Visible="@ReadOnly" TextStyle="TextStyle.Body1">@(data.UoM?.Name ?? "No unit data")</RadzenText>
+                            <QuickVirtualizedDropdown Disabled="Disabled" Visible="@(!ReadOnly)" ActionName="@ActionGetItemUnits" TItem="ItemUnitVM" @bind-Value:get="@data.UoM" @bind-Value:set="@(val => LineSetUoM(data,val))" DataGetter="@(intent => UnitsProvider(data.ItemId, intent))" TextProperty="@nameof(ItemUnitVM.Name)" />
+                        </RadzenStack>
                     </Template>
                 </RadzenDataGridColumn>
                 <RadzenDataGridColumn Visible="@ReadOnly" TItem="InventoryAdjustmentLineVM" Type="typeof(decimal)" Property="@nameof(InventoryAdjustmentLineVM.QuantityOld)" Title="On hand Quantity" FormatString="{0:#,##0.##}"/>
                 <RadzenDataGridColumn Visible="@(!ReadOnly)" TItem="InventoryAdjustmentLineVM" Type="typeof(decimal)" Property="@nameof(InventoryAdjustmentLineVM.QuantityOnHandByUoM)" Title="On hand Quantity" FormatString="{0:#,##0.##}" />
                 <RadzenDataGridColumn TItem="InventoryAdjustmentLineVM" Property="@nameof(InventoryAdjustmentLineVM.QuantityAlloted)" Title="Alloted Quantity">
                     <Template Context="data">
-                        <RadzenFormField Text="@(data.Type == InventoryAdjustmentLineVM.Types.Issue ? "Issue" : "Receipt")">
+                        <RadzenStack AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal">
+
+                        <RadzenText Visible="@ReadOnly" TextStyle="TextStyle.Body2">@data.QuantityAlloted.ToString("#,##0.##")</RadzenText>
+                        <RadzenFormField Text="@(data.Type == InventoryAdjustmentLineVM.Types.Issue ? "Issue" : "Receipt")" Visible="@(!ReadOnly)">
                             <ChildContent>
                                 <RadzenNumeric Disabled="Disabled" ReadOnly="@ReadOnly" Name="line_details" @bind-Value="@data.QuantityAlloted" class="rz-w-100" Min="0" Max="@(data.QuantityAllotedMax)" Format="#,##0.##" />
                             </ChildContent>
@@ -108,6 +116,7 @@
                                 }
                             </Helper>
                         </RadzenFormField>
+                        </RadzenStack>
                     </Template>
                 </RadzenDataGridColumn>
                 <RadzenDataGridColumn Visible="@ReadOnly" TItem="InventoryAdjustmentLineVM" Property="@nameof(InventoryAdjustmentLineVM.QuantityOnHandByUoM)" FormatString="{0:#,##0.##}" Title="New Quantity" />
@@ -141,8 +150,8 @@
             </RadzenColumn>
         </RadzenRow>
     </RadzenFieldset>
-    <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5em" JustifyContent="JustifyContent.SpaceBetween">
-        <RadzenButton Disabled="Disabled" ButtonType="ButtonType.Button" Text="@ReturnString" Click="ReturnClicked" />
+    <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5em" JustifyContent="JustifyContent.SpaceBetween" class="rz-mt-3">
+        <RadzenButton Disabled="Disabled" ButtonType="ButtonType.Button" Text="@ReturnString" Click="ReturnClicked" ButtonStyle="ButtonStyle.Light" />
         <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5em">
             <RadzenButton Disabled="Disabled" ButtonType="ButtonType.Button" Visible="OnSecondaryActionClicked.HasDelegate" Text="@SecondaryActionString" Click="SecondaryActionClicked" />
             <RadzenButton Disabled="Disabled" ButtonType="ButtonType.Submit" Visible="OnSubmit.HasDelegate" Text="@SubmitString" />
