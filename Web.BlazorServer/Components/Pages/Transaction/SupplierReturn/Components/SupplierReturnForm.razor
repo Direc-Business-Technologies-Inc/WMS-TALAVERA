@@ -27,7 +27,7 @@
                     <RadzenFormField Text="Return Category" class="rz-w-100">
                         <ChildContent>
                             <RadzenTextBox Disabled="IsDisabled" Visible="@ReadOnly" Value="@Model.ReturnCategory?.Name" Placeholder="No category given" />
-                            <QuickVirtualizedDropdown  Disabled="IsDisabled" Name="str_return_categ" @bind-Value:get="@Model.ReturnCategory" @bind-Value:set="@CategorySet" Visible="@(!ReadOnly)" TItem="ReturnCategoryVM" DataGetter="@CategoryProvider" TextProperty="@nameof(ReturnCategoryVM.Name)" />
+                            <QuickVirtualizedDropdown Disabled="IsDisabled" Name="str_return_categ" @bind-Value:get="@Model.ReturnCategory" @bind-Value:set="@CategorySet" Visible="@(!ReadOnly)" TItem="ReturnCategoryVM" DataGetter="@CategoryProvider" TextProperty="@nameof(ReturnCategoryVM.Name)" />
                         </ChildContent>
                         <Helper>
                             <RadzenRequiredValidator Visible="@(!ReadOnly)" Component="str_return_categ" />
@@ -71,7 +71,7 @@
                     <RadzenFormField Text="Purchase Subcategory" class="rz-w-100">
                         <ChildContent>
                             <RadzenTextBox Disabled="IsDisabled" Visible="@(!IsEditable)" Value="@Model.PurchaseSubcategory?.Name" Placeholder="No purchase subcategory given" />
-                            <QuickVirtualizedDropdown  @ref="@PurchaseSubcategoryDropdown" @bind-Value="@Model.PurchaseSubcategory" Visible="@IsEditable" TItem="PurchaseSubcategoryVM" DataGetter="@PurchaseSubcategoryProvider" TextProperty="@nameof(PurchaseSubcategoryVM.Name)" Disabled="@(Model.PurchaseCategory is null || IsDisabled)" />
+                            <QuickVirtualizedDropdown @ref="@PurchaseSubcategoryDropdown" @bind-Value="@Model.PurchaseSubcategory" Visible="@IsEditable" TItem="PurchaseSubcategoryVM" DataGetter="@PurchaseSubcategoryProvider" TextProperty="@nameof(PurchaseSubcategoryVM.Name)" Disabled="@(Model.PurchaseCategory is null || IsDisabled)" />
                         </ChildContent>
                     </RadzenFormField>
                 </RadzenColumn>
@@ -102,15 +102,20 @@
                     <RadzenDataGridColumn TItem="SupplierReturnLineVM" Title="Item Description" Property="@nameof(SupplierReturnLineVM.ItemDescription)" />
                     <RadzenDataGridColumn TItem="SupplierReturnLineVM" Title="UoM">
                         <Template Context="data">
-                            <RadzenText  Visible="@(!IsEditable)" TextStyle="TextStyle.Body2" Text="@(data.UoM?.Name ?? "-")" />
-                            <QuickVirtualizedDropdown Disabled="IsDisabled" @bind-Value:get="@data.UoM" @bind-Value:set="@(val => LineUoMSet(data, val))" Visible="@IsEditable" TItem="ItemUnitVM" DataGetter="@(intent => ItemUnitsProvider(intent, data.ItemId))" TextProperty="@nameof(ItemUnitVM.Name)" />
+                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center">
+                                <RadzenText Visible="@(!IsEditable)" TextStyle="TextStyle.Body2" Text="@(data.UoM?.Name ?? "-")" />
+                                <QuickVirtualizedDropdown Disabled="IsDisabled" @bind-Value:get="@data.UoM" @bind-Value:set="@(val => LineUoMSet(data, val))" Visible="@IsEditable" TItem="ItemUnitVM" DataGetter="@(intent => ItemUnitsProvider(intent, data.ItemId))" TextProperty="@nameof(ItemUnitVM.Name)" />
+                            </RadzenStack>
                         </Template>
                     </RadzenDataGridColumn>
                     <RadzenDataGridColumn TItem="SupplierReturnLineVM" Title="Available Quantity" Property="@nameof(SupplierReturnLineVM.QuantityOnHandByUoM)" Type="typeof(decimal)" FormatString="{0:#,##0.##}" />
                     <RadzenDataGridColumn TItem="SupplierReturnLineVM" Title="Alloted Quantity">
                         <Template Context="data">
-                            <RadzenText  Visible="@(!IsEditable)" TextStyle="TextStyle.Body2" Text="@data.QuantityAlloted.ToString()" />
-                            <RadzenNumeric Disabled="IsDisabled" Visible="@(IsEditable)" @bind-Value="@data.QuantityAlloted" Format="#,##0.##" />
+
+                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center">
+                                <RadzenText Visible="@(!IsEditable)" TextStyle="TextStyle.Body2" Text="@data.QuantityAlloted.ToString("#,##0.##")" />
+                                <RadzenNumeric Disabled="IsDisabled" Visible="@(IsEditable)" @bind-Value="@data.QuantityAlloted" Format="#,##0.##" />
+                            </RadzenStack>
                         </Template>
                     </RadzenDataGridColumn>
 
