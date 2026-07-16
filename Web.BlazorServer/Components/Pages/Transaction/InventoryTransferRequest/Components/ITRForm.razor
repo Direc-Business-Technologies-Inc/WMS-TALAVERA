@@ -50,16 +50,21 @@
                     <RadzenDataGridColumn TItem="InventoryTransferRequestLineVM" Property="@nameof(InventoryTransferRequestLineVM.ItemDescription)" Title="Item Description" />
                     <RadzenDataGridColumn TItem="InventoryTransferRequestLineVM" Title="UoM">
                         <Template Context="data">
-                            <RadzenFormField>
-                                <RadzenTextBox Disabled="Disabled" Visible="@ReadOnly" ReadOnly Value="@data.UoM?.Name" Placeholder="No item unit given" />
-                                <QuickVirtualizedDropdown Disabled="Disabled" Visible="@(!ReadOnly)" TItem="ItemUnitVM" DataGetter="@(intent => ItemUnitProvider(intent, data.ItemID))" TextProperty="@nameof(ItemUnitVM.Name)" @bind-Value:get="@data.UoM" @bind-Value:set="@(val => SetLineUoM(data, val))" />
+                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center">
+                            <RadzenText Visible="@ReadOnly" TextStyle="TextStyle.Body2">@data.UoM?.Name</RadzenText>
+                            <RadzenFormField Visible="@(!ReadOnly)" class="rz-w-100">
+                                <QuickVirtualizedDropdown Disabled="Disabled"  TItem="ItemUnitVM" DataGetter="@(intent => ItemUnitProvider(intent, data.ItemID))" TextProperty="@nameof(ItemUnitVM.Name)" @bind-Value:get="@data.UoM" @bind-Value:set="@(val => SetLineUoM(data, val))" />
                             </RadzenFormField>
+                        </RadzenStack>
                         </Template>
                     </RadzenDataGridColumn>
                     <RadzenDataGridColumn TItem="InventoryTransferRequestLineVM" Type="typeof(decimal)" Property="@nameof(InventoryTransferRequestLineVM.QuantityOnHandByUoM)" FormatString="{0:#,##0.##}" Title="On Hand Quantity" />
                     <RadzenDataGridColumn TItem="InventoryTransferRequestLineVM" Title="Alloted Quantity">
                         <Template Context="data">
-                            <RadzenFormField class="rz-w-100">
+                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center">
+
+                            <RadzenText Visible="@ReadOnly" TextStyle="TextStyle.Body2">@data.QuantityAlloted.ToString("#,##0.##")</RadzenText>
+                            <RadzenFormField class="rz-w-100" Visible="@(!ReadOnly)">
                                 <ChildContent>
                                     <RadzenNumeric Disabled="Disabled" ReadOnly="@ReadOnly" @bind-Value="@data.QuantityAlloted" Min="0" Max="@(data.QuantityOnHandByUoM / (data.UoM?.ConversionRate ?? 1))" Format="#,##0.##" />
                                 </ChildContent>
@@ -70,6 +75,7 @@
                                                   Size="ButtonSize.ExtraSmall" Click="() => OpenInventoryDetailDialog(data, data.ItemID, data.QuantityAlloted)" />
                                 </End>
                             </RadzenFormField>
+                            </RadzenStack>
                         </Template>
                     </RadzenDataGridColumn>
 
