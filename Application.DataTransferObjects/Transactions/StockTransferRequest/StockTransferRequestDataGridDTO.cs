@@ -18,5 +18,6 @@ public class StockTransferRequestDataGridDTO
     public string Remarks { get; set; } = string.Empty;
     public TransferOrderStatus? Status { get; set; } = null;
     public DateTime Date { get; set; }
+    public DateTime DateLastModified { get; set; }
     public bool IsEditable { get; set; }
 }
