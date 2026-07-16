@@ -81,13 +81,6 @@ else
             </RadzenFieldset>
             <RadzenFieldset Text="Lines" AllowCollapse>
                 <AppDataGrid @ref="@DataGrid" TItem="ReturnsLinePackingVM" DataGetter="@LoadDataAsync" GridSettings="@DataGridSettings" @bind-GridSettingsLoaded="@GridSettingsLoaded" ActionName="@ActionGetLines" DataGridSelectionMode="DataGridSelectionMode.Single">
-                    <HeaderTemplate>
-                        <RadzenStack Gap="0.5em" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End">
-                            <RadzenButton Icon="print" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light">
-                                <RadzenLink Path="@PrintableURL" Text="Print" target="_blank" Icon="print" />
-                            </RadzenButton>
-                        </RadzenStack>
-                    </HeaderTemplate>
                     <GridColumns>
                         <RadzenDataGridColumn TItem="ReturnsLinePackingVM" Property="@nameof(ReturnsLinePackingVM.ItemCode)" Type="@typeof(string)" Title="Item Code" />
                         <RadzenDataGridColumn TItem="ReturnsLinePackingVM" Property="@nameof(ReturnsLinePackingVM.ItemDescription)" Type="@typeof(string)" Title="Item Description" />

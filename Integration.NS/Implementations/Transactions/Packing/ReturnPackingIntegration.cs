@@ -1,3 +1,4 @@
+using Application.DataTransferObjects.Transactions.Packing;
 using Application.DataTransferObjects.Transactions.Packing.Returns;
 using Application.UseCases.Repositories.Integration.Others;
 using Application.UseCases.Repositories.Integration.Transaction.Packing;
@@ -159,5 +160,28 @@ internal class ReturnPackingIntegration(
             QuantityReceived = nsdto.QuantityReceived,
             QuantityBackOrdered = nsdto.QuantityBackOrdered,
         };
+    }
+
+    public async Task<(IEnumerable<PackedItemFulfillmentDTO> Data, int Count)> GetPackedItemFulfillments(DataGridIntent intent)
+    {
+        var query = builderFactory.Create()
+            .Select(
+                ("t.id", nameof(PackedItemFulfillmentDTO.Id)),
+                ("t.tranid", nameof(PackedItemFulfillmentDTO.ReferenceNumber)),
+                ("BUILTIN.DF(t.custbody_dbti_transfer_category)", nameof(PackedItemFulfillmentDTO.TransferCategory)),
+                ("BUILTIN.DF(tl.createdfrom)", nameof(PackedItemFulfillmentDTO.CreatedFrom))
+            )
+            .From("transaction t")
+            .Join("transactionline tl", "tl.mainline = 'T' and tl.transaction = t.id")
+            .WithFilters(
+                Equal("t.recordtype", "itemfulfillment"),
+                Equal("t.status", "B")
+            )
+            .WithDatagridIntent(intent)
+            .Build();
+
+        var response = await query.ExecuteWithPaging<PackedItemFulfillmentDTO>(netsuiteService);
+
+        return (response.items, response.totalResults);
     }
 }

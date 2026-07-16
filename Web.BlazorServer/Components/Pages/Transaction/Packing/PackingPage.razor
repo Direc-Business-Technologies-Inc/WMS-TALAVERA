@@ -1,3 +1,4 @@
+@using Web.BlazorServer.Components.Custom
 @using Web.BlazorServer.Components.Pages.Transaction.Packing
 @using Web.BlazorServer.Components.Pages.Transaction.Packing.STR.Component
 @using Web.BlazorServer.Components.Pages.Transaction.Packing.Returns.Component
@@ -26,6 +27,15 @@
             </RadzenTabsItem>
             <RadzenTabsItem Text="Vendor Return Authorization">
                 <VendorReturnAuthorizationPackingDataGrid />
+            </RadzenTabsItem>
+            <RadzenTabsItem Text="Packed Item Fulfillments">
+                <QuickDataGrid DataGetter="ItemFulfillmentsProvider" ActionWidth="72">
+                    <RowActions>
+                        <RadzenButton Icon="print" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light">
+                            <RadzenLink Path="@PrintableURL(context)" Text="Print" target="_blank" Icon="print" />
+                        </RadzenButton>
+                    </RowActions>
+                </QuickDataGrid>
             </RadzenTabsItem>
         </Tabs>
     </RadzenTabs>

@@ -70,13 +70,6 @@ else
             </RadzenFieldset>
             <RadzenFieldset Text="Lines" AllowCollapse>
                 <AppDataGrid @ref="@DataGrid" TItem="VendorReturnAuthorizationLinePackingVM" DataGetter="@LoadDataAsync" GridSettings="@DataGridSettings" @bind-GridSettingsLoaded="@GridSettingsLoaded" ActionName="@ActionGetLines" DataGridSelectionMode="DataGridSelectionMode.Single">
-                    <HeaderTemplate>
-                        <RadzenStack Gap="0.5em" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End">
-                            <RadzenButton Icon="print" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light">
-                                <RadzenLink Path="@PrintableURL" Text="Print" target="_blank" Icon="print" />
-                            </RadzenButton>
-                        </RadzenStack>
-                    </HeaderTemplate>
                     <GridColumns>
                         <RadzenDataGridColumn TItem="VendorReturnAuthorizationLinePackingVM" Property="@nameof(VendorReturnAuthorizationLinePackingVM.ItemCode)" Type="@typeof(string)" Title="Item Code" />
                         <RadzenDataGridColumn TItem="VendorReturnAuthorizationLinePackingVM" Property="@nameof(VendorReturnAuthorizationLinePackingVM.ItemDescription)" Type="@typeof(string)" Title="Item Description" />
