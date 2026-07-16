@@ -20,4 +20,7 @@ public interface IReceivingIntegration
     public Task<(IEnumerable<PurchaseDeliveryNoteSAPDTO>, int)> GetPurchaseDeliveryNotesListAsync(DataGridIntent intent);
     public Task<bool> PostItemReceipt(ItemReceiptDTO itemReceiptDTO);
     public Task<BarcodeDTO?> GetBarcodeData(string barcode);
+    public Task<IEnumerable<ItemFulfillmentLineDTO>> GetItemFulfillmentLines(int ifId, DataGridIntent intent);
+    public Task<(IEnumerable<ItemFulfillmentDTO>, int)> GetSTRItemFulfillments(int strId, DataGridIntent intent);
+    public Task<IEnumerable<ItemReceiptLineDTO>> GetItemReceiptItemFulfillmentLinesAsync(string docEntry);
 }

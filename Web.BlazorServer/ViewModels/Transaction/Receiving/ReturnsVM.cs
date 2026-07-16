@@ -5,6 +5,7 @@ namespace Web.BlazorServer.ViewModels.Transaction.Receiving;
 
 public class ReturnsVM
 {
+    public int Id { get; set; }
     public string ReferenceNumber { get; set; } = string.Empty;
     public string FromSubsidiary { get; set; } = string.Empty;
     public string Vendor { get; set; } = string.Empty;

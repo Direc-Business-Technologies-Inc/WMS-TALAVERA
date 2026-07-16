@@ -14,6 +14,7 @@ public class ItemReceiptDTO
     public int VendorPrefferedBin { get; set; }
     public int DefaultBO { get; set; }
     public int? PreparedById { get; set; }
+    public int? ItemFulfillmentId { get; set; }
 
     public string Type { get; set; } = string.Empty;
     public string CreatedFrom { get; set; } = string.Empty;

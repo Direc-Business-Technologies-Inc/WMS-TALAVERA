@@ -13,6 +13,8 @@ namespace Web.BlazorServer.Components.Pages.Transaction.Receiving;
 partial class ItemReceiptCreatePage
 {
     [SupplyParameterFromQuery] public string? Ref { get; set; }
+    [SupplyParameterFromQuery] public int? IfId { get; set; }
+    [SupplyParameterFromQuery] public string? ItemFulfillment { get; set; }
     [Inject] IReceivingHandler? receivingHandler { get; set; }
     [Inject] AppAuthenticationService authService { get; set; } = default!;
     [Inject] IBusyDialogService BusyDialogService { get; set; } = default!;
@@ -51,7 +53,7 @@ partial class ItemReceiptCreatePage
             if (string.IsNullOrEmpty(Ref)) throw new InvalidOperationException("Please select a source for item receipt");
             if (receivingHandler is null) throw new Exception("No handlers registered for item receipt");
 
-            var res = await receivingHandler.GetItemReceiptSourceAsync(Ref);
+            var res = await receivingHandler.GetItemReceiptSourceAsync(Ref, ItemFulfillment);
 
             if (res is null) throw new Exception($"Couldn't find the source for item receipt: \"{Ref}\"");
             return res;
@@ -69,7 +71,7 @@ partial class ItemReceiptCreatePage
             var nsEmployee = authService.GetClaimValue("com.direcbusiness.wms.nsEmployeeName");
             FormData.PreparedBy = string.IsNullOrEmpty(nsEmployee) ? "No Netsuite Account Registered" : nsEmployee;
             FormData.ReceivedBy = FormData.PreparedBy;
-
+            FormData.ItemFulfillmentId = IfId ?? -1;
             return Task.CompletedTask;
         });
 
