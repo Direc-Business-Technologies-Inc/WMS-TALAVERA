@@ -9,6 +9,7 @@ using Integration.NS.Helpers;
 using Integration.NS.Services;
 using Microsoft.AspNetCore.Http;
 using Shared.Entities;
+using Shared.Libraries.Utilities;
 using static Shared.Libraries.Utilities.DataGridFilterUtilities;
 
 namespace Integration.NS.Implementations.Transactions.Packing;
@@ -21,11 +22,14 @@ internal class ReturnPackingIntegration(
 {
     public async Task<(IEnumerable<ReturnsDataGridDTO> Data, int Count)> GetPackingReturnsList(DataGridIntent intent, int subsidiaryId)
     {
+        if (intent.Sorts.Count == 0) intent.Sorts.Add(DataGridSortUtilities.Descending(nameof(ReturnPackingDataGridNSDTO.DateLastModified)));
+
         var query = builderFactory.Create()
             .Select(
                 ("t.id", nameof(ReturnPackingDataGridNSDTO.Id)),
                 ("t.tranid", nameof(ReturnPackingDataGridNSDTO.ReferenceNumber)),
                 ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(ReturnPackingDataGridNSDTO.Date)),
+                ("TO_CHAR(t.lastmodifieddate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(ReturnPackingDataGridNSDTO.DateLastModified)),
                 ("BUILTIN.DF(t.subsidiary)", nameof(ReturnPackingDataGridNSDTO.SourceSubsidiary)),
                 ("BUILTIN.DF(t.tosubsidiary)", nameof(ReturnPackingDataGridNSDTO.DestinationSubsidiary)),
                 ("BUILTIN.DF(tl.location)", nameof(ReturnPackingDataGridNSDTO.Location)),

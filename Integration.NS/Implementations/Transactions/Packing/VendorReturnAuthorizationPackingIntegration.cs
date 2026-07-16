@@ -2,12 +2,14 @@ using Application.DataTransferObjects.Transactions.Packing.VendorReturnAuthoriza
 using Application.UseCases.Repositories.Integration.Others;
 using Application.UseCases.Repositories.Integration.Transaction.Packing;
 using Database.Libraries.Repositories;
+using Integration.NS.DataTransferObjects.Packing.Returns;
 using Integration.NS.DataTransferObjects.Packing.STR;
 using Integration.NS.DataTransferObjects.Packing.VendorReturnAuthorization;
 using Integration.NS.Helpers;
 using Integration.NS.Services;
 using Microsoft.AspNetCore.Http;
 using Shared.Entities;
+using Shared.Libraries.Utilities;
 using static Shared.Libraries.Utilities.DataGridFilterUtilities;
 
 namespace Integration.NS.Implementations.Transactions.Packing;
@@ -20,11 +22,14 @@ internal class VendorReturnAuthorizationPackingIntegration(
 {
     public async Task<(IEnumerable<VendorReturnAuthorizationDataGridDTO> Data, int Count)> GetPackingVendorReturnAuthorizationsList(DataGridIntent intent, int subsidiaryId)
     {
+
+        if (intent.Sorts.Count == 0) intent.Sorts.Add(DataGridSortUtilities.Descending(nameof(VendorReturnAuthorizationPackingDataGridNSDTO.DateLastModified)));
         var query = builderFactory.Create()
             .Select(
                 ("t.id", nameof(VendorReturnAuthorizationPackingDataGridNSDTO.Id)),
                 ("t.tranid", nameof(VendorReturnAuthorizationPackingDataGridNSDTO.ReferenceNumber)),
                 ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(VendorReturnAuthorizationPackingDataGridNSDTO.Date)),
+                ("TO_CHAR(t.lastmodifieddate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(VendorReturnAuthorizationPackingDataGridNSDTO.DateLastModified)),
                 ("BUILTIN.DF(t.subsidiary)", nameof(VendorReturnAuthorizationPackingDataGridNSDTO.SourceSubsidiary)),
                 ("BUILTIN.DF(t.tosubsidiary)", nameof(VendorReturnAuthorizationPackingDataGridNSDTO.DestinationSubsidiary)),
                 ("BUILTIN.DF(tl.location)", nameof(VendorReturnAuthorizationPackingDataGridNSDTO.Location)),
