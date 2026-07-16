@@ -317,6 +317,7 @@ internal class StockTransferRequestIntegration(
             {
                 id = dto.DestinationLocation.Id.ToString()
             } : null,
+            orderStatus = "A",
             custbody_dbti_transfer_category = new { id = dto.TransferCategory.Id },
             custbody_dbti_custom_approval_status = 2,
             custbody_dbti_prepared_by = dto.PreparedById,
