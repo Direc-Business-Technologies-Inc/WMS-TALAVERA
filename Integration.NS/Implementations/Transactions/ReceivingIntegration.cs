@@ -380,6 +380,22 @@ public class ReceivingIntegration(
         			AND pttl.nexttype = 'ItemRcpt'
         """;
 
+    const string IF_TO_LINE_ID= """
+            SELECT
+                ttl.id
+        	FROM
+        		previoustransactionlinelink tolink
+            JOIN 
+                transactionline shippingline ON shippingline.id = tolink.previousline and shippingline.transaction = tolink.previousdoc
+            JOIN 
+                transactionline ttl on ttl.transferorderitemlineid = shippingline.transferorderitemlineid and ttl.transaction = shippingline.transaction
+        	WHERE
+        		tolink.nextdoc = tl.transaction
+                AND ttl.transactionlinetype = 'RECEIVING'
+        		AND tolink.nextline = tl.id
+        		AND tolink.previoustype = 'TrnfrOrd'
+        """;
+
     public async Task<IEnumerable<ItemReceiptLineDTO>> GetItemReceiptItemFulfillmentLinesAsync(string docEntry)
     {
 
@@ -387,7 +403,7 @@ public class ReceivingIntegration(
             .Select(
                 ("item.itemid", "ItemCode"),
                 ("item.id", "ItemId"),
-                ("tl.id", "LineNumber"),
+                ($"({IF_TO_LINE_ID})", "LineNumber"),
                 ("uom.unitname", "UoM"),
                 ("uom.conversionrate", "UoMRate"),
                 ("loc.name", nameof(ItemReceiptLineDTO.LocationName)),
@@ -398,7 +414,6 @@ public class ReceivingIntegration(
                 ("item.weight", nameof(ItemReceiptLineDTO.WeightPerItem)),
                 ("tl.custcol_dbti_actual_weight", nameof(ItemReceiptLineDTO.WeightActual)),
                 ("ABS(tl.quantity / uom.conversionrate)", "QuantityPlanned"),
-                ("ABS(tl.quantity - tl.quantityshiprecv) / uom.conversionrate", "QuantityOpen"),
                 ($"({IF_RECEIPTS_QUERY})", "QuantityReceived")
             )
             .From("transactionline tl")
@@ -408,8 +423,7 @@ public class ReceivingIntegration(
             .Join("unitstypeuom uom", on: "tl.units = uom.internalid")
             .LeftJoin("(SELECT ibq.bin, ibq.item, b.location FROM itembinquantity ibq JOIN bin b ON ibq.bin = b.id WHERE preferredbin = \'T\') pb", on: "pb.item = item.id AND pb.location = tl.location")
             .WithFilters(
-                Equal("t.tranid", docEntry),
-                Equal("tl.mainline", "F")
+                Equal("t.tranid", docEntry)
             );
 
         var query = builder.Build();
@@ -437,7 +451,6 @@ public class ReceivingIntegration(
                 ("item.weight", nameof(ItemReceiptLineDTO.WeightPerItem)),
                 ("tl.custcol_dbti_actual_weight", nameof(ItemReceiptLineDTO.WeightActual)),
                 ("ABS(tl.quantity / uom.conversionrate)", "QuantityPlanned"),
-                ("ABS(tl.quantity - tl.quantityshiprecv) / uom.conversionrate", "QuantityOpen"),
                 ("(tl.quantityshiprecv / uom.conversionrate)", "QuantityReceived")
             )
             .From("transactionline tl")
@@ -467,7 +480,7 @@ public class ReceivingIntegration(
 
     public async Task<bool> PostItemReceipt(ItemReceiptDTO dto)
     {
-        var uri = dto.SourceType == ItemReceiptDTO.SourceTypes.PurchaseOrder ? 
+        var uri = dto.SourceType == ItemReceiptDTO.SourceTypes.PurchaseOrder ?
             $"{netsuiteService.GetRestAPIURI}/record/v1/purchaseOrder/{dto.SourceInternalId}/!transform/itemReceipt" :
             $"{netsuiteService.GetRestletURI}?script=1853&deploy=1";
 
@@ -549,34 +562,6 @@ public class ReceivingIntegration(
         });
     }
 
-    private string CreateTOJson(ItemReceiptDTO dto, bool isGood)
-    {
-        int statusId = isGood ? INVENTORY_STATUS_ID_GOOD : INVENTORY_STATUS_ID_BAD;
-        var lines = dto.Lines.Where(x => x.InventoryDetails.Any(y => y.Status?.Id == statusId));
-
-        var obj = new
-        {
-            transferOrderId = dto.SourceInternalId,
-            transferCategory = isGood ? 1 : 2,
-            custbody_dbti_prepared_by = dto.PreparedById,
-            receiverEmployeeId = dto.PreparedById,
-            fulfillmentId = dto.ItemFulfillmentId,
-            lines = lines.Where(x => x.QuantityAlloted > 0).Select(line =>
-            {
-                return new
-                {
-                    orderLine = line.LineNumber,
-                    quantity = line.InventoryDetails.Sum(x => x.Status?.Id == statusId ? x.QuantityAlloted : 0),
-                    inventoryDetail = line.InventoryDetails.Where(x => x.Status?.Id == statusId).Select(y => new
-                    {
-                        inventoryStatus = statusId,
-                        quantity = y.QuantityAlloted
-                    })
-                };
-            })
-        };
-        return JsonSerializer.Serialize(obj, JSON_OPTS);
-    }
 
     public async Task<(IEnumerable<ItemFulfillmentDTO>, int)> GetSTRItemFulfillments(int strId, DataGridIntent intent)
     {
@@ -629,7 +614,34 @@ public class ReceivingIntegration(
     }
 
     private string CreateReturnsJson(ItemReceiptDTO dto, bool isGood) => CreateTOJson(dto, isGood);
+    private string CreateTOJson(ItemReceiptDTO dto, bool isGood)
+    {
+        int statusId = isGood ? INVENTORY_STATUS_ID_GOOD : INVENTORY_STATUS_ID_BAD;
+        var lines = dto.Lines.Where(x => x.InventoryDetails.Any(y => y.Status?.Id == statusId));
 
+        var obj = new
+        {
+            transferOrderId = dto.SourceInternalId,
+            transferCategory = isGood ? 1 : 2,
+            custbody_dbti_prepared_by = dto.PreparedById,
+            receiverEmployeeId = dto.PreparedById,
+            fulfillmentId = dto.ItemFulfillmentId,
+            lines = lines.Where(x => x.QuantityAlloted > 0).Select(line =>
+            {
+                return new
+                {
+                    orderLine = line.LineNumber,
+                    quantity = line.InventoryDetails.Sum(x => x.Status?.Id == statusId ? x.QuantityAlloted : 0),
+                    inventoryDetail = line.InventoryDetails.Where(x => x.Status?.Id == statusId).Select(y => new
+                    {
+                        inventoryStatus = statusId,
+                        quantity = y.QuantityAlloted
+                    })
+                };
+            })
+        };
+        return JsonSerializer.Serialize(obj, JSON_OPTS);
+    }
     private string CreatePOJson(ItemReceiptDTO dto, bool isGood)
     {
         int statusId = isGood ? INVENTORY_STATUS_ID_GOOD : INVENTORY_STATUS_ID_BAD;
@@ -637,6 +649,9 @@ public class ReceivingIntegration(
 
         var obj = new
         {
+            defaultValues = new {
+                itemfulfillment = dto.ItemFulfillmentId
+            },
             custbody_dbti_receiving_category = isGood ? 1 : 2,
             custbody_dbti_prepared_by = dto.PreparedById,
             custbody_dbti_received_by = dto.PreparedById,

@@ -35,7 +35,7 @@ public class ItemReceiptLineVM
     public decimal WeightPerItem { get; set; }
     public decimal WeightRecord => WeightPerItem * QuantityAlloted;
     public decimal QuantityPlanned { get; set; }
-    public decimal QuantityOpen { get; set; }
+    public decimal QuantityOpen => QuantityPlanned - QuantityReceived;
     public decimal QuantityReceived { get; set; }
     public decimal QuantityAlloted { get; set; }
     public bool IsAllAssigned => InventoryDetails.Sum(x => x.QuantityAlloted) == QuantityAlloted;
