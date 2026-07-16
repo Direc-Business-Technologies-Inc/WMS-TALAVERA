@@ -94,11 +94,14 @@ public class ReceivingIntegration(
 
     public async Task<(IEnumerable<PurchaseOrderDataGridDTO>, int)> GetPurchaseOrdersListAsync(DataGridIntent intent)
     {
+        if (intent.Sorts.Count == 0) intent.Sorts.Add(DataGridSortUtilities.Descending("DateLastModified"));
+
         var builder = builderFactory.Create()
             .Select(
                 ("t.id", "Id"),
                 ("t.tranid", "ReferenceNumber"),
                 ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", "Date"),
+                ("TO_CHAR(t.lastmodifieddate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", "DateLastModified"),
                 ("t.location", "Location"),
                 ("TO_CHAR(t.custbody_dbti_order_date, 'YYYY-MM-DD\"T\"HH24:MI:SS')", "DeliveryDate"),
                 ("t.memo", "Memo"),
@@ -122,6 +125,9 @@ public class ReceivingIntegration(
 
     public async Task<(IEnumerable<TransferOrderDataGridDTO>, int count)> GetTransferOrderListAsync(DataGridIntent intent)
     {
+
+        if (intent.Sorts.Count == 0) intent.Sorts.Add(DataGridSortUtilities.Descending("DateLastModified"));
+
         List<int> allowedSubsidiaries = [];
         string? claimValue = httpContext.HttpContext?.User?.FindFirst("com.direcbusiness.wms.nsAllowedSubsidiaries")?.Value;
         if (claimValue is not null)
@@ -134,6 +140,7 @@ public class ReceivingIntegration(
                 ("t.id", "Id"),
                 ("t.tranid", "ReferenceNumber"),
                 ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", "Date"),
+                ("TO_CHAR(t.lastmodifieddate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", "DateLastModified"),
                 ("BUILTIN.DF(t.subsidiary)", "SourceSubsidiary"),
                 ("BUILTIN.DF(t.tosubsidiary)", "DestinationSubsidiary"),
                 ("BUILTIN.DF(tl.location)", "Location"),
@@ -237,11 +244,15 @@ public class ReceivingIntegration(
 
     public async Task<(IEnumerable<ReturnsDataGridDTO>, int count)> GetReturnsListAsync(DataGridIntent intent)
     {
+
+        if (intent.Sorts.Count == 0) intent.Sorts.Add(DataGridSortUtilities.Descending("DateLastModified"));
+
         var query = builderFactory.Create()
             .Select(
                 ("t.id", "Id"),
                 ("t.tranid", "ReferenceNumber"),
                 ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", "Date"),
+                ("TO_CHAR(t.lastmodifieddate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", "DateLastModified"),
                 ("BUILTIN.DF(t.subsidiary)", "SourceSubsidiary"),
                 ("BUILTIN.DF(t.tosubsidiary)", "DestinationSubsidiary"),
                 ("BUILTIN.DF(t.custbody_dbti_return_to_vendor)", "VendorName"),
