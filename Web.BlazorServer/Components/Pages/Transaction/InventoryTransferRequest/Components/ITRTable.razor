@@ -4,7 +4,7 @@
 
 <QuickDataGrid @ref="@DataGrid" Id="inventory_transfer_request_table" ActionName="@ActionGetList" DataGetter="@GetList">
     <HeaderStart>
-        <RadzenFormField Text="Filter by status" class="rz-mt-0">
+        <RadzenFormField Text="Filter by status" class="rz-mt-0" Style="margin-top:-10px!important">
             <QuickVirtualizedDropdown TItem="InventoryTransferRequestStatusVM" DataGetter="@StatusProvider" TextProperty="@nameof(InventoryTransferRequestStatusVM.Name)" @bind-Value="@FilterStatus" @bind-Value:after="FilterChanged" />
         </RadzenFormField>
     </HeaderStart>
