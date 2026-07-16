@@ -27,9 +27,9 @@ public partial class UserPasswordManagement
 
     #region Overrides
 
-    protected override void OnParametersSet()
+    protected override void OnInitialized()
     {
-        base.OnParametersSet();
+        base.OnInitialized();
 
         FormData.UserId = User.Id;
         FormData.Password = string.Empty;
