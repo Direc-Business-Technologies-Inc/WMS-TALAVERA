@@ -108,6 +108,9 @@ public class InventoryAdjustmentIntegration(
 
     public async Task<(IEnumerable<InventoryAdjustmentDataGridDTO> Data, int Count)> GetInventoryAdjustmentsAsync(DataGridIntent intent)
     {
+        if (intent.Sorts.Count == 0)
+            intent.Sorts.Add(DataGridSortUtilities.Descending(nameof(InventoryAdjustmentDataGridDTO.DateLastModified)));
+
         var query = builderFactory.Create()
             .Select(
                 ("t.id", nameof(InventoryAdjustmentDataGridDTO.Id)),
@@ -120,7 +123,8 @@ public class InventoryAdjustmentIntegration(
                 ("iar.name", nameof(InventoryAdjustmentDataGridDTO.AdjustmentReason)),
                 ("NVL(receipt.total, 0)", nameof(InventoryAdjustmentDataGridDTO.QuantityReceivedTotal)),
                 ("NVL(issue.total, 0)", nameof(InventoryAdjustmentDataGridDTO.QuantityIssuedTotal)),
-                ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS') ", nameof(InventoryAdjustmentDataGridDTO.Date))
+                ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS') ", nameof(InventoryAdjustmentDataGridDTO.Date)),
+                ("TO_CHAR(t.lastmodifieddate, 'YYYY-MM-DD\"T\"HH24:MI:SS') ", nameof(InventoryAdjustmentDataGridDTO.DateLastModified))
             )
             .From("transaction t")
             .Join("transactionline tl", on:"tl.transaction = t.id")
