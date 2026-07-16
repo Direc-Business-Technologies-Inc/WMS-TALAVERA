@@ -168,6 +168,8 @@ internal class ReturnPackingIntegration(
             .Select(
                 ("t.id", nameof(PackedItemFulfillmentDTO.Id)),
                 ("t.tranid", nameof(PackedItemFulfillmentDTO.ReferenceNumber)),
+                ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(PackedItemFulfillmentDTO.Date)),
+                ("TO_CHAR(t.LastModifiedDate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(PackedItemFulfillmentDTO.DateLastModified)),
                 ("BUILTIN.DF(t.custbody_dbti_transfer_category)", nameof(PackedItemFulfillmentDTO.TransferCategory)),
                 ("BUILTIN.DF(tl.createdfrom)", nameof(PackedItemFulfillmentDTO.CreatedFrom))
             )

@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Components;
 using Shared.Entities;
+using Shared.Libraries.Utilities;
 using Web.BlazorServer.Handlers.Repositories.Transaction.Packing.Returns;
 using Web.BlazorServer.ViewModels.Transaction.Packing;
 
@@ -48,6 +49,12 @@ partial class PackingPage
     #endregion Custom Functions
     public Task<(IEnumerable<PackedItemFulfillmentVM>, int)> ItemFulfillmentsProvider(DataGridIntent intent)
     {
+        if (intent.Sorts.Count == 0)
+        {
+            intent.Sorts.Add(
+                DataGridSortUtilities.Descending(nameof(PackedItemFulfillmentVM.DateLastModified))
+            );
+        }
         return packingHandler.GetPackedItemFulfillments(intent);
     }
     const string PRINTABLE_URL = "https://11608969.extforms.netsuite.com/app/site/hosting/scriptlet.nl?script=1922&deploy=1&compid=11608969&ns-at=AAEJ7tMQ70cbDMgsewbx6YHr0oQkl5HAZi1-qpSrLgdV9mevdZI";
