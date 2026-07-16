@@ -99,6 +99,9 @@ public class InventoryTransferRequestIntegration(
 
     public async Task<(IEnumerable<InventoryTransferRequestDataGridDTO> Data, int Count)> GetInventoryTransferRequestsDataGridAsync(DataGridIntent intent)
     {
+        if (intent.Sorts.Count == 0)
+            intent.Sorts.Add(DataGridSortUtilities.Descending(nameof(InventoryTransferRequestDataGridDTO.DateLastModified)));
+
         var query = builderFactory.Create()
             .Select(
                 ("t.id", nameof(InventoryTransferRequestDataGridDTO.Id)),
@@ -109,7 +112,8 @@ public class InventoryTransferRequestIntegration(
                 ("BUILTIN.DF(t.custbody_dbti_custom_approval_status)", nameof(InventoryTransferRequestDataGridDTO.StatusName)),
                 ("CONCAT(e.firstname,CONCAT(' ',e.lastname))", nameof(InventoryTransferRequestDataGridDTO.PreparedBy)),
                 ("BUILTIN.DF(t.transferLocation)", nameof(InventoryTransferRequestDataGridDTO.DestinationLocation)),
-                ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(InventoryTransferRequestDataGridDTO.Date))
+                ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(InventoryTransferRequestDataGridDTO.Date)),
+                ("TO_CHAR(t.lastmodifieddate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(InventoryTransferRequestDataGridDTO.DateLastModified))
             )
             .From("transaction t")
             .Join("transactionline tl", "tl.transaction = t.id AND tl.mainline='T'")
