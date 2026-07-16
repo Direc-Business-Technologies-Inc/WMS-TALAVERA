@@ -18,6 +18,7 @@ partial class STRDataGrid
 {
     [Inject] IGridSettingsService GridSettingsService { get; set; } = default!;
     [Inject] IStockTransferRequestHandler strHandler { get; set; } = default!;
+    [Parameter] public string? TableId { get; set; } = "str_datagrid";
 
     [Parameter][EditorRequired]
     public required DataGetterDelegate DataGetter { get; init; }
