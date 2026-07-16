@@ -289,7 +289,7 @@ public class InventoryAdjustmentIntegration(
 
     readonly string IssueQuery = """
             SELECT
-                SUM(- itl.quantity) AS total,
+                count(itl.id) AS total,
                 itl.transaction AS transactionid
             FROM
                 transactionline itl
@@ -303,7 +303,7 @@ public class InventoryAdjustmentIntegration(
 
     readonly string ReceiptQuery = """
             SELECT
-                SUM(rtl.quantity) AS total,
+                count(rtl.id) AS total,
                 rtl.transaction AS transactionid
             FROM
                 transactionline rtl

@@ -103,7 +103,7 @@
             </RadzenRow>
         </RadzenFieldset>
         <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween">
-            <RadzenButton Disabled="Disabled" Visible="@OnReturn.HasDelegate" ButtonType="ButtonType.Button" Text="@ReturnLabel" Click="@Return" />
+            <RadzenButton Disabled="Disabled" Visible="@OnReturn.HasDelegate" ButtonStyle="ButtonStyle.Light" ButtonType="ButtonType.Button" Text="@ReturnLabel" Click="@Return" />
             <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5em">
                 <RadzenButton Disabled="Disabled" Visible="@OnSecondaryAction.HasDelegate" ButtonType="ButtonType.Button" Text="@SecondaryActionLabel" Click="@SecondaryAction" />
                 <RadzenButton Disabled="Disabled" Visible="@OnSubmit.HasDelegate" ButtonType="ButtonType.Submit" ButtonStyle="ButtonStyle.Success" Text="@SubmitLabel" />
