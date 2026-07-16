@@ -127,6 +127,8 @@ public class SupplierReturnIntegration(
 
     public async Task<(IEnumerable<SupplierReturnDataGridDTO> Data, int Count)> GetReturnsDataGridAsync(DataGridIntent intent)
     {
+        if (intent.Sorts.Count == 0)
+            intent.Sorts.Add(DataGridSortUtilities.Descending(nameof(SupplierReturnDataGridDTO.DateLastModified)));
         var query = builderFactory.Create()
                 .Select(
                     ("BUILTIN.DF(t.entity)", nameof(SupplierReturnDataGridDTO.VendorName)),
@@ -136,6 +138,7 @@ public class SupplierReturnIntegration(
                     ("tfrom.tranid", nameof(SupplierReturnDataGridDTO.CreatedFrom)),
                     ("t.memo", nameof(SupplierReturnDataGridDTO.Memo)),
                     ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(SupplierReturnDataGridDTO.Date)),
+                    ("TO_CHAR(t.lastmodifieddate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(SupplierReturnDataGridDTO.DateLastModified)),
                     ("s.name", nameof(SupplierReturnDataGridDTO.StatusName))
                 )
                 .From("transaction t")

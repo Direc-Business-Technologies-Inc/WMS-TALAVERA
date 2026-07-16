@@ -9,6 +9,8 @@ public class SupplierReturnDataGridVM
     [QuickDataGridTitle("Date")]
     [QuickDataGridStringFormat("{0:MMMM dd, yyyy}")]
     public DateTime Date { get; set; }
+    [QuickDataGridIgnore]
+    public DateTime DateLastModified { get; set; }
     [QuickDataGridTitle("Vendor")]
     public string VendorName { get; set; } = string.Empty;
     [QuickDataGridTitle("Created From")]
