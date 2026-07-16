@@ -31,6 +31,7 @@
                               FormatString="{0:MMMM dd, yyyy}"
                               Title="Date" />
         <RadzenDataGridColumn TItem="StockTransferRequestDataGridVM"
+                              FilterProperty="StatusName"
                               Property="@nameof(StockTransferRequestDataGridVM.StatusDisplayString)"
                               Type="@typeof(string)"
                               Title="Status" />
