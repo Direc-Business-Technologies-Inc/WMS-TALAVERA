@@ -124,7 +124,8 @@ partial class ItemReceiptForm
             return false;
         }
 
-        if (line.QuantityOpen - line.QuantityAlloted < (barcode.UoM?.ConversionRate ?? 0))
+        var itemCount = BarcodeStore.CountItemQuantity(line.ItemId);
+        if (line.QuantityOpen - line.QuantityAlloted - itemCount < (barcode.UoM?.ConversionRate ?? 0))
         {
             reason = $"The quantity of the item {line.ItemCode} exceeds the expected amount";
             return false;

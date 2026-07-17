@@ -43,7 +43,7 @@ public partial class BarcodeScannerDialog
             }
             else
             {
-                if (Verifier is not null && !Verifier(barcode, out string reason))
+                if (Verifier is not null && !Verifier(barcodeData, out string reason))
                 {
                     HelperString = reason;
                 }
