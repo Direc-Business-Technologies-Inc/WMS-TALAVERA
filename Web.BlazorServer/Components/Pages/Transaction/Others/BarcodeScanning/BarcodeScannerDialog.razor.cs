@@ -21,44 +21,29 @@ public partial class BarcodeScannerDialog
 
     async Task BarcodeScanned(BarcodeVM barcode)
     {
-        if (BarcodeStore.Contains(barcode)) 
-        {
-            BarcodeStore.AddBarcode(barcode);
-            HelperString = ALERT_BARCODE_SUCCESS;
-            return;
-        }
-        if (FailedBarcodesCache.Contains(barcode.Barcode))
-        {
-            HelperString = string.Format(ALERT_BARCODE_NOT_FOUND, barcode.Barcode);
-        }
-
-        IsLoadingData = true;
         try
         {
-            var barcodeData = await GetBarcodeData(barcode);
+            if (FailedBarcodesCache.Contains(barcode.Barcode))
+                throw new Exception(string.Format(ALERT_BARCODE_NOT_FOUND, barcode.Barcode));
+
+            BarcodeVM? barcodeData = BarcodeStore[barcode.Barcode] ?? await receivingHandler.GetBarcodeData(barcode.Barcode);
+
             if (barcodeData is null)
-            {
-                HelperString = string.Format(ALERT_BARCODE_NOT_FOUND, barcode.Barcode);
-                FailedBarcodesCache.Add(barcode.Barcode);
-            }
-            else
-            {
-                if (Verifier is not null && !Verifier(barcodeData, out string reason))
-                {
-                    HelperString = reason;
-                }
-                else
-                {
-                    BarcodeStore.AddBarcode(barcodeData);
-                    HelperString = ALERT_BARCODE_SUCCESS;
-                }
-            }
+                throw new Exception(string.Format(ALERT_BARCODE_NOT_FOUND, barcode.Barcode));
+
+            TryAddBarcode(barcodeData);
         }
         catch (Exception ex) 
         {
             HelperString = ex.Message;
         }
-        IsLoadingData = false;
+    }
+
+    void TryAddBarcode(BarcodeVM barcode)
+    {
+        if (Verifier is not null && !Verifier(barcode, out string reason)) throw new Exception(reason);
+
+        BarcodeStore.AddBarcode(barcode);
     }
 
     public void Close(bool keepChanges)

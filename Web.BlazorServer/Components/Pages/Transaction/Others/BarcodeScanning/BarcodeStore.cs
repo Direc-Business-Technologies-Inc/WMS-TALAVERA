@@ -27,6 +27,12 @@ public class BarcodeStore
     public bool Any() => _items.Any();
     public IEnumerable<BarcodeVM> Barcodes => _items.Values.Select(x => x.Barcode);
     public IEnumerable<ItemsVM> Items => _items.Values.Where(x => x.Item != null).DistinctBy(x => x.Barcode.Item!.Id).Select(x => x.Item!);
+
+    public BarcodeVM? this[string code]
+    {
+        get => _items.ContainsKey(code) ? _items[code].Barcode : null;
+    }
+
     public class BarcodeStoreItem(BarcodeVM barcode)
     {
         public BarcodeVM Barcode { get; init; } = barcode;
