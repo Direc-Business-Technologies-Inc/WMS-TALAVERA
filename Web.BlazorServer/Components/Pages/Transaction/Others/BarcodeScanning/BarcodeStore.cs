@@ -18,6 +18,7 @@ public class BarcodeStore
     public decimal CountItemQuantity(int itemId) => _items.Values
         .Where(x => x.Item?.Id == itemId)
         .Sum(x => x.Count * (x.UoM?.ConversionRate ?? 0));
+    public decimal CountItemQuantity(ItemsVM item) => CountItemQuantity(item.Id);
     public int GetBarcodeCount(BarcodeVM barcode) => GetBarcodeCount(barcode.Barcode);
     public int GetBarcodeCount(string barcode) => _items[barcode]?.Count ?? 0;
     public bool Contains(BarcodeVM barcode) => _items.ContainsKey(barcode.Barcode);
@@ -25,6 +26,7 @@ public class BarcodeStore
     public void Clear() => _items.Clear();
     public bool Any() => _items.Any();
     public IEnumerable<BarcodeVM> Barcodes => _items.Values.Select(x => x.Barcode);
+    public IEnumerable<ItemsVM> Items => _items.Values.Where(x => x.Item != null).DistinctBy(x => x.Barcode.Item!.Id).Select(x => x.Item!);
     public class BarcodeStoreItem(BarcodeVM barcode)
     {
         public BarcodeVM Barcode { get; init; } = barcode;
