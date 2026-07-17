@@ -18,4 +18,6 @@ public interface IReceivingHandler
     Task<BarcodeVM?> GetBarcodeData(string barcode);
     Task<IEnumerable<ItemFulfillmentLineVM>> GetItemFulfillmentLinesAsync(int ifid, DataGridIntent intent);
     Task<(IEnumerable<ItemFulfillmentVM>, int)> GetTransferOrderItemFulfillments(int toId, DataGridIntent intent);
+    Task<(IEnumerable<ItemReceiptDataGridVM>, int)> GetItemReceiptsDatagridAsync(DataGridIntent intent);
+
 }

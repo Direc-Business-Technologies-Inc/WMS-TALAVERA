@@ -1,4 +1,5 @@
-﻿@using Web.BlazorServer.Components.Pages.Transaction.Receiving.Components
+﻿@using Web.BlazorServer.Components.Custom
+@using Web.BlazorServer.Components.Pages.Transaction.Receiving.Components
 @using Web.BlazorServer.Components.Security
 @using Web.BlazorServer.ViewModels.Administration.User
 @using Web.BlazorServer.ViewModels.Transaction.Receiving
@@ -26,6 +27,15 @@
             </RadzenTabsItem>
             <RadzenTabsItem Text="Returns">
                 <ReturnsGrid />
+            </RadzenTabsItem>
+            <RadzenTabsItem Text="Item Receipts">
+                <QuickDataGrid Id="ir_item_receipts_grid" DataGetter="ItemReceiptsProvider" ActionWidth="72">
+                    <RowActions>
+                        <RadzenButton Icon="print" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light">
+                            <RadzenLink Path="@PrintableURL(context)" Text="Print" target="_blank" Icon="print" />
+                        </RadzenButton>
+                    </RowActions>
+                </QuickDataGrid>
             </RadzenTabsItem>
         </Tabs>
     </RadzenTabs>

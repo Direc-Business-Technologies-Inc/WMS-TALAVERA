@@ -215,4 +215,12 @@ public class ReceivingHandler(
 
         return code.Adapt<BarcodeVM>();
     }
+    public async Task<(IEnumerable<ItemReceiptDataGridVM>, int)> GetItemReceiptsDatagridAsync(DataGridIntent intent)
+    {
+        GetItemReceiptDataGridQry query = new(intent);
+        (var data, int count) = await Sender.Send(query);
+
+        return (data.Adapt<IEnumerable<ItemReceiptDataGridVM>>(), count);
+    }
+
 }

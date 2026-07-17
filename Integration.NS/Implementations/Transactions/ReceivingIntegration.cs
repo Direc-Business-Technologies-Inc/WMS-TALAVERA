@@ -623,6 +623,35 @@ public class ReceivingIntegration(
         var response = await netsuiteService.ExecuteSuiteQLQuery<ItemFulfillmentLineDTO>(query.Query);
         return response.items;
     }
+    public async Task<(IEnumerable<ItemReceiptDataGridDTO> data, int count)> GetItemReceiptsDatagrid(DataGridIntent intent)
+    {
+        if (intent.Sorts.Count == 0)
+            intent.Sorts.Add(DataGridSortUtilities.Descending(nameof(ItemReceiptDataGridDTO.DateLastModified)));
+        
+        var query = builderFactory.Create()
+            .Select(
+                ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(ItemReceiptDataGridDTO.Date)),
+                ("TO_CHAR(t.lastmodifieddate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(ItemReceiptDataGridDTO.DateLastModified)),
+                ("t.id", nameof(ItemReceiptDataGridDTO.Id)),
+                ("t.tranid", nameof(ItemReceiptDataGridDTO.ReferenceNumber)),
+                ("categ.name", nameof(ItemReceiptDataGridDTO.TransferCategory)),
+                ("BUILTIN.DF(tl.createdfrom)", nameof(ItemReceiptDataGridDTO.CreatedFrom)),
+                ("BUILTIN.DF(tl.location)", nameof(ItemReceiptDataGridDTO.FromLocation)),
+                ("BUILTIN.DF(t.transferlocation)", nameof(ItemReceiptDataGridDTO.ToLocation))
+            )
+            .From("transaction t")
+            .Join("transactionline tl", "tl.transaction = t.id AND tl.mainline = 'T'")
+            .LeftJoin("CUSTOMLIST_DBTI_TRANSFER_CATEGORY_LIST categ", "t.custbody_dbti_transfer_category = categ.id")
+            .WithFilters(
+                Equal("t.recordtype", "itemreceipt")
+            )
+            .WithDatagridIntent(intent)
+            .Build();
+
+        var response = await query.ExecuteWithPaging<ItemReceiptDataGridDTO>(netsuiteService);
+        return (response.items, response.totalResults);
+    }
+
 
     private string CreateReturnsJson(ItemReceiptDTO dto, bool isGood) => CreateTOJson(dto, isGood);
     private string CreateTOJson(ItemReceiptDTO dto, bool isGood)
@@ -696,7 +725,7 @@ public class ReceivingIntegration(
                     };
                 })
             },
-            memo = "Created via WMS MWsDAE"
+            memo = "Created via WMS"
         };
 
         return JsonSerializer.Serialize(obj, JSON_OPTS);
