@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Components.Forms;
 using Radzen;
 using Shared.Entities;
 using Web.BlazorServer.Components.Custom;
+using Web.BlazorServer.Components.Pages.Transaction.Others.BarcodeScanning;
 using Web.BlazorServer.Components.Shared.Abstraction;
 using Web.BlazorServer.Defaults;
 using Web.BlazorServer.Handlers.Implementations.Others;
@@ -13,7 +14,9 @@ using Web.BlazorServer.Services.Implementation;
 using Web.BlazorServer.Services.Repositories;
 using Web.BlazorServer.ViewModels.Abstraction;
 using Web.BlazorServer.ViewModels.Others;
+using Web.BlazorServer.ViewModels.Transaction.Receiving;
 using Web.BlazorServer.ViewModels.Transaction.StockTransferRequest;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace Web.BlazorServer.Components.Pages.Transaction.StockTransferRequest.Components;
 
@@ -65,6 +68,8 @@ public partial class STRForm
     private List<TransferCategory> ReturnCategories = [.. TransferCategory.ReturnCategories];
 
     private readonly SemaphoreSlim _concurrencySemaphore = new SemaphoreSlim(2, 2);
+
+    private BarcodeStore BarcodeStore = new();
 
     const string PRINTABLE_URL_INTERCOMPANY = "https://11608969.extforms.netsuite.com/app/site/hosting/scriptlet.nl?script=1671&deploy=1&compid=11608969&ns-at=AAEJ7tMQ9evIwFEEUifIBokQgQ0jhowAItpfjv5Smu7B76K41lU&recordType=tranferOrder&isPickingTicket=true";
     const string PRINTABLE_URL_TO = "https://11608969.extforms.netsuite.com/app/site/hosting/scriptlet.nl?script=1671&deploy=1&compid=11608969&ns-at=AAEJ7tMQ9evIwFEEUifIBokQgQ0jhowAItpfjv5Smu7B76K41lU&recordType=tranferOrder&isPickingTicket=true";
@@ -268,6 +273,60 @@ public partial class STRForm
     bool IsSameLocation(LocationVM? a, LocationVM? b)
     {
         return a is null || b is null ? false : a.Id == b.Id;
+    }
+
+    bool IsValidBarcode(BarcodeVM barcode, out string reason)
+    {
+        var line = Model.Lines.FirstOrDefault(x => x.ItemId == barcode.Item?.Id);
+        if (line is null)
+        {
+            reason = $"The item {barcode.Item?.ItemNumber} does not exist in the current document";
+            return false;
+        }
+
+        var uomRate = line.UoM?.ConversionRate ?? 1;
+        var itemCount = BarcodeStore.CountItemQuantity(line.ItemId) / uomRate;
+        var incomingCount = (barcode.UoM?.ConversionRate ?? 0) / uomRate;
+
+        if (line.QuantityOnHandByUoM - line.QuantityAlloted - itemCount < incomingCount)
+        {
+            reason = $"The quantity of the item {line.ItemCode} exceeds the expected amount";
+            return false;
+        }
+
+        reason = "";
+        return true;
+    }
+
+    decimal GetLineQuantity(StockTransferRequestLineVM line)
+    {
+        decimal itemCount = BarcodeStore.CountItemQuantity(line.ItemId) / (line.UoM?.ConversionRate ?? 1);
+
+        return line.QuantityAlloted + itemCount;
+    }
+
+    void SetLineQuantity(StockTransferRequestLineVM line, decimal amount)
+    {
+        decimal itemCount = BarcodeStore.CountItemQuantity(line.ItemId) / (line.UoM?.ConversionRate ?? 1);
+
+        decimal diff = Math.Min(Math.Max(amount, itemCount), line.QuantityOnHandByUoM);
+
+        line.QuantityAlloted = diff - itemCount;
+    }
+
+    void ApplyBarcodes()
+    {
+        if (!BarcodeStore.Any()) return;
+
+        foreach (var item in BarcodeStore.Items)
+        {
+            var itemCount = BarcodeStore.CountItemQuantity(item);
+            var itemLine = Model.Lines.First(x => x.ItemId == item.Id);
+
+            if (itemLine != null) itemLine.QuantityAlloted += itemCount / (itemLine.UoM?.ConversionRate ?? 1);
+        }
+
+        BarcodeStore.Clear();
     }
 
     async Task OnToSubsidiaryChanged(SubsidiaryVM? value)

@@ -1,5 +1,6 @@
 ﻿@using Application.DataTransferObjects.Transactions.StockTransferRequest
 @using Web.BlazorServer.Components.Custom
+@using Web.BlazorServer.Components.Pages.Transaction.Others.BarcodeScanning
 @using Web.BlazorServer.Services.Repositories
 @using Web.BlazorServer.ViewModels.Others
 @using Web.BlazorServer.ViewModels.Transaction.StockTransferRequest
@@ -175,6 +176,7 @@
                         <RadzenButton Icon="print" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Visible="@(ReadOnly)">
                             <RadzenLink Path="@PrintableURL" Text="Print" target="_blank" Icon="print" />
                         </RadzenButton>
+                        <RadzenButton Disabled="IsBusy" Text="Scan Barcodes" Icon="barcode" Click="OpenBarcodeDialog" ButtonType="ButtonType.Button" Size="ButtonSize.Small" />
                         <RadzenButton Icon="settings" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@OpenTableSettings" />
                         <RadzenButton Visible="@(!ReadOnly)" Disabled="@(Model.SourceLocation is null)" Icon="add" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Success" Click="@OpenItemDialog" />
                     </RadzenStack>
@@ -213,7 +215,7 @@
                         <Template Context="data">
                             <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center">
                                 <RadzenText Visible="@ReadOnly" TextStyle="TextStyle.Body2">@(data.QuantityAlloted.ToString("#,##0.##"))</RadzenText>
-                                <RadzenNumeric Visible="@(!ReadOnly)" Disabled="@IsBusy" Max="@(data.QuantityOnHandByUoM)" Min="0" @bind-Value="@data.QuantityAlloted" ReadOnly="@ReadOnly" class="rz-w-100" ShowUpDown="@(!ReadOnly)" Format="#,##0.##" />
+                                <RadzenNumeric Visible="@(!ReadOnly)" Disabled="@IsBusy" Max="@(data.QuantityOnHandByUoM)" Min="0" Value="@GetLineQuantity(data)" Change="@(x => SetLineQuantity(data, x))" TValue="decimal" ReadOnly="@ReadOnly" class="rz-w-100" ShowUpDown="@(!ReadOnly)" Format="#,##0.##" />
                             </RadzenStack>
                         </Template>
                     </RadzenDataGridColumn>
@@ -255,6 +257,25 @@
 </RadzenTemplateForm>
 
 @code {
+    
+    async Task OpenBarcodeDialog()
+    {
+        bool? save = await DialogService.OpenAsync(
+            "Table Settings",
+            ds => @<BarcodeScannerDialog BarcodeStore="BarcodeStore" Verifier="IsValidBarcode" />,
+            options: GridSettingsService.GetDialogOptions());
+
+        if (save == false)
+        {
+            BarcodeStore.Clear();
+        }
+        else if (save == true)
+        {
+            ApplyBarcodes();
+        }
+        await InvokeAsync(StateHasChanged);
+    }
+
 
     async Task OpenTableSettings()
     {
