@@ -12,6 +12,8 @@ public class ItemFulfillmentDTO
     public string ReferenceNumber { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;
     public string PreparedBy { get; set; } = string.Empty;
+    public DateTime Date { get; set; }
+    public DateTime DateLastModified { get; set; }
 }
 
 public class ItemFulfillmentLineDTO

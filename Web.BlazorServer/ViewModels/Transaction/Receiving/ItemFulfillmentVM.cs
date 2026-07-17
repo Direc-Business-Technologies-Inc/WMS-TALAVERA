@@ -5,8 +5,9 @@ public class ItemFulfillmentVM
     [Components.Custom.Utilities.QuickDataGridIgnore]
     public int Id { get; set; }
     [Components.Custom.Utilities.QuickDataGridTitle("Reference Number")]
-
     public string ReferenceNumber { get; set; } = string.Empty;
+    [Components.Custom.Utilities.QuickDataGridStringFormat("{0: MMMM dd, yyyy}")]
+    public DateTime Date { get; set; }
     public string Status { get; set; } = string.Empty;
 
     [Components.Custom.Utilities.QuickDataGridTitle("Prepared By")]

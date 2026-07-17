@@ -576,9 +576,14 @@ public class ReceivingIntegration(
 
     public async Task<(IEnumerable<ItemFulfillmentDTO>, int)> GetSTRItemFulfillments(int strId, DataGridIntent intent)
     {
+        if (intent.Sorts.Count == 0)
+            intent.Sorts.Add(DataGridSortUtilities.Descending(nameof(ItemFulfillmentDTO.DateLastModified)));
+
         var query = builderFactory.Create()
             .Select(
                 ("t.id", nameof(ItemFulfillmentDTO.Id)),
+                ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(ItemFulfillmentDTO.Date)),
+                ("TO_CHAR(t.lastmodifieddate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(ItemFulfillmentDTO.DateLastModified)),
                 ("t.tranid", nameof(ItemFulfillmentDTO.ReferenceNumber)),
                 ("s.name", nameof(ItemFulfillmentDTO.Status)),
                 ("CONCAT(e.firstname, CONCAT(' ', e.lastname))", nameof(ItemFulfillmentDTO.PreparedBy))

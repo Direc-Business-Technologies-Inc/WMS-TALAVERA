@@ -6,10 +6,10 @@ public class ItemReceiptDataGridVM
 {
     [QuickDataGridIgnore]
     public int Id { get; set; }
-    [QuickDataGridStringFormat("{0:MMMM dd, yyyy}")]
-    public DateTime Date { get; set; }
     [QuickDataGridTitle("Reference Number")]
     public string ReferenceNumber { get; set; } = string.Empty;
+    [QuickDataGridStringFormat("{0:MMMM dd, yyyy}")]
+    public DateTime Date { get; set; }
     [QuickDataGridTitle("Transfer Category")]
     public string TransferCategory { get; set; } = string.Empty;
     [QuickDataGridTitle("Created From")]
