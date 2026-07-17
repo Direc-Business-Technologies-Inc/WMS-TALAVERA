@@ -30,7 +30,7 @@ public class ItemReceiptLineVM
     public string Department { get; set; } = string.Empty;
     public string LocationName { get; set; } = string.Empty;
     public int LocationId { get; set; }
-    public decimal UoMRate { get; set; }
+    public decimal UoMRate { get; set; } = 1;
     public decimal WeightActual { get; set; }
     public decimal WeightPerItem { get; set; }
     public decimal WeightRecord => WeightPerItem * QuantityAlloted;

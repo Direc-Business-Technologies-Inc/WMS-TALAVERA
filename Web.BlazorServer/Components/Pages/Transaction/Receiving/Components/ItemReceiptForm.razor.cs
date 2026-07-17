@@ -78,11 +78,11 @@ partial class ItemReceiptForm
                 break;
         }
     }
-    decimal GetLineQuantity(ItemReceiptLineVM line) => line.QuantityAlloted + BarcodeStore.CountItemQuantity(line.ItemId);
+    decimal GetLineQuantity(ItemReceiptLineVM line) => line.QuantityAlloted + BarcodeStore.CountItemQuantity(line.ItemId) / line.UoMRate;
 
     void SetLineQuantity(ItemReceiptLineVM line, decimal amount)
     {
-        var barcodeCount = BarcodeStore.CountItemQuantity(line.ItemId);
+        var barcodeCount = BarcodeStore.CountItemQuantity(line.ItemId) / line.UoMRate;
         amount = Math.Max(Math.Min(line.QuantityOpen, amount), barcodeCount);
 
         decimal rawAmount = amount - barcodeCount;
@@ -98,7 +98,7 @@ partial class ItemReceiptForm
             var itemCount = BarcodeStore.CountItemQuantity(item);
             var itemLine = Data.Lines.First(x => x.ItemId == item.Id);
 
-            if (itemLine != null) itemLine.QuantityAlloted += itemCount;
+            if (itemLine != null) itemLine.QuantityAlloted += itemCount / itemLine.UoMRate;
         }
 
         BarcodeStore.Clear();
@@ -124,8 +124,9 @@ partial class ItemReceiptForm
             return false;
         }
 
-        var itemCount = BarcodeStore.CountItemQuantity(line.ItemId);
-        if (line.QuantityOpen - line.QuantityAlloted - itemCount < (barcode.UoM?.ConversionRate ?? 0))
+        var itemCount = BarcodeStore.CountItemQuantity(line.ItemId) / line.UoMRate;
+        var incomingCount = (barcode.UoM?.ConversionRate ?? 0) / line.UoMRate;
+        if (line.QuantityOpen - line.QuantityAlloted - itemCount < incomingCount)
         {
             reason = $"The quantity of the item {line.ItemCode} exceeds the expected amount";
             return false;
