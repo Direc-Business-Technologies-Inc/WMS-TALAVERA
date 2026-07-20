@@ -9,9 +9,6 @@
     <HeaderTemplate>
         <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center" Gap="8px">
             <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Start" AlignItems="AlignItems.Center" Gap="8px">
-                <RadzenFormField Text="Filter By Status" Style="margin-top:-10px">
-                    <QuickVirtualizedDropdown TItem="TransferOrderStatusVM" ActionName="@ActionGetTranferOrderStatuses" DataGetter="@TranferOrderStatusProvider" TextProperty="@nameof(TransferOrderStatusVM.Name)" @bind-Value:get="@StatusFilter" @bind-Value:set="@StatusFilterChanged" />
-                </RadzenFormField>
             </RadzenStack>
             <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" AlignItems="AlignItems.Center" Gap="8px">
                 <RadzenButton Icon="settings" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@OpenTableSettings" />
@@ -33,7 +30,22 @@
                               FilterProperty="StatusName"
                               Property="@nameof(StockTransferRequestDataGridVM.StatusDisplayString)"
                               Type="@typeof(string)"
-                              Title="Status" />
+                              Title="Status" >
+
+            <FilterTemplate>
+                <div class="rz-grid-filter">
+                    <RadzenStack Gap="0.5em">
+                        <RadzenText TextStyle="TextStyle.Body2" class="rz-grid-filter-label">Filter</RadzenText>
+                        <RadzenFormField>
+                            <QuickVirtualizedDropdown @bind-Value="StatusFilter" TItem="TransferOrderStatusVM" DataGetter="TranferOrderStatusProvider" TextProperty="@nameof(TransferOrderStatusVM.Name)" />
+                        </RadzenFormField>
+                        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End">
+                            <RadzenButton Click="@(() => ApplyStatusFilter(context))">Apply</RadzenButton>
+                        </RadzenStack>
+                    </RadzenStack>
+                </div>
+            </FilterTemplate>
+        </RadzenDataGridColumn>
         <RadzenDataGridColumn TItem="StockTransferRequestDataGridVM"
                               Property="@nameof(StockTransferRequestDataGridVM.SourceLocation)"
                               Type="@typeof(string)"

@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Components;
 using Radzen;
+using Radzen.Blazor;
 using Shared.Entities;
 using Shared.Libraries.Utilities;
 using Web.BlazorServer.Components.Shared.Abstraction;
@@ -102,6 +103,23 @@ partial class STRDataGrid
     async Task AddButtonPressed()
     {
         if (OnAddClicked.HasDelegate) await OnAddClicked.InvokeAsync();
+    }
+
+    async Task ApplyStatusFilter(RadzenDataGridColumn<StockTransferRequestDataGridVM> column)
+    {
+
+        column.ClearFilters();
+        if (StatusFilter is null)
+        {
+            await DataGrid.DataGrid.Reload();
+            return;
+        }
+
+        column.SetFilterOperator(FilterOperator.Equals);
+        column.SetFilterValue(StatusFilter.Name);
+        column.SetLogicalFilterOperator(LogicalFilterOperator.And);
+
+        await DataGrid.DataGrid.Reload();
     }
 
     public delegate Task<(IEnumerable<StockTransferRequestDataGridVM> data, int count)> DataGetterDelegate(DataGridIntent intent);
