@@ -8,7 +8,7 @@ public class TransferOrderLineVM
     public string ItemCode { get; set; } = string.Empty;
     public string ItemDescription { get; set; } = string.Empty;
     public string UoM { get; set; } = string.Empty;
-    public string Warehouse { get; set; } = string.Empty;
+    public string DestinationLocation { get; set; } = string.Empty;
 
     public decimal QuantityPlanned { get; set; }
 }

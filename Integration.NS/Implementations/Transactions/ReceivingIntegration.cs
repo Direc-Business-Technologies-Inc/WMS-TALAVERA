@@ -220,7 +220,7 @@ public class ReceivingIntegration(
             .Select(
                 ("item.itemId", "ItemCode"),
                 ("BUILTIN.DF(tl.units)", "UoM"),
-                ("BUILTIN.DF(tl.location)", "Warehouse"),
+                ("BUILTIN.DF(tl.location)", "DestinationLocation"),
                 ("item.displayname", "ItemDescription"),
                 ("(tl.quantity / NVL(uom.conversionrate, 1))", "QuantityPlanned"),
                 ("(tl.quantityshiprecv / NVL(uom.conversionrate, 1))", "QuantityReceived"),
