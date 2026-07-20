@@ -679,6 +679,7 @@ public class ReceivingIntegration(
                     quantity = line.InventoryDetails.Sum(x => x.Status?.Id == statusId ? x.QuantityAlloted : 0),
                     inventoryDetail = line.InventoryDetails.Where(x => x.Status?.Id == statusId).Select(y => new
                     {
+                        binNumber = y.Bin?.BinNumber,
                         inventoryStatus = statusId,
                         quantity = y.QuantityAlloted
                     })
