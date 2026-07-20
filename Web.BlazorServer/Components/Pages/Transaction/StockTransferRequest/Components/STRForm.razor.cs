@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
 using Radzen;
 using Shared.Entities;
+using Shared.Libraries.Utilities;
 using Web.BlazorServer.Components.Custom;
 using Web.BlazorServer.Components.Pages.Transaction.Others.BarcodeScanning;
 using Web.BlazorServer.Components.Shared.Abstraction;
@@ -164,7 +165,13 @@ public partial class STRForm
         if (Model.ToSubsidiary is null) return ([], 0);
 
         await _concurrencySemaphore.WaitAsync();
-        var result = await VendorHandler.GetVendorsListBySubsidiaryAsync(intent, Model.ToSubsidiary.Id);
+
+        var newIntent = intent.Adapt<DataGridIntent>();
+        newIntent.Filters.Add
+            (DataGridFilterUtilities.Equal(
+                nameof(VendorVM.Category), "TRADE"));
+
+        var result = await VendorHandler.GetVendorsListBySubsidiaryAsync(newIntent, Model.ToSubsidiary.Id);
 
         _concurrencySemaphore.Release();
         return result;

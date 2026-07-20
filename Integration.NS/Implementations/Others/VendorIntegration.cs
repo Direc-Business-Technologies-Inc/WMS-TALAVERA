@@ -20,12 +20,14 @@ public class VendorIntegration(
     {
         var query = builderFactory.Create()
             .Select(
-                ("id", nameof(VendorDTO.Id)),
-                ("entityid", nameof(VendorDTO.ReferenceNumber)),
-                ("companyname", nameof(VendorDTO.CompanyName)),
-                ("fullname", nameof(VendorDTO.Name))
+                ("v.id", nameof(VendorDTO.Id)),
+                ("v.entityid", nameof(VendorDTO.ReferenceNumber)),
+                ("v.companyname", nameof(VendorDTO.CompanyName)),
+                ("v.fullname", nameof(VendorDTO.Name)),
+                ("categ.name", nameof(VendorDTO.Category))
             )
-            .From("vendor")
+            .From("vendor v")
+            .LeftJoin("VendorCategory categ", "v.category = categ.id")
             .WithDatagridIntent(intent)
             .Build();
 
@@ -39,10 +41,12 @@ public class VendorIntegration(
                 ("v.id", nameof(VendorDTO.Id)),
                 ("v.entityid", nameof(VendorDTO.ReferenceNumber)),
                 ("v.companyname", nameof(VendorDTO.CompanyName)),
-                ("v.fullname", nameof(VendorDTO.Name))
+                ("v.fullname", nameof(VendorDTO.Name)),
+                ("categ.name", nameof(VendorDTO.Category))
             )
             .From("vendor v")
             .Join("vendorSubsidiaryRelationship vsr", "vsr.entity = v.id")
+            .LeftJoin("VendorCategory categ", "v.category = categ.id")
             .WithFilters(DataGridFilterUtilities.Equal("vsr.subsidiary", subsidiary))
             .WithDatagridIntent(intent)
             .Build();
