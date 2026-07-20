@@ -9,10 +9,10 @@ namespace Application.DataTransferObjects.Transactions.StockTransferRequest;
 
 public sealed record TransferCategory
 {
-    public  int Id { get; init; }
-    public  string Name { get; init; }
-    public bool IsInterCompany  { get; init; }
-    public bool IsReturn { get; init; }
+    public readonly int Id;
+    public readonly string Name;
+    public readonly bool IsInterCompany;
+    public readonly bool IsReturn;
 
     private TransferCategory(int id, string name, bool isIntercompany, bool isReturn)
     {
