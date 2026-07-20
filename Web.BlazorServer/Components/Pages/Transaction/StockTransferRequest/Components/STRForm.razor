@@ -283,7 +283,8 @@
             "Table Settings",
             ds => @<AppGridSettings TItem="StockTransferRequestLineVM"
                                     @bind-Grid=@LinesTable.DataGrid
-                                    @bind-GridSettings=@TableSettings />
+                                    @bind-GridSettings=@TableSettings 
+                                    ReloadEntirePage="false"/>
     ,
         options: GridSettingsService.GetDialogOptions());
 

@@ -30,6 +30,8 @@ public partial class AppGridSettings<TItem>
 
     [Parameter]
     public bool DisableAdvanceSettings { get; set; } = false;
+    [Parameter]
+    public bool ReloadEntirePage { get; set; } = true;
     #endregion Parameters
 
     #region Cascading Parameters
@@ -99,7 +101,10 @@ public partial class AppGridSettings<TItem>
 
     void RefreshPage()
     {
-        NavigationManager.Refresh(true);
+        if (ReloadEntirePage)
+            NavigationManager.Refresh(true);
+        else
+            Grid?.Reload();
         DialogService.Close();
     }
     #endregion Custom Functions
