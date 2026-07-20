@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Components;
 using Web.BlazorServer.Components.Security;
 using Web.BlazorServer.Handlers.Repositories.Transaction.SupplierReturn;
 using Web.BlazorServer.Helpers;
+using Web.BlazorServer.Services.Repositories;
 using Web.BlazorServer.ViewModels.Transaction.SupplierReturn;
 
 namespace Web.BlazorServer.Components.Pages.Transaction.SupplierReturn;
@@ -10,10 +11,16 @@ public partial class SupplierReturnCreate
 {
     [Inject] ISupplierReturnHandler returnHandler { get; set; } = default!;
     [Inject] AppAuthenticationService authService { get; set; } = default!;
+    [Inject] IBusyDialogService busyDialogService { get; set; } = default!;
 
     readonly string ActionCreateSupplierReturn = "Create Return to Supplier";
 
     bool IsBusy = false;
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+    }
     protected override void OnParametersSet()
     {
         base.OnParametersSet();
@@ -44,11 +51,15 @@ public partial class SupplierReturnCreate
 
     async Task Submit(SupplierReturnVM data)
     {
+
         IsBusy = true;
         await InvokeAsync(StateHasChanged);
         var action = await AppActionFactory.RunConfirmedAsync(async () =>
         {
+            busyDialogService.Show(ActionCreateSupplierReturn);
             await returnHandler.CreateSupplierReturnAsync(data);
+            busyDialogService.Hide();
+
         }, ActionCreateSupplierReturn);
 
         action.OnSuccess(async () =>
