@@ -50,6 +50,11 @@ partial class ItemReceiptForm
             ToastService.Error("Please assign inventory details to all lines");
             return;
         }
+        if (!Data.Lines.Any(x => x.QuantityAlloted > 0))
+        {
+            ToastService.Error("Please assign a quantity to at least one line");
+            return;
+        }
         if (Data.Lines.Where(x => x.IsReceived).Count(x => x.QuantityOpen < x.QuantityAlloted) > 0)
         {
             ToastService.Error("Cannot receive more than the open quantity");
