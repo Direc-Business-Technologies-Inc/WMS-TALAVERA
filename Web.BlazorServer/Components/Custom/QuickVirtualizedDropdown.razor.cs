@@ -28,6 +28,7 @@ public partial class QuickVirtualizedDropdown<TItem> : BaseComponent where TItem
     [Parameter] public bool Visible { get; set; } = true;
     [Parameter] public bool Disabled { get; set; } = false;
     [Parameter] public bool ReadOnly { get; set; } = false;
+    [Parameter] public bool Multiple { get; set; } = false;
     [Parameter] public RenderFragment? LoadingIndicator { get; set; } = null;
     [Parameter] public RenderFragment? EmptyTemplate { get; set; } = null;
 

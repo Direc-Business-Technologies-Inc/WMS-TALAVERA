@@ -4,12 +4,9 @@ using Shared.Entities;
 using Shared.Libraries.Utilities;
 using Web.BlazorServer.Components.Shared.Abstraction;
 using Web.BlazorServer.Defaults;
-using Web.BlazorServer.Handlers.Implementations.Transaction.Receiving;
-using Web.BlazorServer.Handlers.Repositories.Transaction.Receiving;
 using Web.BlazorServer.Handlers.Repositories.Transaction.StockTransferRequest;
 using Web.BlazorServer.Services.Repositories;
 using Web.BlazorServer.ViewModels.Abstraction;
-using Web.BlazorServer.ViewModels.Transaction.Receiving;
 using Web.BlazorServer.ViewModels.Transaction.StockTransferRequest;
 
 namespace Web.BlazorServer.Components.Pages.Transaction.StockTransferRequest.Components;

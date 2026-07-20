@@ -736,6 +736,36 @@ public class ReceivingIntegration(
         return JsonSerializer.Serialize(obj, JSON_OPTS);
     }
 
+    public async Task<(IEnumerable<PurchaseOrderStatusDTO>, int)> GetPurchaseOrderStatuses(DataGridIntent intent)
+    {
+        var query = builderFactory.Create()
+            .Select(
+                ("s.name", nameof(PurchaseOrderStatusDTO.Name)),
+                ("s.id", nameof(PurchaseOrderStatusDTO.Id))
+            )
+            .From("purchaseorderstatus s")
+            .WithDatagridIntent(intent)
+            .Build();
+
+        var response = await query.ExecuteWithPaging<PurchaseOrderStatusDTO>(netsuiteService);
+        return (response.items, response.totalResults);
+    }
+
+    public async Task<(IEnumerable<TransferOrderStatusDTO>, int)> GetTransferOrderStatuses(DataGridIntent intent)
+    {
+        var query = builderFactory.Create()
+            .Select(
+                ("s.name", nameof(TransferOrderStatusDTO.Name)),
+                ("s.id", nameof(TransferOrderStatusDTO.Id))
+            )
+            .From("transferorderstatus s")
+            .WithDatagridIntent(intent)
+            .Build();
+
+        var response = await query.ExecuteWithPaging<TransferOrderStatusDTO>(netsuiteService);
+        return (response.items, response.totalResults);
+    }
+
     readonly JsonSerializerOptions JSON_OPTS = new JsonSerializerOptions()
     {
         PropertyNamingPolicy = null,

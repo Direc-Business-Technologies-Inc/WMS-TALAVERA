@@ -19,5 +19,6 @@ public interface IReceivingHandler
     Task<IEnumerable<ItemFulfillmentLineVM>> GetItemFulfillmentLinesAsync(int ifid, DataGridIntent intent);
     Task<(IEnumerable<ItemFulfillmentVM>, int)> GetTransferOrderItemFulfillments(int toId, DataGridIntent intent);
     Task<(IEnumerable<ItemReceiptDataGridVM>, int)> GetItemReceiptsDatagridAsync(DataGridIntent intent);
-
+    Task<(IEnumerable<TransferOrderStatusVM>, int)> GetTransferOrderStatuses(DataGridIntent intent);
+    Task<(IEnumerable<PurchaseOrderStatusVM>, int)> GetPurchaseOrderStatuses(DataGridIntent intent);
 }

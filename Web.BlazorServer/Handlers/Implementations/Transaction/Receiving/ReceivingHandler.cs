@@ -222,5 +222,21 @@ public class ReceivingHandler(
 
         return (data.Adapt<IEnumerable<ItemReceiptDataGridVM>>(), count);
     }
+    
+    public async Task<(IEnumerable<PurchaseOrderStatusVM>, int)> GetPurchaseOrderStatuses(DataGridIntent intent)
+    {
+        GetPurchaseOrderStatusesQry query = new(intent);
+        (var data, int count) = await Sender.Send(query);
+
+        return (data.Adapt<IEnumerable<PurchaseOrderStatusVM>>(), count);
+    }
+    
+    public async Task<(IEnumerable<TransferOrderStatusVM>, int)> GetTransferOrderStatuses(DataGridIntent intent)
+    {
+        GetTransferOrderStatusesQry query = new(intent);
+        (var data, int count) = await Sender.Send(query);
+
+        return (data.Adapt<IEnumerable<TransferOrderStatusVM>>(), count);
+    }
 
 }

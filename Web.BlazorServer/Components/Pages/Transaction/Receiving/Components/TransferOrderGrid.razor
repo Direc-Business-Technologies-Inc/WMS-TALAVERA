@@ -1,4 +1,5 @@
-﻿@using Web.BlazorServer.Components.Security
+﻿@using Web.BlazorServer.Components.Custom
+@using Web.BlazorServer.Components.Security
 @using Web.BlazorServer.ViewModels.Administration.User
 @using Web.BlazorServer.ViewModels.Transaction.Receiving
 
@@ -40,7 +41,21 @@
         <RadzenDataGridColumn TItem="TransferOrderDataGridVM"
                               Property="@nameof(TransferOrderDataGridVM.Status)"
                               Type="@typeof(string)"
-                              Title="Status" />
+                              Title="Status" >
+            <FilterTemplate>
+                <div class="rz-grid-filter">
+                    <RadzenStack Gap="0.5em">
+                        <RadzenText TextStyle="TextStyle.Body2" class="rz-grid-filter-label">Filter</RadzenText>
+                        <RadzenFormField>
+                            <QuickVirtualizedDropdown @bind-Value="StatusFilter" TItem="TransferOrderStatusVM" DataGetter="GetTransferOrderStatuses" TextProperty="@nameof(TransferOrderStatusVM.Name)" />
+                        </RadzenFormField>
+                        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End">
+                            <RadzenButton Click="@(() => ApplyStatusFilter(context))">Apply</RadzenButton>
+                        </RadzenStack>
+                    </RadzenStack>
+                </div>
+            </FilterTemplate>
+        </RadzenDataGridColumn>
         <RadzenDataGridColumn TItem="TransferOrderDataGridVM"
                               Property="@nameof(TransferOrderDataGridVM.Remarks)"
                               Type="@typeof(string)"
