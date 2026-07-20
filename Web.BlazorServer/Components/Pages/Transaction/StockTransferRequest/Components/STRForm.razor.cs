@@ -181,7 +181,18 @@ public partial class STRForm
     {
 
         await _concurrencySemaphore.WaitAsync();
-        var result = await SubsidiaryHandler.GetSubsidiariesAsync(intent);
+        var result = Model.IsIntercompany ? await SubsidiaryHandler.GetSubsidiariesAsync(intent)
+            : await SubsidiaryHandler.GetCurrentUserSubsidiariesAsync(intent);
+
+        _concurrencySemaphore.Release();
+        return result;
+    }
+
+    async Task<(IEnumerable<SubsidiaryVM>, int)> ToSubsidiaryProvider(DataGridIntent intent)
+    {
+
+        await _concurrencySemaphore.WaitAsync();
+        var result = await SubsidiaryHandler.GetCurrentUserSubsidiariesAsync(intent);
 
         _concurrencySemaphore.Release();
         return result;

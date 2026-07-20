@@ -103,7 +103,7 @@
                                                       Disabled="@IsBusy"
                                                       TItem="SubsidiaryVM"
                                                       ActionName="@ActionGetSubsidiaries"
-                                                      DataGetter="@SubsidiaryProvider"
+                                                      DataGetter="@ToSubsidiaryProvider"
                                                       @bind-Value:get="Model.ToSubsidiary"
                                                       @bind-Value:set="@OnToSubsidiaryChanged"
                                                       TextProperty="@nameof(SubsidiaryVM.Name)"
