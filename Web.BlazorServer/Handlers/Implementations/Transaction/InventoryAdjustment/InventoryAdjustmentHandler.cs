@@ -1,11 +1,13 @@
 ﻿using Application.DataTransferObjects.Transactions.InventoryAdjustment;
 using Application.UseCases.Commands.Transaction.InventoryAdjustment;
+using Application.UseCases.Queries.Others;
 using Application.UseCases.Queries.Transaction.InventoryAdjustment;
 using Mapster;
 using MediatR;
 using Shared.Entities;
 using Web.BlazorServer.Components.Security;
 using Web.BlazorServer.Handlers.Repositories.Transaction.InventoryAdjustment;
+using Web.BlazorServer.ViewModels.Others;
 using Web.BlazorServer.ViewModels.Transaction.InventoryAdjustment;
 
 namespace Web.BlazorServer.Handlers.Implementations.Transaction.InventoryAdjustment;
@@ -99,5 +101,14 @@ public class InventoryAdjustmentHandler(
         (var data, int count) = await sender.Send(query);
 
         return (data.Adapt<IEnumerable<InventoryAdjustmentCategoryVM>>(), count);
+    }
+
+    public async Task<(IEnumerable<DepartmentVM> Data, int Count)> GetDepartmentsAsync(DataGridIntent intent)
+    {
+        GetDepartmentsListQry query = new(intent);
+
+        (var data, int count) = await sender.Send(query);
+
+        return (data.Adapt<IEnumerable<DepartmentVM>>(), count);
     }
 }
