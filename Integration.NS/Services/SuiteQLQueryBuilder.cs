@@ -138,37 +138,40 @@ public class SuiteQLQueryBuilder
     private string _parseFilter(AppFilterDescriptor filter, Dictionary<string, string>? propertyMap = null)
     {
         propertyMap ??= PropertyMap;
+        var prop = propertyMap != null && propertyMap.ContainsKey(filter.Property) ? propertyMap[filter.Property] : filter.Property;
 
         if (filter.Filters.Count > 0) return _parseFilterGroup(filter);
         if (filter.ComparisonOperator == null) throw new InvalidOperationException($"no comparison operator given");
         switch (filter.ComparisonOperator)
         {
             case ComparisonOperatorEnum.Equals:
-                return _binary(filter.Property, "=", filter.Value, propertyMap);
+                return _binary(prop, "=", filter.Value);
             case ComparisonOperatorEnum.NotEquals :
-                return _binary(filter.Property, "!=", filter.Value, propertyMap);
+                return _binary(prop, "!=", filter.Value);
             case ComparisonOperatorEnum.GreaterThan  :
-                return _binary(filter.Property, ">", filter.Value, propertyMap);
+                return _binary(prop, ">", filter.Value);
             case ComparisonOperatorEnum.GreaterThanOrEqual  :
-                return _binary(filter.Property, ">=", filter.Value, propertyMap);
+                return _binary(prop, ">=", filter.Value);
             case ComparisonOperatorEnum.LessThan :
-                return _binary(filter.Property, "<", filter.Value, propertyMap);
+                return _binary(prop, "<", filter.Value);
             case ComparisonOperatorEnum.LessThanOrEqual  :
-                return _binary(filter.Property, "<=", filter.Value, propertyMap);
+                return _binary(prop, "<=", filter.Value);
             case ComparisonOperatorEnum.Contains:
-                return _stringOp(filter.Property, ComparisonOperatorEnum.Contains, filter.Value, propertyMap);
+                return _stringOp(prop, ComparisonOperatorEnum.Contains, filter.Value);
             case ComparisonOperatorEnum.StartsWith:
-                return _stringOp(filter.Property, ComparisonOperatorEnum.StartsWith, filter.Value, propertyMap);
+                return _stringOp(prop, ComparisonOperatorEnum.StartsWith, filter.Value);
             case ComparisonOperatorEnum.EndsWith:
-                return _stringOp(filter.Property, ComparisonOperatorEnum.EndsWith, filter.Value, propertyMap);
+                return _stringOp(prop, ComparisonOperatorEnum.EndsWith, filter.Value);
             case ComparisonOperatorEnum.In :
-                return _listOp(filter.Property, "IN", filter.Value, propertyMap);
+                return _listOp(prop, "IN", filter.Value);
             case ComparisonOperatorEnum.NotIn :
-                return _listOp(filter.Property, "NOT IN", filter.Value, propertyMap);
-            case ComparisonOperatorEnum.IsEmpty  :
-            case ComparisonOperatorEnum.IsNotNull :
-            case ComparisonOperatorEnum.IsNotEmpty:
+                return _listOp(prop, "NOT IN", filter.Value);
             case ComparisonOperatorEnum.IsNull :
+                return $"{prop} IS NULL ";
+            case ComparisonOperatorEnum.IsNotNull :
+                return $"{prop} IS NOT NULL ";
+            case ComparisonOperatorEnum.IsEmpty  :
+            case ComparisonOperatorEnum.IsNotEmpty:
                 break;
         }
 
@@ -201,11 +204,9 @@ public class SuiteQLQueryBuilder
         return JsonSerializer.Serialize(value);
     }
 
-    private string _listOp(string prop, string op, object? value, Dictionary<string, string>? propertyMap = null)
+    private string _listOp(string prop, string op, object? value)
     {
         if (value is null || value is not IEnumerable) throw new InvalidOperationException($"operation {op} requires an array type as its value");
-
-        prop = propertyMap != null && propertyMap.ContainsKey(prop) ? propertyMap[prop] : prop;
 
         return $"{prop} {op} {_stringifyValue(value)}";
     }
@@ -234,21 +235,18 @@ public class SuiteQLQueryBuilder
         return this;
     }
 
-    private string _binary(string prop, string op, object? value, Dictionary<string, string>? propertyMap = null)
+    private string _binary(string prop, string op, object? value)
     {
         if (value is null) throw new InvalidOperationException($"no value given for {prop}");
 
-        prop = propertyMap != null && propertyMap.ContainsKey(prop) ? propertyMap[prop] : prop;
         if (value is DateTime dtVal) return $"TO_DATE({prop}, '{NETSUITE_DATETIME_FORMAT_STRING}') {op} TO_DATE({_stringifyValue(dtVal)}, '{NETSUITE_DATETIME_FORMAT_STRING}')";
         return $"{prop} {op} {_stringifyValue(value)}";
     }
 
-    private string _stringOp(string prop, ComparisonOperatorEnum op, object? value, Dictionary<string, string>? propertyMap = null)
+    private string _stringOp(string prop, ComparisonOperatorEnum op, object? value)
     {
         if (value is null) throw new InvalidOperationException($"no value given for {prop}");
         if (value is not string strVal) throw new InvalidOperationException($"'{value}' is not a string and does not support {op}");
-
-        prop = propertyMap != null && propertyMap.ContainsKey(prop) ? propertyMap[prop] : prop;
 
         return op switch
         {
