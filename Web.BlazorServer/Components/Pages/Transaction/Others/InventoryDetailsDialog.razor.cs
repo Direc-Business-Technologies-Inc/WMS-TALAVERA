@@ -18,6 +18,7 @@ public partial class InventoryDetailsDialog
     [Parameter] public Types Type { get; set; } = Types.Outgoing;
     [Parameter] public int? ItemId { get; set; } = null;
     [Parameter] public int? StatusId { get; set; } = null;
+    [Parameter] public bool ReadOnly { get; set; } = false;
     [Parameter] public List<AppFilterDescriptor> StatusFilters { get; set; } = [];
     [Parameter] public List<InventoryDetailVM> InventoryDetails { get; set; } = [];
 
@@ -30,7 +31,7 @@ public partial class InventoryDetailsDialog
     readonly string ActionGetInventoryBalance = "Get Inventory Balance";
     Task InitTask = Task.CompletedTask;
 
-    decimal AmountSum => Details.Sum(x => x.Detail.QuantityAlloted);
+    decimal AmountSum => Details.Sum(x => Math.Abs(x.Detail.QuantityAlloted));
 
     bool IsLoadingData => AppBusyService.IsBusy(ActionGetLocation);
     bool LocationHasBins = true;

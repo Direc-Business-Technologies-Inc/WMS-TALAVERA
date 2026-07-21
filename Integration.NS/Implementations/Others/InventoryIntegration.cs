@@ -5,6 +5,7 @@ using Integration.NS.Helpers;
 using Integration.NS.Services;
 using Mapster;
 using Shared.Entities;
+using Shared.Libraries.Utilities;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -42,6 +43,29 @@ public class InventoryIntegration(
         return (response.items.Select(ConvertInventoryBalance), response.totalResults);
     }
 
+    public async Task<IEnumerable<InventoryDetailDTO>> GetInventoryDetails(int documentId, int itemId)
+    {
+        var query = builderFactory.Create()
+            .Select(
+                ("ia.quantity", nameof(InventoryDetailNSDTO.QuantityAlloted)),
+                ("ia.inventorystatus", nameof(InventoryDetailNSDTO.StatusId)),
+                ("is.name", nameof(InventoryDetailNSDTO.StatusName)),
+                ("ia.bin", nameof(InventoryDetailNSDTO.BinId)),
+                ("bin.binnumber", nameof(InventoryDetailNSDTO.BinName))
+            )
+            .From("inventoryassignment ia")
+            .LeftJoin("bin", "bin.id = ia.bin")
+            .LeftJoin("inventorystatus is", "is.id = ia.inventorystatus")
+            .WithFilters(
+                DataGridFilterUtilities.Equal("ia.transactionline", itemId),
+                DataGridFilterUtilities.Equal("ia.transaction", documentId)
+            )
+            .Build();
+
+        var response = await netsuiteService.ExecuteSuiteQLQuery<InventoryDetailNSDTO>(query.Query);
+        return response.items.Select(ConvertInventoryDetail);
+    }
+
     public async Task<(IEnumerable<InventoryStatusDTO>, int)> GetInventoryStatus(DataGridIntent intent)
     {
         var query = builderFactory.Create()
@@ -76,6 +100,20 @@ public class InventoryIntegration(
         },
     });
 
+    private InventoryDetailDTO ConvertInventoryDetail(InventoryDetailNSDTO nsdto) => nsdto.Adapt(new InventoryDetailDTO()
+    {
+        Status = new InventoryStatusDTO
+        {
+            Name = nsdto.StatusName,
+            Id = nsdto.StatusId
+        },
+        Bin = nsdto.BinId is not null ? new LocationBinDTO
+        {
+            Id = (int)nsdto.BinId,
+            BinNumber = nsdto.BinName
+        } : null,
+    });
+
     private class InventoryBalanceNSDTO
     {
 
@@ -88,5 +126,14 @@ public class InventoryIntegration(
         public int StatusId { get; set; }
         public decimal QuantityOnHand { get; set; }
         public decimal QuantityCommited { get; set; }
+    }
+
+    private class InventoryDetailNSDTO
+    {
+        public int? BinId { get; set; }
+        public string BinName { get; set; } = "DEFAULT_BIN_NAME";
+        public int StatusId { get; set; }
+        public string StatusName { get; set; } = "DEFAULT_STATUS_NAME";
+        public decimal QuantityAlloted { get; set; }
     }
 }

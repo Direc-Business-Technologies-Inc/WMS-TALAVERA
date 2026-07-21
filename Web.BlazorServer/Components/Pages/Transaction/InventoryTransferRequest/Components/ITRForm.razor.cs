@@ -17,6 +17,7 @@ public partial class ITRForm
     [Inject] IItemsHandler itemsHandler { get; set; } = default!;
     [Inject] IGridSettingsService GridSettingsService { get; set; } = default!;
     [Inject] ICustomerHandler customerHandler { get; set; } = default!;
+    [Inject] IInventoryHandler inventoryHandler { get; set; } = default!;
     [Parameter][EditorRequired] public InventoryTransferRequestVM Model { get; set; }
     [Parameter][EditorRequired] public EditContext EditContext { get; set; }
     [Parameter] public EventCallback<InventoryTransferRequestVM> OnSubmit { get; set; }
@@ -33,9 +34,14 @@ public partial class ITRForm
     QuickVirtualizedDropdown<LocationVM> DestinationLocationDropdown { get; set; } = default!;
     QuickVirtualizedDropdown<SubsidiaryVM> SubsidiaryDropdown { get; set; } = default!;
 
+    HashSet<int> LoadedInventoryDetails = new();
+
     readonly List<AppFilterDescriptor> ItemFilters = [
         DataGridFilterUtilities.GreaterThan("QuantityOnHand", 0)
     ];
+
+    bool _isBusy = false;
+    bool IsDisabled => Disabled || _isBusy;
 
     async Task<(IEnumerable<CustomerVM>, int)> CustomerProvider(DataGridIntent intent)
     {
@@ -75,7 +81,6 @@ public partial class ITRForm
             Location = Model.SourceLocation
         }));
     }
-
     async Task SecondaryAction()
     {
         if (OnSecondaryAction.HasDelegate) await OnSecondaryAction.InvokeAsync(Model);
@@ -84,6 +89,24 @@ public partial class ITRForm
     async Task Return()
     {
         if (OnReturn.HasDelegate) await OnReturn.InvokeAsync(Model);
+    }
+
+    async Task LoadInventoryDetails(InventoryTransferRequestLineVM line)
+    {
+        if (Model.Id == 0)
+            return;
+        if (line.SourceLine is null)
+            return;
+        if (LoadedInventoryDetails.Contains((int)line.SourceLine))
+            return;
+
+        _isBusy = true;
+
+        var details = await inventoryHandler.GetInventoryDetails(Model.Id, (int)line.SourceLine);
+        line.InventoryDetails.AddRange(details);
+        LoadedInventoryDetails.Add((int)line.SourceLine);
+
+        _isBusy = false;
     }
 
     async Task Submit()

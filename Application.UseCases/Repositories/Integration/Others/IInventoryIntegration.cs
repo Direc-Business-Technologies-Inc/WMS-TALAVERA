@@ -1,4 +1,5 @@
-﻿using Application.DataTransferObjects.Others.Inventory;
+﻿using Application.DataTransferObjects.Others;
+using Application.DataTransferObjects.Others.Inventory;
 using Shared.Entities;
 using System;
 using System.Collections.Generic;
@@ -12,4 +13,5 @@ public interface IInventoryIntegration
 {
     Task<(IEnumerable<InventoryBalanceDTO>, int)> GetInventoryBalance(DataGridIntent intent);
     Task<(IEnumerable<InventoryStatusDTO>, int)> GetInventoryStatus(DataGridIntent intent);
+    Task<IEnumerable<InventoryDetailDTO>> GetInventoryDetails(int documentId, int itemId);
 }

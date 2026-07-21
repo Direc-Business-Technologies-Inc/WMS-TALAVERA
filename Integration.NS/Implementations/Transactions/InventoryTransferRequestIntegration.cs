@@ -84,6 +84,7 @@ public class InventoryTransferRequestIntegration(
                 ("uom.conversionrate", nameof(InventoryTransferRequestLineNSDTO.UoMRate)),
                 ("iil.quantityonhand", nameof(InventoryTransferRequestLineNSDTO.QuantityOnHand)),
                 ("tl.location", nameof(InventoryTransferRequestLineNSDTO.LocationId)),
+                ("stl.id", nameof(InventoryTransferRequestLineNSDTO.SourceLine)),
                 ("tl.linesequencenumber", nameof(InventoryTransferRequestLineNSDTO.LineNumber)),
                 ("BUILTIN.DF(tl.location)", nameof(InventoryTransferRequestLineNSDTO.LocationName))
             )
@@ -91,13 +92,13 @@ public class InventoryTransferRequestIntegration(
             .Join("item item", on: "item.id = tl.item")
             .Join("transaction t", on: "t.id = tl.transaction")
             .Join("transactionline ml", on: "ml.transaction = t.id AND ml.mainline = 'T'")
+            .Join("transactionline stl", on: "stl.transaction = t.id AND stl.displayline = tl.id")
             .LeftJoin("unitstypeuom uom", on: "tl.units = uom.internalid")
             .LeftJoin("inventoryitemlocations iil", on: "tl.item = iil.item AND ml.location = iil.location")
             .WithFilters(
                 DataGridFilterUtilities.Equal("t.tranid", Ref),
                 DataGridFilterUtilities.Equal("t.recordtype", "inventorytransfer"),
-                DataGridFilterUtilities.Equal("tl.mainline", "F"),
-                DataGridFilterUtilities.IsNull("tl.displayline")
+                DataGridFilterUtilities.Equal("tl.mainline", "F")
             )
             .Build();
 
