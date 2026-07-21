@@ -6,7 +6,7 @@
 @inherits BaseForm<InventoryTransferRequestVM>
 @layout ProtectedLayout
 @attribute [AppAuthorizationAttribute("VIEW", "OITR")]
-@attribute [Route(ITRRoutes.VIEW)];
+@attribute [Route(ITRRoutes.UPDATE)];
 
 
 <PageTitle>View Inventory Transfer Request: @Ref</PageTitle>
@@ -31,11 +31,6 @@
                 <AppContentBadge Title="Doc Date" Content="@FormData.Date.ToString("MM-dd-yy")" ChildBadgeStyle="BadgeStyle.Secondary" ChildShade="Shade.Default" />
             </RadzenStack>
         </RadzenStack>
-        <ITRForm Model="@FormData"
-                 EditContext="@EditContext"
-                 ReadOnly
-                 OnReturn="OnReturn"
-                 OnSecondaryAction="@(FormData.IsEditable ?  Edit : default!)"
-                 SecondaryActionLabel="Edit" />
+        <ITRForm Model="@FormData" EditContext="@EditContext" OnReturn="OnReturn" OnSubmit="OnSubmit" SubmitLabel="Update" EditMode />
     }
 </AppContent>

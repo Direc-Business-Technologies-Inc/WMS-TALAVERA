@@ -26,6 +26,7 @@ public partial class ITRForm
     [Parameter] public string SubmitLabel { get; set; } = "Submit";
     [Parameter] public string SecondaryActionLabel { get; set; } = "Action";
     [Parameter] public bool ReadOnly { get; set; } = false;
+    [Parameter] public bool EditMode { get; set; } = false;
     [Parameter] public bool Disabled { get; set; } = false;
 
     QuickVirtualizedDropdown<LocationVM> SourceLocationDropdown { get; set; } = default!;

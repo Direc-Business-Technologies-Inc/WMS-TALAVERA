@@ -53,5 +53,17 @@ public class InventoryTransferRequestHandler(
 
         return await sender.Send(cmd);
     }
+    public async Task<bool> UpdateInventoryTransferRequest(InventoryTransferRequestVM data)
+    {
+        var dto = data.Adapt<InventoryTransferRequestDTO>();
+        if (int.TryParse(authService.GetClaimValue("com.direcbusiness.wms.nsEmployeeId"), out int employeeId))
+        {
+            dto.PreparedById = employeeId;
+        }
+
+        UpdateInventoryTransferRequestCmd cmd = new(dto);
+
+        return await sender.Send(cmd);
+    }
 
 }

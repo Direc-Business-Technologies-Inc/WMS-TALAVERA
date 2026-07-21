@@ -12,9 +12,11 @@ public class InventoryTransferRequestVM
     public SubsidiaryVM? Subsidiary { get; set; }
     public LocationVM? SourceLocation { get; set; }
     public LocationVM? DestinationLocation { get; set; }
+    public InventoryTransferRequestStatusVM? ApprovalStatus { get; set; }
     public string PreparedBy { get; set; } = string.Empty;
     public string Memo { get; set; } = string.Empty;
     public DateTime Date { get; set; }
+    public bool IsEditable { get; set; } = false;
 
     public List<InventoryTransferRequestLineVM> Lines = [];
 }

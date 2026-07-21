@@ -9,6 +9,7 @@ namespace Application.DataTransferObjects.Transactions.InventoryTransferRequest;
 
 public class InventoryTransferRequestLineDTO
 {
+    public int? LineNumber { get; set; }
     public int ItemID { get; set; }
     public string ItemCode { get; set; } = string.Empty;
     public string ItemDescription { get; set;  } = string.Empty;

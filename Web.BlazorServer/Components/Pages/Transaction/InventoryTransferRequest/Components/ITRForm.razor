@@ -22,8 +22,8 @@
                 </RadzenColumn>
                 <RadzenColumn SizeMD="6">
                     <RadzenFormField Text="Subsidiary" class="rz-w-100">
-                        <RadzenTextBox Disabled="Disabled" Visible="@ReadOnly" ReadOnly Value="@Model.Subsidiary?.Name" Placeholder="No subsidiary given" />
-                        <QuickVirtualizedDropdown Disabled="Disabled" @ref="@SubsidiaryDropdown" Visible="@(!ReadOnly)" TItem="SubsidiaryVM" DataGetter="@SubsidiaryProvider" TextProperty="@nameof(SubsidiaryVM.Name)" @bind-Value:get="@Model.Subsidiary" @bind-Value:set="SubsidiarySet" />
+                        <RadzenTextBox Disabled="Disabled" Visible="@(ReadOnly || EditMode)" ReadOnly Value="@Model.Subsidiary?.Name" Placeholder="No subsidiary given" />
+                        <QuickVirtualizedDropdown Disabled="Disabled" @ref="@SubsidiaryDropdown" Visible="@(!(ReadOnly || EditMode))" TItem="SubsidiaryVM" DataGetter="@SubsidiaryProvider" TextProperty="@nameof(SubsidiaryVM.Name)" @bind-Value:get="@Model.Subsidiary" @bind-Value:set="SubsidiarySet" />
                     </RadzenFormField>
                 </RadzenColumn>
                 <RadzenColumn SizeMD="3" SizeSM="6">

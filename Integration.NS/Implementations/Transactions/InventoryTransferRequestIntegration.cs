@@ -39,6 +39,8 @@ public class InventoryTransferRequestIntegration(
                 ("t.subsidiary", nameof(InventoryTransferRequestNSDTO.SubsidiaryId)),
                 ("tl.location", nameof(InventoryTransferRequestNSDTO.SourceLocationId)),
                 ("tl.entity", nameof(InventoryTransferRequestNSDTO.CustomerId)),
+                ("s.id", nameof(InventoryTransferRequestNSDTO.StatusId)),
+                ("s.name", nameof(InventoryTransferRequestNSDTO.StatusName)),
                 ("BUILTIN.DF(t.transferlocation)", nameof(InventoryTransferRequestNSDTO.DestinationLocationName)),
                 ("t.transferlocation", nameof(InventoryTransferRequestNSDTO.DestinationLocationId)),
                 ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(InventoryTransferRequestNSDTO.Date)),
@@ -47,6 +49,7 @@ public class InventoryTransferRequestIntegration(
             .From("transaction t")
             .Join("transactionline tl", "tl.transaction = t.id AND tl.mainline='T'")
             .LeftJoin("employee e", on: "e.id = t.custbody_dbti_prepared_by")
+            .LeftJoin("CUSTOMLIST_DBTI_CR_APPROVAL_STATUSES s", on: "s.id = t.custbody_dbti_custom_approval_status")
             .WithSubsidiaries(httpContextAccessor, "t")
             .WithFilters(
                 DataGridFilterUtilities.Equal("t.recordtype", "inventorytransfer"),
@@ -63,6 +66,8 @@ public class InventoryTransferRequestIntegration(
             SourceLocation = new() { Id = result.SourceLocationId, Name = result.SourceLocationName },
             DestinationLocation = new() { Id = result.DestinationLocationId, Name = result.DestinationLocationName },
             Subsidiary = new() { Id = result.SubsidiaryId, Name = result.SubsidiaryName },
+            Status = new() { Id = result.StatusId, Name = result.StatusName },
+            IsEditable = result.StatusId == 3, // status == rejected
         });
     }
 
@@ -71,6 +76,7 @@ public class InventoryTransferRequestIntegration(
         var query = builderFactory.Create()
             .Select(
                 ("item.itemId", nameof(InventoryTransferRequestLineNSDTO.ItemCode)),
+                ("item.id", nameof(InventoryTransferRequestLineNSDTO.ItemID)),
                 ("item.displayname", nameof(InventoryTransferRequestLineNSDTO.ItemDescription)),
                 ("(tl.quantity / uom.conversionrate)", nameof(InventoryTransferRequestLineNSDTO.QuantityAlloted)),
                 ("BUILTIN.DF(tl.units)", nameof(InventoryTransferRequestLineNSDTO.UoMName)),
@@ -78,6 +84,7 @@ public class InventoryTransferRequestIntegration(
                 ("uom.conversionrate", nameof(InventoryTransferRequestLineNSDTO.UoMRate)),
                 ("iil.quantityonhand", nameof(InventoryTransferRequestLineNSDTO.QuantityOnHand)),
                 ("tl.location", nameof(InventoryTransferRequestLineNSDTO.LocationId)),
+                ("tl.linesequencenumber", nameof(InventoryTransferRequestLineNSDTO.LineNumber)),
                 ("BUILTIN.DF(tl.location)", nameof(InventoryTransferRequestLineNSDTO.LocationName))
             )
             .From("transactionline tl")
@@ -89,7 +96,8 @@ public class InventoryTransferRequestIntegration(
             .WithFilters(
                 DataGridFilterUtilities.Equal("t.tranid", Ref),
                 DataGridFilterUtilities.Equal("t.recordtype", "inventorytransfer"),
-                DataGridFilterUtilities.Equal("tl.mainline", "F")
+                DataGridFilterUtilities.Equal("tl.mainline", "F"),
+                DataGridFilterUtilities.IsNull("tl.displayline")
             )
             .Build();
 
@@ -161,7 +169,24 @@ public class InventoryTransferRequestIntegration(
         return true;
     }
 
-    public string CreatePayload(InventoryTransferRequestDTO data)
+    public async Task<bool> UpdateInventoryTransferRequest(InventoryTransferRequestDTO data)
+    {
+        var url = netsuiteService.GetRestAPIURI + $"/record/v1/inventoryTransfer/{data.Id}";
+        var payload = CreatePayload(data, true);
+
+        try
+        {
+            _ = await netsuiteService.MakeRequest<object>(url, payload, HttpMethod.Patch);
+        }
+        catch (Exception ex) when (ex.Message.Equals("Empty response from NetSuite API", StringComparison.OrdinalIgnoreCase))
+        {
+            // Empty response is but http response is a success status code
+        }
+
+        return true;
+    }
+
+    public string CreatePayload(InventoryTransferRequestDTO data, bool setStatus = false)
     {
         var anon = new
         {
@@ -169,6 +194,7 @@ public class InventoryTransferRequestIntegration(
             location = data.SourceLocation?.Id ?? null,
             transferlocation = data.DestinationLocation?.Id ?? null,
             custbody_dbti_prepared_by = data.PreparedById,
+            custbody_dbti_custom_approval_status = setStatus ? 5 : (int?)null,
             memo = data.Memo,
             trandate = data.Date,
             Class = 1, // external
@@ -177,11 +203,14 @@ public class InventoryTransferRequestIntegration(
             {
                 items = data.Lines.Where(x => x.QuantityAlloted > 0).Select(x => new
                 {
+                    line = x.LineNumber,
                     item = x.ItemID,
                     adjustQtyBy = x.QuantityAlloted,
-                    fromBinNumbers =  string.Join(",", x.InventoryDetails.Where(y => y.Bin is not null).Select(y => y.Bin?.Id)),
+                    fromBinNumbers =  x.InventoryDetails.Any() ?
+                        string.Join(",", x.InventoryDetails.Where(y => y.Bin is not null).Select(y => y.Bin?.Id)) :
+                        null,
                     units = x.UoM?.Id.ToString() ?? null,
-                    inventoryDetail = new
+                    inventoryDetail = x.InventoryDetails.Any() ? new
                     {
                         InventoryAssignment = new 
                         {
@@ -192,7 +221,7 @@ public class InventoryTransferRequestIntegration(
                                 quantity = y.QuantityAlloted
                             }) : null,
                         }
-                    },
+                    } : null,
                 })
             } 
         };
