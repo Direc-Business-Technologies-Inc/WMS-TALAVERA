@@ -1,4 +1,5 @@
-﻿using Application.DataTransferObjects.Transactions.InventoryTransferRequest;
+﻿using Application.DataTransferObjects.Transactions.Commons.NS.Payload;
+using Application.DataTransferObjects.Transactions.InventoryTransferRequest;
 using Application.UseCases.Repositories.Integration.Others;
 using Application.UseCases.Repositories.Integration.Transaction.InventoryTransferRequest;
 using Integration.NS.DataTransferObjects.InventoryAdjustment;
@@ -172,7 +173,7 @@ public class InventoryTransferRequestIntegration(
 
     public async Task<bool> UpdateInventoryTransferRequest(InventoryTransferRequestDTO data)
     {
-        var url = netsuiteService.GetRestAPIURI + $"/record/v1/inventoryTransfer/{data.Id}";
+        var url = netsuiteService.GetRestAPIURI + $"/record/v1/inventoryTransfer/{data.Id}?replace=inventory";
         var payload = CreatePayload(data, true);
 
         try
@@ -213,7 +214,7 @@ public class InventoryTransferRequestIntegration(
                     units = x.UoM?.Id.ToString() ?? null,
                     inventoryDetail = x.InventoryDetails.Any() ? new
                     {
-                        InventoryAssignment = new 
+                        InventoryAssignment = new
                         {
                             items = x.IsAllAssigned ? x.InventoryDetails.Select(y => new
                             {

@@ -47,6 +47,7 @@ public class InventoryIntegration(
     {
         var query = builderFactory.Create()
             .Select(
+                ("ia.id", nameof(InventoryDetailNSDTO.Id)),
                 ("ia.quantity", nameof(InventoryDetailNSDTO.QuantityAlloted)),
                 ("ia.inventorystatus", nameof(InventoryDetailNSDTO.StatusId)),
                 ("is.name", nameof(InventoryDetailNSDTO.StatusName)),
@@ -130,6 +131,7 @@ public class InventoryIntegration(
 
     private class InventoryDetailNSDTO
     {
+        public int? Id { get; set; }
         public int? BinId { get; set; }
         public string BinName { get; set; } = "DEFAULT_BIN_NAME";
         public int StatusId { get; set; }

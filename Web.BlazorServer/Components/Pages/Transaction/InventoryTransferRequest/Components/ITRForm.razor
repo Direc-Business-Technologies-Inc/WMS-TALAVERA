@@ -71,7 +71,7 @@
                             </RadzenStack>
                             <RadzenFormField class="rz-w-100" Visible="@(!ReadOnly)">
                                 <ChildContent>
-                                        <RadzenNumeric Disabled="IsDisabled" ReadOnly="@ReadOnly" @bind-Value="@data.QuantityAlloted" Min="0" Max="@(data.QuantityOnHandByUoM / (data.UoM?.ConversionRate ?? 1))" Format="#,##0.##" />
+                                        <RadzenNumeric Disabled="IsDisabled" ReadOnly="@ReadOnly" @bind-Value:get="@data.QuantityAlloted" @bind-Value:set="@((amount) => SetLineQuantity(data, amount))" Min="0" Max="@(data.QuantityOnHandByUoM / (data.UoM?.ConversionRate ?? 1))" Format="#,##0.##" />
                                 </ChildContent>
                                 <End>
                                     <RadzenButton Disabled="IsDisabled"
@@ -157,6 +157,9 @@
             options: dialogOptions
         );
 
-        if (details is not null) line.InventoryDetails = [.. details];
+        if (details is not null) {
+            line.InventoryDetails = [.. details];
+            await MarkLineDirty(line);
+        }
     }
 }

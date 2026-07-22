@@ -89,6 +89,11 @@ public partial class InventoryTransferRequestUpdate
         var action = await AppActionFactory.RunConfirmedAsync(async () =>
         {
             busyDialogService.Show(ActionUpdate);
+
+            foreach (var item in data.Lines.Where(x => x.LineNumber is not null))
+            {
+                item.InventoryDetails.Clear();    
+            }
             await itrHandler.UpdateInventoryTransferRequest(data);
         }, ActionUpdate);
 
@@ -98,6 +103,7 @@ public partial class InventoryTransferRequestUpdate
             NavManager.NavigateTo(ITRRoutes.INDEX);
             return Task.CompletedTask;
         });
+
 
         await InvokeAsync(StateHasChanged);
     }

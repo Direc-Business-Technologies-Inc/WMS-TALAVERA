@@ -19,7 +19,7 @@ public class InventoryTransferRequestLineDTO
     public decimal QuantityOnHand { get; set; }
     public decimal Rate { get; set; }
     public decimal QuantityAlloted { get; set; }
-
     public bool IsAllAssigned => InventoryDetails.Sum(x => x.QuantityAlloted) == QuantityAlloted;
+    public bool IsDirty { get; set; } = false;
     public List<InventoryDetailDTO> InventoryDetails { get; set; } = [];
 }

@@ -95,7 +95,7 @@ public partial class ITRForm
     {
         if (Model.Id == 0)
             return;
-        if (line.SourceLine is null)
+        if (line.LineNumber is null || line.SourceLine is null)
             return;
         if (LoadedInventoryDetails.Contains((int)line.SourceLine))
             return;
@@ -103,10 +103,22 @@ public partial class ITRForm
         _isBusy = true;
 
         var details = await inventoryHandler.GetInventoryDetails(Model.Id, (int)line.SourceLine);
+
+        foreach (var item in details)
+        {
+            item.QuantityAlloted = -item.QuantityAlloted; // quantity will be negative since it is outgoing
+        }
         line.InventoryDetails.AddRange(details);
         LoadedInventoryDetails.Add((int)line.SourceLine);
+        await MarkLineDirty(line);
 
         _isBusy = false;
+    }
+
+    async Task MarkLineDirty(InventoryTransferRequestLineVM line) 
+    {
+        line.LineNumber = null;
+        await InvokeAsync(StateHasChanged);
     }
 
     async Task Submit()
@@ -192,13 +204,50 @@ public partial class ITRForm
 
     async Task SetLineUoM(InventoryTransferRequestLineVM line, ItemUnitVM? uom)
     {
-        decimal oldcr = line.UoM?.ConversionRate ?? 1;
+        var oldUoM = line.UoM;
+        line.UoM = uom;
+
+        if (line.LineNumber != null)
+        {
+            var prompt = await AlertService.PromptAsync("Changing the item unit will clear the inventory details");
+            if (!prompt)
+            {
+                line.UoM = oldUoM;
+                await InvokeAsync(StateHasChanged);
+                return;
+            }
+
+            line.InventoryDetails.Clear();
+        }
+
+        await MarkLineDirty(line);
+        decimal oldcr = oldUoM?.ConversionRate ?? 1;
         decimal newcr = uom?.ConversionRate ?? 1;
 
         line.QuantityAlloted *= oldcr / newcr;
+        line.InventoryDetails.ForEach(x => x.QuantityAlloted *= oldcr / newcr);
 
-        line.UoM = uom;
         await InvokeAsync(StateHasChanged);
+    }
+
+    async Task SetLineQuantity(InventoryTransferRequestLineVM line, decimal amount)
+    {
+        var oldAmount = line.QuantityAlloted;
+        line.QuantityAlloted = amount;
+
+        if (line.InventoryDetails.Count > 0 || line.LineNumber is not null) 
+        {
+            var prompt = await AlertService.PromptAsync("Changing quantity will clear inventory details");
+            if (!prompt)
+            {
+                line.QuantityAlloted = oldAmount;
+                await InvokeAsync(StateHasChanged);
+                return;
+            }
+        }
+
+        line.InventoryDetails.Clear();
+        await MarkLineDirty(line);
     }
 
     bool _areEqual(LocationVM? a, LocationVM? b) => (a is null || b is null) ? false : a?.Id == b?.Id;
