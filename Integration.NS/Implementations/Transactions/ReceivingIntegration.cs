@@ -640,13 +640,14 @@ public class ReceivingIntegration(
                 ("t.id", nameof(ItemReceiptDataGridDTO.Id)),
                 ("t.tranid", nameof(ItemReceiptDataGridDTO.ReferenceNumber)),
                 ("categ.name", nameof(ItemReceiptDataGridDTO.TransferCategory)),
-                ("BUILTIN.DF(tl.createdfrom)", nameof(ItemReceiptDataGridDTO.CreatedFrom)),
+                ("tcf.tranid", nameof(ItemReceiptDataGridDTO.CreatedFrom)),
                 ("BUILTIN.DF(tl.location)", nameof(ItemReceiptDataGridDTO.FromLocation)),
                 ("BUILTIN.DF(t.transferlocation)", nameof(ItemReceiptDataGridDTO.ToLocation))
             )
             .From("transaction t")
             .Join("transactionline tl", "tl.transaction = t.id AND tl.mainline = 'T'")
             .LeftJoin("CUSTOMLIST_DBTI_TRANSFER_CATEGORY_LIST categ", "t.custbody_dbti_transfer_category = categ.id")
+            .LeftJoin("transaction tcf", "tl.createdfrom = tcf.id")
             .WithFilters(
                 Equal("t.recordtype", "itemreceipt")
             )
