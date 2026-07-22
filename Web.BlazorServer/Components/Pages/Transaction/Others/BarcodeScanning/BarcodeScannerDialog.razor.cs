@@ -37,6 +37,8 @@ public partial class BarcodeScannerDialog
         {
             HelperString = ex.Message;
         }
+
+        barcode.Barcode = string.Empty;
     }
 
     void TryAddBarcode(BarcodeVM barcode)
