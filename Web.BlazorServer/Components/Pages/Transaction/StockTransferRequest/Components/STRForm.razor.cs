@@ -33,6 +33,8 @@ public partial class STRForm
     [Parameter]
     public bool ReadOnly { get; set; } = false;
     [Parameter]
+    public bool LoadSubsidiary { get; set; } = true;
+    [Parameter]
     public bool IsBusy { get; set; } = false;
     [Parameter]
     public string? ReturnURI { get; set; }
@@ -112,6 +114,8 @@ public partial class STRForm
 
     async Task SetDefaultSubsidiary()
     {
+        if (ReadOnly || !LoadSubsidiary) return;
+
         DefaultSubsidiaryLoading = true;
         await InvokeAsync(StateHasChanged);
 
