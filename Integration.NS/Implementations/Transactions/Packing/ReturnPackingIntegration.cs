@@ -42,7 +42,7 @@ internal class ReturnPackingIntegration(
             .LeftJoin("transferorderstatus s", on: "s.id = t.status")
             .WithFilters(
                 Equal("tl.mainline", "T"),
-                Equal("t.tosubsidiary", subsidiaryId))
+                Equal("tl.subsidiary", subsidiaryId))
             .WithFilters(PackingReturnsFilters())
             .WithDatagridIntent(intent)
             .Build();
