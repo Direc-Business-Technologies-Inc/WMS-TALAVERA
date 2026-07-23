@@ -53,6 +53,7 @@ public partial class STRForm
     IVendorHandler VendorHandler { get; set; } = default!;
     [Inject]
     IItemsHandler ItemsHandler { get; set; } = default!;
+    [Inject] IHttpContextAccessor httpContextAccessor { get; set; } = default!;
 
     AppTable<StockTransferRequestLineVM> LinesTable = default!;
     DataGridSettings TableSettings { get; set; } = new();
@@ -71,6 +72,9 @@ public partial class STRForm
     private readonly SemaphoreSlim _concurrencySemaphore = new SemaphoreSlim(2, 2);
 
     private BarcodeStore BarcodeStore = new();
+    private Task DefaultSubsidiaryTask = Task.CompletedTask;
+
+    bool DefaultSubsidiaryLoading = false;
 
     const string PRINTABLE_URL_INTERCOMPANY = "https://11608969.extforms.netsuite.com/app/site/hosting/scriptlet.nl?script=1671&deploy=1&compid=11608969&ns-at=AAEJ7tMQ9evIwFEEUifIBokQgQ0jhowAItpfjv5Smu7B76K41lU&recordType=tranferOrder&isPickingTicket=true";
     const string PRINTABLE_URL_TO = "https://11608969.extforms.netsuite.com/app/site/hosting/scriptlet.nl?script=1671&deploy=1&compid=11608969&ns-at=AAEJ7tMQ9evIwFEEUifIBokQgQ0jhowAItpfjv5Smu7B76K41lU&recordType=tranferOrder&isPickingTicket=true";
@@ -88,7 +92,40 @@ public partial class STRForm
         if (firstRender)
         {
             await LoadGridSettings();
+            DefaultSubsidiaryTask = SetDefaultSubsidiary();
+            await DefaultSubsidiaryTask;
         }
+    }
+
+    Task<SubsidiaryVM?> LoadDefaultSubsidiary()
+    {
+        string? subsidiaryId = httpContextAccessor.HttpContext?.User?.FindFirst("com.direcbusiness.wms.nsSubsidiary")?.Value;
+
+        if (string.IsNullOrEmpty(subsidiaryId)) 
+            return Task.FromResult<SubsidiaryVM?>(null);
+
+        if (int.TryParse(subsidiaryId, out int id))
+            return SubsidiaryHandler.GetSubsidiaryAsync(id);
+
+        return Task.FromResult<SubsidiaryVM?>(null); 
+    }
+
+    async Task SetDefaultSubsidiary()
+    {
+        DefaultSubsidiaryLoading = true;
+        await InvokeAsync(StateHasChanged);
+
+        var subsidiary = await LoadDefaultSubsidiary();
+        if (!Model.IsIntercompany || subsidiary?.Id == 2) // branch = THM MAIN
+            Model.Subsidiary = subsidiary;
+        else
+            Model.ToSubsidiary = subsidiary;
+
+        SourceLocationDropdown?.Reset();
+        DestinationLocationDropdown?.Reset();
+
+        DefaultSubsidiaryLoading = false;
+        await InvokeAsync(StateHasChanged);
     }
 
     async Task LoadGridSettings()
@@ -181,8 +218,9 @@ public partial class STRForm
     {
 
         await _concurrencySemaphore.WaitAsync();
-        var result = Model.IsIntercompany ? await SubsidiaryHandler.GetSubsidiariesAsync(intent)
-            : await SubsidiaryHandler.GetCurrentUserSubsidiariesAsync(intent);
+        await DefaultSubsidiaryTask;
+
+        var result = await SubsidiaryHandler.GetSubsidiariesAsync(intent);
 
         _concurrencySemaphore.Release();
         return result;
@@ -192,7 +230,9 @@ public partial class STRForm
     {
 
         await _concurrencySemaphore.WaitAsync();
-        var result = await SubsidiaryHandler.GetCurrentUserSubsidiariesAsync(intent);
+        await DefaultSubsidiaryTask;
+
+        var result = await SubsidiaryHandler.GetSubsidiariesAsync(intent);
 
         _concurrencySemaphore.Release();
         return result;

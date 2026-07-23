@@ -17,6 +17,14 @@ public class SubsidiaryHandler(IHttpContextAccessor contextAccessor, ISender sen
         (var data, int count) = await sender.Send(qry);
         return (data.Adapt<IEnumerable<SubsidiaryVM>>(), count);
     }
+    public async Task<SubsidiaryVM?> GetSubsidiaryAsync(int id)
+    {
+        GetSubsidiaryQry qry = new(id);
+        var data = await sender.Send(qry);
+        if (data is null) return null;
+
+        return data.Adapt<SubsidiaryVM>();
+    }
     public async Task<(IEnumerable<SubsidiaryVM> Data, int Count)> GetCurrentUserSubsidiariesAsync(DataGridIntent intent)
     {
         var newIntent = intent.Adapt<DataGridIntent>();

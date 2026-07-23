@@ -80,7 +80,7 @@
                             <RadzenTextBox Disabled="@IsBusy" Visible="@ReadOnly" ReadOnly Value="@(Model.Subsidiary?.Name ?? null)" />
                             <QuickVirtualizedDropdown Visible="@(!ReadOnly)"
                                                       TItem="SubsidiaryVM"
-                                                      Disabled="@IsBusy"
+                                                      Disabled="@(IsBusy || DefaultSubsidiaryLoading)"
                                                       ActionName="@ActionGetSubsidiaries"
                                                       DataGetter="@SubsidiaryProvider"
                                                       @bind-Value:get="Model.Subsidiary"
@@ -100,7 +100,7 @@
                         <ChildContent>
                             <RadzenTextBox Disabled="@IsBusy" Visible="@ReadOnly" ReadOnly Value="@(Model.ToSubsidiary?.Name ?? null)" />
                             <QuickVirtualizedDropdown Visible="@(!ReadOnly)"
-                                                      Disabled="@IsBusy"
+                                                      Disabled="@(IsBusy || DefaultSubsidiaryLoading)"
                                                       TItem="SubsidiaryVM"
                                                       ActionName="@ActionGetSubsidiaries"
                                                       DataGetter="@ToSubsidiaryProvider"
