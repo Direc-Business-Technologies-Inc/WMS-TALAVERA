@@ -60,19 +60,13 @@ internal static class AppDefaults
             navRouteId: WebStructure.SubRouteList2.First(x => x.Name.Equals("Receiving")).Id,
             permissions: [AppDefaults.NewPermission("VIEW"), AppDefaults.NewPermission("CREATE"), AppDefaults.NewPermission("UPDATE")]),
         ModuleDEM.Create(
-            name: "Goods Return",
-            code: "OGRN",
-            root: false,
-            navRouteId: WebStructure.SubRouteList2.First(x => x.Name.Equals("Goods Return")).Id,
-            permissions: [AppDefaults.NewPermission("VIEW"), AppDefaults.NewPermission("CREATE"), AppDefaults.NewPermission("UPDATE")]),
-        ModuleDEM.Create(
             name: "Delivery",
             code: "ODLV",
             root: false,
             navRouteId: WebStructure.ParentRouteList.ElementAt(0).Id,
             permissions: [AppDefaults.NewPermission("VIEW"), AppDefaults.NewPermission("CREATE"), AppDefaults.NewPermission("UPDATE")]),
         ModuleDEM.Create(
-            name: "Sales Return",
+            name: "Return to Supplier",
             code: "OSRN",
             root: false,
             navRouteId: WebStructure.SubRouteList2.First(x => x.Name.Equals("Sales Return")).Id,
