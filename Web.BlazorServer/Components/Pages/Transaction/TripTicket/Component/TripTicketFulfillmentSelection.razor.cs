@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Components;
 using Radzen;
 using Shared.Entities;
 using Shared.Kernel;
+using Shared.Libraries.ViewModel.ItemFulfillment;
 using Shared.Libraries.ViewModel.TripTicket;
 using Web.BlazorServer.Components.Shared.Abstraction;
 using Web.BlazorServer.Defaults;

@@ -42,7 +42,7 @@ public class ReturnsController(ISender Sender) : ControllerBase
     }
 
     [HttpPost("SaveScan")]
-    public async Task<IActionResult> ReturnsSaveScan(List<PostReturnsDTO> req)
+    public async Task<IActionResult> ReturnsSaveScan(SaveReturnRequestDTO req)
     {
         ApiResult<bool> result = await Sender.Send(new PostReturnsIRCmd(req));
 

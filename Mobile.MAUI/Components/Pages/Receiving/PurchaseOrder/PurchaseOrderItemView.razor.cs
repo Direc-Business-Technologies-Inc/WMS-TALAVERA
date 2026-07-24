@@ -3,11 +3,13 @@ using Mobile.MAUI.Components.Reusables;
 using Mobile.MAUI.Services;
 using Mobile.MAUI.ViewModel;
 using Shared.Libraries.ViewModel;
+using Shared.Libraries.ViewModel.Authentication;
 using Shared.Libraries.ViewModel.PurchaseOrder;
+using System.Text.Json;
 using static Mobile.MAUI.Enums.CustomEnum;
+using static Mobile.MAUI.Helpers.FormatHelper;
 using static Mobile.MAUI.MauiProgram;
 using AppAction = Mobile.MAUI.Services.AppAction;
-using static Mobile.MAUI.Helpers.FormatHelper;
 
 namespace Mobile.MAUI.Components.Pages.Receiving.PurchaseOrder;
 
@@ -43,6 +45,8 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
     bool IsWeightDialogOpen = false;
 
     decimal? ChangeWeight = null;
+
+    int UserId = 0;
     protected override async Task OnInitializedAsync()
     {
         ActionGetPOItems = new AppAction<List<PurchaseOrderLineVM>>
@@ -162,7 +166,7 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
             TaskAsync = async () =>
             {
                 await InvokeAsync(StateHasChanged);
-                var res = await Client.Post<bool>("/Receiving/PurchaseOrder/SaveScan", POItems);
+                var res = await Client.Post<bool>("/Receiving/PurchaseOrder/SaveScan", new { PostPurchaseOrders = POItems , UserId });
                 return res;
             },
             OnSuccess = async (result) =>
@@ -193,6 +197,14 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
             }).ToList();
 
             await ActionFactory.ExecuteAppActionAsync(ActionGetItemBarcodes);
+
+            string? userAuth = await SecureStorage.GetAsync("UserAuth");
+            if (userAuth is not null)
+            {
+                var auth = JsonSerializer.Deserialize<AuthenticationVM>(userAuth);
+
+                UserId = auth.NetsuiteEmployeeInternalId;
+            }
         }
 
         if (GoodPOItems.Count > 0 && JsObj is null)
@@ -401,7 +413,7 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
 
                 var badQty = bad?.ScannedQuantity ?? 0;
 
-                return g.ScannedQuantity > 0 ||
+                return g.ScannedQuantity > 0 &&
                         (g.ScannedQuantity + badQty) < g.NSLineQuantityReceived;
             })
             .Concat(BadPOItems.Where(x => x.NSLineQuantityReceived != 0))

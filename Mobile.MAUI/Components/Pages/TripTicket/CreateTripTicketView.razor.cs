@@ -1,5 +1,6 @@
 using Microsoft.JSInterop;
 using Mobile.MAUI.Services;
+using Shared.Libraries.ViewModel.ItemFulfillment;
 using Shared.Libraries.ViewModel.TripTicket;
 using static Mobile.MAUI.MauiProgram;
 using AppAction = Mobile.MAUI.Services.AppAction;

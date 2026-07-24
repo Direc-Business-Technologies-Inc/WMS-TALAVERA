@@ -476,7 +476,7 @@ namespace Integration.NS.Services
         }
 
         #region Receiving
-        public async Task<bool> SavePOItemReceipt(List<PostPurchaseOrderDTO> Data)
+        public async Task<bool> SavePOItemReceipt(List<PostPurchaseOrderDTO> Data, int userId)
         {
 
             var orderId = Data.Select(x => x.NetsuiteOrderInternalId).FirstOrDefault();
@@ -488,7 +488,7 @@ namespace Integration.NS.Services
             {
                 try
                 {
-                    var payloadBad = PurchaseOrderIRPayloadDTO.CreateForItemReceipt(badPO, 2);
+                    var payloadBad = PurchaseOrderIRPayloadDTO.CreateForItemReceipt(badPO, userId, 2);
 
                     var jsonStringBad = JsonSerializer.Serialize(payloadBad, JsonSerializerOption);
 
@@ -506,7 +506,7 @@ namespace Integration.NS.Services
             {
                 try
                 {
-                    var payloadGood = PurchaseOrderIRPayloadDTO.CreateForItemReceipt(goodPO, 1);
+                    var payloadGood = PurchaseOrderIRPayloadDTO.CreateForItemReceipt(goodPO, userId, 1);
 
                     var jsonStringGood = JsonSerializer.Serialize(payloadGood, JsonSerializerOption);
 
@@ -521,9 +521,10 @@ namespace Integration.NS.Services
             return true;
         }
 
-        public async Task<bool> SaveTOItemReceipt(List<PostTransferOrderDTO> Data)
+        public async Task<bool> SaveTOItemReceipt(List<PostTransferOrderDTO> Data, int TONetsuiteOrderInternalId, int userId)
         {
-            var orderId = Data.Select(x => x.NetsuiteOrderInternalId).FirstOrDefault();
+            var IFOrderId = Data.Select(x => x.NetsuiteOrderInternalId).FirstOrDefault();
+
             string url = ItemReceiptRestletUrl;
 
             var badTO = Data.Where(x => x.IsBad).ToList();
@@ -532,7 +533,7 @@ namespace Integration.NS.Services
             {
                 try
                 {
-                    var payloadBad = TransferOrderIRRestletPayloadDTO.CreateForItemReceiptRestlet(badTO, orderId, 3);
+                    var payloadBad = TransferOrderIRRestletPayloadDTO.CreateForItemReceiptRestlet(badTO, TONetsuiteOrderInternalId, IFOrderId, userId, 3);
 
                     var jsonStringBad = JsonSerializer.Serialize(payloadBad, JsonSerializerOption);
 
@@ -550,7 +551,7 @@ namespace Integration.NS.Services
             {
                 try
                 {
-                    var payloadGood = TransferOrderIRRestletPayloadDTO.CreateForItemReceiptRestlet(goodTO, orderId, 1);
+                    var payloadGood = TransferOrderIRRestletPayloadDTO.CreateForItemReceiptRestlet(goodTO, TONetsuiteOrderInternalId, IFOrderId, userId, 1);
 
                     var jsonStringGood = JsonSerializer.Serialize(payloadGood, JsonSerializerOption);
 
@@ -565,7 +566,7 @@ namespace Integration.NS.Services
             return true;
         }
 
-        public async Task<bool> SaveReturnsItemReceipt(List<PostReturnsDTO> Data)
+        public async Task<bool> SaveReturnsItemReceipt(List<PostReturnsDTO> Data, int userId)
         {
             var orderId = Data.Select(x => x.NetsuiteOrderInternalId).FirstOrDefault();
             string url = string.Format(ItemReceiptUrl + "?replace=item.inventoryDetail.inventoryAssignment", "transferOrder", orderId);
@@ -576,7 +577,7 @@ namespace Integration.NS.Services
 
                 var receivingCategory = transferCategory == TransferCategory.GoodItems ? 1 : 2;
 
-                ReturnsIRPayloadDTO payloadGood = ReturnsIRPayloadDTO.CreateForItemReceipt(Data, receivingCategory);
+                ReturnsIRPayloadDTO payloadGood = ReturnsIRPayloadDTO.CreateForItemReceipt(Data, receivingCategory, userId);
 
                 var jsonStringGood = JsonSerializer.Serialize(payloadGood, JsonSerializerOption);
 

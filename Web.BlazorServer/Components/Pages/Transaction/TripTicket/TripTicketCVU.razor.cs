@@ -5,7 +5,7 @@ using Shared.Entities;
 using Shared.Kernel;
 using Shared.Libraries.ViewModel;
 using Shared.Libraries.ViewModel.Common;
-using Shared.Libraries.ViewModel.TripTicket;
+using Shared.Libraries.ViewModel.ItemFulfillment;
 using Shared.Services.Repository;
 using Web.BlazorServer.Components.Shared.Abstraction;
 using Web.BlazorServer.Defaults;

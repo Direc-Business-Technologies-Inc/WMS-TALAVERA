@@ -1,5 +1,6 @@
 using Shared.Entities;
 using Shared.Libraries.ViewModel;
+using Shared.Libraries.ViewModel.ItemFulfillment;
 using Shared.Libraries.ViewModel.TripTicket;
 using Web.BlazorServer.ViewModels.Transaction.TripTicket;
 

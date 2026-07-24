@@ -41,6 +41,15 @@ public partial class TransferOrderItemView : IAsyncDisposable
     decimal? DefaultWeight = null;
     decimal? ChangeWeight = null;
 
+    // Backorder notification
+    bool HasBackorderItems
+    {
+        get
+        {
+            return GoodTOItems.Any(x => x.LineQuantityBackOrdered > 0);
+        }
+    }
+
     protected override async Task OnInitializedAsync()
     {
         ActionGetTOItems = new AppAction<List<TransferOrderLineVM>>
@@ -84,6 +93,7 @@ public partial class TransferOrderItemView : IAsyncDisposable
 
                     LineQuantity = line.LineQuantity,
                     LineQuantityPacked = line.LineQuantityPacked,
+                    LineQuantityBackOrdered = line.LineQuantityBackOrdered,
 
                     NetsuiteUoMInternalId = line.NetsuiteUoMInternalId,
                     UoMName = line.UoMName,
@@ -114,6 +124,7 @@ public partial class TransferOrderItemView : IAsyncDisposable
 
                     LineSequenceNumber = line.LineSequenceNumber,
                     TransactionLineType = line.TransactionLineType,
+                    LineQuantityBackOrdered = line.LineQuantityBackOrdered,
 
                     NetsuiteMaterialInternalId = line.NetsuiteMaterialInternalId,
                     MaterialCode = line.MaterialCode,

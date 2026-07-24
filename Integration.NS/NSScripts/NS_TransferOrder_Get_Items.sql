@@ -1,4 +1,4 @@
-SELECT
+SELECT DISTINCT
     t.id AS NetsuiteOrderInternalId,
     t.tranid AS OrderNumber,
     t.recordtype AS OrderType,

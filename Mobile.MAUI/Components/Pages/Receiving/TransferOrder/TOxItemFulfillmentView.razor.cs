@@ -1,39 +1,38 @@
 using Microsoft.JSInterop;
-using Mobile.MAUI.Helpers.Extensions;
 using Mobile.MAUI.Services;
-using Shared.Libraries.ViewModel.Authentication;
-using Shared.Libraries.ViewModel.TransferOrder;
+using Shared.Libraries.ViewModel.ItemFulfillment;
 using System.Globalization;
 using System.Text.Json;
 using static Mobile.MAUI.MauiProgram;
 
 namespace Mobile.MAUI.Components.Pages.Receiving.TransferOrder;
 
-public partial class TransferOrderView : IAsyncDisposable
+public partial class TOxItemFulfillmentView : IAsyncDisposable
 {
-    public string TOOrderNumber;
+    [Parameter]
+    public int NetsuiteOrderInternalId { get; set; }
+
+    [Parameter]
+    public string TOOrderNumber { get; set; }
 
     private IJSObjectReference JsObj { get; set; }
 
-    List<TransferOrderVM> Data { get; set; } = [];
+    List<ItemFulfillmentVM> Data { get; set; } = [];
 
-    AppAction<List<TransferOrderVM>> ActionGetTransferOrder;
+    AppAction<List<ItemFulfillmentVM>> ActionGetTOxItemfulfillments;
 
-    int UserSubsidiaryId { get; set; }
-
-    private List<TransferOrderVM> FilteredData { get; set; } = [];
+    private List<ItemFulfillmentVM> FilteredData { get; set; } = [];
     private string SearchText { get; set; } = string.Empty;
 
     protected override async Task OnInitializedAsync()
     {
-        string userId = await AuthState.GetAuthenticatedUserId();
-        ActionGetTransferOrder = new AppAction<List<TransferOrderVM>>
+        ActionGetTOxItemfulfillments = new AppAction<List<ItemFulfillmentVM>>
         {
-            Name = "GetTransferOrder",
+            Name = "GetTOxItemfulfillments",
             TaskAsync = async () =>
             {
                 await InvokeAsync(StateHasChanged);
-                var res = await Client.Post<List<TransferOrderVM>>("/Receiving/TransferOrder/PendingReceipt", new { NetsuiteUserSubsidiaryInternalId = UserSubsidiaryId });
+                var res = await Client.Post<List<ItemFulfillmentVM>>("/Receiving/TransferOrder/ItemFulfillment", new { NetsuiteOrderInternalId = NetsuiteOrderInternalId });
                 return res;
             },
             OnSuccess = async (result) =>
@@ -52,14 +51,6 @@ public partial class TransferOrderView : IAsyncDisposable
     {
         if (firstRender)
         {
-            string? userAuth = await SecureStorage.GetAsync("UserAuth");
-            if (userAuth is not null)
-            {
-                var auth = JsonSerializer.Deserialize<AuthenticationVM>(userAuth);
-
-                UserSubsidiaryId = auth.NetsuiteSubsidiaryInternalId;
-            }
-
             await LoadData();
         }
 
@@ -72,7 +63,12 @@ public partial class TransferOrderView : IAsyncDisposable
 
     async Task LoadData()
     {
-        await ActionFactory.ExecuteAppActionAsync(ActionGetTransferOrder);
+        await ActionFactory.ExecuteAppActionAsync(ActionGetTOxItemfulfillments);
+    }
+
+    async Task LoadItemFulfillments()
+    {
+        await ActionFactory.ExecuteAppActionAsync(ActionGetTOxItemfulfillments);
     }
 
     #region Search
@@ -118,7 +114,7 @@ public partial class TransferOrderView : IAsyncDisposable
             .ToList();
     }
 
-    private static bool MatchesSearch(TransferOrderVM row, string search)
+    private static bool MatchesSearch(ItemFulfillmentVM row, string search)
     {
         if (ContainsIgnoreCase(row.OrderNumber, search))
             return true;
