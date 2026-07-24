@@ -89,11 +89,11 @@ public class InventoryIntegration(
             Name = nsdto.StatusName,
             Id = nsdto.StatusId
         },
-        Bin = new LocationBinDTO
+        Bin = nsdto.BinId != null ? new LocationBinDTO
         {
-            Id = nsdto.BinId,
+            Id = (int)nsdto.BinId,
             BinNumber = nsdto.BinName
-        },
+        } : null,
         Location = new LocationDTO
         {
             Id = nsdto.LocationId,
@@ -119,7 +119,7 @@ public class InventoryIntegration(
     {
 
         public int ItemId { get; set; }
-        public int BinId { get; set; }
+        public int? BinId { get; set; }
         public string BinName { get; set; } = string.Empty;
         public int LocationId { get; set; }
         public string LocationName { get; set; } = string.Empty;
