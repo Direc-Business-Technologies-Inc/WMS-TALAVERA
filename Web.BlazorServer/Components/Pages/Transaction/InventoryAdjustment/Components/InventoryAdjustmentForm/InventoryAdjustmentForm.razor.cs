@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
 using Shared.Entities;
+using Shared.Libraries.Utilities;
 using Web.BlazorServer.Components.Custom;
 using Web.BlazorServer.Handlers.Repositories.Others;
 using Web.BlazorServer.Handlers.Repositories.Transaction.InventoryAdjustment;
@@ -23,6 +24,12 @@ public partial class InventoryAdjustmentForm
     [Parameter] public bool ReadOnly { get; set; } = false;
     [Parameter] public bool Disabled { get; set; } = false;
     [Parameter] public bool Issue { get; set; } = false;
+
+    readonly List<AppFilterDescriptor> StatusFilters = [
+        DataGridFilterUtilities.In(
+            nameof(InventoryStatusVM.Id),
+            new List<int> { 1, 3 })
+    ];
 
     [Inject] ISubsidiaryHandler subsidiaryHandler { get; set; } = default!;
     [Inject] ILocationHandler locationHandler { get; set; } = default!;

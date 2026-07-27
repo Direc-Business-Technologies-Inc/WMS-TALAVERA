@@ -1,5 +1,6 @@
 ﻿using Application.DataTransferObjects.Others;
 using Application.DataTransferObjects.Others.NS;
+using Application.DataTransferObjects.Transactions.Commons.NS.Payload;
 using Application.DataTransferObjects.Transactions.InventoryAdjustment;
 using Application.DataTransferObjects.Transactions.Receiving;
 using Application.UseCases.Repositories.Integration.Others;
@@ -198,11 +199,10 @@ public class InventoryAdjustmentIntegration(
     public async Task<bool> CreateInventoryAdjustment(InventoryAdjustmentDTO value)
     {
         string payloadString = CreateIAPayload(value);
-        var url = netsuiteService.GetRestAPIURI + "/record/v1/inventoryAdjustment";
-
+        var url = $"{netsuiteService.GetRestletURI}?script=1938&deploy=1";
         try
         {
-            _ = await netsuiteService.MakeRequest<object>(url, payloadString, HttpMethod.Post);
+            _ = await netsuiteService.MakeRequestOAuth1<object>(url, payloadString);
         }
         catch (Exception ex) when (ex.Message.Equals("Empty response from NetSuite API", StringComparison.OrdinalIgnoreCase))
         {
@@ -224,38 +224,25 @@ public class InventoryAdjustmentIntegration(
 
         var anon = new
         {
-            account = new { id = dto.Account!.Id },
+            subsidiary = dto.Subsidiary?.Id,
+            location = dto.Location?.Id,
+            account = dto.Account?.Id,
+            locationUsesBins = dto.Lines.Any(x => x.InventoryDetails.Any(y => y.Bin is not null)), // why is this a required field
             memo = dto.Memo,
-            subsidiary = new { id = dto.Subsidiary!.Id },
-            adjLocation = new { id = dto.Location!.Id },
-            department = new { id = 4 },
-            custbody_atlas_inv_adj_reason = dto.Reason?.Id ?? null,
-            custbody_dbti_prepared_by = dto.PreparedById,
-            custbody_dbti_adjustment_category = category,
-            Class = 1,
-            inventory = new
+            //custbody_atlas_inv_adj_reason = dto.Reason?.Id ?? null,
+            //custbody_dbti_prepared_by = dto.PreparedById,
+            //custbody_dbti_adjustment_category = category,
+            lines = dto.Lines.Select(line => new
             {
-                items = dto.Lines.Select(line => new
+                item = line.ItemId,
+                quantity = line.QuantityAlloted * (line.UoM?.ConversionRate ?? 1),
+                InventoryDetail = line.InventoryDetails.Select(detail => new
                 {
-                    item = new { id = line.ItemId }, 
-                    adjustQtyBy = line.QuantityAlloted,
-                    location = new { id = line.Location!.Id },
-                    department = new { id = 4 },
-                    inventoryDetail = new
-                    {
-                        inventoryAssignment = new
-                        {
-                            items = line.InventoryDetails.Select(d => new
-                            {
-                                binNumber = d.Bin != null ? new { id = d.Bin.Id } : null,
-                                inventoryStatus = d.Status?.Id,
-                                quantity = line.QuantityAlloted < 0 ? -d.QuantityAlloted :  d.QuantityAlloted
-                            })
-                        }
-                    },
-                    units = line.UoM?.Id.ToString() ?? null
+                    status = detail.Status?.Id,
+                    qty = (line.QuantityAlloted < 0 ? -detail.QuantityAlloted : detail.QuantityAlloted) * (line.UoM?.ConversionRate ?? 1),
+                    bin = detail.Bin?.Id
                 })
-            }
+            })
         };
 
         return JsonSerializer.Serialize(anon, jsonSerializerOptions);

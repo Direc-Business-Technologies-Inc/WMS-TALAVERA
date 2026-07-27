@@ -198,7 +198,7 @@
 
         List<InventoryDetailVM> items = await DialogService.OpenAsync(
             "Set Inventory Details",
-            ds => @<InventoryDetailsDialog LocationId="@line.Location.Id" Amount="@line.QuantityAlloted" Type="Type" ItemId="@line.ItemId" InventoryDetails="@line.InventoryDetails"/>,
+            ds => @<InventoryDetailsDialog LocationId="@line.Location.Id" Amount="@line.QuantityAlloted" Type="Type" ItemId="@line.ItemId" InventoryDetails="@line.InventoryDetails" StatusFilters="StatusFilters"/>,
     options: opts);
 
         if (items is not null)
