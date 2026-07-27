@@ -1,13 +1,13 @@
-﻿@page "/packing/vra/{OrderNumber}"
+﻿@page "/receiving/transferorder/itemfulfillment/items/{NetsuiteOrderInternalId:int}/{TOOrderNumber}/{OrderNumber}"
 @using Mobile.MAUI.Components.Base
-@using Shared.Libraries.ViewModel.VendorReturnAuthorization
+@using Shared.Libraries.ViewModel.ItemFulfillment
 @using static MAUI.Helpers.FormatHelper
 
 @layout CleanLayout
 @inherits BaseComponent
 
 <RadzenStack Gap="12px" Style="">
-    <PageHeading Title="RTS" BackPath="/packing" Click="LoadVRA" Id="@($"{OrderNumber}")" />
+    <PageHeading Title="Transfer Order" BackPath="@BackPath" Click="LoadTransferOrder" Id="@OrderNumber" />
     <RadzenStack id="recent-scanned" class="box-toolbar-page">
 
     </RadzenStack>
@@ -42,32 +42,33 @@
 
     </RadzenStack> *@
 
-    <Loading IsLoading="ActionGetVRAItems.Busy" Text="Loading RTS Items...">
+    <Loading IsLoading="ActionGetTOxItemfulfillmentItems.Busy" Text="Loading TO Items...">
         <ChildContent>
             <RadzenStack>
                 <RadzenTabs @bind-SelectedIndex="ActiveTabIndex">
                     <Tabs>
                         <RadzenTabsItem Text="Good">
-                            <RadzenDataList TItem="VendorReturnAuthorizationLineVM" Data="GoodVRAItems.Where(x => x.NSLineQuantityPacked != 0)" Style="margin-bottom:200px">
+                            <RadzenDataList TItem="TOxItemFulfillmentLineVM" Data="GoodIFItems.Where(x => x.NSLineQuantityReceived != 0)" Style="margin-bottom:200px">
                                 <Template Context="row">
                                     <RadzenStack Style="position:relative;overflow:clip !important;" class="@(IsSelectedGood(row) ? "rz-p-2 selected-row" : "rz-p-2")" Orientation="Orientation.Horizontal"
                                                  @onclick="@(() => SelectGoodLine(row))">
                                         <RadzenStack Gap="4px">
                                             <RadzenText Text="@row.MaterialName" TextStyle="TextStyle.Subtitle2" Style="font-size:.75rem" />
                                             <RadzenText Text="@row.LocationName" TextStyle="TextStyle.Subtitle2" Style="font-size:.6rem" />
+                                            <RadzenText Text="@($"{row.ScannedWeight}kg")" TextStyle="TextStyle.Subtitle2" Style="font-size:.6rem" />
                                         </RadzenStack>
 
                                         <RadzenStack Gap="0" Style="position:absolute;right:0;top:0;width:max-content;height:100%;overflow:clip" AlignItems="AlignItems.End">
 
                                             <RadzenStack Style="flex-grow:1"
-                                                         class="@($"dynamic-qty-box {(row.AlreadyPacked ? "rz-background-color-success" : "rz-background-color-warning")}")">
+                                                         class="@($"dynamic-qty-box {(row.AlreadyReceived ? "rz-background-color-success" : "rz-background-color-warning")}")">
                                                 <RadzenText Text="@FormatQuantity(row.ScannedQuantity)"
                                                             Style="font-size:1.25rem;font-weight:500;"
-                                                            class="@($"dynamic-qty-text {(row.AlreadyPacked ? "rz-color-white" : "")}")" />
+                                                            class="@($"dynamic-qty-text {(row.AlreadyReceived ? "rz-color-white" : "")}")" />
                                             </RadzenStack>
                                             <RadzenStack Style="flex-grow:1;"
                                                          class="dynamic-qty-box rz-background-color-base-200">
-                                                <RadzenText Text="@FormatQuantity(row.NSLineQuantityPacked)"
+                                                <RadzenText Text="@FormatQuantity(row.NSLineQuantityReceived)"
                                                             Style="font-size:1.25rem;font-weight:500;"
                                                             class="dynamic-qty-text" />
                                             </RadzenStack>
@@ -78,27 +79,27 @@
                         </RadzenTabsItem>
 
                         <RadzenTabsItem Text="Bad">
-                            <RadzenDataList TItem="VendorReturnAuthorizationLineVM" Data="BadVRAItems.Where(x => x.ScannedQuantity != 0)" Style="margin-bottom:200px">
+                            <RadzenDataList TItem="TOxItemFulfillmentLineVM" Data="BadIFItems.Where(x => x.ScannedQuantity != 0)" Style="margin-bottom:200px">
                                 <Template Context="row">
                                     <RadzenStack Style="position:relative;overflow:clip !important;" class="@(IsSelectedBad(row) ? "rz-p-2 selected-row" : "rz-p-2")" Orientation="Orientation.Horizontal"
                                                  @onclick="@(() => SelectBadLine(row))">
                                         <RadzenStack Gap="4px">
                                             <RadzenText Text="@row.MaterialName" TextStyle="TextStyle.Subtitle2" Style="font-size:.75rem" />
                                             <RadzenText Text="@row.LocationName" TextStyle="TextStyle.Subtitle2" Style="font-size:.6rem" />
-                                            <RadzenText Text="@row.UoMName" TextStyle="TextStyle.Subtitle2" Style="font-size:.6rem" />
+                                            <RadzenText Text="@($"{row.ScannedWeight}kg")" TextStyle="TextStyle.Subtitle2" Style="font-size:.6rem" />
                                         </RadzenStack>
 
                                         <RadzenStack Gap="0" Style="position:absolute;right:0;top:0;width:max-content;height:100%;overflow:clip" AlignItems="AlignItems.End">
 
                                             <RadzenStack Style="flex-grow:1"
-                                                         class="@($"dynamic-qty-box {(row.AlreadyPacked ? "rz-background-color-success" : "rz-background-color-warning")}")">
+                                                         class="@($"dynamic-qty-box {(row.AlreadyReceived ? "rz-background-color-success" : "rz-background-color-warning")}")">
                                                 <RadzenText Text="@FormatQuantity(row.ScannedQuantity)"
                                                             Style="font-size:1.25rem;font-weight:500;"
-                                                            class="@($"dynamic-qty-text {(row.AlreadyPacked ? "rz-color-white" : "")}")" />
+                                                            class="@($"dynamic-qty-text {(row.AlreadyReceived ? "rz-color-white" : "")}")" />
                                             </RadzenStack>
                                             <RadzenStack Style="flex-grow:1;"
                                                          class="dynamic-qty-box rz-background-color-base-200">
-                                                <RadzenText Text="@FormatQuantity(row.NSLineQuantityPacked)"
+                                                <RadzenText Text="@FormatQuantity(row.NSLineQuantityReceived)"
                                                             Style="font-size:1.25rem;font-weight:500;"
                                                             class="dynamic-qty-text" />
                                             </RadzenStack>
@@ -175,7 +176,7 @@
                                     </RadzenText>
                                 </RadzenStack>
 
-                                @* <RadzenStack Gap="4px" Orientation="Orientation.Vertical" AlignItems="AlignItems.Center" class="scan-action-item">
+                                <RadzenStack Gap="4px" Orientation="Orientation.Vertical" AlignItems="AlignItems.Center" class="scan-action-item">
                                     <RadzenButton class="rz-border-radius-5"
                                                   Icon="balance"
                                                   ButtonStyle="ButtonStyle.Base"
@@ -186,7 +187,7 @@
                                     <RadzenText TextStyle="TextStyle.Caption" class="scan-action-label rz-m-0">
                                         Weight
                                     </RadzenText>
-                                </RadzenStack> *@
+                                </RadzenStack>
 
                                 <RadzenStack Gap="4px" Orientation="Orientation.Vertical" AlignItems="AlignItems.Center" class="scan-action-item">
                                     <RadzenButton class="rz-border-radius-5"

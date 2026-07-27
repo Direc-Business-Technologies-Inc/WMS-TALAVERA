@@ -3,10 +3,12 @@ using Mobile.MAUI.Components.Reusables;
 using Mobile.MAUI.Services;
 using Mobile.MAUI.ViewModel;
 using Shared.Libraries.ViewModel;
+using Shared.Libraries.ViewModel.Authentication;
 using Shared.Libraries.ViewModel.Returns;
+using System.Text.Json;
+using static Mobile.MAUI.Helpers.FormatHelper;
 using static Mobile.MAUI.MauiProgram;
 using AppAction = Mobile.MAUI.Services.AppAction;
-using static Mobile.MAUI.Helpers.FormatHelper;
 
 namespace Mobile.MAUI.Components.Pages.Receiving.Returns;
 
@@ -31,6 +33,8 @@ public partial class ReturnsItemView : IAsyncDisposable
     bool SaveBtnDisabled => ScanCount == 0;
     bool IsWeightDialogOpen = false;
     decimal? ChangeWeight = null;
+
+    int UserId = 0;
 
     protected override async Task OnInitializedAsync()
     {
@@ -112,7 +116,7 @@ public partial class ReturnsItemView : IAsyncDisposable
             TaskAsync = async () =>
             {
                 await InvokeAsync(StateHasChanged);
-                var res = await Client.Post<bool>("/Receiving/Returns/SaveScan", ReturnsItems);
+                var res = await Client.Post<bool>("/Receiving/Returns/SaveScan", new { PostReturn = ReturnsItems, UserId });
                 return res;
             },
             OnSuccess = async (result) =>
@@ -143,6 +147,14 @@ public partial class ReturnsItemView : IAsyncDisposable
             }).ToList();
 
             await ActionFactory.ExecuteAppActionAsync(ActionGetItemBarcodes);
+
+            string? userAuth = await SecureStorage.GetAsync("UserAuth");
+            if (userAuth is not null)
+            {
+                var auth = JsonSerializer.Deserialize<AuthenticationVM>(userAuth);
+
+                UserId = auth.NetsuiteEmployeeInternalId;
+            }
         }
 
         if (ReturnsItems.Count > 0 && JsObj is null)

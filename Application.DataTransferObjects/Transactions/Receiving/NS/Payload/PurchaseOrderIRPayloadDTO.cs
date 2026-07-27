@@ -7,17 +7,24 @@ public class PurchaseOrderIRPayloadDTO
 {
     [JsonPropertyName("custbody_dbti_receiving_category")]
     public int ReceivingCategory { get; set; }
+
+    [JsonPropertyName("custbody_dbti_received_by")]
+    public int EmployeeId { get; set; }
+
     [JsonPropertyName("item")]
     public ItemContainer Item { get; set; } = new();
 
     public static PurchaseOrderIRPayloadDTO CreateForItemReceipt(
         List<PostPurchaseOrderDTO> lines,
-        int receivingCategory)
+        int userId,
+        int receivingCategory
+        )
     {
         // Make it nullable if its not included in json
         return new PurchaseOrderIRPayloadDTO
         {
             ReceivingCategory = receivingCategory, // 1 is Good , 2 is Bad
+            EmployeeId = userId,
             Item = new ItemContainer
             {
                 Items = lines.Select(line =>

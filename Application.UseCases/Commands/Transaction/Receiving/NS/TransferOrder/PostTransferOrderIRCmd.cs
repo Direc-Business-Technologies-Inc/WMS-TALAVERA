@@ -1,4 +1,4 @@
-﻿using Application.DataTransferObjects.Transactions.Commons.NS;
+﻿using Application.DataTransferObjects.Transactions.Commons.NS.Request;
 using Application.UseCases.Repositories.Bases;
 using Application.UseCases.Repositories.Integration.Others;
 using MediatR;
@@ -6,7 +6,7 @@ using Shared.Libraries.Entities;
 
 namespace Application.UseCases.Commands.Transaction.Receiving.NS.TransferOrder;
 
-public record PostTransferOrderIRCmd(List<PostTransferOrderDTO> Data) : ITransactionalRequest<ApiResult<bool>>;
+public record PostTransferOrderIRCmd(SaveTransferOrderRequestDTO Data) : ITransactionalRequest<ApiResult<bool>>;
 
 public class PostTransferOrderIRCmdHandler(INetSuiteApiClientService netSuiteApiClientService) : IRequestHandler<PostTransferOrderIRCmd, ApiResult<bool>>
 {
@@ -14,7 +14,7 @@ public class PostTransferOrderIRCmdHandler(INetSuiteApiClientService netSuiteApi
     {
         try
         {
-            bool result = await netSuiteApiClientService.SaveTOItemReceipt(request.Data);
+            bool result = await netSuiteApiClientService.SaveTOItemReceipt(request.Data.PostTransferOrder, request.Data.TONetsuiteOrderInternalId, request.Data.UserId);
 
             if (!result)
             {

@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace Shared.Libraries.ViewModel.TripTicket;
+﻿namespace Shared.Libraries.ViewModel.ItemFulfillment;
 
 public class ItemFulfillmentVM
 {
@@ -22,12 +16,14 @@ public class ItemFulfillmentVM
     public string GetName(string status) => status switch
     {
         "B" => "Packed",
+        "C" => "Shipped",
         _ => "Unknown"
     };
 
     public string GetShortName(string status) => status switch
     {
         "B" => "P",
+        "C" => "S",
         _ => "-"
     };
 }

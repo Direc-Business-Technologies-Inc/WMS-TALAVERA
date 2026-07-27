@@ -14,33 +14,76 @@
     <Loading IsLoading="ActionGetReturnsItems.Busy" Text="Loading TO Items...">
         <ChildContent>
             <RadzenStack>
-                <RadzenDataList TItem="ReturnsLineVM" Data="ReturnsItems.Where(x => x.NSLineQuantityPacked != 0)" Style="margin-bottom:200px">
-                    <Template Context="row">
-                        <RadzenStack Style="position:relative;overflow:clip !important;" class="@(IsSelected(row) ? "rz-p-2 selected-row" : "rz-p-2")" Orientation="Orientation.Horizontal"
-                                        @onclick="@(() => SelectLine(row))">
-                            <RadzenStack Gap="4px">
-                                <RadzenText Text="@row.MaterialName" TextStyle="TextStyle.Subtitle2" Style="font-size:.75rem" />
-                                <RadzenText Text="@row.LocationName" TextStyle="TextStyle.Subtitle2" Style="font-size:.6rem" />
-                            </RadzenStack>
+                <RadzenTabs @bind-SelectedIndex="ActiveTabIndex">
+                    <Tabs>
+                        <RadzenTabsItem Text="Returns">
+                            <RadzenDataList TItem="ReturnsLineVM" Data="ReturnsItems.Where(x => x.NSLineQuantityPacked != 0)" Style="margin-bottom:200px">
+                                <Template Context="row">
+                                    <RadzenStack Style="position:relative;overflow:clip !important;" class="@(IsSelected(row) ? "rz-p-2 selected-row" : "rz-p-2")" Orientation="Orientation.Horizontal"
+                                                 @onclick="@(() => SelectLine(row))">
+                                        <RadzenStack Gap="4px">
+                                            <RadzenText Text="@row.MaterialName" TextStyle="TextStyle.Subtitle2" Style="font-size:.75rem" />
+                                            <RadzenText Text="@row.LocationName" TextStyle="TextStyle.Subtitle2" Style="font-size:.6rem" />
+                                            <RadzenText Text="@row.UoMName" TextStyle="TextStyle.Subtitle2" Style="font-size:.6rem" />
+                                        </RadzenStack>
 
-                            <RadzenStack Gap="0" Style="position:absolute;right:0;top:0;width:max-content;height:100%;overflow:clip" AlignItems="AlignItems.End">
+                                        <RadzenStack Gap="0" Style="position:absolute;right:0;top:0;width:max-content;height:100%;overflow:clip" AlignItems="AlignItems.End">
 
-                                <RadzenStack Style="flex-grow:1"
-                                             class="@($"dynamic-qty-box {(row.AlreadyPacked ? "rz-background-color-success" : "rz-background-color-warning")}")">
-                                    <RadzenText Text="@FormatQuantity(row.ScannedQuantity)"
-                                                Style="font-size:1.25rem;font-weight:500;"
-                                                class="@($"dynamic-qty-text {(row.AlreadyPacked ? "rz-color-white" : "")}")" />
-                                </RadzenStack>
-                                <RadzenStack Style="flex-grow:1;"
-                                             class="dynamic-qty-box rz-background-color-base-200">
-                                    <RadzenText Text="@FormatQuantity(row.NSLineQuantityPacked)"
-                                                Style="font-size:1.25rem;font-weight:500;"
-                                                class="dynamic-qty-text" />
-                                </RadzenStack>
-                            </RadzenStack>
-                        </RadzenStack>
-                    </Template>
-                </RadzenDataList>
+                                            <RadzenStack Style="flex-grow:1"
+                                                         class="@($"dynamic-qty-box {(row.AlreadyPacked ? "rz-background-color-success" : "rz-background-color-warning")}")">
+                                                <RadzenText Text="@FormatQuantity(row.ScannedQuantity)"
+                                                            Style="font-size:1.25rem;font-weight:500;"
+                                                            class="@($"dynamic-qty-text {(row.AlreadyPacked ? "rz-color-white" : "")}")" />
+                                            </RadzenStack>
+                                            <RadzenStack Style="flex-grow:1;"
+                                                         class="dynamic-qty-box rz-background-color-base-200">
+                                                <RadzenText Text="@FormatQuantity(row.NSLineQuantityPacked)"
+                                                            Style="font-size:1.25rem;font-weight:500;"
+                                                            class="dynamic-qty-text" />
+                                            </RadzenStack>
+                                        </RadzenStack>
+                                    </RadzenStack>
+                                </Template>
+                            </RadzenDataList>
+                        </RadzenTabsItem>
+
+                        @if (HasBackorderItems)
+                        {
+                            <RadzenTabsItem Text="BackOrdered">
+                                <RadzenDataList TItem="ReturnsLineVM" Data="ReturnsItems.Where(x => x.LineQuantityBackOrdered > 0)" Style="margin-bottom:200px">
+                                    <Template Context="row">
+                                        <RadzenStack Style="position:relative;overflow:clip !important;" class="rz-p-2" ) Orientation="Orientation.Horizontal">
+
+                                            <RadzenStack Gap="4px">
+                                                <RadzenText Text="@row.MaterialName" TextStyle="TextStyle.Subtitle2" Style="font-size:.75rem" />
+                                                <RadzenText Text="@row.LocationName" TextStyle="TextStyle.Subtitle2" Style="font-size:.6rem" />
+                                                <RadzenText Text="@row.UoMName" TextStyle="TextStyle.Subtitle2" Style="font-size:.6rem" />
+                                            </RadzenStack>
+
+                                            <RadzenStack Gap="0"
+                                                         Style="position:absolute; right:0; top:0; width:max-content; height:100%; overflow:clip;"
+                                                         AlignItems="AlignItems.Center"
+                                                         JustifyContent="JustifyContent.Center">
+
+                                                <RadzenStack Style="height:100%; padding:0 12px;"
+                                                             class="dynamic-qty-box rz-background-color-base-200"
+                                                             AlignItems="AlignItems.Center"
+                                                             JustifyContent="JustifyContent.Center">
+
+                                                    <RadzenText Text="@FormatQuantity(row.LineQuantityBackOrdered)"
+                                                                Style="font-size:1.25rem; font-weight:500; margin:0; text-align:center;"
+                                                                class="dynamic-qty-text" />
+                                                </RadzenStack>
+
+                                            </RadzenStack>
+                                        </RadzenStack>
+                                    </Template>
+                                </RadzenDataList>
+                            </RadzenTabsItem>
+                        }
+                    </Tabs>
+                </RadzenTabs>
+                
                 <RadzenCard class="floating-scan-actions rz-p-2 rz-border-radius-6">
                     <RadzenStack Gap="8px" Orientation="Orientation.Vertical">
 

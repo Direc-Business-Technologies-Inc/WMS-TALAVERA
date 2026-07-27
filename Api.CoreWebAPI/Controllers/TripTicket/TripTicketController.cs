@@ -8,7 +8,7 @@ using Mapster;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Shared.Libraries.Entities;
-using Shared.Libraries.ViewModel.TripTicket;
+using Shared.Libraries.ViewModel.ItemFulfillment;
 
 namespace Api.CoreWebAPI.Controllers.TripTicket;
 

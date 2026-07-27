@@ -26,10 +26,20 @@ public partial class ReturnsItemView : IAsyncDisposable
     ReturnsLineVM? SelectedLine;
     //ReturnsLineVM? LastScanned => ReturnsItems.OrderByDescending(x => x.ScanCount).FirstOrDefault();
 
+    int ActiveTabIndex { get; set; } = 0;
     int ScanCount { get; set; }
     bool SaveBtnDisabled => ScanCount == 0;
     //bool IsWeightDialogOpen = false;
     //decimal? ChangeWeight = null;
+
+    // Backorder notification
+    bool HasBackorderItems
+    {
+        get
+        {
+            return ReturnsItems.Any(x => x.LineQuantityBackOrdered > 0);
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -75,6 +85,7 @@ public partial class ReturnsItemView : IAsyncDisposable
 
                     LineQuantity = line.LineQuantity,
                     LineQuantityPacked = line.LineQuantityPacked,
+                    LineQuantityBackOrdered = line.LineQuantityBackOrdered,
 
                     NetsuiteUoMInternalId = line.NetsuiteUoMInternalId,
                     UoMName = line.UoMName,

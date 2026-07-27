@@ -15,3 +15,8 @@ public class RequestPerSubsidiaryDTO
 {
     public int NetsuiteUserSubsidiaryInternalId { get; set; }
 }
+
+public class RequestTOxIFDTO
+{
+    public int NetsuiteOrderInternalId { get; set; }
+}
