@@ -2,6 +2,7 @@
 using Application.DataTransferObjects.System.Security;
 using Application.UseCases.Commands.System.Authentication;
 using Application.UseCases.Queries.System.Authentication;
+using Application.UseCases.Repositories.Integration.Transaction;
 using Mapster;
 using MediatR;
 using Microsoft.AspNetCore.Authentication;
@@ -18,6 +19,7 @@ namespace Web.BlazorServer.Components.Security;
 public class AuthenticationController(
     AppAuthenticationStateProvider AppAuthenticationState,
     IHttpContextAccessor HttpContextAccessor,
+    INetsuiteIdentityIntegration nsIdentityIntegration,
     ISender Sender)
     : ControllerBase
 {
@@ -70,13 +72,16 @@ public class AuthenticationController(
 
         if (loginResponse.User?.EmployeeNs is not null) //claims for ns
         {
+            var nsIdentity = await nsIdentityIntegration.GetNetsuiteIdentityAsync(loginResponse.User.EmployeeNs.NsId);
             claims.Add(new Claim("com.direcbusiness.wms.nsEmployeeId", loginResponse.User.EmployeeNs.NsId.ToString()));
-            claims.Add(new Claim("com.direcbusiness.wms.nsEmployeeName", loginResponse.User.EmployeeNs.FirstName + " " + loginResponse.User.EmployeeNs.LastName));
-            claims.Add(new Claim("com.direcbusiness.wms.nsSubsidiary", loginResponse.User.EmployeeNs.NsSubsidiaryId.ToString()));
+
+            if (nsIdentity is not null)
+            {
+                claims.Add(new Claim("com.direcbusiness.wms.nsEmployeeName", nsIdentity.EmployeeFullName));
+                claims.Add(new Claim("com.direcbusiness.wms.nsSubsidiary", nsIdentity.SubsidiaryID.ToString()));
+                claims.Add(new Claim("com.direcbusiness.wms.nsAllowedSubsidiaries", JsonSerializer.Serialize(new int[] { nsIdentity.SubsidiaryID })));
+            }
         }
-        int? subsidiary = loginResponse.User?.EmployeeNs?.NsSubsidiaryId?? null;
-        int[] allowedSubsidiaries = subsidiary != null ? [(int)subsidiary] : [];
-        claims.Add(new Claim("com.direcbusiness.wms.nsAllowedSubsidiaries", JsonSerializer.Serialize(allowedSubsidiaries)));
 
         await HttpContextAccessor!.HttpContext!.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme)));
 

@@ -20,6 +20,7 @@ using Integration.NS.Implementations.Vestigial;
 using Integration.NS.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Application.UseCases.Repositories.Integration.Transaction;
 
 namespace Integration.NS.Implementations;
 
@@ -58,6 +59,8 @@ public static class NSImplementationDI
         services.TryAddTransient<IStockTransferRequestPackingIntegration, StockTransferRequestPackingIntegration>();
         services.TryAddTransient<IReturnPackingIntegration, ReturnPackingIntegration>();
         services.TryAddTransient<IVendorReturnAuthorizationPackingIntegration, VendorReturnAuthorizationPackingIntegration>();
+
+        services.TryAddTransient<INetsuiteIdentityIntegration, NetsuiteIdentityIntegration>();
 
         // TODO FOR REMOVAL
         services.TryAddTransient<ITransactionTypeIntegration, TransactionTypeIntegration>();
