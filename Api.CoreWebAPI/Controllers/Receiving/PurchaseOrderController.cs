@@ -36,7 +36,7 @@ public class PurchaseOrderController(ISender Sender) : ControllerBase
     }
 
     [HttpPost("SaveScan")]
-    public async Task<IActionResult> PurchaseOrderSaveScan(List<PostPurchaseOrderDTO> req)
+    public async Task<IActionResult> PurchaseOrderSaveScan(SavePurchaseOrderRequestDTO req)
     {
         ApiResult<bool> result = await Sender.Send(new PostPurchaseOrderIRCmd(req));
 

@@ -22,7 +22,7 @@
         <Nullable>enable</Nullable>
 
         <!-- Display name -->
-        <ApplicationTitle>Mobile.MAUI</ApplicationTitle>
+        <ApplicationTitle>TLV-WMS</ApplicationTitle>
 
         <!-- App Identifier -->
         <ApplicationId>com.WMS.mobile.maui</ApplicationId>

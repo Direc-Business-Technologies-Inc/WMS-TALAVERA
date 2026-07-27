@@ -10,21 +10,31 @@ public class TransferOrderIRRestletPayloadDTO
     [JsonPropertyName("transferCategory")]
     public int TransferCategory { get; set; }
     [JsonPropertyName("receiverEmployeeId")]
-    public int EmployeeId { get; set; }
+    public int ReceiverEmployeeId { get; set; }
+
+    [JsonPropertyName("custbody_dbti_prepared_by")]
+    public int PreparedEmployeeId { get; set; }
+
+    [JsonPropertyName("fulfillmentId")]
+    public int ItemFulfillmentId { get; set; }
+
     [JsonPropertyName("lines")]
     public List<LinesContainer> Lines { get; set; } = new();
 
     public static TransferOrderIRRestletPayloadDTO CreateForItemReceiptRestlet(
     List<PostTransferOrderDTO> lines,
     int transferOrderId,
+    int ifOrderId,
+    int userId,
     int receivingCategory)
     {
         return new TransferOrderIRRestletPayloadDTO
         {
             TransferOrderId = transferOrderId,
-            EmployeeId = 23, // Hardcoded for now, should be dynamic based on the logged-in user
+            ReceiverEmployeeId = userId,
+            PreparedEmployeeId = userId,
             TransferCategory = receivingCategory,
-
+            ItemFulfillmentId = ifOrderId,
             Lines = lines.Select(line => new LinesContainer
             {
                 OrderLine = line.LineSequenceNumber,

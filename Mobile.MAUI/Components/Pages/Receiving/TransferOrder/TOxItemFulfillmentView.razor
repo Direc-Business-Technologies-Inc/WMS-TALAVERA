@@ -1,8 +1,13 @@
-﻿@using Mobile.MAUI.Components.Base
-@using Shared.Libraries.ViewModel.VendorReturnAuthorization
+﻿@page "/receiving/transferorder/itemfulfillment/{NetsuiteOrderInternalId:int}/{TOOrderNumber}"
+@using Mobile.MAUI.Components.Base
+@using Shared.Libraries.ViewModel
+@using Shared.Libraries.ViewModel.ItemFulfillment
 
+@layout CleanLayout
 @inherits BaseComponent
 <RadzenStack>
+    <PageHeading Title="Item Fulfillments" BackPath="/receiving" Click="LoadItemFulfillments" Id="@TOOrderNumber" />
+
     <RadzenStack class="mt-4">
         <RadzenStack Gap="8px" class="rz-px-2 rz-mb-2">
             <RadzenTextBox Value="@SearchText"
@@ -20,26 +25,26 @@
             }
         </RadzenStack>
 
-        <Loading IsLoading="@ActionGetVRA.Busy" Text="Loading Return to Supplier..">
+        <Loading IsLoading="@ActionGetTOxItemfulfillments.Busy" Text="Loading ItemFulfillments..">
             <ChildContent>
-               <RadzenStack>
+                <RadzenStack>
                     <EmptyListTemplate ReloadCallback="LoadData" Visible="@(FilteredData.Count == 0)" />
-                    <RadzenDataList Data="@(FilteredData ?? Enumerable.Empty<VendorReturnAuthorizationVM>())"
-                                    TItem="VendorReturnAuthorizationVM"
+                    <RadzenDataList Data="@(FilteredData ?? Enumerable.Empty<ItemFulfillmentVM>())"
+                                    TItem="ItemFulfillmentVM"
                                     class="trans-list">
                         <Template Context="row">
                             <RadzenStack class="trans-card"
-                                         @onclick="@(() => NavManager.NavigateTo($"/packing/vra/{row.OrderNumber}"))"
+                                         @onclick="@(() => NavManager.NavigateTo($"/receiving/transferorder/itemfulfillment/items/{NetsuiteOrderInternalId}/{TOOrderNumber}/{row.OrderNumber}"))"
                                          Orientation="Orientation.Horizontal"
                                          AlignItems="AlignItems.Center"
                                          JustifyContent="JustifyContent.SpaceBetween">
 
                                 <RadzenStack Gap="4px">
-                                    <RadzenText Text="@($"{row.OrderNumber}")"
+                                    <RadzenText Text="@row.OrderNumber"
                                                 class="trans-number" />
 
-                                    <RadzenText class="trans-detail"
-                                                Text="@($"Vendor: {row.CustomerName}")" />
+                                    @* <RadzenText class="trans-detail"
+                                                Text="@($"Vendor: {row.CustomerName}")" /> *@
 
                                     <RadzenText class="trans-detail"
                                                 Text="@($"Document Date: {row.NetsuiteOrderCreatedDate:MMMM d, yyyy}")" />
@@ -51,8 +56,8 @@
                             </RadzenStack>
                         </Template>
                     </RadzenDataList>
-               </RadzenStack>
-           </ChildContent>
+                </RadzenStack>
+            </ChildContent>
         </Loading>
     </RadzenStack>
 </RadzenStack>

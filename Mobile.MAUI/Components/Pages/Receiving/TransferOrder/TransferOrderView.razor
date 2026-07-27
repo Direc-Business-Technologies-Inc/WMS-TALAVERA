@@ -30,7 +30,7 @@
                                     class="trans-list">
                         <Template Context="row">
                             <RadzenStack class="trans-card"
-                                         @onclick="@(() => NavManager.NavigateTo($"/receiving/transferorder/{row.OrderNumber}"))"
+                                         @onclick="@(() => NavManager.NavigateTo($"/receiving/transferorder/itemfulfillment/{row.NetsuiteOrderInternalId}/{TOOrderNumber = row.OrderNumber}"))"
                                          Orientation="Orientation.Horizontal"
                                          AlignItems="AlignItems.Center"
                                          JustifyContent="JustifyContent.SpaceBetween">

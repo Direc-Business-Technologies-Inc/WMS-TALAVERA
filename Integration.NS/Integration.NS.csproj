@@ -53,6 +53,8 @@
     <Content Update="NSScripts\NS_Location_Get_Bins.sql" Link="Scripts\NS_Location_Get_Bins.sql" />
     <Content Update="NSScripts\NS_PurchaseOrder_GetAll.sql" Link="Scripts\NS_PurchaseOrder_Get_Pending.sql" />
     <Content Update="NSScripts\NS_PurchaseOrder_Get_PendingReceipt.sql" Link="Scripts\NS_PurchaseOrder_Get_PendingReceipt.sql" />
+    <Content Update="NSScripts\NS_TO_Get_Itemfulfillment_Items.sql" Link="Scripts\NS_TO_Get_Itemfulfillment_Items.sql" />
+    <Content Update="NSScripts\NS_TO_x_Itemfulfillment_Get_PendingFulfillment.sql" Link="Scripts\NS_TO_Get_Itemfulfillments.sql" />
   </ItemGroup>
 	
   <ItemGroup>

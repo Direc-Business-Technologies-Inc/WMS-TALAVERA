@@ -8,6 +8,7 @@ namespace Shared.Libraries.ViewModel.TransferOrder;
 
 public class TransferOrderVM
 {
+    public int NetsuiteOrderInternalId { get; set; }
     public string OrderNumber { get; set; }
     public string OrderStatus { get; set; }
     public string OrderType { get; set; }

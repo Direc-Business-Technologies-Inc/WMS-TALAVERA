@@ -1,4 +1,6 @@
-﻿namespace Shared.Libraries.ViewModel.TripTicket;
+﻿using Shared.Libraries.ViewModel.ItemFulfillment;
+
+namespace Shared.Libraries.ViewModel.TripTicket;
 
 public class TripTicketVM
 {
