@@ -25,12 +25,6 @@ public partial class InventoryAdjustmentForm
     [Parameter] public bool Disabled { get; set; } = false;
     [Parameter] public bool Issue { get; set; } = false;
 
-    readonly List<AppFilterDescriptor> StatusFilters = [
-        DataGridFilterUtilities.In(
-            nameof(InventoryStatusVM.Id),
-            new List<int> { 1, 3 })
-    ];
-
     [Inject] ISubsidiaryHandler subsidiaryHandler { get; set; } = default!;
     [Inject] ILocationHandler locationHandler { get; set; } = default!;
     [Inject] IItemsHandler itemsHandler { get; set; } = default!;

@@ -75,6 +75,7 @@ public class InventoryIntegration(
                 ("name", nameof(InventoryStatusDTO.Name))
             )
             .From("inventorystatus")
+            .WithFilters(DataGridFilterUtilities.Equal("isinactive", "F"))
             .WithDatagridIntent(intent)
             .Build();
 
