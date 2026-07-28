@@ -35,5 +35,5 @@
             <AppContentBadge Title="Doc Date" Content="@FormData.Date.ToString("MM-dd-yy")" ChildBadgeStyle="BadgeStyle.Secondary" ChildShade="Shade.Default" />
         </RadzenStack>
     </RadzenStack>
-    <InventoryAdjustmentForm Disabled="IsBusy" Model="@FormData" EditContext="@EditContext" OnReturnClicked="OnReturn" OnSubmit="@OnSubmit" Issue="@IsIssue"/>
+    <InventoryAdjustmentForm @ref="Form" Disabled="IsBusy" Model="@FormData" EditContext="@EditContext" OnReturnClicked="OnReturn" OnSubmit="@OnSubmit" Issue="@IsIssue"/>
 </AppContent>

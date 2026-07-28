@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Components;
+using Web.BlazorServer.Components.Pages.Transaction.InventoryAdjustment.Components.InventoryAdjustmentForm;
 using Web.BlazorServer.Components.Security;
 using Web.BlazorServer.Handlers.Repositories.Others;
 using Web.BlazorServer.Handlers.Repositories.Transaction.InventoryAdjustment;
@@ -19,6 +20,8 @@ public partial class InventoryAdjustmentCreatePage
     bool IsIssue => Type is not null && Type.Equals("issue", StringComparison.OrdinalIgnoreCase);
     bool IsBusy = false;
     readonly string ActionCreateInventoryAdjustment = "Create Inventory Adjustment";
+
+    InventoryAdjustmentForm? Form { get; set; }
 
     List<ViewModels.System.NavigationRouteVM> AdditionalRoutes { get; set; } = [new() {
         Name = "Inventory Adjustment Document",
@@ -78,14 +81,18 @@ public partial class InventoryAdjustmentCreatePage
             string? subsidiaryId = httpContextAccessor.HttpContext?.User?.FindFirst("com.direcbusiness.wms.nsSubsidiary")?.Value;
             if (!string.IsNullOrEmpty(subsidiaryId) && int.TryParse(subsidiaryId, out int subId))
             {
-                FormData.Subsidiary = await subsidiaryHandler.GetSubsidiaryAsync(subId);
-            }
+                //FormData.Subsidiary = ;
+                var subsidiary = await subsidiaryHandler.GetSubsidiaryAsync(subId);
+                if (Form is null)
+                    FormData.Subsidiary = subsidiary;
+                else
+                    await Form.SetSubsidiary(subsidiary);
 
-            IsBusy = false;
-            await InvokeAsync(StateHasChanged);
+                IsBusy = false;
+                await InvokeAsync(StateHasChanged);
+            }
         }
     }
-
     Task OnReturn(InventoryAdjustmentVM data)
     {
         NavManager.NavigateTo(InventoryAdjustmentRoutes.INDEX);

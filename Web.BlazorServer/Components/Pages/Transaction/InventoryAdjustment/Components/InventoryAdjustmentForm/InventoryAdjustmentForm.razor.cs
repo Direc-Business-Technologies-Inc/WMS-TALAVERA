@@ -92,7 +92,7 @@ public partial class InventoryAdjustmentForm
         await InvokeAsync(StateHasChanged);
     }
 
-    async Task SetSubsidiary(SubsidiaryVM? value)
+    public async Task SetSubsidiary(SubsidiaryVM? value)
     {
         Model.Subsidiary = value;
         LocationDropdown.Reset();
