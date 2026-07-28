@@ -229,9 +229,15 @@ public class InventoryAdjustmentIntegration(
             account = dto.Account?.Id,
             locationUsesBins = dto.Lines.Any(x => x.InventoryDetails.Any(y => y.Bin is not null)), // why is this a required field
             memo = dto.Memo,
-            //custbody_atlas_inv_adj_reason = dto.Reason?.Id ?? null,
-            //custbody_dbti_prepared_by = dto.PreparedById,
-            //custbody_dbti_adjustment_category = category,
+            adjustmentReason = dto.Reason?.Id,
+            preparedBy = dto.PreparedById,
+            trandate = dto.Date.ToString("MM/dd/yyyy"),
+            adjustmentCategory = category,
+            department = 15, // operations
+            // this should be set here i think. integration should be responsible for logic that
+            // concerns netsuite operations and setting the department/class by default is exactly that.
+            // TODO would be great if there was some centralized place to store these values and also maybe strings that prompt or alert users.
+            classId = 1, // external
             lines = dto.Lines.Select(line => new
             {
                 item = line.ItemId,
