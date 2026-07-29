@@ -707,23 +707,24 @@ public class ReceivingIntegration(
             custbody_dbti_received_by = dto.PreparedById,
             item = new
             {
-                items = lines.Where(line => line.QuantityPlanned != line.QuantityReceived).Select(line =>
+                items = dto.Lines.Select(line =>
                 {
                     decimal lineQuantity = line.InventoryDetails.Sum(x => x.Status?.Id == statusId ? x.QuantityAlloted : 0);
-                    bool isItemReceived = line.IsReceived && lineQuantity > 0;
+                    bool isItemReceived = line.IsReceived && lineQuantity > 0 && line.InventoryDetails.Any(x => x.Status?.Id == statusId);
+
                     return new
                     {
                         itemreceive = isItemReceived,
                         orderLine = line.LineNumber,
                         quantity = isItemReceived ? lineQuantity : (decimal?)null,
                         custcol_dbti_actual_weight = isItemReceived ? line.WeightActual : (decimal?)null,
-                        rate = isGood ? (decimal?)null : 0,
+                        rate = isItemReceived && isGood ? (decimal?)null : 0,
                         inventoryDetail = isItemReceived ? new
                         {
                             inventoryAssignment = new
                             {
                                 items = line.InventoryDetails.Where(x => x.Status?.Id == statusId).Select(x =>
-                                new 
+                                new
                                 {
                                     inventoryStatus = statusId,
                                     binNumber = x.Bin?.Id,
@@ -731,7 +732,7 @@ public class ReceivingIntegration(
                                 })
                             }
                         } : null,
-                        location = line.LocationId
+                        location = isItemReceived ? line.LocationId : (int?)null
                     };
                 })
             },
