@@ -34,12 +34,13 @@ internal class VendorReturnAuthorizationPackingIntegration(
                 ("BUILTIN.DF(t.tosubsidiary)", nameof(VendorReturnAuthorizationPackingDataGridNSDTO.DestinationSubsidiary)),
                 ("BUILTIN.DF(tl.location)", nameof(VendorReturnAuthorizationPackingDataGridNSDTO.Location)),
                 ("BUILTIN.DF(t.transferlocation)", nameof(VendorReturnAuthorizationPackingDataGridNSDTO.TransferLocation)),
-                ("BUILTIN.DF(t.status)", nameof(VendorReturnAuthorizationPackingDataGridNSDTO.Status)),
+                ("s.name", nameof(VendorReturnAuthorizationPackingDataGridNSDTO.Status)),
                 ("t.memo", nameof(VendorReturnAuthorizationPackingDataGridNSDTO.Remarks))
             )
             .From("transaction t")
             .Join("transactionline tl", on: "tl.transaction = t.id")
             .Join("entity e", on: "t.entity = e.id")
+            .LeftJoin("VendorReturnAuthorizationStatus s", "s.id = t.status")
             .WithFilters(
                 Equal("tl.mainline", "T"),
                 Equal("t.subsidiary", subsidiaryId))
