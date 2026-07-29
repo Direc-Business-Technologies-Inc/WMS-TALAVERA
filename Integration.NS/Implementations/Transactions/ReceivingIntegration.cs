@@ -523,7 +523,10 @@ public class ReceivingIntegration(
                 if (hasBadLines) tasks.Add(netsuiteService.MakeRequestOAuth1<object>(uri, badPayload));
             }
 
-            await Task.WhenAll(tasks);
+            foreach (Task x in tasks)
+            {
+                await x;
+            }
 
         }
         catch (Exception ex)
