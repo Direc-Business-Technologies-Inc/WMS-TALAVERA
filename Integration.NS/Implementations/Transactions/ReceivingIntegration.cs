@@ -724,7 +724,7 @@ public class ReceivingIntegration(
                                 {
                                     inventoryStatus = statusId,
                                     binNumber = x.Bin?.Id,
-                                    quantity = lineQuantity
+                                    quantity = x.QuantityAlloted
                                 })
                             }
                         } : null,
