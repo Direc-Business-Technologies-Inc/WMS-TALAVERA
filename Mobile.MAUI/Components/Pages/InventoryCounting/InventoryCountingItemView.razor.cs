@@ -105,7 +105,7 @@ public partial class InventoryCountingItemView : IAsyncDisposable
 
                     ScanCount = 0,
                     ScannedQuantity = 0,
-                    IsBad = false,
+                    IsBad = true,
                 }).ToList() ?? [];
 
                 await InvokeAsync(StateHasChanged);
