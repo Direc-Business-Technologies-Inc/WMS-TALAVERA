@@ -61,6 +61,7 @@
         <RadzenDataGridColumn TItem="StockTransferRequestDataGridVM"
                               Property="@nameof(StockTransferRequestDataGridVM.ToSubsidiary)"
                               Type="@typeof(string)"
+                              Visible="@ShowToSubsidiary"
                               Title="To Subsidiary" />
         <RadzenDataGridColumn TItem="StockTransferRequestDataGridVM"
                               Property="@nameof(StockTransferRequestDataGridVM.PreparedBy)"
@@ -82,6 +83,7 @@
 </AppDataGrid>
 
 @code {
+    
     async Task OpenTableSettings()
     {
         await DialogService.OpenAsync(

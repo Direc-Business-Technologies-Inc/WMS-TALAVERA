@@ -23,6 +23,8 @@ partial class STRDataGrid
 
     [Parameter]
     public EventCallback OnAddClicked { get; set; }
+    [Parameter]
+    public bool ShowToSubsidiary { get; set; } = true; // lmaoooooo idc
 
     AppDataGrid<StockTransferRequestDataGridVM> DataGrid { get; set; }
     DataGridSettings DataGridSettings { get; set; }

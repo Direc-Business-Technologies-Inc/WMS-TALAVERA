@@ -21,7 +21,7 @@
     <RadzenTabs @bind-SelectedIndex="@SelectedTab" @bind-SelectedIndex:after="@TabChanged">
         <Tabs>
             <RadzenTabsItem Text="Transfer Orders">
-                <STRDataGrid TableId="str_to_datagrid" DataGetter="@(async (intent) => await strHandler.GetTransferOrdersList(intent))" OnAddClicked="CreateTO"/>
+                <STRDataGrid TableId="str_to_datagrid" DataGetter="@(async (intent) => await strHandler.GetTransferOrdersList(intent))" OnAddClicked="CreateTO" ShowToSubsidiary="false"/>
             </RadzenTabsItem>
             <RadzenTabsItem Text="Intercompany Transfer Orders">
                 <STRDataGrid TableId="str_icto_datagrid" DataGetter="@(async (intent) => await strHandler.GetInterCompanyTransferOrdersList(intent))" OnAddClicked="CreateICTO" />
