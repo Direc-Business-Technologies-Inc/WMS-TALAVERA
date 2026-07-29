@@ -86,17 +86,22 @@
                 <RadzenDataGridColumn Visible="@(!ReadOnly)" TItem="InventoryAdjustmentLineVM" Type="typeof(decimal)" Property="@nameof(InventoryAdjustmentLineVM.QuantityOnHandByUoM)" Title="On hand Quantity" FormatString="{0:#,##0.##}" />
                 <RadzenDataGridColumn TItem="InventoryAdjustmentLineVM" Property="@nameof(InventoryAdjustmentLineVM.QuantityAlloted)" Title="Alloted Quantity">
                     <Template Context="data">
-                        <RadzenStack AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal">
+                        <RadzenStack AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween">
 
                         <RadzenText Visible="@ReadOnly" TextStyle="TextStyle.Body2">@data.QuantityAlloted.ToString("#,##0.##")</RadzenText>
+                        <RadzenButton Visible="@ReadOnly" Icon="assignment_turned_in"
+                                          ButtonStyle="ButtonStyle.Success"
+                                          Size="ButtonSize.ExtraSmall"
+                                          Disabled="Disabled"
+                                          Click="_ => OpenInventoryDetailDialog(data)" />
+
                         <RadzenFormField Text="@(data.Type == InventoryAdjustmentLineVM.Types.Issue ? "Issue" : "Receipt")" Visible="@(!ReadOnly)">
                             <ChildContent>
                                 <RadzenNumeric Disabled="Disabled" ReadOnly="@ReadOnly" Name="line_details" @bind-Value="@data.QuantityAlloted" class="rz-w-100" Min="0" Max="@(data.QuantityAllotedMax)" Format="#,##0.##" />
                             </ChildContent>
                             <End>
-                                <RadzenButton Visible="@(!ReadOnly)" 
-                                              Icon="@(data.IsAllAssignedToBins ? "assignment_turned_in" : "assignment_returned")"
-                                              ButtonStyle="@(data.IsAllAssignedToBins ? ButtonStyle.Success : ButtonStyle.Warning)" 
+                                <RadzenButton Icon="@((data.IsAllAssignedToBins || ReadOnly) ? "assignment_turned_in" : "assignment_returned")"
+                                              ButtonStyle="@((data.IsAllAssignedToBins || ReadOnly)  ? ButtonStyle.Success : ButtonStyle.Warning)"
                                               Size="ButtonSize.ExtraSmall" 
                                               Disabled="Disabled"
                                               Click="_ => OpenInventoryDetailDialog(data)" />
@@ -170,6 +175,15 @@
 
         if (items is not null) await AddItems(items);
     }
+    readonly DialogOptions InventoryDetailDialogOpts = new()
+        {
+            CloseDialogOnOverlayClick = true,
+            CloseDialogOnEsc = true,
+            Draggable = true,
+            Resizable = true,
+            Width = "80%",
+            ShowClose = true
+        };
 
     async Task OpenInventoryDetailDialog(InventoryAdjustmentLineVM line)
     {
@@ -182,15 +196,10 @@
             ToastService.Error("Please set a location");
             return;
         }
-        DialogOptions opts = new()
-        {
-            CloseDialogOnOverlayClick = true,
-            CloseDialogOnEsc = true,
-            Draggable = true,
-            Resizable = true,
-            Width = "80%",
-            ShowClose = true
-        };
+
+        Tuple<int, int>? DetailsId = (line.LineNumber is null) ?
+            null :
+            Tuple.Create(Model.Id, (int)line.LineNumber);
 
         InventoryDetailsDialog.Types Type = Issue ?
             InventoryDetailsDialog.Types.Outgoing : 
@@ -198,8 +207,8 @@
 
         List<InventoryDetailVM> items = await DialogService.OpenAsync(
             "Set Inventory Details",
-            ds => @<InventoryDetailsDialog LocationId="@line.Location.Id" Amount="@line.QuantityAlloted" Type="Type" ItemId="@line.ItemId" InventoryDetails="@line.InventoryDetails" />,
-    options: opts);
+            ds => @<InventoryDetailsDialog LocationId="@line.Location.Id" Amount="@line.QuantityAlloted" Type="Type" ItemId="@line.ItemId" InventoryDetails="@line.InventoryDetails" LoadInventoryDetails="DetailsId" ReadOnly="ReadOnly"/>,
+    options: InventoryDetailDialogOpts);
 
         if (items is not null)
         {

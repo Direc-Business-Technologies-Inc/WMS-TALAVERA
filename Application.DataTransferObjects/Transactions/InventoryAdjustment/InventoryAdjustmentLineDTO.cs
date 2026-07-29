@@ -10,6 +10,7 @@ namespace Application.DataTransferObjects.Transactions.InventoryAdjustment;
 public class InventoryAdjustmentLineDTO
 {
     public int ItemId { get; set; }
+    public int? LineNumber { get; set; }
     public string ItemCode { get; set; } = string.Empty;
     public string ItemDescription { get; set; } = string.Empty;
     public decimal QuantityOnHand { get; set; }

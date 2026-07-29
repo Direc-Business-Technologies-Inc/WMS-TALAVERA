@@ -21,6 +21,7 @@ public partial class InventoryDetailsDialog
     [Parameter] public bool ReadOnly { get; set; } = false;
     [Parameter] public List<AppFilterDescriptor> StatusFilters { get; set; } = [];
     [Parameter] public List<InventoryDetailVM> InventoryDetails { get; set; } = [];
+    [Parameter] public Tuple<int, int>? LoadInventoryDetails { get; set; } = null;
 
     List<DetailItem> Details = [];
     List<InventoryBalanceVM> InventoryBalance = [];
@@ -35,22 +36,37 @@ public partial class InventoryDetailsDialog
 
     bool IsLoadingData => AppBusyService.IsBusy(ActionGetLocation);
     bool LocationHasBins = true;
+    bool IsLoadingDetails = false;
 
 
     protected override async Task OnParametersSetAsync()
     {
         InitTask = LoadBalances();
+        IsLoadingDetails = LoadInventoryDetails is not null;
         await Task.WhenAll(
             LoadLocation(),
             base.OnParametersSetAsync()
         );
-        Details.AddRange(
-            InventoryDetails.Select(x => new DetailItem(this)
-            {
-                Detail = x
-            })
-        );
+        Details.AddRange(InventoryDetails.Select(CreateDetailItem));
+    }
 
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+        if (firstRender && LoadInventoryDetails is not null)
+        {
+            IsLoadingDetails = true;
+            await InvokeAsync(StateHasChanged);
+
+            var inventoryDetails = await inventoryHandler.GetInventoryDetails(
+                LoadInventoryDetails.Item1,
+                LoadInventoryDetails.Item2);
+
+            Details.AddRange(inventoryDetails.Select(CreateDetailItem));
+
+            IsLoadingDetails = false;
+            await InvokeAsync(StateHasChanged);
+        }
     }
 
     async Task LoadLocation()
@@ -163,6 +179,14 @@ public partial class InventoryDetailsDialog
     {
         Outgoing,
         Incoming
+    }
+
+    DetailItem CreateDetailItem(InventoryDetailVM vm)
+    {
+        return new DetailItem(this)
+        {
+            Detail = vm
+        };
     }
 
     class DetailItem(InventoryDetailsDialog parent)

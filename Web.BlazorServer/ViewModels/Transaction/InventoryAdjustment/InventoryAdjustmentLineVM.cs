@@ -14,6 +14,7 @@ public class InventoryAdjustmentLineVM
     //Allotted Qty
 
     public int ItemId { get; set; }
+    public int? LineNumber { get; set; }
     public string ItemCode { get; set; } = string.Empty;
     public string ItemDescription { get; set; } = string.Empty;
     public decimal QuantityOnHand { get; set;  }
