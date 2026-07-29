@@ -24,7 +24,7 @@ using static Shared.Libraries.Utilities.DataGridFilterUtilities;
 using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace Integration.NS.Implementations.Transactions;
-
+// this class sucks
 public class ReceivingIntegration(
     INetSuiteApiClientService netsuiteService,
     IHttpContextAccessor httpContext,
@@ -256,7 +256,7 @@ public class ReceivingIntegration(
                 ("BUILTIN.DF(t.subsidiary)", "SourceSubsidiary"),
                 ("BUILTIN.DF(t.tosubsidiary)", "DestinationSubsidiary"),
                 ("BUILTIN.DF(t.custbody_dbti_return_to_vendor)", "VendorName"),
-                ("BUILTIN.DF(t.location)", "Location"),
+                ("BUILTIN.DF(ml.location)", "Location"),
                 ("s.name", nameof(ReturnsDataGridDTO.Status)),
                 ("BUILTIN.DF(t.transferlocation)", "TransferLocation"),
 
@@ -264,6 +264,7 @@ public class ReceivingIntegration(
             )
             .From("transaction t")
             .LeftJoin("transferorderstatus s", on: "s.id = t.status")
+            .LeftJoin("transactionline ml", "ml.transaction = t.id AND ml.mainline = 'T'")
             .WithDatagridIntent(intent)
             .WithSubsidiaries(httpContext, "t", true)
             .WithFilters(
