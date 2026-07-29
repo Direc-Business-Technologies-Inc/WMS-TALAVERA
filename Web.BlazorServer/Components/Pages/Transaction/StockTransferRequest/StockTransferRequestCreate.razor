@@ -5,9 +5,11 @@
 @using Web.BlazorServer.Components.Security
 @using Web.BlazorServer.Components.Shared.Skeletons
 @using Web.BlazorServer.Defaults
+@using Web.BlazorServer.Handlers.Repositories.Others
 @using Web.BlazorServer.Handlers.Repositories.Transaction.StockTransferRequest
 @using Web.BlazorServer.Services.Repositories
 @using Web.BlazorServer.ViewModels.Administration.User
+@using Web.BlazorServer.ViewModels.Others
 @using Web.BlazorServer.ViewModels.Transaction.Receiving
 @using Web.BlazorServer.ViewModels.Transaction.StockTransferRequest
 
@@ -23,13 +25,15 @@
     <AppBreadCrumbs ModuleCode="OSTR" AdditionalRoutes="AdditionalRoutes" />
 </RadzenStack>
 <AppContent>
-<STRForm OnSubmit="@Create" Model="@FormData" EditContext="@EditContext" ReturnURI="@STRRoutes.Root" IsBusy="@IsBusy" />
+    <STRForm @ref="Form" OnSubmit="@Create" Model="@FormData" EditContext="@EditContext" ReturnURI="@STRRoutes.Root" IsBusy="@IsBusy" />
 </AppContent>
 
 @code {
     [Inject] IStockTransferRequestHandler handler { get; set; } = default!;
     [Inject] AppAuthenticationService authService { get; set; } = default!;
     [Inject] IBusyDialogService BusyDialogService { get; set; } = default!;
+    [Inject] ISubsidiaryHandler SubsidiaryHandler { get; set; } = default!;
+    [Inject] IHttpContextAccessor httpContextAccessor { get; set; } = default!;
 
     [SupplyParameterFromQuery]
     public string? Ref { get; set; }
@@ -37,11 +41,15 @@
     [SupplyParameterFromQuery]
     public string? Type { get; set; }
 
+    STRForm Form { get; set; } = default!;
+
     readonly string ActionGetStockTransferRequest = "Get Stock Transfer Request";
     readonly string ActionCreateStockTransferRequest = "Create Stock Transfer Request";
 
     bool IsLoadingData => AppBusyService.IsBusy(ActionGetStockTransferRequest);
-    bool IsBusy = false;
+    bool IsCreating = false;
+    bool IsLoadingDefaultSubsidiary = false;
+    bool IsBusy => IsCreating || IsLoadingDefaultSubsidiary;
 
     List<ViewModels.System.NavigationRouteVM> AdditionalRoutes { get; set; } = [new() {
         Name = "Stock Transfer Document",
@@ -54,6 +62,51 @@
         base.OnInitialized();
         AppBusyService.BusyChanged += OnBusyChanged;
     }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+        if (firstRender)
+            await SetDefaultSubsidiary();
+    }
+
+    
+    Task<SubsidiaryVM?> LoadDefaultSubsidiary()
+    {
+        string? subsidiaryId = httpContextAccessor.HttpContext?.User?.FindFirst("com.direcbusiness.wms.nsSubsidiary")?.Value;
+
+        if (string.IsNullOrEmpty(subsidiaryId))
+            return Task.FromResult<SubsidiaryVM?>(null);
+
+        if (int.TryParse(subsidiaryId, out int id))
+            return SubsidiaryHandler.GetSubsidiaryAsync(id);
+
+        return Task.FromResult<SubsidiaryVM?>(null);
+    }
+
+    async Task SetDefaultSubsidiary()
+    {
+        IsLoadingDefaultSubsidiary = true;
+        await InvokeAsync(StateHasChanged);
+
+        var subsidiary = await LoadDefaultSubsidiary();
+        if (!FormData.IsIntercompany || subsidiary?.Id == 2) // branch = THM MAIN
+            await Form.OnSubsidiaryChanged(subsidiary);
+            // i dont like the whole newline before block start "{"  
+            // makes code look like pyramids
+            // also makes me want to omit the "{}" in one line blocks
+            // which is probably not a good thing
+            // i hate myself
+        else
+            await Form.OnToSubsidiaryChanged(subsidiary);
+            // this sucks 
+            // should really set up automated unit tests
+            // 
+
+        IsLoadingDefaultSubsidiary = false;
+        await InvokeAsync(StateHasChanged);
+    }
+
 
     protected override async Task OnParametersSetAsync()
     {
@@ -87,7 +140,7 @@
 
     async Task<bool> Create(StockTransferRequestInfoVM model)
     {
-        IsBusy = true;
+        IsCreating = true;
         await InvokeAsync(StateHasChanged);
         var action = await AppActionFactory.RunAsync(async () =>
         {
@@ -104,7 +157,7 @@
         {
             return Task.CompletedTask;
         });
-        IsBusy = false;
+        IsCreating = false;
         await InvokeAsync(StateHasChanged);
         return true;
     }
@@ -114,7 +167,7 @@
         if (!key.Equals(ActionCreateStockTransferRequest))
             return;
 
-        IsBusy = isBusy;
+        IsCreating = isBusy;
 
         if (isBusy)
             BusyDialogService.Show(title: ActionCreateStockTransferRequest);

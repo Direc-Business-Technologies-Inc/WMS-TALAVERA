@@ -74,7 +74,6 @@ public partial class STRForm
     private readonly SemaphoreSlim _concurrencySemaphore = new SemaphoreSlim(2, 2);
 
     private BarcodeStore BarcodeStore = new();
-    private Task DefaultSubsidiaryTask = Task.CompletedTask;
 
     bool DefaultSubsidiaryLoading = false;
 
@@ -94,42 +93,7 @@ public partial class STRForm
         if (firstRender)
         {
             await LoadGridSettings();
-            DefaultSubsidiaryTask = SetDefaultSubsidiary();
-            await DefaultSubsidiaryTask;
         }
-    }
-
-    Task<SubsidiaryVM?> LoadDefaultSubsidiary()
-    {
-        string? subsidiaryId = httpContextAccessor.HttpContext?.User?.FindFirst("com.direcbusiness.wms.nsSubsidiary")?.Value;
-
-        if (string.IsNullOrEmpty(subsidiaryId)) 
-            return Task.FromResult<SubsidiaryVM?>(null);
-
-        if (int.TryParse(subsidiaryId, out int id))
-            return SubsidiaryHandler.GetSubsidiaryAsync(id);
-
-        return Task.FromResult<SubsidiaryVM?>(null); 
-    }
-
-    async Task SetDefaultSubsidiary()
-    {
-        if (ReadOnly || !LoadSubsidiary) return;
-
-        DefaultSubsidiaryLoading = true;
-        await InvokeAsync(StateHasChanged);
-
-        var subsidiary = await LoadDefaultSubsidiary();
-        if (!Model.IsIntercompany || subsidiary?.Id == 2) // branch = THM MAIN
-            Model.Subsidiary = subsidiary;
-        else
-            Model.ToSubsidiary = subsidiary;
-
-        SourceLocationDropdown?.Reset();
-        DestinationLocationDropdown?.Reset();
-
-        DefaultSubsidiaryLoading = false;
-        await InvokeAsync(StateHasChanged);
     }
 
     async Task LoadGridSettings()
@@ -222,7 +186,6 @@ public partial class STRForm
     {
 
         await _concurrencySemaphore.WaitAsync();
-        await DefaultSubsidiaryTask;
 
         var result = await SubsidiaryHandler.GetSubsidiariesAsync(intent);
 
@@ -234,7 +197,6 @@ public partial class STRForm
     {
 
         await _concurrencySemaphore.WaitAsync();
-        await DefaultSubsidiaryTask;
 
         var result = await SubsidiaryHandler.GetSubsidiariesAsync(intent);
 
@@ -252,7 +214,7 @@ public partial class STRForm
         return result;
     }
 
-    async Task OnSubsidiaryChanged(SubsidiaryVM? value)
+    public async Task OnSubsidiaryChanged(SubsidiaryVM? value)
     {
         var originalValue = Model.Subsidiary;
         Model.Subsidiary = value;
@@ -391,7 +353,7 @@ public partial class STRForm
         BarcodeStore.Clear();
     }
 
-    async Task OnToSubsidiaryChanged(SubsidiaryVM? value)
+    public async Task OnToSubsidiaryChanged(SubsidiaryVM? value)
     {
         var originalValue = Model.ToSubsidiary;
         Model.ToSubsidiary = value;
