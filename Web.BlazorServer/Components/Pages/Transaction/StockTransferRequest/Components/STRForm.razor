@@ -215,7 +215,14 @@
                         <Template Context="data">
                             <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center">
                                 <RadzenText Visible="@ReadOnly" TextStyle="TextStyle.Body2">@(data.QuantityAlloted.ToString("#,##0.##"))</RadzenText>
-                                <RadzenNumeric Visible="@(!ReadOnly)" Disabled="@IsBusy" Max="@(data.QuantityOnHandByUoM)" Min="0" Value="@GetLineQuantity(data)" Change="@(x => SetLineQuantity(data, x))" TValue="decimal" ReadOnly="@ReadOnly" class="rz-w-100" ShowUpDown="@(!ReadOnly)" Format="#,##0.##" />
+                                <RadzenFormField Visible="@(!ReadOnly)">
+                                    <ChildContent>
+                                        <RadzenNumeric Disabled="@IsBusy" Min="0" Value="@GetLineQuantity(data)" Change="@(x => SetLineQuantity(data, x))" TValue="decimal" ReadOnly="@ReadOnly" class="rz-w-100" ShowUpDown="@(!ReadOnly)" Format="#,##0.##" />
+                                    </ChildContent>
+                                    <Helper>
+                                        <RadzenText Visible="@(data.QuantityAlloted > data.QuantityOnHandByUoM)" TextStyle="TextStyle.Caption" class="rz-color-danger" Text="Quantity exceeds available" />
+                                    </Helper>
+                                </RadzenFormField>
                             </RadzenStack>
                         </Template>
                     </RadzenDataGridColumn>

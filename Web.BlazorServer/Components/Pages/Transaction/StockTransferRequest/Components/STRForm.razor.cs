@@ -111,7 +111,13 @@ public partial class STRForm
     {
         if (Model.Lines.Count == 0)
         {
-            await DialogService.Alert("Please add at least one item", "Error");
+            ToastService.Error("Please add at least one item");
+            return;
+        }
+        
+        if (Model.Lines.Any(x => x.QuantityAlloted > x.QuantityOnHandByUoM))
+        {
+            ToastService.Error("Some alloted items exceed the available quantity", "Error");
             return;
         }
 
@@ -333,7 +339,7 @@ public partial class STRForm
     {
         decimal itemCount = BarcodeStore.CountItemQuantity(line.ItemId) / (line.UoM?.ConversionRate ?? 1);
 
-        decimal diff = Math.Min(Math.Max(amount, itemCount), line.QuantityOnHandByUoM);
+        decimal diff = Math.Max(amount, itemCount);
 
         line.QuantityAlloted = diff - itemCount;
     }
