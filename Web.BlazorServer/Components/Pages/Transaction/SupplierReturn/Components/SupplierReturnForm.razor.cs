@@ -38,12 +38,17 @@ public partial class SupplierReturnForm
     QuickVirtualizedDropdown<SubsidiaryVM> SubsidiaryDropdown { get; set; } = default!;
     QuickVirtualizedDropdown<PurchaseSubcategoryVM> PurchaseSubcategoryDropdown { get; set; } = default!;
 
+    // need a linter
     readonly string ActionGetPO = "Get Purchase Order";
     bool canSelectPO = true;
     bool IsEditable => !ReadOnly && Model.SourcePO is null;
     bool IsFromPo => Model.SourcePO is not null;
     bool IsDisabled => Disabled || LoadingPO;
     bool LoadingPO = false;
+
+    readonly List<AppFilterDescriptor> ItemFilters = [
+        DataGridFilterUtilities.GreaterThan("QuantityAvailable", 0)
+    ];
 
     const string PRINTABLE_URL = "https://11608969.extforms.netsuite.com/app/site/hosting/scriptlet.nl?script=1671&deploy=1&compid=11608969&ns-at=AAEJ7tMQ9evIwFEEUifIBokQgQ0jhowAItpfjv5Smu7B76K41lU&recordType=vendorreturnauthorization&transactionDefault=true";
 

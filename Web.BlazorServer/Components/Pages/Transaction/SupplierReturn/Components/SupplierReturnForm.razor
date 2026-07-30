@@ -114,7 +114,14 @@
 
                             <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center">
                                 <RadzenText Visible="@(!IsEditable)" TextStyle="TextStyle.Body2" Text="@data.QuantityAlloted.ToString("#,##0.##")" />
-                                <RadzenNumeric Disabled="IsDisabled" Visible="@(IsEditable)" @bind-Value="@data.QuantityAlloted" Format="#,##0.##" />
+                                <RadzenFormField Visible="IsEditable">
+                                    <ChildContent>
+                                        <RadzenNumeric Disabled="IsDisabled"  @bind-Value="@data.QuantityAlloted" Format="#,##0.##" />
+                                    </ChildContent>
+                                    <Helper>
+                                        <RadzenText Visible="@(data.QuantityAlloted > data.QuantityAvailable)" TextStyle="TextStyle.Caption" class="rz-color-danger"  Text="Quantity exceeds available"/> 
+                                    </Helper>
+                                </RadzenFormField>
                             </RadzenStack>
                         </Template>
                     </RadzenDataGridColumn>
@@ -173,7 +180,7 @@
     {
         List<ItemsVM> items = await DialogService.OpenAsync(
             "Select Items",
-            ds => @<ItemSelectionDialog Location="@(Model.Location?.Id ?? null)" />,
+            ds => @<ItemSelectionDialog Location="@(Model.Location?.Id ?? null)" Filters="ItemFilters" />,
     options: dialogOptions);
 
         if (items is not null) await AddItems(items);
