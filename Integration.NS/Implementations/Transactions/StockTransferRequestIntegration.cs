@@ -193,7 +193,9 @@ internal class StockTransferRequestIntegration(
             2 => TransferCategory.IntercompanyTransfer,
             3 => TransferCategory.ReturnsGood,
             4 => TransferCategory.ReturnsBad,
-            _ => throw new NotImplementedException($"Current WMS version does not support transfer category: {nsdto.TransferCategoryName}")
+            _ => TransferCategory.Create(
+                nsdto.TransferCategoryId, 
+                nsdto.TransferCategoryName)
         };
 
         return dto;

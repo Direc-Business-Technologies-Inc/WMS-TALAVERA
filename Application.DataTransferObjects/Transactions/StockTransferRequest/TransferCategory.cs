@@ -29,4 +29,6 @@ public sealed record TransferCategory
 
     public static readonly ImmutableArray<TransferCategory> ReturnCategories = [ReturnsGood, ReturnsBad];
     public static readonly ImmutableArray<TransferCategory> Values = [ Transfer, IntercompanyTransfer, ReturnsGood, ReturnsBad];
+
+    public static TransferCategory Create(int id, string name) => new(id, name, true, false);
 }
