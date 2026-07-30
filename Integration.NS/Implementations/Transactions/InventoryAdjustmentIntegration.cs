@@ -83,6 +83,7 @@ public class InventoryAdjustmentIntegration(
             .Select(
                 ("item.itemId", nameof(InventoryAdjustmentLineNSDTO.ItemCode)),
                 ("item.displayname", nameof(InventoryAdjustmentLineNSDTO.ItemDescription)),
+                ("item.usebins", nameof(InventoryAdjustmentLineNSDTO.ItemUseBins)),
                 ("BUILTIN.DF(tl.units)", nameof(InventoryAdjustmentLineNSDTO.UoMName)),
                 ("BUILTIN.DF(tl.location)", nameof(InventoryAdjustmentLineNSDTO.LocationName)),
                 ("tl.units", nameof(InventoryAdjustmentLineNSDTO.UoMId)),

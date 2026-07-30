@@ -107,7 +107,8 @@
                                         <RadzenNumeric Name="line_quantity_good" Value="@(GetLineQuantity(data))" Change="@(x => SetLineQuantity(data, x))" Disabled="@(!data.IsReceived || Disabled || Data.Location is null)" TValue="decimal" Max="@(data.QuantityOpen)" Min="0"/>
                                     </ChildContent>
                                     <End>
-                                        <RadzenButton Icon="@(data.IsAllAssigned ? "assignment_turned_in" : "assignment_returned")"
+                                        <RadzenButton Visible="@data.ItemUsesBins"
+                                                      Icon="@(data.IsAllAssigned ? "assignment_turned_in" : "assignment_returned")"
                                                       MouseEnter="@(args => ShowLineTooltip(args, data))"
                                                       ButtonStyle="@(data.IsAllAssigned ? ButtonStyle.Success : ButtonStyle.Warning)"
                                                       Size="ButtonSize.ExtraSmall"

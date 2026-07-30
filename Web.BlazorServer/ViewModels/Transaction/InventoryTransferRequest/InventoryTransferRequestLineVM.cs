@@ -15,6 +15,7 @@ public class InventoryTransferRequestLineVM
     public decimal QuantityOnHandByUoM => QuantityOnHand / (UoM?.ConversionRate ?? 1);
     public decimal QuantityAlloted { get; set; }
     public bool UsesBins { get; set; }
-    public bool IsAllAssigned => LineNumber is not null || InventoryDetails.Sum(x => x.QuantityAlloted) == QuantityAlloted;
+    public bool ItemUsesBins { get; set; }
+    public bool IsAllAssigned => !ItemUsesBins || LineNumber is not null || InventoryDetails.Sum(x => x.QuantityAlloted) == QuantityAlloted;
     public List<InventoryDetailVM> InventoryDetails { get; set; } = [];
 }

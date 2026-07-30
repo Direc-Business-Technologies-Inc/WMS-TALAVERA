@@ -89,10 +89,11 @@
                         <RadzenStack AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween">
 
                         <RadzenText Visible="@ReadOnly" TextStyle="TextStyle.Body2">@data.QuantityAlloted.ToString("#,##0.##")</RadzenText>
-                        <RadzenButton Visible="@ReadOnly" Icon="assignment_turned_in"
+                        <RadzenButton Icon="assignment_turned_in"
                                           ButtonStyle="ButtonStyle.Success"
                                           Size="ButtonSize.ExtraSmall"
                                           Disabled="Disabled"
+                                          Visible="@(ReadOnly && data.ItemUsesBins)"
                                           Click="_ => OpenInventoryDetailDialog(data)" />
 
                         <RadzenFormField Text="@(data.Type == InventoryAdjustmentLineVM.Types.Issue ? "Issue" : "Receipt")" Visible="@(!ReadOnly)">
@@ -104,6 +105,7 @@
                                               ButtonStyle="@((data.IsAllAssignedToBins || ReadOnly)  ? ButtonStyle.Success : ButtonStyle.Warning)"
                                               Size="ButtonSize.ExtraSmall" 
                                               Disabled="Disabled"
+                                              Visible="@(data.ItemUsesBins)"
                                               Click="_ => OpenInventoryDetailDialog(data)" />
                             </End>
                             <Helper>

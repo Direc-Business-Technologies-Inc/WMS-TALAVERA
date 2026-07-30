@@ -452,6 +452,7 @@ public class ReceivingIntegration(
             .Select(
                 ("item.itemid", "ItemCode"),
                 ("item.id", "ItemId"),
+                ("item.usebins", nameof(ItemReceiptLineDTO.ItemUseBins)),
                 ("tl.id", "LineNumber"),
                 ("uom.unitname", "UoM"),
                 ("uom.conversionrate", "UoMRate"),
