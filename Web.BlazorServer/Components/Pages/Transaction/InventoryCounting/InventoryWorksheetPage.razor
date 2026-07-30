@@ -88,7 +88,16 @@
                                               Title="Item Name"
                                               Type="@typeof(string)">
                             <Template Context="line">
-                                @line.MaterialName
+                                <RadzenDropDown TValue="InventoryItemVM"
+                                                Data="@InventoryItems"
+                                                @bind-Value="@line.SelectedItem"
+                                                Change="@(_ => OnItemChanged(line))"
+                                                AllowClear
+                                                AllowFiltering
+                                                FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                                                TextProperty="@nameof(InventoryItemVM.MaterialName)"
+                                                Placeholder="Select item"
+                                                class="rz-w-100" />
                             </Template>
                         </RadzenDataGridColumn>
                         <RadzenDataGridColumn TItem="InventoryWorksheetCreateLineVM"
