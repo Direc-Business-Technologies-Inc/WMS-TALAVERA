@@ -14,6 +14,7 @@ public class InventoryTransferRequestLineNSDTO
     public int? SourceLine { get; set; }
     public string ItemCode { get; set; } = string.Empty;
     public string ItemDescription { get; set; } = string.Empty;
+    public string ItemUseBins { get; set; } = string.Empty;
     public string UoMName { get; set; } = string.Empty;
     public int UoMId { get; set; }
     public string LocationName { get; set; } = string.Empty;
@@ -21,4 +22,5 @@ public class InventoryTransferRequestLineNSDTO
     public decimal UoMRate { get; set; }
     public decimal QuantityOnHand { get; set; }
     public decimal QuantityAlloted { get; set; }
+    public bool ItemUsesBins => ItemUseBins.ToLowerInvariant().Equals("t");
 }

@@ -56,6 +56,7 @@ public class ItemReceiptLineDTO
         get => _isLocationBinUsed ? "T" : "F";
         set => _isLocationBinUsed = value.Equals("T", StringComparison.OrdinalIgnoreCase);
     }
+    public string ItemUseBins { get; set; } = string.Empty;
 
     public decimal UoMRate { get; set; }
     public decimal WeightActual { get; set; }
@@ -69,6 +70,7 @@ public class ItemReceiptLineDTO
         get => _isLocationBinUsed;
         set => _isLocationBinUsed = value;
     }
+    public bool ItemUsesBins => ItemUseBins.ToLowerInvariant().Equals("t");
 
     public bool _isLocationBinUsed = false;
     public bool IsReceived { get; set; } = true;

@@ -21,5 +21,6 @@ public class InventoryTransferRequestLineDTO
     public decimal QuantityAlloted { get; set; }
     public bool IsAllAssigned => InventoryDetails.Sum(x => x.QuantityAlloted) == QuantityAlloted;
     public bool IsDirty { get; set; } = false;
+    public bool ItemUsesBins { get; set; }
     public List<InventoryDetailDTO> InventoryDetails { get; set; } = [];
 }
