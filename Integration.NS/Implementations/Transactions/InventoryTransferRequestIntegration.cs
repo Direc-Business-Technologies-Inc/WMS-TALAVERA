@@ -45,6 +45,7 @@ public class InventoryTransferRequestIntegration(
                 ("BUILTIN.DF(t.transferlocation)", nameof(InventoryTransferRequestNSDTO.DestinationLocationName)),
                 ("t.transferlocation", nameof(InventoryTransferRequestNSDTO.DestinationLocationId)),
                 ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(InventoryTransferRequestNSDTO.Date)),
+                ("t.custbody_dbti_submitted_for_approval", nameof(InventoryTransferRequestNSDTO.SubmittedForApproval)),
                 ("CONCAT(e.firstname,CONCAT(' ',e.lastname))", nameof(InventoryTransferRequestNSDTO.PreparedBy))
             )
             .From("transaction t")
@@ -68,7 +69,7 @@ public class InventoryTransferRequestIntegration(
             DestinationLocation = new() { Id = result.DestinationLocationId, Name = result.DestinationLocationName },
             Subsidiary = new() { Id = result.SubsidiaryId, Name = result.SubsidiaryName },
             Status = new() { Id = result.StatusId, Name = result.StatusName },
-            IsEditable = result.StatusId == 3, // status == rejected
+            IsEditable = !result.IsSubmittedForApproval && (result.StatusId == 2 || result.StatusId == 3), // status == draft || status == rejected
         });
     }
 
@@ -171,6 +172,27 @@ public class InventoryTransferRequestIntegration(
         return true;
     }
 
+    public async Task<bool> SubmitInventoryTransferRequestForApproval(InventoryTransferRequestDTO data)
+    {
+        var url = netsuiteService.GetRestAPIURI + $"/record/v1/inventoryTransfer/{data.Id}";
+        var anon = new
+        {
+            custbody_dbti_submitted_for_approval = "T",
+        };
+        var payload = JsonSerializer.Serialize(anon, jsonOpts);
+
+        try
+        {
+            _ = await netsuiteService.MakeRequest<object>(url, payload, HttpMethod.Patch);
+        }
+        catch (Exception ex) when (ex.Message.Equals("Empty response from NetSuite API", StringComparison.OrdinalIgnoreCase))
+        {
+            // Empty response is but http response is a success status code
+        }
+
+        return true;
+    }
+
     public async Task<bool> UpdateInventoryTransferRequest(InventoryTransferRequestDTO data)
     {
         var url = netsuiteService.GetRestAPIURI + $"/record/v1/inventoryTransfer/{data.Id}?replace=inventory";
@@ -196,7 +218,6 @@ public class InventoryTransferRequestIntegration(
             location = data.SourceLocation?.Id ?? null,
             transferlocation = data.DestinationLocation?.Id ?? null,
             custbody_dbti_prepared_by = data.PreparedById,
-            custbody_dbti_custom_approval_status = setStatus ? 5 : (int?)null,
             memo = data.Memo,
             trandate = data.Date,
             Class = 1, // external

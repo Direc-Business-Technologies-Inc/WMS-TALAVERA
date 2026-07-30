@@ -23,6 +23,8 @@ public class InventoryTransferRequestNSDTO
     public int CustomerId { get; set; }
     public int StatusId { get; set; } 
     public string StatusName { get; set; } = string.Empty;
+    public bool IsSubmittedForApproval => SubmittedForApproval.ToLowerInvariant().Equals("t");
+    public string SubmittedForApproval { get; set; } = string.Empty;
 
     public DateTime Date { get; set; }
 }

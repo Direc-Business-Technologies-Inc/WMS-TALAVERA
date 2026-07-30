@@ -15,6 +15,7 @@ public interface IInventoryTransferRequestIntegration
     Task<InventoryTransferRequestDTO?> GetInventoryTransferRequestAsync(string Ref);
     Task<bool> CreateInventoryTransferRequest(InventoryTransferRequestDTO data);
     Task<bool> UpdateInventoryTransferRequest(InventoryTransferRequestDTO data);
+    Task<bool> SubmitInventoryTransferRequestForApproval(InventoryTransferRequestDTO data);
     Task<(IEnumerable<InventoryTransferRequestStatusDTO>, int)> GetStatusTypesAsync(DataGridIntent intent);
 
 }

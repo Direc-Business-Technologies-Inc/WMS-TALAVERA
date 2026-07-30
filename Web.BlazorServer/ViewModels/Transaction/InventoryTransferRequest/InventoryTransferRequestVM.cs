@@ -17,6 +17,8 @@ public class InventoryTransferRequestVM
     public string Memo { get; set; } = string.Empty;
     public DateTime Date { get; set; }
     public bool IsEditable { get; set; } = false;
+    public bool IsSubmittedForApproval { get; set; } = false;
+    public bool CanBeSubmittedForApproval => !IsSubmittedForApproval && IsEditable;
 
     public List<InventoryTransferRequestLineVM> Lines = [];
 }
