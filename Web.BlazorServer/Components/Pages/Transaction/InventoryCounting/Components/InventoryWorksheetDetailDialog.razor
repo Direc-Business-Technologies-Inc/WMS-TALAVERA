@@ -33,7 +33,7 @@
                     }
                     <RadzenTableHeaderCell>Status</RadzenTableHeaderCell>
                     <RadzenTableHeaderCell>Quantity</RadzenTableHeaderCell>
-                    <RadzenTableHeaderCell></RadzenTableHeaderCell>
+                    <RadzenTableHeaderCell Style="width: 36px"></RadzenTableHeaderCell>
                 </RadzenTableHeaderRow>
             </RadzenTableHeader>
             <RadzenTableBody>
@@ -67,10 +67,12 @@
                                            class="rz-w-100" />
                         </RadzenTableCell>
                         <RadzenTableCell>
-                            <RadzenButton Icon="delete"
-                                          Size="ButtonSize.ExtraSmall"
-                                          ButtonStyle="ButtonStyle.Danger"
-                                          Click="@(() => RemoveLine(detail))" />
+                            <RadzenStack Orientation="Orientation.Horizontal" class="rz-w-100" JustifyContent="JustifyContent.Center">
+                                <RadzenButton Icon="delete"
+                                              Size="ButtonSize.ExtraSmall"
+                                              ButtonStyle="ButtonStyle.Danger"
+                                              Click="@(() => RemoveLine(detail))" />
+                            </RadzenStack>
                         </RadzenTableCell>
                     </RadzenTableRow>
                 }
