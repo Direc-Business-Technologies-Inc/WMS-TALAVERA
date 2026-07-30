@@ -96,6 +96,13 @@ public class ReceivingIntegration(
     {
         if (intent.Sorts.Count == 0) intent.Sorts.Add(DataGridSortUtilities.Descending("DateLastModified"));
 
+        int[] AllowedLocations = [-1];
+        string? claimValue = httpContext.HttpContext?.User?.FindFirst("com.direcbusiness.wms.nsAllowedLocations")?.Value;
+        if (claimValue is not null)
+        {
+            AllowedLocations = JsonSerializer.Deserialize<int[]>(claimValue) ?? [-1];
+        }
+
         var builder = builderFactory.Create()
             .Select(
                 ("t.id", "Id"),
@@ -105,15 +112,18 @@ public class ReceivingIntegration(
                 ("t.location", "Location"),
                 ("TO_CHAR(t.custbody_dbti_order_date, 'YYYY-MM-DD\"T\"HH24:MI:SS')", "DeliveryDate"),
                 ("t.memo", "Memo"),
+                ("t.location", "LocationId"),
                 ("BUILTIN.DF(t.entity)", "VendorName"),
                 ("s.name", nameof(PurchaseOrderDataGridDTO.Status)),
                 ("t.transferlocation", "TransferLocation"))
             .From("transaction t")
+            .Join("transactionline tl", "tl.transaction = t.id")
             .LeftJoin("purchaseorderstatus s", on: "s.id = t.status")
             .WithDatagridIntent(intent)
             .WithFilters(
                 Equal("t.recordtype", "purchaseorder"),
-                In("t.status", new string[] { "B", "E" })
+                In("t.status", new string[] { "B", "E" }),
+                In("tl.location", AllowedLocations)
             )
             .WithSubsidiaries(httpContext, "t");
 
@@ -134,6 +144,14 @@ public class ReceivingIntegration(
         {
             allowedSubsidiaries = JsonSerializer.Deserialize<List<int>>(claimValue) ?? [];
         }
+
+        int[] AllowedLocations = [-1];
+        claimValue = httpContext.HttpContext?.User?.FindFirst("com.direcbusiness.wms.nsAllowedLocations")?.Value;
+        if (claimValue is not null)
+        {
+            AllowedLocations = JsonSerializer.Deserialize<int[]>(claimValue) ?? [-1];
+        }
+
 
         var query = builderFactory.Create()
             .Select(
@@ -165,7 +183,8 @@ public class ReceivingIntegration(
                         Equal("t.recordtype", "transferorder"),
                         In("t.subsidiary", allowedSubsidiaries)
                     )
-                )
+                ),
+                In("t.transferlocation", AllowedLocations)
             )
             .WithDatagridIntent(intent)
             .Build();
@@ -247,6 +266,14 @@ public class ReceivingIntegration(
 
         if (intent.Sorts.Count == 0) intent.Sorts.Add(DataGridSortUtilities.Descending("DateLastModified"));
 
+        int[] AllowedLocations = [-1];
+        string? claimValue = httpContext.HttpContext?.User?.FindFirst("com.direcbusiness.wms.nsAllowedLocations")?.Value;
+        if (claimValue is not null)
+        {
+            AllowedLocations = JsonSerializer.Deserialize<int[]>(claimValue) ?? [-1];
+        }
+
+
         var query = builderFactory.Create()
             .Select(
                 ("t.id", "Id"),
@@ -259,7 +286,6 @@ public class ReceivingIntegration(
                 ("BUILTIN.DF(ml.location)", "Location"),
                 ("s.name", nameof(ReturnsDataGridDTO.Status)),
                 ("BUILTIN.DF(t.transferlocation)", "TransferLocation"),
-
                 ("t.memo", "Memo")
             )
             .From("transaction t")
@@ -272,7 +298,8 @@ public class ReceivingIntegration(
                 In("t.status", new string[] { "F", "E" }),
                 Any(
                     Equal("t.custbody_dbti_transfer_category", 3),
-                    Equal("t.custbody_dbti_transfer_category", 4))
+                    Equal("t.custbody_dbti_transfer_category", 4)),
+                In("t.transferlocation", AllowedLocations)
             ).Build();
 
         var response = await netsuiteService.ExecuteSuiteQLQuery<ReturnsDataGridDTO>(query.Query, limit: query.Limit, offset: query.Offset);

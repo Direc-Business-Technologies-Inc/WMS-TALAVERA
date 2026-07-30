@@ -2,12 +2,14 @@
 using Application.DataTransferObjects.System.Security;
 using Application.UseCases.Commands.System.Authentication;
 using Application.UseCases.Queries.System.Authentication;
+using Application.UseCases.Repositories.Integration.Others;
 using Application.UseCases.Repositories.Integration.Transaction;
 using Mapster;
 using MediatR;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Mvc;
+using Shared.Entities;
 using System.Security.Claims;
 using System.Text.Json;
 using Web.BlazorServer.ViewModels.Security;
@@ -20,6 +22,7 @@ public class AuthenticationController(
     AppAuthenticationStateProvider AppAuthenticationState,
     IHttpContextAccessor HttpContextAccessor,
     INetsuiteIdentityIntegration nsIdentityIntegration,
+    ILocationIntegration locationIntegration,
     ISender Sender)
     : ControllerBase
 {
@@ -73,12 +76,16 @@ public class AuthenticationController(
         if (loginResponse.User?.EmployeeNs is not null) //claims for ns
         {
             var nsIdentity = await nsIdentityIntegration.GetNetsuiteIdentityAsync(loginResponse.User.EmployeeNs.NsId);
+            var userLocations = await locationIntegration.GetUserAllowedLocations(new DataGridIntent { Take = -1 }, loginResponse.User.EmployeeNs.NsId);
+
+            int[] userLocationIds = userLocations.data.Any() ? [..userLocations.data.Select(x => x.Id)] : [-1];
             claims.Add(new Claim("com.direcbusiness.wms.nsEmployeeId", loginResponse.User.EmployeeNs.NsId.ToString()));
 
             if (nsIdentity is not null)
             {
                 claims.Add(new Claim("com.direcbusiness.wms.nsEmployeeName", nsIdentity.EmployeeFullName));
                 claims.Add(new Claim("com.direcbusiness.wms.nsSubsidiary", nsIdentity.SubsidiaryID.ToString()));
+                claims.Add(new Claim("com.direcbusiness.wms.nsAllowedLocations", JsonSerializer.Serialize(userLocationIds)));
                 claims.Add(new Claim("com.direcbusiness.wms.nsAllowedSubsidiaries", JsonSerializer.Serialize(new int[] { nsIdentity.SubsidiaryID })));
             }
         }

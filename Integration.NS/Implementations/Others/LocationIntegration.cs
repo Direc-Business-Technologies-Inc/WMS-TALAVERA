@@ -93,15 +93,18 @@ public class LocationIntegration(
         {
             return ([], 0);
         }
-
+        return await GetUserAllowedLocations(intent, employeeId);
+    }
+    public async Task<(IEnumerable<LocationDTO> data, int count)> GetUserAllowedLocations(DataGridIntent intent, int employeeId)
+    {
 
         var query = builderFactory.Create()
             .Select(
                 ("loc.id", nameof(LocationDTO.Id)),
                 ("loc.externalId", nameof(LocationDTO.LocationNumber)),
                 ("loc.name", nameof(LocationDTO.Name)),
-                ("loc.BUILTIN.DF(mainaddress)", nameof(LocationDTO.Address)),
-                ("loc.BUILTIN.DF(subsidiary)", nameof(LocationDTO.Subsidiary)),
+                ("BUILTIN.DF(loc.mainaddress)", nameof(LocationDTO.Address)),
+                ("BUILTIN.DF(loc.subsidiary)", nameof(LocationDTO.Subsidiary)),
                 ("loc.subsidiary", nameof(LocationDTO.SubsidiaryId))
             )
             .From("employee e")
