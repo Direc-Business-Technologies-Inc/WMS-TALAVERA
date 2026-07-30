@@ -92,7 +92,7 @@
         action.OnFailure(ex =>
         {
             ActionURI = null;
-            return Task.Delay(100).ContinueWith(_ =>
+            return Task.Delay(100).ContinueWith(_ => // this is just promise lol
             {
                 NavManager.NavigateTo(STRRoutes.Root);
             });

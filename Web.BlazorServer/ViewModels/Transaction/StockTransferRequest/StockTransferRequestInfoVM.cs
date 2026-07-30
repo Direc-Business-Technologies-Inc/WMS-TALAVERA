@@ -21,4 +21,6 @@ public class StockTransferRequestInfoVM
     public bool IsReturn => Category.IsReturn;
     public bool IsIntercompany => Category.IsInterCompany;
     public bool IsEditable { get; set; }
+    public bool IsSubmittedForApprovals { get; set; }
+    public bool CanBeSubmittedForApprovals => !IsSubmittedForApprovals && IsEditable;
 }

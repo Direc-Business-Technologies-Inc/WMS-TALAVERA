@@ -15,4 +15,6 @@ public interface IStockTransferRequestHandler
 
     Task<bool> CreateStockTransferRequest(StockTransferRequestInfoVM data);
     Task<bool> UpdateStockTransferRequest(StockTransferRequestInfoVM data);
+    Task<bool> SubmitStockTransferRequestForApproval(StockTransferRequestInfoVM data);
+
 }

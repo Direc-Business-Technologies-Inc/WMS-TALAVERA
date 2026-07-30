@@ -160,6 +160,7 @@ internal class StockTransferRequestIntegration(
                     ("s.name", nameof(StockTransferRequestHeaderNSDTO.StatusName)),
                     ("s.id", nameof(StockTransferRequestHeaderNSDTO.StatusId)),
                     ("t.id", nameof(StockTransferRequestHeaderNSDTO.Id)),
+                    ("t.custbody_dbti_submitted_for_approval", nameof(StockTransferRequestHeaderNSDTO.SubmittedForApprovals)),
                     ("BUILTIN.DF(t.custbody_dbti_transfer_category)", nameof(StockTransferRequestHeaderNSDTO.TransferCategoryName))
                 )
                 .From("transaction t")
@@ -187,6 +188,7 @@ internal class StockTransferRequestIntegration(
         dto.Subsidiary = new() { Name = nsdto.SubsidiaryName, Id = nsdto.SubsidiaryId };
         dto.ToSubsidiary = new() { Name = nsdto.ToSubsidiaryName, Id = nsdto.ToSubsidiaryId };
         dto.Status = new() { Name = nsdto.StatusName, Id = nsdto.StatusId };
+        dto.IsEditable = !nsdto.IsSubmittedForApprovals && (nsdto.StatusId == 3 || nsdto.StatusId == 2);
         dto.TransferCategory = nsdto.TransferCategoryId switch
         {
             1 => TransferCategory.Transfer,
@@ -293,6 +295,24 @@ internal class StockTransferRequestIntegration(
         return true;
     }
 
+    public async Task<bool> SubmitStockTransferRequestForApproval(StockTransferRequestInfoDTO dto)
+    {
+        string payloadString = "{\"custbody_dbti_submitted_for_approval\":true}";
+        var url = dto.TransferCategory.IsInterCompany ?
+            $"{netsuiteService.GetRestAPIURI}/record/v1/interCompanyTransferOrder/{dto.Id}" :
+            $"{netsuiteService.GetRestAPIURI}/record/v1/transferOrder/{dto.Id}";
+
+        try
+        {
+            _ = await netsuiteService.MakeRequest<object>(url, payloadString, HttpMethod.Patch);
+        }
+        catch (Exception ex) when (ex.Message.Equals("Empty response from NetSuite API", StringComparison.OrdinalIgnoreCase))
+        {
+            // Empty response is but http response is a success status code
+        }
+        return true;
+    }
+
     private StockTransferRequestDataGridDTO ConvertDataGridDTO(StockTransferRequestDataGridNSDTO nsdto)
     {
 
@@ -334,7 +354,6 @@ internal class StockTransferRequestIntegration(
             } : null,
             orderStatus = "A",
             custbody_dbti_transfer_category = new { id = dto.TransferCategory.Id },
-            custbody_dbti_submitted_for_approval = true,
             custbody_dbti_prepared_by = dto.PreparedById,
             custbody_dbti_return_to_vendor = dto.TransferCategory.IsReturn && dto.Vendor != null ? new { id = dto.Vendor.Id.ToString() } : null,
             Department = new { id = "4" },

@@ -11,6 +11,8 @@ using Web.BlazorServer.Components.Shared.Abstraction;
 using Web.BlazorServer.Defaults;
 using Web.BlazorServer.Handlers.Implementations.Others;
 using Web.BlazorServer.Handlers.Repositories.Others;
+using Web.BlazorServer.Handlers.Repositories.Transaction.StockTransferRequest;
+using Web.BlazorServer.Helpers;
 using Web.BlazorServer.Services.Implementation;
 using Web.BlazorServer.Services.Repositories;
 using Web.BlazorServer.ViewModels.Abstraction;
@@ -52,6 +54,8 @@ public partial class STRForm
     [Inject]
     ISubsidiaryHandler SubsidiaryHandler { get; set; } = default!;
     [Inject]
+    IStockTransferRequestHandler StockTransferRequestHandler { get; set; } = default!;
+    [Inject]
     IVendorHandler VendorHandler { get; set; } = default!;
     [Inject]
     IItemsHandler ItemsHandler { get; set; } = default!;
@@ -86,6 +90,8 @@ public partial class STRForm
     public string StatusString => Model.Status is null ?
         ReadOnly ? "N/A" : "To be submitted" :
         string.IsNullOrEmpty(Model.Status.Name) ? "---" : Model.Status.Name;
+    public bool IsSubmitting = false;
+    public bool Disabled => IsBusy || IsSubmitting;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -376,6 +382,32 @@ public partial class STRForm
         Model.Vendor = null;
         DestinationLocationDropdown?.Reset();
         VendorDropdown?.Reset();
+    }
+
+    async Task SubmitForApproval()
+    {
+        IsSubmitting = true;
+        await InvokeAsync(StateHasChanged);
+
+        var action = await AppActionFactory.RunConfirmedAsync(async () =>
+        {
+            await StockTransferRequestHandler.SubmitStockTransferRequestForApproval(Model);
+        }, "Submit Stock Transfer Request for Approval");
+
+        action.OnSuccess(() =>
+        {
+            NavManager.NavigateTo(NavManager.Uri, true);
+            return Task.CompletedTask;
+        });
+
+        action.OnFailure((ex) =>
+        {
+            ToastService.Error(ex.Message);
+            return Task.CompletedTask;
+        });
+
+        IsSubmitting = false;
+        await InvokeAsync(StateHasChanged);
     }
 
     async Task DeleteLine(StockTransferRequestLineVM line)
