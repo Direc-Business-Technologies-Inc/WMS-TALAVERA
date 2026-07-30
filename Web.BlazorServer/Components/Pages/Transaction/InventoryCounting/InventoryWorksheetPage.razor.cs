@@ -187,7 +187,7 @@ public partial class InventoryWorksheetPage : IDisposable
 
         var details = await DialogService.OpenAsync<InventoryWorksheetDetailDialog>(
             "Worksheet Details",
-            new Dictionary<string, object>
+            new Dictionary<string, object?>
             {
                 { nameof(InventoryWorksheetDetailDialog.Line), line },
                 { nameof(InventoryWorksheetDetailDialog.LocationId), FormData.Location.NetsuiteLocationInternalId },
