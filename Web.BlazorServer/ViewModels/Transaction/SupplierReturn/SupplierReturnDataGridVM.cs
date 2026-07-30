@@ -4,6 +4,8 @@ namespace Web.BlazorServer.ViewModels.Transaction.SupplierReturn;
 
 public class SupplierReturnDataGridVM
 {
+    [QuickDataGridTitle("Vendor")]
+    public string VendorName { get; set; } = string.Empty;
     [QuickDataGridTitle("Document Number")]
     public string ReferenceNumber { get; set; } = string.Empty;
     [QuickDataGridTitle("Date")]
@@ -11,8 +13,6 @@ public class SupplierReturnDataGridVM
     public DateTime Date { get; set; }
     [QuickDataGridIgnore]
     public DateTime DateLastModified { get; set; }
-    [QuickDataGridTitle("Vendor")]
-    public string VendorName { get; set; } = string.Empty;
     [QuickDataGridTitle("Created From")]
     public string CreatedFrom { get; set; } = string.Empty;
     [QuickDataGridTitle("Category")]
