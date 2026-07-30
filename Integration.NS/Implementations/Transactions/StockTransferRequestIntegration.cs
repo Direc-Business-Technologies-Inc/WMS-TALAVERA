@@ -27,7 +27,7 @@ internal class StockTransferRequestIntegration(
     public async Task<(IEnumerable<StockTransferRequestDataGridDTO> Data, int Count)> GetIntercompanyTransferOrderList(DataGridIntent intent)
     {
         if (intent.Sorts.Count == 0)
-            intent.Sorts.Add(DataGridSortUtilities.Descending(nameof(StockTransferRequestDataGridNSDTO.DateLastModified)));
+            intent.Sorts.Add(DataGridSortUtilities.Descending(nameof(StockTransferRequestDataGridNSDTO.ReferenceNumber)));
         
         var query = builderFactory.Create()
                 .Select(
@@ -65,7 +65,7 @@ internal class StockTransferRequestIntegration(
     {
 
         if (intent.Sorts.Count == 0)
-            intent.Sorts.Add(DataGridSortUtilities.Descending(nameof(StockTransferRequestDataGridNSDTO.DateLastModified)));
+            intent.Sorts.Add(DataGridSortUtilities.Descending(nameof(StockTransferRequestDataGridNSDTO.ReferenceNumber)));
         var query = builderFactory.Create()
                 .Select(
                     ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(StockTransferRequestDataGridNSDTO.Date)),
@@ -102,7 +102,7 @@ internal class StockTransferRequestIntegration(
     {
 
         if (intent.Sorts.Count == 0)
-            intent.Sorts.Add(DataGridSortUtilities.Descending(nameof(StockTransferRequestDataGridNSDTO.DateLastModified)));
+            intent.Sorts.Add(DataGridSortUtilities.Descending(nameof(StockTransferRequestDataGridNSDTO.ReferenceNumber)));
 
         var query = builderFactory.Create()
                 .Select(

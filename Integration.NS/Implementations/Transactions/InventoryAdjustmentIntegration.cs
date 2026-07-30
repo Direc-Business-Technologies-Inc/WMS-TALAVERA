@@ -112,7 +112,7 @@ public class InventoryAdjustmentIntegration(
     public async Task<(IEnumerable<InventoryAdjustmentDataGridDTO> Data, int Count)> GetInventoryAdjustmentsAsync(DataGridIntent intent)
     {
         if (intent.Sorts.Count == 0)
-            intent.Sorts.Add(DataGridSortUtilities.Descending(nameof(InventoryAdjustmentDataGridDTO.DateLastModified)));
+            intent.Sorts.Add(DataGridSortUtilities.Descending(nameof(InventoryAdjustmentDataGridDTO.ReferenceNumber)));
 
         var query = builderFactory.Create()
             .Select(

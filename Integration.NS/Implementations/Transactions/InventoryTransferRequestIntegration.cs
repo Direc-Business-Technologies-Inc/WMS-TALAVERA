@@ -111,7 +111,7 @@ public class InventoryTransferRequestIntegration(
     public async Task<(IEnumerable<InventoryTransferRequestDataGridDTO> Data, int Count)> GetInventoryTransferRequestsDataGridAsync(DataGridIntent intent)
     {
         if (intent.Sorts.Count == 0)
-            intent.Sorts.Add(DataGridSortUtilities.Descending(nameof(InventoryTransferRequestDataGridDTO.DateLastModified)));
+            intent.Sorts.Add(DataGridSortUtilities.Descending(nameof(InventoryTransferRequestDataGridDTO.ReferenceNumber)));
 
         var query = builderFactory.Create()
             .Select(

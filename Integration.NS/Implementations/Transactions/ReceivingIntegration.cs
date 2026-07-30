@@ -94,7 +94,7 @@ public class ReceivingIntegration(
 
     public async Task<(IEnumerable<PurchaseOrderDataGridDTO>, int)> GetPurchaseOrdersListAsync(DataGridIntent intent)
     {
-        if (intent.Sorts.Count == 0) intent.Sorts.Add(DataGridSortUtilities.Descending("DateLastModified"));
+        if (intent.Sorts.Count == 0) intent.Sorts.Add(DataGridSortUtilities.Descending("ReferenceNumber"));
 
         int[] AllowedLocations = [-1];
         string? claimValue = httpContext.HttpContext?.User?.FindFirst("com.direcbusiness.wms.nsAllowedLocations")?.Value;
@@ -136,7 +136,7 @@ public class ReceivingIntegration(
     public async Task<(IEnumerable<TransferOrderDataGridDTO>, int count)> GetTransferOrderListAsync(DataGridIntent intent)
     {
 
-        if (intent.Sorts.Count == 0) intent.Sorts.Add(DataGridSortUtilities.Descending("DateLastModified"));
+        if (intent.Sorts.Count == 0) intent.Sorts.Add(DataGridSortUtilities.Descending("ReferenceNumber"));
 
         List<int> allowedSubsidiaries = [];
         string? claimValue = httpContext.HttpContext?.User?.FindFirst("com.direcbusiness.wms.nsAllowedSubsidiaries")?.Value;
@@ -264,7 +264,7 @@ public class ReceivingIntegration(
     public async Task<(IEnumerable<ReturnsDataGridDTO>, int count)> GetReturnsListAsync(DataGridIntent intent)
     {
 
-        if (intent.Sorts.Count == 0) intent.Sorts.Add(DataGridSortUtilities.Descending("DateLastModified"));
+        if (intent.Sorts.Count == 0) intent.Sorts.Add(DataGridSortUtilities.Descending("ReferenceNumber"));
 
         int[] AllowedLocations = [-1];
         string? claimValue = httpContext.HttpContext?.User?.FindFirst("com.direcbusiness.wms.nsAllowedLocations")?.Value;

@@ -128,7 +128,7 @@ public class SupplierReturnIntegration(
     public async Task<(IEnumerable<SupplierReturnDataGridDTO> Data, int Count)> GetReturnsDataGridAsync(DataGridIntent intent)
     {
         if (intent.Sorts.Count == 0)
-            intent.Sorts.Add(DataGridSortUtilities.Descending(nameof(SupplierReturnDataGridDTO.DateLastModified)));
+            intent.Sorts.Add(DataGridSortUtilities.Descending(nameof(SupplierReturnDataGridDTO.ReferenceNumber)));
         var query = builderFactory.Create()
                 .Select(
                     ("BUILTIN.DF(t.entity)", nameof(SupplierReturnDataGridDTO.VendorName)),
