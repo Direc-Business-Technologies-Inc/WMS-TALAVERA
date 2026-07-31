@@ -447,6 +447,7 @@ public class ReceivingIntegration(
                 ("uom.conversionrate", "UoMRate"),
                 ("loc.name", nameof(ItemReceiptLineDTO.LocationName)),
                 ("loc.id", nameof(ItemReceiptLineDTO.LocationId)),
+                ("barcode.name", nameof(ItemReceiptLineDTO.ItemBarcode)),
                 ("loc.usebins", "LocationUsesBins"),
                 ("item.displayname", "ItemDescription"),
                 ("pb.bin", "PrefferedBinAssignmentId"),
@@ -461,6 +462,7 @@ public class ReceivingIntegration(
             .Join("location loc", on: "tl.location = loc.id")
             .Join("unitstypeuom uom", on: "tl.units = uom.internalid")
             .LeftJoin("(SELECT ibq.bin, ibq.item, b.location FROM itembinquantity ibq JOIN bin b ON ibq.bin = b.id WHERE preferredbin = \'T\') pb", on: "pb.item = item.id AND pb.location = tl.location")
+            .LeftJoin("CUSTOMRECORD_BARCODE_PER_UOM barcode", "barcode.custrecord_bpu_uom = tl.units AND barcode.custrecord_bpu_item = tl.item")
             .WithFilters(
                 Equal("t.tranid", docEntry)
             );
@@ -487,6 +489,7 @@ public class ReceivingIntegration(
                 ("loc.id", nameof(ItemReceiptLineDTO.LocationId)),
                 ("loc.usebins", "LocationUsesBins"),
                 ("item.displayname", "ItemDescription"),
+                ("barcode.name", nameof(ItemReceiptLineDTO.ItemBarcode)),
                 ("pb.bin", "PrefferedBinAssignmentId"),
                 ("item.weight", nameof(ItemReceiptLineDTO.WeightPerItem)),
                 ("tl.custcol_dbti_actual_weight", nameof(ItemReceiptLineDTO.WeightActual)),
@@ -499,6 +502,7 @@ public class ReceivingIntegration(
             .Join("location loc", on: "tl.location = loc.id")
             .Join("unitstypeuom uom", on: "tl.units = uom.internalid")
             .LeftJoin("(SELECT ibq.bin, ibq.item, b.location FROM itembinquantity ibq JOIN bin b ON ibq.bin = b.id WHERE preferredbin = \'T\') pb", on: "pb.item = item.id AND pb.location = tl.location")
+            .LeftJoin("CUSTOMRECORD_BARCODE_PER_UOM barcode", "barcode.custrecord_bpu_uom = tl.units AND barcode.custrecord_bpu_item = tl.item")
             .WithFilters(
                 Equal("t.tranid", docEntry),
                 Equal("tl.mainline", "F")

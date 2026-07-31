@@ -86,7 +86,7 @@
                             <RadzenCheckBox @bind-Value="data.IsReceived" Disabled="@(data.IsComplete || Disabled)" />
                         </Template>
                     </RadzenDataGridColumn>
-                    <RadzenDataGridColumn TItem="ItemReceiptLineVM" Property="@nameof(ItemReceiptLineVM.ItemCode)" Title="Item Code" />
+                    <RadzenDataGridColumn TItem="ItemReceiptLineVM" Property="@nameof(ItemReceiptLineVM.ItemBarcode)" Title="Item Barcode" />
                     <RadzenDataGridColumn TItem="ItemReceiptLineVM" Property="@nameof(ItemReceiptLineVM.ItemDescription)" Title="Item Description" />
                     <RadzenDataGridColumn TItem="ItemReceiptLineVM" Property="@nameof(ItemReceiptLineVM.UoM)" Title="UoM" />
                     <RadzenDataGridColumn TItem="ItemReceiptLineVM" Property="@nameof(ItemReceiptLineVM.Department)" Title="Department" />
