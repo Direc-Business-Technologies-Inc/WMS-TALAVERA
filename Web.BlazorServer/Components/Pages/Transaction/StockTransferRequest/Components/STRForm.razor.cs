@@ -25,40 +25,23 @@ namespace Web.BlazorServer.Components.Pages.Transaction.StockTransferRequest.Com
 
 public partial class STRForm
 {
-    [Parameter]
-    [EditorRequired]
-    public StockTransferRequestInfoVM Model { get; set; } = new();
-    [Parameter]
-    public Func<StockTransferRequestInfoVM, Task<bool>>? OnSubmit { get; set; }
-    [Parameter]
-    public EditContext? EditContext { get; set; }
-    [Parameter]
-    public bool ReadOnly { get; set; } = false;
-    [Parameter]
-    public bool LoadSubsidiary { get; set; } = true;
-    [Parameter]
-    public bool IsBusy { get; set; } = false;
-    [Parameter]
-    public string? ReturnURI { get; set; }
-    [Parameter]
-    public string? ActionURI { get; set; }
-    [Parameter]
-    public string ActionLabel { get; set; } = "Submit";
-    [Parameter]
-    public string ReturnLabel { get; set; } = "Return";
+    [Parameter][EditorRequired] public StockTransferRequestInfoVM Model { get; set; } = new();
+    [Parameter] public Func<StockTransferRequestInfoVM, Task<bool>>? OnSubmit { get; set; }
+    [Parameter] public EditContext? EditContext { get; set; }
+    [Parameter] public bool ReadOnly { get; set; } = false;
+    [Parameter] public bool LoadSubsidiary { get; set; } = true;
+    [Parameter] public bool IsBusy { get; set; } = false;
+    [Parameter] public string? ReturnURI { get; set; }
+    [Parameter] public string? ActionURI { get; set; }
+    [Parameter] public string ActionLabel { get; set; } = "Submit";
+    [Parameter] public string ReturnLabel { get; set; } = "Return";
 
-    [Inject]
-    IGridSettingsService GridSettingsService { get; set; } = default!;
-    [Inject]
-    ILocationHandler LocationHandler { get; set; } = default!;
-    [Inject]
-    ISubsidiaryHandler SubsidiaryHandler { get; set; } = default!;
-    [Inject]
-    IStockTransferRequestHandler StockTransferRequestHandler { get; set; } = default!;
-    [Inject]
-    IVendorHandler VendorHandler { get; set; } = default!;
-    [Inject]
-    IItemsHandler ItemsHandler { get; set; } = default!;
+    [Inject] IGridSettingsService GridSettingsService { get; set; } = default!;
+    [Inject] ILocationHandler LocationHandler { get; set; } = default!;
+    [Inject] ISubsidiaryHandler SubsidiaryHandler { get; set; } = default!;
+    [Inject] IStockTransferRequestHandler StockTransferRequestHandler { get; set; } = default!;
+    [Inject] IVendorHandler VendorHandler { get; set; } = default!;
+    [Inject] IItemsHandler ItemsHandler { get; set; } = default!;
     [Inject] IHttpContextAccessor httpContextAccessor { get; set; } = default!;
 
     AppTable<StockTransferRequestLineVM> LinesTable = default!;
@@ -183,12 +166,7 @@ public partial class STRForm
 
         await _concurrencySemaphore.WaitAsync();
 
-        var newIntent = intent.Adapt<DataGridIntent>();
-        newIntent.Filters.Add
-            (DataGridFilterUtilities.Equal(
-                nameof(VendorVM.Category), "TRADE"));
-
-        var result = await VendorHandler.GetVendorsListBySubsidiaryAsync(newIntent, Model.ToSubsidiary.Id);
+        var result = await VendorHandler.GetTradeVendorsListBySubsidiaryAsync(intent, Model.ToSubsidiary.Id);
 
         _concurrencySemaphore.Release();
         return result;
