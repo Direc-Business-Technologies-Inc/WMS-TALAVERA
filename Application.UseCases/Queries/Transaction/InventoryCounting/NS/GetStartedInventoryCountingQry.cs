@@ -6,7 +6,7 @@ using MediatR;
 
 namespace Application.UseCases.Queries.Transaction.InventoryCounting.NS;
 
-public record GetStartedInventoryCountingQry(RequestPerSubsidiaryDTO subsidiary) : IRequest<IEnumerable<OrdersDTO>>;
+public record GetStartedInventoryCountingQry(RequestPerUserDTO subsidiary) : IRequest<IEnumerable<OrdersDTO>>;
 
 public class GetStartedInventoryCountingQryHandler(
     INetSuiteApiClientService netSuiteApiClientService)

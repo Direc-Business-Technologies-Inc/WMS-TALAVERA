@@ -6,7 +6,7 @@ using MediatR;
 
 namespace Application.UseCases.Queries.Transaction.Receiving.NS.TransferOrder;
 
-public record GetTransferOrdersQry(RequestPerSubsidiaryDTO subsidiary) : IRequest<IEnumerable<OrdersDTO>>;
+public record GetTransferOrdersQry(RequestPerUserDTO user) : IRequest<IEnumerable<OrdersDTO>>;
 
 public class GetTransferOrdersQryHandler(
     INetSuiteApiClientService netSuiteApiClientService)
@@ -18,7 +18,8 @@ public class GetTransferOrdersQryHandler(
     {
         var parameters = new Dictionary<string, string>
         {
-            ["subsidiaryid"] = request.subsidiary.NetsuiteUserSubsidiaryInternalId.ToString()
+            ["subsidiaryid"] = request.user.NetsuiteUserSubsidiaryInternalId.ToString(),
+            ["userid"] = request.user.NetsuiteUserInternalId.ToString()
         };
 
         var Data = await netSuiteApiClientService.NetsuiteQuery<OrdersDTO>("NS_TransferOrder_Get_PendingReceipt", parameters);

@@ -18,6 +18,7 @@ public partial class PurchaseOrderView : IAsyncDisposable
     AppAction<List<PurchaseOrderVM>> ActionGetPurchaseOrder;
 
     int UserSubsidiaryId { get; set; }
+    int UserId { get; set; }
 
     private List<PurchaseOrderVM> FilteredData { get; set; } = [];
     private string SearchText { get; set; } = string.Empty;
@@ -31,7 +32,7 @@ public partial class PurchaseOrderView : IAsyncDisposable
             TaskAsync = async () =>
             {
                 await InvokeAsync(StateHasChanged);
-                var res = await Client.Post<List<PurchaseOrderVM>>("/Receiving/PurchaseOrder/PendingReceipt", new { NetsuiteUserSubsidiaryInternalId = UserSubsidiaryId });
+                var res = await Client.Post<List<PurchaseOrderVM>>("/Receiving/PurchaseOrder/PendingReceipt", new { NetsuiteUserSubsidiaryInternalId = UserSubsidiaryId, NetsuiteUserInternalId = UserId });
                 return res;
             },
             OnSuccess = async (result) =>
@@ -56,6 +57,7 @@ public partial class PurchaseOrderView : IAsyncDisposable
                 var auth = JsonSerializer.Deserialize<AuthenticationVM>(userAuth);
 
                 UserSubsidiaryId = auth.NetsuiteSubsidiaryInternalId;
+                UserId = auth.NetsuiteEmployeeInternalId;
             }
 
             await LoadData();

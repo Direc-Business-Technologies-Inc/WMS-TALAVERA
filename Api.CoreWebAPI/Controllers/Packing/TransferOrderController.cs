@@ -17,7 +17,7 @@ namespace Api.CoreWebAPI.Controllers.Packing;
 public class TransferOrderController(ISender Sender) : ControllerBase
 {
     [HttpPost("PendingFulfillment")]
-    public async Task<ApiResult<IEnumerable<TransferOrderVM>>> GetAllTO(RequestPerSubsidiaryDTO req)
+    public async Task<ApiResult<IEnumerable<TransferOrderVM>>> GetAllTO(RequestPerUserDTO req)
     {
         var result = await Sender.Send(new GetTransferOrdersQry(req));
 

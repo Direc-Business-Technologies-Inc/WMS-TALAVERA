@@ -18,6 +18,7 @@ public partial class ReturnsView : IAsyncDisposable
     AppAction<List<ReturnsVM>> ActionGetReturns;
 
     int UserSubsidiaryId { get; set; }
+    int UserId { get; set; }
 
     private List<ReturnsVM> FilteredData { get; set; } = [];
     private string SearchText { get; set; } = string.Empty;
@@ -31,7 +32,7 @@ public partial class ReturnsView : IAsyncDisposable
             TaskAsync = async () =>
             {
                 await InvokeAsync(StateHasChanged);
-                var res = await Client.Get<List<ReturnsVM>>("/Receiving/Returns/PendingReceipt", new { NetsuiteUserSubsidiaryInternalId = UserSubsidiaryId });
+                var res = await Client.Get<List<ReturnsVM>>("/Receiving/Returns/PendingReceipt", new { NetsuiteUserSubsidiaryInternalId = UserSubsidiaryId, NetsuiteUserInternalId = UserId });
                 return res;
             },
             OnSuccess = async (result) =>
@@ -55,6 +56,7 @@ public partial class ReturnsView : IAsyncDisposable
                 var auth = JsonSerializer.Deserialize<AuthenticationVM>(userAuth);
 
                 UserSubsidiaryId = auth.NetsuiteSubsidiaryInternalId;
+                UserId = auth.NetsuiteEmployeeInternalId;
             }
 
             await LoadData();

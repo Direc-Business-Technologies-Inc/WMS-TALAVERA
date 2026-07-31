@@ -28,7 +28,7 @@ public class InventoryCountingHandler(ISender Sender) : IInventoryCountingHandle
 {
     public async Task<(IEnumerable<SharedInventoryCountingVM> Data, int Count)> GetStartedInventoryCountingAsync(DataGridIntent intent, int subsidiaryId)
     {
-        RequestPerSubsidiaryDTO subsidiaryDTO = new()
+        RequestPerUserDTO subsidiaryDTO = new()
         {
             NetsuiteUserSubsidiaryInternalId = subsidiaryId
         };

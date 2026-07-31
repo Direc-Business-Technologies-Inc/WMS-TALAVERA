@@ -6,7 +6,7 @@ using MediatR;
 
 namespace Application.UseCases.Queries.Transaction.Packing.NS.VendorReturnAuthorization;
 
-public record GetVendorReturnAuthorizationQry(RequestPerSubsidiaryDTO subsidiary) : IRequest<IEnumerable<OrdersDTO>>;
+public record GetVendorReturnAuthorizationQry(RequestPerUserDTO user) : IRequest<IEnumerable<OrdersDTO>>;
 
 public class GetVendorReturnAuthorizationQryHandler(
     INetSuiteApiClientService netSuiteApiClientService)
@@ -18,7 +18,7 @@ public class GetVendorReturnAuthorizationQryHandler(
     {
         var parameters = new Dictionary<string, string>
         {
-            ["subsidiaryid"] = request.subsidiary.NetsuiteUserSubsidiaryInternalId.ToString()
+            ["subsidiaryid"] = request.user.NetsuiteUserSubsidiaryInternalId.ToString()
         };
 
         var Data = await netSuiteApiClientService.NetsuiteQuery<OrdersDTO>("NS_VendorReturnAuthorization_Get_PendingReturn", parameters);

@@ -6,7 +6,7 @@ using MediatR;
 
 namespace Application.UseCases.Queries.Transaction.Receiving.NS.Returns;
 
-public record GetReturnsQry(RequestPerSubsidiaryDTO subsidiary) : IRequest<IEnumerable<OrdersDTO>>;
+public record GetReturnsQry(RequestPerUserDTO user) : IRequest<IEnumerable<OrdersDTO>>;
 
 public class GetGetReturnsQryQryHandler(
     INetSuiteApiClientService netSuiteApiClientService)
@@ -18,7 +18,8 @@ public class GetGetReturnsQryQryHandler(
     {
         var parameters = new Dictionary<string, string>
         {
-            ["subsidiaryid"] = request.subsidiary.NetsuiteUserSubsidiaryInternalId.ToString()
+            ["subsidiaryid"] = request.user.NetsuiteUserSubsidiaryInternalId.ToString(),
+            ["userid"] = request.user.NetsuiteUserInternalId.ToString()
         };
 
         var Data = await netSuiteApiClientService.NetsuiteQuery<OrdersDTO>("NS_TransferOrder_x_Return_Get_PendingReceipt", parameters);

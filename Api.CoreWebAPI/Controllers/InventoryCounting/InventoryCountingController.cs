@@ -17,7 +17,7 @@ namespace Api.CoreWebAPI.Controllers.InventoryCounting;
 public class InventoryCountingController(ISender Sender) : ControllerBase
 {
     [HttpPost("Started")]
-    public async Task<ApiResult<IEnumerable<InventoryCountingVM>>> GetAllStartedInventoryCount(RequestPerSubsidiaryDTO req)
+    public async Task<ApiResult<IEnumerable<InventoryCountingVM>>> GetAllStartedInventoryCount(RequestPerUserDTO req)
     {
         var result = await Sender.Send(new GetStartedInventoryCountingQry(req));
 

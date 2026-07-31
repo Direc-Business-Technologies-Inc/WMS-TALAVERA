@@ -34,7 +34,7 @@ public class LookupController(ISender Sender) : ControllerBase
     }
 
     [HttpPost("Susidiary/Locations")]
-    public async Task<ApiResult<IEnumerable<LocationVM>>> GetSubsidiaryLocations(RequestPerSubsidiaryDTO req)
+    public async Task<ApiResult<IEnumerable<LocationVM>>> GetSubsidiaryLocations(RequestPerUserDTO req)
     {
         var result = await Sender.Send(new GetSubsidiariesLocationQry(req));
         var ret = result.Adapt<List<LocationVM>>();
