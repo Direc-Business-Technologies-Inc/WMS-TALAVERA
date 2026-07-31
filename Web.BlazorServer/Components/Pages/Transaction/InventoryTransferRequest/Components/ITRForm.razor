@@ -1,5 +1,6 @@
 ﻿@using Web.BlazorServer.Components.Custom
 @using Web.BlazorServer.Components.Pages.Transaction.Others
+@using Web.BlazorServer.Components.Pages.Transaction.Others.BarcodeScanning
 @using Web.BlazorServer.ViewModels.Others
 @using Web.BlazorServer.ViewModels.Transaction.InventoryTransferRequest
 
@@ -43,6 +44,7 @@
         <RadzenFieldset Text="Lines">
             <AppTableWithSettings Id="inventory_transfer_request_lines_table" Data="@Model.Lines">
                 <HeaderTemplate>
+                    <RadzenButton Visible="@(!ReadOnly)" Icon="barcode" Disabled="@(Model.SourceLocation is null || IsDisabled)" ButtonStyle="ButtonStyle.Primary" Click="(() => OpenBarcodeDialog())" Size="ButtonSize.Small" Text="Scan Barcodes"/>
                     <RadzenButton Visible="@(!ReadOnly)" Icon="add" Disabled="@(Model.SourceLocation is null || IsDisabled)" ButtonStyle="ButtonStyle.Success" Click="(() => OpenItemDialog())" Size="ButtonSize.Small" />
                 </HeaderTemplate>
                 <Columns>
@@ -163,5 +165,23 @@
             line.InventoryDetails = [.. details];
             await MarkLineDirty(line);
         }
+    }
+    
+    async Task OpenBarcodeDialog()
+    {
+        bool? save = await DialogService.OpenAsync(
+            "Table Settings",
+            ds => @<BarcodeScannerDialog BarcodeStore="BarcodeStore" Verifier="IsValidBarcode" />,
+            options: GridSettingsService.GetDialogOptions());
+
+        if (save == false)
+        {
+            BarcodeStore.Clear();
+        }
+        else if (save == true)
+        {
+            ApplyBarcodes();
+        }
+        await InvokeAsync(StateHasChanged);
     }
 }

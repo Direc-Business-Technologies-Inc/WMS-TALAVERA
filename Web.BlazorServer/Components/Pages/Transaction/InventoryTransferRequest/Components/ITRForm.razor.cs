@@ -3,10 +3,12 @@ using Microsoft.AspNetCore.Components.Forms;
 using Shared.Entities;
 using Shared.Libraries.Utilities;
 using Web.BlazorServer.Components.Custom;
+using Web.BlazorServer.Components.Pages.Transaction.Others.BarcodeScanning;
 using Web.BlazorServer.Handlers.Repositories.Others;
 using Web.BlazorServer.Services.Repositories;
 using Web.BlazorServer.ViewModels.Others;
 using Web.BlazorServer.ViewModels.Transaction.InventoryTransferRequest;
+using Web.BlazorServer.ViewModels.Transaction.Receiving;
 
 namespace Web.BlazorServer.Components.Pages.Transaction.InventoryTransferRequest.Components;
 
@@ -33,6 +35,8 @@ public partial class ITRForm
     QuickVirtualizedDropdown<LocationVM> SourceLocationDropdown { get; set; } = default!;
     QuickVirtualizedDropdown<LocationVM> DestinationLocationDropdown { get; set; } = default!;
     QuickVirtualizedDropdown<SubsidiaryVM> SubsidiaryDropdown { get; set; } = default!;
+
+    BarcodeStore BarcodeStore = new();
 
     HashSet<int> LoadedInventoryDetails = new();
 
@@ -248,6 +252,46 @@ public partial class ITRForm
 
         line.InventoryDetails.Clear();
         await MarkLineDirty(line);
+    }
+
+    void ApplyBarcodes()
+    {
+        if (!BarcodeStore.Any()) return;
+
+        foreach (var item in BarcodeStore.Items)
+        {
+            var itemCount = BarcodeStore.CountItemQuantity(item);
+            var itemLine = Model.Lines.First(x => x.ItemID == item.Id);
+
+            if (itemLine != null) itemLine.QuantityAlloted += itemCount / (itemLine.UoM?.ConversionRate ?? 1);
+        }
+
+        BarcodeStore.Clear();
+    }
+
+
+    bool IsValidBarcode(BarcodeVM barcode, out string reason)
+    {
+        var line = Model.Lines.FirstOrDefault(x => x.ItemID == barcode.Item?.Id && barcode.UoM?.Id == x.UoM?.Id && barcode.UoM is not null) ??
+            Model.Lines.FirstOrDefault(x => x.ItemID == barcode.Item?.Id);
+        if (line is null)
+        {
+            reason = $"The item {barcode.Item?.ItemNumber} does not exist in the current document";
+            return false;
+        }
+
+        var uomRate = line.UoM?.ConversionRate ?? 1;
+        var itemCount = BarcodeStore.CountItemQuantity(line.ItemID) / uomRate;
+        var incomingCount = (barcode.UoM?.ConversionRate ?? 0) / uomRate;
+
+        if (line.QuantityOnHandByUoM - line.QuantityAlloted - itemCount < incomingCount)
+        {
+            reason = $"The quantity of the item {line.ItemCode} exceeds the expected amount";
+            return false;
+        }
+
+        reason = "";
+        return true;
     }
 
     bool _areEqual(LocationVM? a, LocationVM? b) => (a is null || b is null) ? false : a?.Id == b?.Id;
