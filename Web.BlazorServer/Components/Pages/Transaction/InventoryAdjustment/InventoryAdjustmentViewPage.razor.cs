@@ -11,7 +11,9 @@ public partial class InventoryAdjustmentViewPage
     [SupplyParameterFromQuery] public string? Ref { get; set; } = null;
     [Inject] IInventoryAdjustmentHandler handler { get; set; } = default!;
 
+
     bool IsLoadingData => AppBusyService.IsBusy(ActionGetInventoryAdjustment);
+    bool IsIssue = false;
 
     readonly string ActionGetInventoryAdjustment = "Get Inventory Adjustment";
 
@@ -57,6 +59,7 @@ public partial class InventoryAdjustmentViewPage
         action.OnSuccess(async res =>
         {
             res.Adapt(FormData);
+            IsIssue = FormData.IsIssue;
             AdditionalRoutes[0].Name = FormData.IsIssue ? "Goods Issue" : "Goods Receipt";
             await InvokeAsync(StateHasChanged);
         });
@@ -66,6 +69,7 @@ public partial class InventoryAdjustmentViewPage
             return Task.Delay(100).ContinueWith(_ =>
             {
                 NavManager.NavigateTo(InventoryAdjustmentRoutes.INDEX, true);
+
             });
         });
     }

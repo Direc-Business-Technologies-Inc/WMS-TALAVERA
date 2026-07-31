@@ -13,6 +13,7 @@ public class InventoryAdjustmentDTO
     public int? PreparedById { get; set; }
     public string ReferenceNumber { get; set; } = string.Empty;
     public SubsidiaryDTO? Subsidiary { get; set; }
+    public DepartmentDTO? Department { get; set; }
     public LocationDTO? Location { get; set; }
     public BusinessAccountDTO? Account { get; set; }
     public InventoryAdjustmentReasonDTO? Reason { get; set; }

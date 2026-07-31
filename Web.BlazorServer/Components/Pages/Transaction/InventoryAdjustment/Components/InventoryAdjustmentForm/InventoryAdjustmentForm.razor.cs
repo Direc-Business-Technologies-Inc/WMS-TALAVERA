@@ -29,12 +29,14 @@ public partial class InventoryAdjustmentForm
     [Inject] ILocationHandler locationHandler { get; set; } = default!;
     [Inject] IItemsHandler itemsHandler { get; set; } = default!;
     [Inject] IBusinessAccountHandler accountHandler { get; set; } = default!;
+    [Inject] IDepartmentHandler departmentHandler { get; set; } = default!;
     [Inject] IInventoryAdjustmentHandler adjustmentHandler { get; set; } = default!;
     [Inject] IGridSettingsService GridSettingsService { get; set; } = default!;
 
     public string ActionGetSubsidiaries => "Get Subsidiaries";
     public string ActionGetLocations => "Get Locations";
     public string ActionGetAccounts => "Get Accounts";
+    public string ActionGetDepartments => "Get Departments";
     public string ActionGetItemUnits => "Get Item Units";
     public string ActionGetReasons => "Get Inventory Adjustment Reasons";
     public QuickVirtualizedDropdown<BusinessAccountVM> AccountDropdown { get; set; } = default!;
@@ -70,6 +72,12 @@ public partial class InventoryAdjustmentForm
     async Task<(IEnumerable<InventoryAdjustmentReasonVM>, int)> ReasonProvider(DataGridIntent intent)
     {
         return await adjustmentHandler.GetInventoryAdjustmentReasonsAsync(intent);
+    }
+    // bad naming. these are methods, not functions so they should be named something like ProvideDepartments or FetchDepartments
+    // however, who cares
+    async Task<(IEnumerable<DepartmentVM>, int)> DepartmentProvider(DataGridIntent intent)
+    {
+        return await departmentHandler.GetDepartmentsListAsync(intent);
     }
 
     async Task<(IEnumerable<ItemUnitVM>, int)> UnitsProvider(int itemid, DataGridIntent intent)

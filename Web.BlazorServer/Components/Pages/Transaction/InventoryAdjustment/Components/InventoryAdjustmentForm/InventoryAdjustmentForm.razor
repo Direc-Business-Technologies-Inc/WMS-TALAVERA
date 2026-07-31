@@ -19,24 +19,35 @@
                     <RadzenDatePicker Disabled="Disabled" DateFormat="MMMM dd, yyyy" ShowTime="false" TValue="DateTime" ReadOnly Value="@Model.Date" />
                 </RadzenFormField>
             </RadzenColumn>
-            <RadzenColumn SizeMD="6">
+            <RadzenColumn SizeMD="@(Issue ? 3 : 6)">
                 <RadzenFormField Text="Subsidiary" class="rz-w-100">
                     <RadzenTextBox Disabled="Disabled" Visible="@ReadOnly" ReadOnly Value="@Model.Subsidiary?.Name" Placeholder="Enter subsidiary" />
                     <QuickVirtualizedDropdown Disabled="Disabled" Visible="@(!ReadOnly)" ActionName="@ActionGetSubsidiaries" TItem="SubsidiaryVM" @bind-Value:get="@Model.Subsidiary" @bind-Value:set="@SetSubsidiary" DataGetter="@SubsidiaryProvider" TextProperty="@nameof(SubsidiaryVM.Name)" AllowFiltering />
                 </RadzenFormField>
             </RadzenColumn>
-            <RadzenColumn SizeMD="6">
+            <RadzenColumn SizeMD="@(Issue ? 3 : 6)">
                 <RadzenFormField Text="Location" class="rz-w-100">
                     <RadzenTextBox Disabled="Disabled" Visible="@ReadOnly" ReadOnly Value="@Model.Location?.Name" Placeholder="Enter location" />
                     <QuickVirtualizedDropdown @ref="@LocationDropdown" Visible="@(!ReadOnly)" Disabled="@(Model.Subsidiary is null || Disabled)" ActionName="@ActionGetLocations" TItem="LocationVM" @bind-Value="@Model.Location" DataGetter="@LocationProvider" TextProperty="@nameof(LocationVM.Name)" AllowFiltering AllowClear/>
                 </RadzenFormField>
             </RadzenColumn>
-            <RadzenColumn>
+            <RadzenColumn SizeMD="6" Visible="@Issue">
+                <RadzenFormField Text="Department" class="rz-w-100">
+                    <ChildContent>
+                    <RadzenTextBox Disabled="Disabled" Visible="@ReadOnly" ReadOnly Value="@Model.Department?.Name" Placeholder="Enter location" />
+                    <QuickVirtualizedDropdown Visible="@(!ReadOnly)" Disabled="@(Model.Subsidiary is null || Disabled)" ActionName="@ActionGetDepartments" TItem="DepartmentVM" @bind-Value="@Model.Department" DataGetter="@DepartmentProvider" TextProperty="@nameof(DepartmentVM.Name)" AllowFiltering AllowClear Name="ia_department" />
+                    </ChildContent>
+                    <Helper>
+                        <RadzenRequiredValidator Component="ia_department" />
+                    </Helper>
+                </RadzenFormField>
+            </RadzenColumn>
+            <RadzenColumn SizeMD="6">
                 <RadzenFormField Text="Adjustment Category" class="rz-w-100">
                     <RadzenTextBox ReadOnly Disabled="Disabled" Value="@Model.Category?.Name" Placeholder="Category not provided" />
                 </RadzenFormField>
             </RadzenColumn>
-            <RadzenColumn SizeMD="4">
+            <RadzenColumn SizeMD="3">
                 <RadzenFormField Text="Adjustment Reason" class="rz-w-100">
                     <ChildContent>
                         <RadzenTextBox Disabled="Disabled" Visible="@ReadOnly" ReadOnly Value="@Model.Reason?.Name" Placeholder="Enter adjustment reason" />
@@ -44,7 +55,7 @@
                     </ChildContent>
                 </RadzenFormField>
             </RadzenColumn>
-            <RadzenColumn SizeMD="4">
+            <RadzenColumn SizeMD="3">
                 <RadzenFormField Text="Account" class="rz-w-100">
                     <ChildContent>
                         <RadzenTextBox Disabled="Disabled" Visible="@ReadOnly" ReadOnly Value="@Model.Account?.Name" Placeholder="Enter account" />

@@ -30,6 +30,6 @@
     </RadzenStack>
     <AppFormSkeleton TItem="InventoryAdjustmentVM" Loading="@IsLoadingData" />
     @if (!IsLoadingData) {
-        <InventoryAdjustmentForm Model="@FormData" EditContext="@EditContext" ReadOnly OnReturnClicked="OnReturn" />
+        <InventoryAdjustmentForm Model="@FormData" EditContext="@EditContext" ReadOnly OnReturnClicked="OnReturn" Issue="IsIssue" />
     }
 </AppContent>

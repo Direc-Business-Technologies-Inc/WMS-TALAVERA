@@ -39,12 +39,16 @@ public class InventoryAdjustmentIntegration(
                 ("iar.name", nameof(InventoryAdjustmentNSDTO.ReasonName)),
                 ("iar.custrecord_atlas_glaccount", nameof(InventoryAdjustmentNSDTO.ReasonAccountId)),
                 ("BUILTIN.DF(iar.custrecord_atlas_glaccount)", nameof(InventoryAdjustmentNSDTO.ReasonAccountName)),
-                ("iac.id", nameof(InventoryAdjustmentNSDTO.CategoryId)),
                 ("iac.name", nameof(InventoryAdjustmentNSDTO.CategoryName)),
+                ("iac.id", nameof(InventoryAdjustmentNSDTO.CategoryId)),
+                ("d.name", nameof(InventoryAdjustmentNSDTO.DepartmentName)),
+                ("d.id", nameof(InventoryAdjustmentNSDTO.DepartmentId)),
+                ("d.custrecord_dbti_department_code", nameof(InventoryAdjustmentNSDTO.DepartmentCode)),
                 ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS') ", nameof(InventoryAdjustmentNSDTO.Date))
             )
             .From("transaction t")
             .Join("transactionline tl", on: "tl.transaction = t.id")
+            .LeftJoin("department d", "tl.department = d.id")
             .LeftJoin("CUSTOMRECORD_ATLAS_INV_ADJ_REASN iar", on: "iar.id = t.custbody_atlas_inv_adj_reason")
             .LeftJoin("CUSTOMLIST_DBTI_ADJUSTMENT_CATEGORY_LI iac", on: "iac.id = t.custbody_dbti_adjustment_category")
             .LeftJoin("employee e", on: "e.id = t.custbody_dbti_prepared_by")
@@ -67,6 +71,8 @@ public class InventoryAdjustmentIntegration(
         result.Location = new LocationDTO { Id = nsdto.LocationId, Name = nsdto.LocationName };
         result.Account = new BusinessAccountDTO { Id = nsdto.AccountId, Name = nsdto.AccountName };
         result.Category = new InventoryAdjustmentCategoryDTO { Id = nsdto.CategoryId, Name = nsdto.CategoryName };
+        result.Department = new DepartmentDTO { Id = nsdto.DepartmentId, Name = nsdto.DepartmentName, Code= nsdto.DepartmentCode };
+
         result.Reason = nsdto.ReasonId < 0 ? null : new InventoryAdjustmentReasonDTO 
         { 
             Name = nsdto.ReasonName,
@@ -235,8 +241,8 @@ public class InventoryAdjustmentIntegration(
             preparedBy = dto.PreparedById,
             trandate = dto.Date.ToString("MM/dd/yyyy"),
             adjustmentCategory = category,
-            department = 15, // operations
-            // this should be set here i think. integration should be responsible for logic that
+            department = dto.Department?.Id ?? 15, // defaults to operations
+            // this should be set here i think (as opposed to application or presentation layer). integration should be responsible for logic that
             // concerns netsuite operations and setting the department/class by default is exactly that.
             // TODO would be great if there was some centralized place to store these values and also maybe strings that prompt or alert users.
             classId = 1, // external

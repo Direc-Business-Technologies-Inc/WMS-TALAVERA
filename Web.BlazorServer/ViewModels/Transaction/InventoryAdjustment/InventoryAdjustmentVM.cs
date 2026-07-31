@@ -7,6 +7,7 @@ public class InventoryAdjustmentVM
     public int Id { get; set; }
     public SubsidiaryVM? Subsidiary { get; set; }
     public LocationVM? Location { get; set; }
+    public DepartmentVM? Department { get; set; }
     public BusinessAccountVM? Account { get; set; }
     public InventoryAdjustmentReasonVM? Reason { get; set; } = null;
     public InventoryAdjustmentCategoryVM? Category { get; set; } = null;
