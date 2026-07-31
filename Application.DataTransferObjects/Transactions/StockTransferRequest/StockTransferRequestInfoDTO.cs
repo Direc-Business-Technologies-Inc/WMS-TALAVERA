@@ -24,4 +24,5 @@ public class StockTransferRequestInfoDTO
     public List<StockTransferRequestLineDTO> Lines { get; set; } = [];
     public int? PreparedById { get; set; }
     public bool IsEditable { get; set; }
+    public bool IsSubmittedForApprovals { get; set; }
 }

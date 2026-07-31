@@ -8,7 +8,11 @@ public class InventoryTransferRequestDataGridVM
     public int Id { get; set; }
     [QuickDataGridTitle("Reference Number")]
     public string ReferenceNumber { get; set; } = string.Empty;
+    [QuickDataGridStringFormat("{0:MMMM dd, yyyy}")]
     public DateTime Date { get; set; }
+    [QuickDataGridStringFormat("{0:MMMM dd, yyyy - hh:mmtt}")]
+    [QuickDataGridTitle("Last Modified")]
+    public DateTime DateLastModified { get; set; }
     [QuickDataGridTitle("Subsidiary")]
     public string SubsidiaryName { get; set; } = string.Empty;
     [QuickDataGridTitle("From Warehouse")]

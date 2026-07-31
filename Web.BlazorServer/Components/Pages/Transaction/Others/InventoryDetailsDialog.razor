@@ -21,47 +21,83 @@
                 </RadzenTableHeaderRow>
             </RadzenTableHeader>
             <RadzenTableBody>
-                @foreach (var detail in Details)
+                @if (!IsLoadingDetails)
                 {
-                    <RadzenTableRow>
-                        <RadzenTableCell Visible="@LocationHasBins">
-                            <RadzenFormField class="rz-w-100">
-                                <QuickVirtualizedDropdown @bind-Value:get="detail.Detail.Bin" @bind-Value:set="@detail.BinSet" TItem="LocationBinVM" DataGetter="@LocationBinProvider" TextProperty="@nameof(LocationBinVM.BinNumber)" />
-                            </RadzenFormField>
-                        </RadzenTableCell>
-                        <RadzenTableCell>
-                            <RadzenFormField class="rz-w-100">
-                                <QuickVirtualizedDropdown @ref="@detail.StatusDropdown" @bind-Value="detail.Detail.Status" TItem="InventoryStatusVM" DataGetter="@(intent => StatusProvider(detail, intent))" TextProperty="@nameof(InventoryStatusVM.Name)" Disabled="@(LocationHasBins && detail.Detail.Bin is null)" />
-                            </RadzenFormField>
-                        </RadzenTableCell>
-                        <RadzenTableCell>
-                            <RadzenFormField class="rz-w-100">
-                                <RadzenNumeric class="rz-w-100" Format="#,##0.##" Value="detail.QuantityOnHand" ShowUpDown="false" ReadOnly />
-                            </RadzenFormField>
-                        </RadzenTableCell>
-                        <RadzenTableCell>
-                            <RadzenFormField class="rz-w-100">
-                                <RadzenNumeric class="rz-w-100" Format="#,##0.##" @bind-Value="detail.Detail.QuantityAlloted" Min="0" Max="@(detail.MaxValue)" />
-                            </RadzenFormField>
-                        </RadzenTableCell>
-                        <RadzenTableCell>
-                            <RadzenButton ButtonStyle="ButtonStyle.Danger" Icon="delete" Click="@(() => RemoveLine(detail))" Size="ButtonSize.Small" />
-                        </RadzenTableCell>
-                    </RadzenTableRow>
+                    @foreach (var detail in Details)
+                    {
+                        if (!ReadOnly)
+                        {
+                            <RadzenTableRow>
+                                <RadzenTableCell Visible="@LocationHasBins">
+                                    <RadzenFormField class="rz-w-100">
+                                        <QuickVirtualizedDropdown @bind-Value:get="detail.Detail.Bin" @bind-Value:set="@detail.BinSet" TItem="LocationBinVM" DataGetter="@LocationBinProvider" TextProperty="@nameof(LocationBinVM.BinNumber)" />
+                                    </RadzenFormField>
+                                </RadzenTableCell>
+                                <RadzenTableCell>
+                                    <RadzenFormField class="rz-w-100">
+                                        <QuickVirtualizedDropdown @ref="@detail.StatusDropdown" @bind-Value="detail.Detail.Status" TItem="InventoryStatusVM" DataGetter="@(intent => StatusProvider(detail, intent))" TextProperty="@nameof(InventoryStatusVM.Name)" Disabled="@(LocationHasBins && detail.Detail.Bin is null)" />
+                                    </RadzenFormField>
+                                </RadzenTableCell>
+                                <RadzenTableCell>
+                                    <RadzenFormField class="rz-w-100">
+                                        <RadzenNumeric class="rz-w-100" Format="#,##0.##" Value="detail.QuantityOnHand" ShowUpDown="false" ReadOnly />
+                                    </RadzenFormField>
+                                </RadzenTableCell>
+                                <RadzenTableCell>
+                                    <RadzenFormField class="rz-w-100">
+                                        <RadzenNumeric class="rz-w-100" Format="#,##0.##" @bind-Value="detail.Detail.QuantityAlloted" Min="0" Max="@(detail.MaxValue)" />
+                                    </RadzenFormField>
+                                </RadzenTableCell>
+                                <RadzenTableCell>
+                                    <RadzenButton ButtonStyle="ButtonStyle.Danger" Icon="delete" Click="@(() => RemoveLine(detail))" Size="ButtonSize.Small" />
+                                </RadzenTableCell>
+                            </RadzenTableRow>
+                        }
+                        else
+                        {
+                            <RadzenTableRow>
+                                <RadzenTableCell Visible="@LocationHasBins">
+                                    <RadzenText TextStyle="TextStyle.Body2">@detail.Detail.Bin?.BinNumber</RadzenText>
+                                </RadzenTableCell>
+                                <RadzenTableCell>
+                                    <RadzenText TextStyle="TextStyle.Body2">@detail.Detail.Status?.Name</RadzenText>
+                                </RadzenTableCell>
+                                <RadzenTableCell>
+                                    <RadzenText TextStyle="TextStyle.Body2">@detail.QuantityOnHand</RadzenText>
+                                </RadzenTableCell>
+                                <RadzenTableCell>
+                                    <RadzenText TextStyle="TextStyle.Body2">@Math.Abs(detail.Detail.QuantityAlloted)</RadzenText>
+                                </RadzenTableCell>
+                                <RadzenTableCell>
+                                </RadzenTableCell>
+                            </RadzenTableRow>
+                        }
+                    }
+                    @if (Details.Count == 0)
+                    {
+                        <RadzenTableRow>
+                            <RadzenTableCell colspan="@(LocationHasBins ? 4 : 3)">
+                                <RadzenText TextAlign="TextAlign.Center" TextStyle="TextStyle.Body2">@(ReadOnly ? "No inventory details given" : "Add inventory details")</RadzenText>
+                            </RadzenTableCell>
+                        </RadzenTableRow>
+                    }
+                    @if (ErrorString is not null)
+                    {
+                        <RadzenTableRow>
+                            <RadzenTableCell colspan="@(LocationHasBins ? 4 : 3)">
+                                <RadzenText TextAlign="TextAlign.Center" TextStyle="TextStyle.Body2" class="rz-messages-error">@ErrorString</RadzenText>
+                            </RadzenTableCell>
+                        </RadzenTableRow>
+                    }
                 }
-                @if (Details.Count == 0)
+                else
                 {
                     <RadzenTableRow>
                         <RadzenTableCell colspan="@(LocationHasBins ? 4 : 3)">
-                            <RadzenText TextAlign="TextAlign.Center" TextStyle="TextStyle.Body2">Add inventory details</RadzenText>
-                        </RadzenTableCell>
-                    </RadzenTableRow>
-                }
-                @if (ErrorString is not null)
-                {
-                    <RadzenTableRow>
-                        <RadzenTableCell colspan="@(LocationHasBins ? 4 : 3)">
-                            <RadzenText TextAlign="TextAlign.Center" TextStyle="TextStyle.Body2" class="rz-messages-error">@ErrorString</RadzenText>
+                            <RadzenStack class="rz-w-100" AlignItems="AlignItems.Center">
+                                <RadzenProgressBarCircular ProgressBarStyle="ProgressBarStyle.Primary" Value="100" ShowValue="false" Mode="ProgressBarMode.Indeterminate" AriaLabel="Primary loading" />
+                                <RadzenText TextAlign="TextAlign.Center" TextStyle="TextStyle.Body2">Loading inventory details...</RadzenText>
+                            </RadzenStack>
                         </RadzenTableCell>
                     </RadzenTableRow>
                 }
@@ -72,11 +108,11 @@
                 <RadzenText TextStyle="TextStyle.Caption">Total Count: @AmountSum</RadzenText>
             </RadzenStack>
             <RadzenStack Orientation=" Orientation.Horizontal" JustifyContent="JustifyContent.End">
-                <RadzenText TextStyle="TextStyle.Caption">Required Count: @Amount</RadzenText>
+                <RadzenText Visible="@(!ReadOnly)" TextStyle="TextStyle.Caption">Required Count: @Amount</RadzenText>
             </RadzenStack>
             <RadzenStack Orientation=" Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5em">
-                <RadzenButton Size="ButtonSize.Small" Text="Add" Click="AddItem" />
-                <RadzenButton ButtonStyle="ButtonStyle.Success" Size="ButtonSize.Small" Text="Set" Click="Submit" />
+                <RadzenButton Visible="@(!ReadOnly)" Size="ButtonSize.Small" Text="Add" Click="AddItem" />
+                <RadzenButton Visible="@(!ReadOnly)" ButtonStyle="ButtonStyle.Success" Size="ButtonSize.Small" Text="Set" Click="Submit" />
             </RadzenStack>
         </RadzenStack>
     </RadzenFieldset>

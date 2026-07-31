@@ -1,10 +1,11 @@
-﻿@using Web.BlazorServer.Components.Security
+﻿@using Web.BlazorServer.Components.Custom
+@using Web.BlazorServer.Components.Security
 @using Web.BlazorServer.ViewModels.Administration.User
 @using Web.BlazorServer.ViewModels.Transaction.Receiving
 
 @inherits BaseComponent
 
-<AppDataGrid @ref="@PurchaseOrderDataGrid" Id="receiving_purchase_order_grid" TItem="PurchaseOrderDataGridVM" DataGetter="@LoadDataAsync" GridSettings="@PurchaseOrderDataGridSettings" @bind-GridSettingsLoaded="@GridSettingsLoaded" ActionName="@ActionGetPurchaseOrders" >
+<AppDataGrid @ref="@PurchaseOrderDataGrid" Id="receiving_purchase_order_grid" TItem="PurchaseOrderDataGridVM" DataGetter="@LoadDataAsync" GridSettings="@PurchaseOrderDataGridSettings" @bind-GridSettingsLoaded="@GridSettingsLoaded" ActionName="@ActionGetPurchaseOrders">
     <HeaderTemplate>
         <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" AlignItems="AlignItems.Center" Gap="8px">
             <RadzenButton Icon="settings" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@OpenTableSettings" />
@@ -12,29 +13,43 @@
         </RadzenStack>
     </HeaderTemplate>
     <GridColumns>
-        <RadzenDataGridColumn TItem="PurchaseOrderDataGridVM" 
+        <RadzenDataGridColumn TItem="PurchaseOrderDataGridVM"
                               Property="@nameof(PurchaseOrderDataGridVM.ReferenceNumber)"
                               Type="@typeof(string)"
                               Title="Reference Number" />
         <RadzenDataGridColumn TItem="PurchaseOrderDataGridVM"
                               Property="@nameof(PurchaseOrderDataGridVM.Date)"
                               Type="@typeof(DateTime)"
-                              FormatString="{0:yyyy-MM-dd}"
+                              FormatString="{0:MMMM dd, yyyy}"
                               Title="Purchase Order Date" />
         <RadzenDataGridColumn TItem="PurchaseOrderDataGridVM"
                               Property="@nameof(PurchaseOrderDataGridVM.DeliveryDate)"
                               Type="@typeof(DateTime)"
-                              FormatString="{0:yyyy-MM-dd}"
+                              FormatString="{0:MMMM dd, yyyy}"
                               Title="Delivery Date" />
         <RadzenDataGridColumn TItem="PurchaseOrderDataGridVM"
-                              Property="@nameof(PurchaseOrderDataGridVM.Vendor)"
+                              Property="@nameof(PurchaseOrderDataGridVM.VendorName)"
                               FilterProperty="VendorName"
                               Type="@typeof(string)"
                               Title="Vendor Name" />
         <RadzenDataGridColumn TItem="PurchaseOrderDataGridVM"
                               Property="@nameof(PurchaseOrderDataGridVM.Status)"
                               Type="@typeof(string)"
-                              Title="Status" />
+                              Title="Status">
+            <FilterTemplate>
+                <div class="rz-grid-filter">
+                    <RadzenStack Gap="0.5em">
+                        <RadzenText TextStyle="TextStyle.Body2" class="rz-grid-filter-label">Filter</RadzenText>
+                        <RadzenFormField>
+                            <QuickVirtualizedDropdown @bind-Value="StatusFilter" TItem="PurchaseOrderStatusVM" DataGetter="GetPurchaseOrderStatuses" TextProperty="@nameof(PurchaseOrderStatusVM.Name)" />
+                        </RadzenFormField>
+                        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End">
+                            <RadzenButton Click="@(() => ApplyStatusFilter(context))">Apply</RadzenButton>
+                        </RadzenStack>
+                    </RadzenStack>
+                </div>
+            </FilterTemplate>
+        </RadzenDataGridColumn>
         <RadzenDataGridColumn TItem="PurchaseOrderDataGridVM"
                               Property="@nameof(PurchaseOrderDataGridVM.Remarks)"
                               FilterProperty="Memo"

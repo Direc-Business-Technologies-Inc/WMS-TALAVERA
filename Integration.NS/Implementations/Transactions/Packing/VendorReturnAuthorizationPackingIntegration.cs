@@ -2,12 +2,14 @@ using Application.DataTransferObjects.Transactions.Packing.VendorReturnAuthoriza
 using Application.UseCases.Repositories.Integration.Others;
 using Application.UseCases.Repositories.Integration.Transaction.Packing;
 using Database.Libraries.Repositories;
+using Integration.NS.DataTransferObjects.Packing.Returns;
 using Integration.NS.DataTransferObjects.Packing.STR;
 using Integration.NS.DataTransferObjects.Packing.VendorReturnAuthorization;
 using Integration.NS.Helpers;
 using Integration.NS.Services;
 using Microsoft.AspNetCore.Http;
 using Shared.Entities;
+using Shared.Libraries.Utilities;
 using static Shared.Libraries.Utilities.DataGridFilterUtilities;
 
 namespace Integration.NS.Implementations.Transactions.Packing;
@@ -20,22 +22,25 @@ internal class VendorReturnAuthorizationPackingIntegration(
 {
     public async Task<(IEnumerable<VendorReturnAuthorizationDataGridDTO> Data, int Count)> GetPackingVendorReturnAuthorizationsList(DataGridIntent intent, int subsidiaryId)
     {
+
+        if (intent.Sorts.Count == 0) intent.Sorts.Add(DataGridSortUtilities.Descending(nameof(VendorReturnAuthorizationPackingDataGridNSDTO.DateLastModified)));
         var query = builderFactory.Create()
             .Select(
                 ("t.id", nameof(VendorReturnAuthorizationPackingDataGridNSDTO.Id)),
                 ("t.tranid", nameof(VendorReturnAuthorizationPackingDataGridNSDTO.ReferenceNumber)),
                 ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(VendorReturnAuthorizationPackingDataGridNSDTO.Date)),
+                ("TO_CHAR(t.lastmodifieddate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(VendorReturnAuthorizationPackingDataGridNSDTO.DateLastModified)),
                 ("BUILTIN.DF(t.subsidiary)", nameof(VendorReturnAuthorizationPackingDataGridNSDTO.SourceSubsidiary)),
                 ("BUILTIN.DF(t.tosubsidiary)", nameof(VendorReturnAuthorizationPackingDataGridNSDTO.DestinationSubsidiary)),
                 ("BUILTIN.DF(tl.location)", nameof(VendorReturnAuthorizationPackingDataGridNSDTO.Location)),
                 ("BUILTIN.DF(t.transferlocation)", nameof(VendorReturnAuthorizationPackingDataGridNSDTO.TransferLocation)),
-                ("BUILTIN.DF(t.status)", nameof(VendorReturnAuthorizationPackingDataGridNSDTO.Status)),
+                ("s.name", nameof(VendorReturnAuthorizationPackingDataGridNSDTO.Status)),
                 ("t.memo", nameof(VendorReturnAuthorizationPackingDataGridNSDTO.Remarks))
             )
             .From("transaction t")
             .Join("transactionline tl", on: "tl.transaction = t.id")
             .Join("entity e", on: "t.entity = e.id")
-            .WithSubsidiaries(httpContextAccessor, "t")
+            .LeftJoin("VendorReturnAuthorizationStatus s", "s.id = t.status")
             .WithFilters(
                 Equal("tl.mainline", "T"),
                 Equal("t.subsidiary", subsidiaryId))
@@ -58,12 +63,12 @@ internal class VendorReturnAuthorizationPackingIntegration(
                 ("BUILTIN.DF(t.subsidiary)", nameof(VendorReturnAuthorizationPackingHeaderNSDTO.FromSubsidiary)),
                 ("BUILTIN.DF(tl.location)", nameof(VendorReturnAuthorizationPackingHeaderNSDTO.Location)),
                 ("BUILTIN.DF(t.transferlocation)", nameof(VendorReturnAuthorizationPackingHeaderNSDTO.TransferLocation)),
-                ("BUILTIN.DF(t.custbody_dbti_prepared_by)", nameof(VendorReturnAuthorizationPackingHeaderNSDTO.PreparedBy))
+                ("CONCAT(em.firstname,CONCAT(' ',em.lastname))", nameof(VendorReturnAuthorizationPackingHeaderNSDTO.PreparedBy))
             )
             .From("transaction t")
             .Join("transactionline tl", on: "tl.transaction = t.id")
             .Join("entity e", on: "t.entity = e.id")
-            .WithSubsidiaries(httpContextAccessor, "t")
+            .LeftJoin("employee em", "t.custbody_dbti_prepared_by = em.id")
             .WithFilters(
                 Equal("t.tranid", id),
                 Equal("tl.mainline", "T"))

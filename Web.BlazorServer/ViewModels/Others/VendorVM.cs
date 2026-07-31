@@ -6,4 +6,11 @@ public class VendorVM
     public string ReferenceNumber { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string CompanyName { get; set; } = string.Empty;
+    public VendorCategoryVM? Category { get; set; }
+}
+
+public class VendorCategoryVM
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = string.Empty;
 }

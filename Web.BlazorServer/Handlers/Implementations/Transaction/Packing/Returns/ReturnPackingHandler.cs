@@ -1,8 +1,10 @@
+using Application.UseCases.Queries.Transaction.Packing;
 using Application.UseCases.Queries.Transaction.Packing.Returns;
 using Mapster;
 using MediatR;
 using Shared.Entities;
 using Web.BlazorServer.Handlers.Repositories.Transaction.Packing.Returns;
+using Web.BlazorServer.ViewModels.Transaction.Packing;
 using Web.BlazorServer.ViewModels.Transaction.Packing.Returns;
 
 namespace Web.BlazorServer.Handlers.Implementations.Transaction.Packing.Returns;
@@ -39,5 +41,14 @@ public class ReturnPackingHandler(ISender sender) : IReturnPackingHandler
         (var data, int count) = await sender.Send(query);
 
         return (data.Adapt<IEnumerable<ReturnsLinePackingVM>>(), count);
+    }
+
+    public async Task<(IEnumerable<PackedItemFulfillmentVM> Data, int Count)> GetPackedItemFulfillments(DataGridIntent intent)
+    {
+        GetPackedItemFulfillmentsQry query = new(intent);
+
+        (var data, int count) = await sender.Send(query);
+
+        return (data.Adapt<IEnumerable<PackedItemFulfillmentVM>>(), count);
     }
 }

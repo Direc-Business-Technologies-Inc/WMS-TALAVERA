@@ -6,6 +6,7 @@ using Web.BlazorServer.Handlers.Repositories.Transaction.InventoryTransfer;
 using Web.BlazorServer.Handlers.Repositories.Transaction.InventoryTransferRequest;
 using Web.BlazorServer.Helpers;
 using Web.BlazorServer.ViewModels.Transaction.InventoryTransferRequest;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace Web.BlazorServer.Components.Pages.Transaction.InventoryTransferRequest;
 
@@ -15,6 +16,7 @@ public partial class InventoryTransferRequestView : BaseForm<InventoryTransferRe
     [SupplyParameterFromQuery] public string? Ref { get; set; } = null;
 
     bool IsLoadingData => AppBusyService.IsBusy(ActionGet);
+    bool IsBusy = false;
     readonly string ActionGet = "Get Inventory transfer request";
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -52,6 +54,38 @@ public partial class InventoryTransferRequestView : BaseForm<InventoryTransferRe
                 NavManager.NavigateTo(ITRRoutes.INDEX);
             });
         });
+    }
+
+    async Task Edit(InventoryTransferRequestVM itr)
+    {
+        await Task.Delay(50);
+        NavManager.NavigateTo(ITRRoutes.UPDATE + $"?ref={itr.ReferenceNumber}");
+    }
+
+    async Task SubmitForApproval()
+    {
+        IsBusy = true;
+        await InvokeAsync(StateHasChanged);
+
+        var action = await AppActionFactory.RunConfirmedAsync(async () =>
+        {
+            await itrHandler.SubmitInventoryTransferRequestForApproval(FormData);
+        }, "Submit Inventory Transfer Request for Approval");
+
+        action.OnSuccess(() =>
+        {
+            NavManager.NavigateTo(NavManager.Uri, true);
+            return Task.CompletedTask;
+        });
+
+        action.OnFailure((ex) =>
+        {
+            ToastService.Error(ex.Message);
+            return Task.CompletedTask;
+        });
+
+        IsBusy = false;
+        await InvokeAsync(StateHasChanged);
     }
 
     void PrepareFormData()

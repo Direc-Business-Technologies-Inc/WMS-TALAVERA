@@ -1,0 +1,26 @@
+﻿@using Web.BlazorServer.Components.Custom
+@using Web.BlazorServer.Handlers.Repositories.Transaction.Receiving
+@using Web.BlazorServer.ViewModels.Transaction.Receiving
+@using global::Shared.Entities
+@inherits BaseComponent 
+
+<QuickDataGrid TItem="ItemFulfillmentVM" DataGetter="ItemFulfillmentProvider" >
+    <RowActions Context="data">
+        <RadzenButton Icon="arrow_right_alt" Size="ButtonSize.ExtraSmall" Click="() => Close(data)" />
+    </RowActions>
+</QuickDataGrid>
+
+@code {
+    [Inject] IReceivingHandler receivingHandler {get; set;} = default!;
+    [Parameter][EditorRequired] public int TransferOrderId { get; set; }
+
+    public Task<(IEnumerable<ItemFulfillmentVM>, int)> ItemFulfillmentProvider(DataGridIntent intent) 
+    {
+        return receivingHandler.GetTransferOrderItemFulfillments(TransferOrderId, intent);
+    }
+
+    public void Close(ItemFulfillmentVM itemfulfillment)
+    {
+        DialogService.Close(itemfulfillment);
+    }
+}

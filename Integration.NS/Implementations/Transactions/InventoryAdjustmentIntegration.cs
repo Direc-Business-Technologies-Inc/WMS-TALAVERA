@@ -1,5 +1,6 @@
 ﻿using Application.DataTransferObjects.Others;
 using Application.DataTransferObjects.Others.NS;
+using Application.DataTransferObjects.Transactions.Commons.NS.Payload;
 using Application.DataTransferObjects.Transactions.InventoryAdjustment;
 using Application.DataTransferObjects.Transactions.Receiving;
 using Application.UseCases.Repositories.Integration.Others;
@@ -38,12 +39,16 @@ public class InventoryAdjustmentIntegration(
                 ("iar.name", nameof(InventoryAdjustmentNSDTO.ReasonName)),
                 ("iar.custrecord_atlas_glaccount", nameof(InventoryAdjustmentNSDTO.ReasonAccountId)),
                 ("BUILTIN.DF(iar.custrecord_atlas_glaccount)", nameof(InventoryAdjustmentNSDTO.ReasonAccountName)),
-                ("iac.id", nameof(InventoryAdjustmentNSDTO.CategoryId)),
                 ("iac.name", nameof(InventoryAdjustmentNSDTO.CategoryName)),
+                ("iac.id", nameof(InventoryAdjustmentNSDTO.CategoryId)),
+                ("d.name", nameof(InventoryAdjustmentNSDTO.DepartmentName)),
+                ("d.id", nameof(InventoryAdjustmentNSDTO.DepartmentId)),
+                ("d.custrecord_dbti_department_code", nameof(InventoryAdjustmentNSDTO.DepartmentCode)),
                 ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS') ", nameof(InventoryAdjustmentNSDTO.Date))
             )
             .From("transaction t")
             .Join("transactionline tl", on: "tl.transaction = t.id")
+            .LeftJoin("department d", "tl.department = d.id")
             .LeftJoin("CUSTOMRECORD_ATLAS_INV_ADJ_REASN iar", on: "iar.id = t.custbody_atlas_inv_adj_reason")
             .LeftJoin("CUSTOMLIST_DBTI_ADJUSTMENT_CATEGORY_LI iac", on: "iac.id = t.custbody_dbti_adjustment_category")
             .LeftJoin("employee e", on: "e.id = t.custbody_dbti_prepared_by")
@@ -66,6 +71,8 @@ public class InventoryAdjustmentIntegration(
         result.Location = new LocationDTO { Id = nsdto.LocationId, Name = nsdto.LocationName };
         result.Account = new BusinessAccountDTO { Id = nsdto.AccountId, Name = nsdto.AccountName };
         result.Category = new InventoryAdjustmentCategoryDTO { Id = nsdto.CategoryId, Name = nsdto.CategoryName };
+        result.Department = new DepartmentDTO { Id = nsdto.DepartmentId, Name = nsdto.DepartmentName, Code= nsdto.DepartmentCode };
+
         result.Reason = nsdto.ReasonId < 0 ? null : new InventoryAdjustmentReasonDTO 
         { 
             Name = nsdto.ReasonName,
@@ -82,12 +89,14 @@ public class InventoryAdjustmentIntegration(
             .Select(
                 ("item.itemId", nameof(InventoryAdjustmentLineNSDTO.ItemCode)),
                 ("item.displayname", nameof(InventoryAdjustmentLineNSDTO.ItemDescription)),
+                ("item.usebins", nameof(InventoryAdjustmentLineNSDTO.ItemUseBins)),
                 ("BUILTIN.DF(tl.units)", nameof(InventoryAdjustmentLineNSDTO.UoMName)),
                 ("BUILTIN.DF(tl.location)", nameof(InventoryAdjustmentLineNSDTO.LocationName)),
                 ("tl.units", nameof(InventoryAdjustmentLineNSDTO.UoMId)),
                 ("uom.conversionrate", nameof(InventoryAdjustmentLineNSDTO.UoMRate)),
                 ("tl.location", nameof(InventoryAdjustmentLineNSDTO.LocationId)),
                 ("tl.quantity", nameof(InventoryAdjustmentLineNSDTO.QuantityAlloted)),
+                ("tl.id", nameof(InventoryAdjustmentLineNSDTO.LineNumber)),
                 ("iil.quantityonhand", nameof(InventoryAdjustmentLineNSDTO.QuantityOnHand))
             )
             .From("transactionline tl")
@@ -108,6 +117,9 @@ public class InventoryAdjustmentIntegration(
 
     public async Task<(IEnumerable<InventoryAdjustmentDataGridDTO> Data, int Count)> GetInventoryAdjustmentsAsync(DataGridIntent intent)
     {
+        if (intent.Sorts.Count == 0)
+            intent.Sorts.Add(DataGridSortUtilities.Descending(nameof(InventoryAdjustmentDataGridDTO.ReferenceNumber)));
+
         var query = builderFactory.Create()
             .Select(
                 ("t.id", nameof(InventoryAdjustmentDataGridDTO.Id)),
@@ -120,7 +132,8 @@ public class InventoryAdjustmentIntegration(
                 ("iar.name", nameof(InventoryAdjustmentDataGridDTO.AdjustmentReason)),
                 ("NVL(receipt.total, 0)", nameof(InventoryAdjustmentDataGridDTO.QuantityReceivedTotal)),
                 ("NVL(issue.total, 0)", nameof(InventoryAdjustmentDataGridDTO.QuantityIssuedTotal)),
-                ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS') ", nameof(InventoryAdjustmentDataGridDTO.Date))
+                ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS') ", nameof(InventoryAdjustmentDataGridDTO.Date)),
+                ("TO_CHAR(t.lastmodifieddate, 'YYYY-MM-DD\"T\"HH24:MI:SS') ", nameof(InventoryAdjustmentDataGridDTO.DateLastModified))
             )
             .From("transaction t")
             .Join("transactionline tl", on:"tl.transaction = t.id")
@@ -194,11 +207,10 @@ public class InventoryAdjustmentIntegration(
     public async Task<bool> CreateInventoryAdjustment(InventoryAdjustmentDTO value)
     {
         string payloadString = CreateIAPayload(value);
-        var url = netsuiteService.GetRestAPIURI + "/record/v1/inventoryAdjustment";
-
+        var url = $"{netsuiteService.GetRestletURI}?script=1938&deploy=1";
         try
         {
-            _ = await netsuiteService.MakeRequest<object>(url, payloadString, HttpMethod.Post);
+            _ = await netsuiteService.MakeRequestOAuth1<object>(url, payloadString);
         }
         catch (Exception ex) when (ex.Message.Equals("Empty response from NetSuite API", StringComparison.OrdinalIgnoreCase))
         {
@@ -220,38 +232,31 @@ public class InventoryAdjustmentIntegration(
 
         var anon = new
         {
-            account = new { id = dto.Account!.Id },
+            subsidiary = dto.Subsidiary?.Id,
+            location = dto.Location?.Id,
+            account = dto.Account?.Id,
+            locationUsesBins = dto.Lines.Any(x => x.InventoryDetails.Any(y => y.Bin is not null)), // why is this a required field
             memo = dto.Memo,
-            subsidiary = new { id = dto.Subsidiary!.Id },
-            adjLocation = new { id = dto.Location!.Id },
-            department = new { id = 4 },
-            custbody_atlas_inv_adj_reason = dto.Reason?.Id ?? null,
-            custbody_dbti_prepared_by = dto.PreparedById,
-            custbody_dbti_adjustment_category = category,
-            Class = 1,
-            inventory = new
+            adjustmentReason = dto.Reason?.Id,
+            preparedBy = dto.PreparedById,
+            trandate = dto.Date.ToString("MM/dd/yyyy"),
+            adjustmentCategory = category,
+            department = dto.Department?.Id ?? 15, // defaults to operations
+            // this should be set here i think (as opposed to application or presentation layer). integration should be responsible for logic that
+            // concerns netsuite operations and setting the department/class by default is exactly that.
+            // TODO would be great if there was some centralized place to store these values and also maybe strings that prompt or alert users.
+            classId = 1, // external
+            lines = dto.Lines.Select(line => new
             {
-                items = dto.Lines.Select(line => new
+                item = line.ItemId,
+                quantity = line.QuantityAlloted * (line.UoM?.ConversionRate ?? 1),
+                InventoryDetail = line.InventoryDetails.Select(detail => new
                 {
-                    item = new { id = line.ItemId }, 
-                    adjustQtyBy = line.QuantityAlloted,
-                    location = new { id = line.Location!.Id },
-                    department = new { id = 4 },
-                    inventoryDetail = new
-                    {
-                        inventoryAssignment = new
-                        {
-                            items = line.InventoryDetails.Select(d => new
-                            {
-                                binNumber = d.Bin != null ? new { id = d.Bin.Id } : null,
-                                inventoryStatus = d.Status?.Id,
-                                quantity = line.QuantityAlloted < 0 ? -d.QuantityAlloted :  d.QuantityAlloted
-                            })
-                        }
-                    },
-                    units = line.UoM?.Id.ToString() ?? null
+                    status = detail.Status?.Id,
+                    qty = (line.QuantityAlloted < 0 ? -detail.QuantityAlloted : detail.QuantityAlloted) * (line.UoM?.ConversionRate ?? 1),
+                    bin = detail.Bin?.Id
                 })
-            }
+            })
         };
 
         return JsonSerializer.Serialize(anon, jsonSerializerOptions);
@@ -285,7 +290,7 @@ public class InventoryAdjustmentIntegration(
 
     readonly string IssueQuery = """
             SELECT
-                SUM(- itl.quantity) AS total,
+                count(itl.id) AS total,
                 itl.transaction AS transactionid
             FROM
                 transactionline itl
@@ -299,7 +304,7 @@ public class InventoryAdjustmentIntegration(
 
     readonly string ReceiptQuery = """
             SELECT
-                SUM(rtl.quantity) AS total,
+                count(rtl.id) AS total,
                 rtl.transaction AS transactionid
             FROM
                 transactionline rtl

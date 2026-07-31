@@ -49,12 +49,14 @@ public class SupplierReturnIntegration(
                     ("BUILTIN.DF(t.custbody_dbti_purchase_category)", nameof(SupplierReturnNSDTO.PurchaseCategoryName)),
                     ("t.custbody_dbti_purchase_subcategory", nameof(SupplierReturnNSDTO.PurchaseSubCategoryId)),
                     ("BUILTIN.DF(t.custbody_dbti_purchase_subcategory)", nameof(SupplierReturnNSDTO.PurchaseSubCategoryName)),
+                    ("tf.tranid", nameof(SupplierReturnNSDTO.CreatedFrom)),
                     ("CONCAT(e.firstname,CONCAT(' ',e.lastname))", nameof(SupplierReturnNSDTO.PreparedBy))
                 )
                 .From("transaction t")
                 .Join("VendorReturnAuthorizationStatus s", on: "t.status = s.id")
                 .LeftJoin("transactionline ml", "ml.mainline = 'T' and ml.transaction = t.id")
                 .LeftJoin("employee e", on: "e.id = t.custbody_dbti_prepared_by")
+                .LeftJoin("transaction tf", on: "tf.id = ml.createdfrom")
                 .WithSubsidiaries(httpContextAccessor, "t")
                 .WithFilters(
                     DataGridFilterUtilities.Equal("t.recordtype", "vendorreturnauthorization"),
@@ -125,19 +127,25 @@ public class SupplierReturnIntegration(
 
     public async Task<(IEnumerable<SupplierReturnDataGridDTO> Data, int Count)> GetReturnsDataGridAsync(DataGridIntent intent)
     {
+        if (intent.Sorts.Count == 0)
+            intent.Sorts.Add(DataGridSortUtilities.Descending(nameof(SupplierReturnDataGridDTO.ReferenceNumber)));
         var query = builderFactory.Create()
                 .Select(
                     ("BUILTIN.DF(t.entity)", nameof(SupplierReturnDataGridDTO.VendorName)),
                     ("BUILTIN.DF(t.custbody_dbti_return_category)", nameof(SupplierReturnDataGridDTO.CategoryName)),
                     ("CONCAT(e.firstname,CONCAT(' ',e.lastname))", nameof(SupplierReturnDataGridDTO.PreparedBy)),
                     ("t.tranid", nameof(SupplierReturnDataGridDTO.ReferenceNumber)),
+                    ("tfrom.tranid", nameof(SupplierReturnDataGridDTO.CreatedFrom)),
                     ("t.memo", nameof(SupplierReturnDataGridDTO.Memo)),
                     ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(SupplierReturnDataGridDTO.Date)),
+                    ("TO_CHAR(t.lastmodifieddate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(SupplierReturnDataGridDTO.DateLastModified)),
                     ("s.name", nameof(SupplierReturnDataGridDTO.StatusName))
                 )
                 .From("transaction t")
                 .Join("VendorReturnAuthorizationStatus s", on: "t.status = s.id")
+                .LeftJoin("transactionline ml", on: "ml.mainline = 'T' and t.id = ml.transaction")
                 .LeftJoin("employee e", on: "e.id = t.custbody_dbti_prepared_by")
+                .LeftJoin("transaction tfrom", on: "tfrom.id = ml.createdfrom")
                 .WithSubsidiaries(httpContextAccessor, "t")
                 .WithFilter(DataGridFilterUtilities.Equal("t.recordtype", "vendorreturnauthorization"))
                 .WithDatagridIntent(intent)
@@ -191,7 +199,7 @@ public class SupplierReturnIntegration(
         var payload = new
         {
             custbody_dbti_return_category = data.ReturnCategory?.Id ?? null,
-            orderstatus = data.Status?.Id ?? null,
+            memo = data.Memo,
         };
         var payloadString = JsonSerializer.Serialize(payload, jsonOpts);
         var uri = netsuiteService.GetRestAPIURI + $"/record/v1/purchaseOrder/{data.SourcePO}/!transform/vendorReturnAuthorization";
@@ -221,13 +229,19 @@ public class SupplierReturnIntegration(
                     ("t.subsidiary", nameof(SupplierReturnNSDTO.SubsidiaryId)),
                     ("BUILTIN.DF(t.subsidiary)", nameof(SupplierReturnNSDTO.SubsidiaryName)),
                     ("BUILTIN.DF(ml.location)", nameof(SupplierReturnNSDTO.LocationName)),
+                    ("categ.id", nameof(SupplierReturnNSDTO.PurchaseCategoryId)),
+                    ("categ.name", nameof(SupplierReturnNSDTO.PurchaseCategoryName)),
+                    ("subcat.id", nameof(SupplierReturnNSDTO.PurchaseSubCategoryId)),
+                    ("subcat.name", nameof(SupplierReturnNSDTO.PurchaseSubCategoryName)),
                     ("t.memo", nameof(SupplierReturnNSDTO.Memo)),
                     ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(SupplierReturnNSDTO.Date))
                 )
                 .From("transaction t")
-                .LeftJoin("transactionline ml", "ml.mainline = 'T' and ml.transaction = t.id")
-                .WithSubsidiaries(httpContextAccessor, "t")
                 .Join("VendorReturnAuthorizationStatus s", "t.status = s.id")
+                .LeftJoin("transactionline ml", "ml.mainline = 'T' and ml.transaction = t.id")
+                .LeftJoin("CUSTOMLIST_DBTI_PURCHASE_CATEGORY_LIST categ", "t.custbody_dbti_purchase_category = categ.id")
+                .LeftJoin("CUSTOMRECORD_DBTI_PURCHASE_CATEGORIES subcat", "t.custbody_dbti_purchase_subcategory = subcat.id")
+                .WithSubsidiaries(httpContextAccessor, "t")
                 .WithFilters(
                     DataGridFilterUtilities.Equal("t.recordtype", "purchaseorder"),
                     DataGridFilterUtilities.Equal("t.status", "F"),
@@ -243,7 +257,9 @@ public class SupplierReturnIntegration(
         {
             Location = new() { Id = nsdto.LocationId, Name = nsdto.LocationName },
             Vendor = new() { Id = nsdto.VendorId, Name = nsdto.VendorName },
-            Subsidiary = new() { Id = nsdto.SubsidiaryId, Name = nsdto.SubsidiaryName }
+            Subsidiary = new() { Id = nsdto.SubsidiaryId, Name = nsdto.SubsidiaryName },
+            PurchaseCategory = new() { Id = nsdto.PurchaseCategoryId, Name = nsdto.PurchaseCategoryName },
+            PurchaseSubcategory = new() { Id = nsdto.PurchaseSubCategoryId, Name = nsdto.PurchaseSubCategoryName, PurchaseCategoryId = nsdto.PurchaseCategoryId },
         });
     }
 
@@ -253,7 +269,7 @@ public class SupplierReturnIntegration(
             .Select(
                 ("item.itemid", nameof(SupplierReturnLineNSDTO.ItemCode)),
                 ("item.id", nameof(SupplierReturnLineNSDTO.ItemId)),
-                ("tl.linesequencenumber", nameof(SupplierReturnLineNSDTO.LineNumber)),
+                ("tl.id", nameof(SupplierReturnLineNSDTO.LineNumber)),
                 ("uom.unitName", nameof(SupplierReturnLineNSDTO.UoMName)),
                 ("uom.internalid", nameof(SupplierReturnLineNSDTO.UoMId)),
                 ("uom.conversionrate", nameof(SupplierReturnLineNSDTO.UoMRate)),
@@ -286,12 +302,15 @@ public class SupplierReturnIntegration(
                 ("t.tranid", nameof(PurchaseOrderDataGridDTO.ReferenceNumber)),
                 ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(PurchaseOrderDataGridDTO.Date)),
                 ("TO_CHAR(t.custbody_dbti_order_date, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(PurchaseOrderDataGridDTO.DeliveryDate)),
+                ("BUILTIN.DF(tl.entity)", nameof(PurchaseOrderDataGridDTO.VendorName)),
                 ("t.memo", nameof(PurchaseOrderDataGridDTO.Memo)),
-                ("BUILTIN.DF(t.entity)", nameof(PurchaseOrderDataGridDTO.VendorName)),
-                ("t.status", nameof(PurchaseOrderDataGridDTO.Status))
+                ("s.name", nameof(PurchaseOrderDataGridDTO.Status)),
+                ("s.id", nameof(PurchaseOrderDataGridDTO.StatusId))
             )
             .From("transaction t")
             .WithSubsidiaries(httpContextAccessor, "t")
+            .LeftJoin("transactionline tl", on: "t.id = tl.transaction AND tl.mainline = 'T'")
+            .LeftJoin("purchaseorderstatus s", on: "t.status = s.id")
             .WithDatagridIntent(intent)
             .WithFilters(
                 DataGridFilterUtilities.Equal("t.recordtype", "purchaseorder"),
@@ -346,7 +365,8 @@ public class SupplierReturnIntegration(
             custbody_dbti_return_category = data.ReturnCategory?.Id ?? null,
             custbody_dbti_purchase_category = data.PurchaseSubcategory != null ? data.PurchaseSubcategory.PurchaseCategoryId : data.PurchaseCategory?.Id ?? null,
             custbody_dbti_purchase_subcategory = data.PurchaseSubcategory?.Id ?? null,
-            memo = data.Memo,
+            memo = data.Memo,       
+            orderStatus = "A",
             item = new
             {
                 items = data.Lines.Select(x => new

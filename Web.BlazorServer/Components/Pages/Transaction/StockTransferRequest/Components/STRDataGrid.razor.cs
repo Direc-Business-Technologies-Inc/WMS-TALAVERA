@@ -1,15 +1,13 @@
 ﻿using Microsoft.AspNetCore.Components;
 using Radzen;
+using Radzen.Blazor;
 using Shared.Entities;
 using Shared.Libraries.Utilities;
 using Web.BlazorServer.Components.Shared.Abstraction;
 using Web.BlazorServer.Defaults;
-using Web.BlazorServer.Handlers.Implementations.Transaction.Receiving;
-using Web.BlazorServer.Handlers.Repositories.Transaction.Receiving;
 using Web.BlazorServer.Handlers.Repositories.Transaction.StockTransferRequest;
 using Web.BlazorServer.Services.Repositories;
 using Web.BlazorServer.ViewModels.Abstraction;
-using Web.BlazorServer.ViewModels.Transaction.Receiving;
 using Web.BlazorServer.ViewModels.Transaction.StockTransferRequest;
 
 namespace Web.BlazorServer.Components.Pages.Transaction.StockTransferRequest.Components;
@@ -18,12 +16,15 @@ partial class STRDataGrid
 {
     [Inject] IGridSettingsService GridSettingsService { get; set; } = default!;
     [Inject] IStockTransferRequestHandler strHandler { get; set; } = default!;
+    [Parameter] public string? TableId { get; set; } = "str_datagrid";
 
     [Parameter][EditorRequired]
     public required DataGetterDelegate DataGetter { get; init; }
 
     [Parameter]
     public EventCallback OnAddClicked { get; set; }
+    [Parameter]
+    public bool ShowToSubsidiary { get; set; } = true; // lmaoooooo idc
 
     AppDataGrid<StockTransferRequestDataGridVM> DataGrid { get; set; }
     DataGridSettings DataGridSettings { get; set; }
@@ -104,6 +105,23 @@ partial class STRDataGrid
     async Task AddButtonPressed()
     {
         if (OnAddClicked.HasDelegate) await OnAddClicked.InvokeAsync();
+    }
+
+    async Task ApplyStatusFilter(RadzenDataGridColumn<StockTransferRequestDataGridVM> column)
+    {
+
+        column.ClearFilters();
+        if (StatusFilter is null)
+        {
+            await DataGrid.DataGrid.Reload();
+            return;
+        }
+
+        column.SetFilterOperator(FilterOperator.Equals);
+        column.SetFilterValue(StatusFilter.Name);
+        column.SetLogicalFilterOperator(LogicalFilterOperator.And);
+
+        await DataGrid.DataGrid.Reload();
     }
 
     public delegate Task<(IEnumerable<StockTransferRequestDataGridVM> data, int count)> DataGetterDelegate(DataGridIntent intent);

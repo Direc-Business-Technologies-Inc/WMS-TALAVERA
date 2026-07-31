@@ -1,7 +1,10 @@
 ﻿using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Mvc.Filters;
 using Radzen;
+using Radzen.Blazor;
 using Shared.Entities;
 using Shared.Kernel;
+using Shared.Libraries.Utilities;
 using Web.BlazorServer.Components.Shared.Abstraction;
 using Web.BlazorServer.Defaults;
 using Web.BlazorServer.Handlers.Repositories.Transaction.Receiving;
@@ -17,6 +20,8 @@ public partial class PurchaseOrderGrid
     [Inject] IGridSettingsService GridSettingsService { get; set; } = default!;
     AppDataGrid<PurchaseOrderDataGridVM> PurchaseOrderDataGrid { get; set; }
     DataGridSettings PurchaseOrderDataGridSettings { get; set; }
+
+    PurchaseOrderStatusVM? StatusFilter = null;
 
     string ActionGetPurchaseOrders { get; } = EnumHelper.GetEnumDescription(AppActions.GetAllPurchaseOrders);
 
@@ -54,6 +59,7 @@ public partial class PurchaseOrderGrid
                     Direction = SortDirectionEnum.Descending
                 });
             }
+
             return await ReceivingHandler.GetPurchaseOrderDataGridAsync(intent);
 
             throw new Exception("Invalid source for receiving grid");
@@ -61,6 +67,28 @@ public partial class PurchaseOrderGrid
 
         AppBusyService.SetBusy(ActionGetPurchaseOrders, false);
         return DataGridResultVM<PurchaseOrderDataGridVM>.New(action.Result.Data ?? [], action.Result.Count);
+    }
+
+    Task<(IEnumerable<PurchaseOrderStatusVM>, int)> GetPurchaseOrderStatuses(DataGridIntent intent)
+    {
+        return ReceivingHandler.GetPurchaseOrderStatuses(intent);
+    }
+
+    async Task ApplyStatusFilter(RadzenDataGridColumn<PurchaseOrderDataGridVM> column)
+    {
+
+        column.ClearFilters();
+        if (StatusFilter is null)
+        {
+            await PurchaseOrderDataGrid.DataGrid.Reload();
+            return;
+        }
+
+        column.SetFilterOperator(FilterOperator.Equals);
+        column.SetFilterValue(StatusFilter.Name);
+        column.SetLogicalFilterOperator(LogicalFilterOperator.And);
+
+        await PurchaseOrderDataGrid.DataGrid.Reload();
     }
 
     void ViewPurchaseOrder(PurchaseOrderDataGridVM purchaseOrder) => NavManager.NavigateTo($"/transactions/purchasing/receiving/purchase-order/view?ref={purchaseOrder.ReferenceNumber}", true);

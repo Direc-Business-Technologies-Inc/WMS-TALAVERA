@@ -17,6 +17,7 @@ public class ItemReceiptVM
     public string Vendor { get; set; } = string.Empty;
     public string ReceivedBy { get; set; } = string.Empty;
     public string PreparedBy { get; set; } = string.Empty;
+    public int? ItemFulfillmentId { get; set; }
 
     public LocationVM? Location { get; set; }
     public string TransferLocation { get; set; } = string.Empty;

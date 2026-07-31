@@ -1,5 +1,7 @@
 @using Web.BlazorServer.Components.Custom
+@using Web.BlazorServer.Components.Pages.Transaction.Others.BarcodeScanning
 @using Web.BlazorServer.ViewModels.Transaction.Packing.ItemReceipt
+@inherits BaseComponent
 
 <RadzenTemplateForm TItem="ItemReceiptPackingVM" EditContext="@EditContext" Submit="@Submit">
     <RadzenStack Gap="0.5em">
@@ -12,7 +14,7 @@
                 </RadzenColumn>
                 <RadzenColumn SizeMD="6">
                     <RadzenFormField AllowFloatingLabel="false" Text="Date" class="rz-w-100">
-                        <RadzenDatePicker @bind-Value="@Data.Date" ReadOnly />
+                        <RadzenDatePicker @bind-Value="@Data.Date" ReadOnly DateFormat="MMMM dd, yyyy" />
                     </RadzenFormField>
                 </RadzenColumn>
                 <RadzenColumn SizeMD="6">
@@ -39,6 +41,12 @@
         </RadzenFieldset>
         <RadzenFieldset AllowCollapse Text="Lines">
             <AppTableWithSettings Data="@FulfillableLines" Id="packing_item_receipt_lines">
+                <HeaderTemplate>
+                    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5em">
+                        <RadzenButton Icon="barcode" ButtonStyle="ButtonStyle.Primary" Click="(() => OpenBarcodeDialog(false))" Size="ButtonSize.Small" Text="Scan Good Items" />
+                        <RadzenButton Icon="barcode" ButtonStyle="ButtonStyle.Danger" Click="(() => OpenBarcodeDialog(true))" Size="ButtonSize.Small" Text="Scan Bad Items" />
+                    </RadzenStack>
+                </HeaderTemplate>
                 <Columns>
                     <RadzenDataGridColumn TItem="ItemReceiptLinePackingVM" Width="30px">
                         <Template Context="data">
@@ -93,3 +101,33 @@
         </RadzenStack>
     </RadzenStack>
 </RadzenTemplateForm>
+
+@code {
+
+    readonly DialogOptions dialogOptions = new()
+    {
+        CloseDialogOnOverlayClick = true,
+        CloseDialogOnEsc = true,
+        Draggable = true,
+        Resizable = true,
+        Width = "600px",
+        ShowClose = true
+    };
+    
+    async Task OpenBarcodeDialog(bool bad)
+    {
+
+        bool? save = await DialogService.OpenAsync(
+                    "Table Settings",
+                    ds => @<BarcodeScannerDialog BarcodeStore="BarcodeStore" Verifier="IsValidBarcode" />,
+    options: dialogOptions);
+
+
+        if (save == true)
+            ApplyBarcodes(bad);
+        else
+            BarcodeStore.Clear();
+
+        await InvokeAsync(StateHasChanged);
+    }
+}

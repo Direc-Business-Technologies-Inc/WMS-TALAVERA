@@ -18,8 +18,12 @@ public partial class InventoryDetailsDialog
     [Parameter] public Types Type { get; set; } = Types.Outgoing;
     [Parameter] public int? ItemId { get; set; } = null;
     [Parameter] public int? StatusId { get; set; } = null;
+    [Parameter] public bool ReadOnly { get; set; } = false;
     [Parameter] public List<AppFilterDescriptor> StatusFilters { get; set; } = [];
     [Parameter] public List<InventoryDetailVM> InventoryDetails { get; set; } = [];
+    // this was a bad idea probably but it allows the inventory details dialog to load inventory details from the db
+    // the first int in the tuple corresponds to the transaction id and the second corresponds to the line number
+    [Parameter] public Tuple<int, int>? LoadInventoryDetails { get; set; } = null;
 
     List<DetailItem> Details = [];
     List<InventoryBalanceVM> InventoryBalance = [];
@@ -30,26 +34,41 @@ public partial class InventoryDetailsDialog
     readonly string ActionGetInventoryBalance = "Get Inventory Balance";
     Task InitTask = Task.CompletedTask;
 
-    decimal AmountSum => Details.Sum(x => x.Detail.QuantityAlloted);
+    decimal AmountSum => Details.Sum(x => Math.Abs(x.Detail.QuantityAlloted));
 
     bool IsLoadingData => AppBusyService.IsBusy(ActionGetLocation);
     bool LocationHasBins = true;
+    bool IsLoadingDetails = false;
 
 
     protected override async Task OnParametersSetAsync()
     {
         InitTask = LoadBalances();
+        IsLoadingDetails = LoadInventoryDetails is not null;
         await Task.WhenAll(
             LoadLocation(),
             base.OnParametersSetAsync()
         );
-        Details.AddRange(
-            InventoryDetails.Select(x => new DetailItem(this)
-            {
-                Detail = x
-            })
-        );
+        Details.AddRange(InventoryDetails.Select(CreateDetailItem));
+    }
 
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+        if (firstRender && LoadInventoryDetails is not null)
+        {
+            IsLoadingDetails = true;
+            await InvokeAsync(StateHasChanged);
+
+            var inventoryDetails = await inventoryHandler.GetInventoryDetails(
+                LoadInventoryDetails.Item1,
+                LoadInventoryDetails.Item2);
+
+            Details.AddRange(inventoryDetails.Select(CreateDetailItem));
+
+            IsLoadingDetails = false;
+            await InvokeAsync(StateHasChanged);
+        }
     }
 
     async Task LoadLocation()
@@ -162,6 +181,14 @@ public partial class InventoryDetailsDialog
     {
         Outgoing,
         Incoming
+    }
+
+    DetailItem CreateDetailItem(InventoryDetailVM vm)
+    {
+        return new DetailItem(this)
+        {
+            Detail = vm
+        };
     }
 
     class DetailItem(InventoryDetailsDialog parent)

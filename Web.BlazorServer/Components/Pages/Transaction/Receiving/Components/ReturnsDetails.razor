@@ -46,11 +46,6 @@
                 </RadzenFormField>
             </RadzenColumn>
             <RadzenColumn SizeMD="6">
-                <RadzenFormField AllowFloatingLabel="false" Text="Received By" class="rz-w-100">
-                    <RadzenTextBox ReadOnly Value="@Model.ReceivedBy" />
-                </RadzenFormField>
-            </RadzenColumn>
-            <RadzenColumn SizeMD="6">
                 <RadzenFormField AllowFloatingLabel="false" Text="Prepared By" class="rz-w-100">
                     <RadzenTextBox ReadOnly Value="@Model.PreparedBy" />
                 </RadzenFormField>
@@ -73,11 +68,35 @@
             <RadzenButton ButtonStyle="ButtonStyle.Light" ButtonType="ButtonType.Button" Text="Return" Click="@(_ => NavManager.NavigateTo("/transactions/purchasing/receiving?tab=returns"))" />
         </RadzenStack>
         <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5em">
-            <RadzenButton ButtonType="ButtonType.Button" ButtonStyle="ButtonStyle.Success" Text="Create Item Receipt" Click="@(_ => NavManager.NavigateTo($"/transactions/purchasing/receiving/create-item-receipt?ref={Model.ReferenceNumber}"))" />
+            <RadzenButton ButtonType="ButtonType.Button" ButtonStyle="ButtonStyle.Success" Text="Create Item Receipt" Click="@(_ => OpenItemFulfillments())" />
         </RadzenStack>
     </RadzenStack>
 </RadzenStack>
 
 @code {
     [Parameter][EditorRequired] public required ReturnsVM Model { get; set; } = new();
+    [Inject] DialogService DialogService { get; set; } = default!;
+
+    
+    readonly DialogOptions dialogOptions = new()
+    {
+        CloseDialogOnOverlayClick = true,
+        CloseDialogOnEsc = true,
+        Draggable = true,
+        Resizable = true,
+        ShowClose = true,
+        Width = "75%"
+    };
+    
+    async Task OpenItemFulfillments()
+    {
+        ItemFulfillmentVM? itemfulfillment = await DialogService.OpenAsync(
+            "Select Item Fulfillment",
+            ds => @<ItemFulfillmentsDialog TransferOrderId="Model.Id" />,
+    options: dialogOptions);
+        if (itemfulfillment is not null)
+        {
+            NavManager.NavigateTo($"/transactions/purchasing/receiving/create-item-receipt?ref={Model.ReferenceNumber}&itemFulfillment={itemfulfillment.ReferenceNumber}&ifid={itemfulfillment.Id}");
+        }
+    }
 }

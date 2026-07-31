@@ -4,6 +4,7 @@ using Application.DataTransferObjects.Others;
 using Application.DataTransferObjects.System.Security;
 using Application.UseCases.Repositories.Bases;
 using Application.UseCases.Repositories.Integration.Others;
+using Application.UseCases.Repositories.Integration.Transaction;
 using DataCipher;
 using Domain.Entities.Administration.User.Management;
 using Domain.Entities.Administration.User.Role;
@@ -17,7 +18,6 @@ namespace Application.UseCases.Commands.System.Authentication;
 public record LoginCmd(AuthenticationPayloadDTO Login) : ITransactionalRequest<AuthenticationResponseDTO>;
 
 public class LoginCmdHandler(
-    ISubsidiaryIntegration subsidiaryIntegration,
     IAppReadRepository appRead,
     IAppCommandRepository appCommand)
     : IRequestHandler<LoginCmd, AuthenticationResponseDTO>

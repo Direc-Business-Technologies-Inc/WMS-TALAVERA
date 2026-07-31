@@ -4,7 +4,7 @@
 
 <QuickDataGrid @ref="@Grid" DataGetter="@LoadDataAsync" ActionName="@ActionGetReturnsToSupplier" Id="returns_to_supplier_datagrid">
     <HeaderStart>
-        <RadzenFormField Text="Filter by Status">
+        <RadzenFormField Text="Filter by Status" Style="margin-top:-10px!important">
             <QuickVirtualizedDropdown TItem="ReturnStatusVM" DataGetter="StatusProvider" @bind-Value:get="@FilterStatus" @bind-Value:set="FilterSet" TextProperty="@nameof(ReturnStatusVM.Name)"/>
         </RadzenFormField>
     </HeaderStart>

@@ -24,5 +24,9 @@ public class InventoryAdjustmentNSDTO
     public string PreparedBy { get; set; } = string.Empty;
     public int CategoryId { get; set; }
     public string CategoryName { get; set; } = string.Empty;
+    public string DepartmentName { get; set; } = string.Empty;
+    public string DepartmentCode { get; set; } = string.Empty;
+    public int DepartmentId { get; set; } 
     public DateTime Date { get; set; }
+    public DateTime DateLastModified { get; set; }
 }

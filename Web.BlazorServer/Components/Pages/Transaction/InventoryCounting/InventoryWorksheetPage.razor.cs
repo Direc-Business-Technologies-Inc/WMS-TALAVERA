@@ -7,10 +7,12 @@ using Shared.Libraries.ViewModel.Common;
 using Shared.Services.Repository;
 using Web.BlazorServer.Components.Custom;
 using Web.BlazorServer.Components.Pages.Transaction.InventoryCounting.Components;
+using Web.BlazorServer.Components.Pages.Transaction.Others.BarcodeScanning;
 using Web.BlazorServer.Defaults;
 using Web.BlazorServer.Handlers.Repositories.Others;
 using Web.BlazorServer.Handlers.Repositories.Transaction.InventoryCounting;
 using Web.BlazorServer.Services.Repositories;
+using Web.BlazorServer.ViewModels.Transaction.Commons;
 using Web.BlazorServer.ViewModels.Transaction.InventoryCounting;
 using WebLocationVM = Web.BlazorServer.ViewModels.Others.LocationVM;
 
@@ -165,6 +167,56 @@ public partial class InventoryWorksheetPage : IDisposable
         await ReloadLinesAsync();
     }
 
+    InventoryWorksheetCreateLineVM AddLine(ViewModels.Others.ItemsVM item, decimal amount)
+    {
+
+        var result = new InventoryWorksheetCreateLineVM
+        {
+            NetsuiteMaterialInternalId = item.Id,
+            MaterialCode = item.ItemNumber,
+            MaterialName = item.Name,
+            MaterialWeight = item.Weight,
+            Details = [],
+            TotalQuantity = amount,
+            SelectedItem = new InventoryItemVM
+            {
+                NetsuiteMaterialInternalId = item.Id,
+                MaterialCode = item.ItemNumber,
+                MaterialName = item.Name,
+                MaterialWeight = item.Weight
+            }
+        };
+
+        FormData.Lines.Add(result);
+        return result;
+    }
+
+    void AddScannedBarcodes(BarcodeStore barcodes)
+    {
+        Dictionary<string, InventoryWorksheetCreateLineVM> memo = new();
+
+        foreach (var barcode in barcodes.Barcodes)
+        {
+            if (barcode.Item is null) continue;
+
+            var lineItem = memo.ContainsKey(barcode.Barcode) ?
+                memo[barcode.Barcode] :
+                FormData.Lines.FirstOrDefault(line => line.NetsuiteMaterialInternalId == (barcode.Item?.Id ?? -6967));
+
+
+            if (lineItem is null)
+            {
+                lineItem = AddLine(barcode.Item, barcodes.GetBarcodeCount(barcode) * barcode.UoM?.ConversionRate ?? 1);
+            }
+            else
+            {
+                lineItem.TotalQuantity += barcodes.GetBarcodeCount(barcode) * barcode.UoM?.ConversionRate ?? 1;
+            }
+
+            memo[barcode.Barcode] = lineItem;
+        }
+    }
+
     async Task OpenDetailsDialog(InventoryWorksheetCreateLineVM line)
     {
         if (FormData.Location is null || FormData.Location.NetsuiteLocationInternalId <= 0)
@@ -187,7 +239,7 @@ public partial class InventoryWorksheetPage : IDisposable
 
         var details = await DialogService.OpenAsync<InventoryWorksheetDetailDialog>(
             "Worksheet Details",
-            new Dictionary<string, object>
+            new Dictionary<string, object?>
             {
                 { nameof(InventoryWorksheetDetailDialog.Line), line },
                 { nameof(InventoryWorksheetDetailDialog.LocationId), FormData.Location.NetsuiteLocationInternalId },

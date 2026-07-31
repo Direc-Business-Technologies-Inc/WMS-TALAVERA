@@ -4,51 +4,45 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
 using Radzen;
 using Shared.Entities;
+using Shared.Libraries.Utilities;
 using Web.BlazorServer.Components.Custom;
+using Web.BlazorServer.Components.Pages.Transaction.Others.BarcodeScanning;
 using Web.BlazorServer.Components.Shared.Abstraction;
 using Web.BlazorServer.Defaults;
 using Web.BlazorServer.Handlers.Implementations.Others;
 using Web.BlazorServer.Handlers.Repositories.Others;
+using Web.BlazorServer.Handlers.Repositories.Transaction.StockTransferRequest;
+using Web.BlazorServer.Helpers;
 using Web.BlazorServer.Services.Implementation;
 using Web.BlazorServer.Services.Repositories;
 using Web.BlazorServer.ViewModels.Abstraction;
 using Web.BlazorServer.ViewModels.Others;
+using Web.BlazorServer.ViewModels.Transaction.Receiving;
 using Web.BlazorServer.ViewModels.Transaction.StockTransferRequest;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace Web.BlazorServer.Components.Pages.Transaction.StockTransferRequest.Components;
 
 public partial class STRForm
 {
-    [Parameter]
-    [EditorRequired]
-    public StockTransferRequestInfoVM Model { get; set; } = new();
-    [Parameter]
-    public Func<StockTransferRequestInfoVM, Task<bool>>? OnSubmit { get; set; }
-    [Parameter]
-    public EditContext? EditContext { get; set; }
-    [Parameter]
-    public bool ReadOnly { get; set; } = false;
-    [Parameter]
-    public bool IsBusy { get; set; } = false;
-    [Parameter]
-    public string? ReturnURI { get; set; }
-    [Parameter]
-    public string? ActionURI { get; set; }
-    [Parameter]
-    public string ActionLabel { get; set; } = "Submit";
-    [Parameter]
-    public string ReturnLabel { get; set; } = "Return";
+    [Parameter][EditorRequired] public StockTransferRequestInfoVM Model { get; set; } = new();
+    [Parameter] public Func<StockTransferRequestInfoVM, Task<bool>>? OnSubmit { get; set; }
+    [Parameter] public EditContext? EditContext { get; set; }
+    [Parameter] public bool ReadOnly { get; set; } = false;
+    [Parameter] public bool LoadSubsidiary { get; set; } = true;
+    [Parameter] public bool IsBusy { get; set; } = false;
+    [Parameter] public string? ReturnURI { get; set; }
+    [Parameter] public string? ActionURI { get; set; }
+    [Parameter] public string ActionLabel { get; set; } = "Submit";
+    [Parameter] public string ReturnLabel { get; set; } = "Return";
 
-    [Inject]
-    IGridSettingsService GridSettingsService { get; set; } = default!;
-    [Inject]
-    ILocationHandler LocationHandler { get; set; } = default!;
-    [Inject]
-    ISubsidiaryHandler SubsidiaryHandler { get; set; } = default!;
-    [Inject]
-    IVendorHandler VendorHandler { get; set; } = default!;
-    [Inject]
-    IItemsHandler ItemsHandler { get; set; } = default!;
+    [Inject] IGridSettingsService GridSettingsService { get; set; } = default!;
+    [Inject] ILocationHandler LocationHandler { get; set; } = default!;
+    [Inject] ISubsidiaryHandler SubsidiaryHandler { get; set; } = default!;
+    [Inject] IStockTransferRequestHandler StockTransferRequestHandler { get; set; } = default!;
+    [Inject] IVendorHandler VendorHandler { get; set; } = default!;
+    [Inject] IItemsHandler ItemsHandler { get; set; } = default!;
+    [Inject] IHttpContextAccessor httpContextAccessor { get; set; } = default!;
 
     AppTable<StockTransferRequestLineVM> LinesTable = default!;
     DataGridSettings TableSettings { get; set; } = new();
@@ -64,6 +58,12 @@ public partial class STRForm
 
     private List<TransferCategory> ReturnCategories = [.. TransferCategory.ReturnCategories];
 
+    private readonly SemaphoreSlim _concurrencySemaphore = new SemaphoreSlim(2, 2);
+
+    private BarcodeStore BarcodeStore = new();
+
+    bool DefaultSubsidiaryLoading = false;
+
     const string PRINTABLE_URL_INTERCOMPANY = "https://11608969.extforms.netsuite.com/app/site/hosting/scriptlet.nl?script=1671&deploy=1&compid=11608969&ns-at=AAEJ7tMQ9evIwFEEUifIBokQgQ0jhowAItpfjv5Smu7B76K41lU&recordType=tranferOrder&isPickingTicket=true";
     const string PRINTABLE_URL_TO = "https://11608969.extforms.netsuite.com/app/site/hosting/scriptlet.nl?script=1671&deploy=1&compid=11608969&ns-at=AAEJ7tMQ9evIwFEEUifIBokQgQ0jhowAItpfjv5Smu7B76K41lU&recordType=tranferOrder&isPickingTicket=true";
 
@@ -73,6 +73,8 @@ public partial class STRForm
     public string StatusString => Model.Status is null ?
         ReadOnly ? "N/A" : "To be submitted" :
         string.IsNullOrEmpty(Model.Status.Name) ? "---" : Model.Status.Name;
+    public bool IsSubmitting = false;
+    public bool Disabled => IsBusy || IsSubmitting;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -98,7 +100,13 @@ public partial class STRForm
     {
         if (Model.Lines.Count == 0)
         {
-            await DialogService.Alert("Please add at least one item", "Error");
+            ToastService.Error("Please add at least one item");
+            return;
+        }
+        
+        if (Model.Lines.Any(x => x.QuantityAlloted > x.QuantityOnHandByUoM))
+        {
+            ToastService.Error("Some alloted items exceed the available quantity", "Error");
             return;
         }
 
@@ -133,34 +141,70 @@ public partial class STRForm
     {
         if (Model.Subsidiary is null) return ([], 0);
 
-        return await LocationHandler.GetLocationsBySubsidiaryAsync(intent, Model.Subsidiary.Id);
+        await _concurrencySemaphore.WaitAsync();
+
+        var result =  await LocationHandler.GetLocationsBySubsidiaryAsync(intent, Model.Subsidiary.Id);
+
+        _concurrencySemaphore.Release();
+        return result;
     }
 
     async Task<(IEnumerable<LocationVM>, int)> DestinationLocationProvider(DataGridIntent intent)
     {
         if (Model.ToSubsidiary is null) return ([], 0);
 
-        return await LocationHandler.GetLocationsBySubsidiaryAsync(intent, Model.ToSubsidiary.Id);
+        await _concurrencySemaphore.WaitAsync();
+        var result = await LocationHandler.GetLocationsBySubsidiaryAsync(intent, Model.ToSubsidiary.Id);
+
+        _concurrencySemaphore.Release();
+        return result;
     }
 
     async Task<(IEnumerable<VendorVM>, int)> VendorProvider(DataGridIntent intent)
     {
         if (Model.ToSubsidiary is null) return ([], 0);
 
-        return await VendorHandler.GetVendorsListBySubsidiaryAsync(intent, Model.ToSubsidiary.Id);
+        await _concurrencySemaphore.WaitAsync();
+
+        var result = await VendorHandler.GetTradeVendorsListBySubsidiaryAsync(intent, Model.ToSubsidiary.Id);
+
+        _concurrencySemaphore.Release();
+        return result;
     }
 
     async Task<(IEnumerable<SubsidiaryVM>, int)> SubsidiaryProvider(DataGridIntent intent)
     {
-        return await SubsidiaryHandler.GetSubsidiariesAsync(intent);
+
+        await _concurrencySemaphore.WaitAsync();
+
+        var result = await SubsidiaryHandler.GetSubsidiariesAsync(intent);
+
+        _concurrencySemaphore.Release();
+        return result;
+    }
+
+    async Task<(IEnumerable<SubsidiaryVM>, int)> ToSubsidiaryProvider(DataGridIntent intent)
+    {
+
+        await _concurrencySemaphore.WaitAsync();
+
+        var result = await SubsidiaryHandler.GetSubsidiariesAsync(intent);
+
+        _concurrencySemaphore.Release();
+        return result;
     }
 
     async Task<(IEnumerable<ItemUnitVM>, int)> ItemUnitProvider(int itemId, DataGridIntent intent)
     {
-        return await ItemsHandler.GetItemUnits(itemId, intent);
+
+        await _concurrencySemaphore.WaitAsync();
+        var result = await ItemsHandler.GetItemUnits(itemId, intent);
+
+        _concurrencySemaphore.Release();
+        return result;
     }
 
-    async Task OnSubsidiaryChanged(SubsidiaryVM? value)
+    public async Task OnSubsidiaryChanged(SubsidiaryVM? value)
     {
         var originalValue = Model.Subsidiary;
         Model.Subsidiary = value;
@@ -245,7 +289,61 @@ public partial class STRForm
         return a is null || b is null ? false : a.Id == b.Id;
     }
 
-    async Task OnToSubsidiaryChanged(SubsidiaryVM? value)
+    bool IsValidBarcode(BarcodeVM barcode, out string reason)
+    {
+        var line = Model.Lines.FirstOrDefault(x => x.ItemId == barcode.Item?.Id);
+        if (line is null)
+        {
+            reason = $"The item {barcode.Item?.ItemNumber} does not exist in the current document";
+            return false;
+        }
+
+        var uomRate = line.UoM?.ConversionRate ?? 1;
+        var itemCount = BarcodeStore.CountItemQuantity(line.ItemId) / uomRate;
+        var incomingCount = (barcode.UoM?.ConversionRate ?? 0) / uomRate;
+
+        if (line.QuantityOnHandByUoM - line.QuantityAlloted - itemCount < incomingCount)
+        {
+            reason = $"The quantity of the item {line.ItemCode} exceeds the expected amount";
+            return false;
+        }
+
+        reason = "";
+        return true;
+    }
+
+    decimal GetLineQuantity(StockTransferRequestLineVM line)
+    {
+        decimal itemCount = BarcodeStore.CountItemQuantity(line.ItemId) / (line.UoM?.ConversionRate ?? 1);
+
+        return line.QuantityAlloted + itemCount;
+    }
+
+    void SetLineQuantity(StockTransferRequestLineVM line, decimal amount)
+    {
+        decimal itemCount = BarcodeStore.CountItemQuantity(line.ItemId) / (line.UoM?.ConversionRate ?? 1);
+
+        decimal diff = Math.Max(amount, itemCount);
+
+        line.QuantityAlloted = diff - itemCount;
+    }
+
+    void ApplyBarcodes()
+    {
+        if (!BarcodeStore.Any()) return;
+
+        foreach (var item in BarcodeStore.Items)
+        {
+            var itemCount = BarcodeStore.CountItemQuantity(item);
+            var itemLine = Model.Lines.First(x => x.ItemId == item.Id);
+
+            if (itemLine != null) itemLine.QuantityAlloted += itemCount / (itemLine.UoM?.ConversionRate ?? 1);
+        }
+
+        BarcodeStore.Clear();
+    }
+
+    public async Task OnToSubsidiaryChanged(SubsidiaryVM? value)
     {
         var originalValue = Model.ToSubsidiary;
         Model.ToSubsidiary = value;
@@ -262,6 +360,32 @@ public partial class STRForm
         Model.Vendor = null;
         DestinationLocationDropdown?.Reset();
         VendorDropdown?.Reset();
+    }
+
+    async Task SubmitForApproval()
+    {
+        IsSubmitting = true;
+        await InvokeAsync(StateHasChanged);
+
+        var action = await AppActionFactory.RunConfirmedAsync(async () =>
+        {
+            await StockTransferRequestHandler.SubmitStockTransferRequestForApproval(Model);
+        }, "Submit Stock Transfer Request for Approval");
+
+        action.OnSuccess(() =>
+        {
+            NavManager.NavigateTo(NavManager.Uri, true);
+            return Task.CompletedTask;
+        });
+
+        action.OnFailure((ex) =>
+        {
+            ToastService.Error(ex.Message);
+            return Task.CompletedTask;
+        });
+
+        IsSubmitting = false;
+        await InvokeAsync(StateHasChanged);
     }
 
     async Task DeleteLine(StockTransferRequestLineVM line)

@@ -11,4 +11,5 @@ public class VendorReturnAuthorizationPackingDataGridNSDTO
     public string Remarks { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;
     public DateTime Date { get; set; }
+    public DateTime DateLastModified { get; set; }
 }

@@ -44,24 +44,30 @@ public class ItemReceiptPackingHandler(ISender sender) : IItemReceiptPackingHand
         }))).ToList();
 
         var submittedLines = data.Lines.ToDictionary(line => line.LineNumber);
+
         var dto = sourceLines
             .Where(x => GetRemainingQuantity(x.LineQuantity, x.LineQuantityBackOrdered, x.LineQuantityPacked, x.UoMRate) > 0)
             .SelectMany(line =>
             {
                 submittedLines.TryGetValue(line.LineSequenceNumber, out var submittedLine);
 
-                return new[]
+                var quantityOpen = GetRemainingQuantity(line.LineQuantity, line.LineQuantityBackOrdered, line.LineQuantityPacked, line.UoMRate);
+                var goodQty = submittedLine is not null && submittedLine.IsReceived ? submittedLine.QuantityGood : 0;
+                var badQty = submittedLine is not null && submittedLine.IsReceived ? submittedLine.QuantityBad : 0;
+
+                var entries = new List<PostTransferOrderDTO>
                 {
-                    MapToDto(line, submittedLine, isBad: false),
                     MapToDto(line, submittedLine, isBad: true)
                 };
+
+                if (goodQty > 0 || badQty < quantityOpen)
+                {
+                    entries.Add(MapToDto(line, submittedLine, isBad: false));
+                }
+
+                return entries;
             })
             .ToList();
-
-        if (!dto.Any(line => line.ScannedQuantity > 0))
-        {
-            throw new InvalidOperationException("Please enter at least one quantity to fulfill.");
-        }
 
         var result = await sender.Send(new PostTransferOrderIFCmd(dto));
         if (!result.Success)

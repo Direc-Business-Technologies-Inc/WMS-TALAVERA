@@ -19,7 +19,7 @@
 }
 else
 {
-    <RadzenStack class="rz-p-5"> 
+    <RadzenStack class="rz-p-5">
         <RadzenStack Visible="@(IsDataLoaded && !ErrorState)"
                      Orientation="Orientation.Horizontal"
                      AlignItems="AlignItems.Center"
@@ -45,7 +45,7 @@ else
                                     <RadzenDatePicker DateFormat="MMMM dd, yyyy" ReadOnly TValue="DateTime" Value="@Model.Date" />
                                 </RadzenFormField>
                             </RadzenColumn>
-                            
+
                             <RadzenColumn SizeMD="6">
                                 <RadzenFormField Text="From Subsidiary" class="rz-w-100" AllowFloatingLabel="false">
                                     <RadzenTextBox ReadOnly Value="@Model.FromSubsidiary" />
@@ -56,7 +56,7 @@ else
                                     <RadzenTextBox ReadOnly Value="@Model.ToSubsidiary" />
                                 </RadzenFormField>
                             </RadzenColumn>
-                            
+
                             <RadzenColumn SizeMD="6">
                                 <RadzenFormField Text="Source Warehouse" class="rz-w-100" AllowFloatingLabel="false">
                                     <RadzenTextBox ReadOnly Value="@Model.SourceWarehouse" />
@@ -67,15 +67,10 @@ else
                                     <RadzenTextBox ReadOnly Value="@Model.DestinationWarehouse" />
                                 </RadzenFormField>
                             </RadzenColumn>
-                            
+
                             <RadzenColumn SizeMD="6">
                                 <RadzenFormField Text="Prepared By" class="rz-w-100" AllowFloatingLabel="false">
                                     <RadzenTextBox ReadOnly Value="@Model.PreparedBy" />
-                                </RadzenFormField>
-                            </RadzenColumn>
-                            <RadzenColumn SizeMD="6">
-                                <RadzenFormField Text="Received By" class="rz-w-100" AllowFloatingLabel="false">
-                                    <RadzenTextBox ReadOnly Value="@Model.ReceivedBy" />
                                 </RadzenFormField>
                             </RadzenColumn>
                         </RadzenRow>
@@ -88,18 +83,40 @@ else
                         <RadzenDataGridColumn TItem="TransferOrderLineVM" Property="@nameof(TransferOrderLineVM.ItemCode)" Type="@typeof(string)" Title="Item Code" />
                         <RadzenDataGridColumn TItem="TransferOrderLineVM" Property="@nameof(TransferOrderLineVM.ItemDescription)" Type="@typeof(string)" Title="Item Description" />
                         <RadzenDataGridColumn TItem="TransferOrderLineVM" Property="@nameof(TransferOrderLineVM.UoM)" Type="@typeof(string)" Title="UoM" Width="125px" />
-                        <RadzenDataGridColumn TItem="TransferOrderLineVM" Property="@nameof(TransferOrderLineVM.Warehouse)" Type="@typeof(string)" Title="Warehouse" Width="125px" />
+                        <RadzenDataGridColumn TItem="TransferOrderLineVM" Property="@nameof(TransferOrderLineVM.DestinationLocation)" Type="@typeof(string)" Title="Warehouse" Width="125px" />
                         <RadzenDataGridColumn TItem="TransferOrderLineVM" Property="@nameof(TransferOrderLineVM.QuantityPlanned)" Type="@typeof(string)" Title="Planned Quantity" Width="125px" />
                     </GridColumns>
                 </AppDataGrid>
             </RadzenFieldset>
             <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween">
                 <RadzenButton ButtonType="ButtonType.Button" ButtonStyle="ButtonStyle.Light" Text="Return" Click="@(_ => NavManager.NavigateTo("/transactions/purchasing/receiving?tab=transferorder"))" />
-                <RadzenButton ButtonType="ButtonType.Button" ButtonStyle="ButtonStyle.Success" Text="Create Item Receipt" Click="@(_ => NavManager.NavigateTo($"/transactions/purchasing/receiving/create-item-receipt?ref={Model.ReferenceNumber}"))" />
+                <RadzenButton ButtonType="ButtonType.Button" ButtonStyle="ButtonStyle.Success" Text="Create Item Receipt" Click="@(_ => OpenItemFulfillments())" />
             </RadzenStack>
         </RadzenStack>
     </RadzenStack>
 }
 
 @code {
+
+    readonly DialogOptions dialogOptions = new()
+    {
+        CloseDialogOnOverlayClick = true,
+        CloseDialogOnEsc = true,
+        Draggable = true,
+        Resizable = true,
+        ShowClose = true,
+        Width = "75%"
+    };
+
+    async Task OpenItemFulfillments()
+    {
+        ItemFulfillmentVM? itemfulfillment = await DialogService.OpenAsync(
+            "Select Item Fulfillment",
+            ds => @<ItemFulfillmentsDialog TransferOrderId="Model.Id" />,
+            options: dialogOptions);
+        if (itemfulfillment is not null)
+        {
+            NavManager.NavigateTo($"/transactions/purchasing/receiving/create-item-receipt?ref={Model.ReferenceNumber}&itemFulfillment={itemfulfillment.ReferenceNumber}&ifid={itemfulfillment.Id}");
+        }
+    }
 }

@@ -29,7 +29,7 @@
         {
             foreach (var (prop, title) in PropertyTitles)
             {
-                <RadzenDataGridColumn TItem="TItem" Property="@prop.Name" Title="@title" Type="@prop.GetType()" FormatString="@GetFormat(prop)"/>
+                <RadzenDataGridColumn TItem="TItem" Property="@prop.Name" Title="@title" Type="@prop.PropertyType" FormatString="@GetFormat(prop)"/>
             }
         }
         

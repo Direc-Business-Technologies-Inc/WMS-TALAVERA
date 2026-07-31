@@ -54,10 +54,10 @@ public class ReturnsItemReceiptPackingHandler(ISender sender) : IReturnsItemRece
             })
             .ToList();
 
-        if (!dto.Any(line => line.ScannedQuantity > 0))
-        {
-            throw new InvalidOperationException("Please enter at least one quantity to fulfill.");
-        }
+        //if (!dto.Any(line => line.ScannedQuantity > 0))
+        //{
+        //    throw new InvalidOperationException("Please enter at least one quantity to fulfill.");
+        //}
 
         var result = await sender.Send(new PostReturnsIFCmd(dto));
         if (!result.Success)

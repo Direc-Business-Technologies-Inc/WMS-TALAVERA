@@ -1,3 +1,4 @@
+using Application.DataTransferObjects.Transactions.Packing;
 using Application.DataTransferObjects.Transactions.Packing.Returns;
 using Application.UseCases.Repositories.Integration.Others;
 using Application.UseCases.Repositories.Integration.Transaction.Packing;
@@ -8,6 +9,7 @@ using Integration.NS.Helpers;
 using Integration.NS.Services;
 using Microsoft.AspNetCore.Http;
 using Shared.Entities;
+using Shared.Libraries.Utilities;
 using static Shared.Libraries.Utilities.DataGridFilterUtilities;
 
 namespace Integration.NS.Implementations.Transactions.Packing;
@@ -20,11 +22,14 @@ internal class ReturnPackingIntegration(
 {
     public async Task<(IEnumerable<ReturnsDataGridDTO> Data, int Count)> GetPackingReturnsList(DataGridIntent intent, int subsidiaryId)
     {
+        if (intent.Sorts.Count == 0) intent.Sorts.Add(DataGridSortUtilities.Descending(nameof(ReturnPackingDataGridNSDTO.DateLastModified)));
+
         var query = builderFactory.Create()
             .Select(
                 ("t.id", nameof(ReturnPackingDataGridNSDTO.Id)),
                 ("t.tranid", nameof(ReturnPackingDataGridNSDTO.ReferenceNumber)),
                 ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(ReturnPackingDataGridNSDTO.Date)),
+                ("TO_CHAR(t.lastmodifieddate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(ReturnPackingDataGridNSDTO.DateLastModified)),
                 ("BUILTIN.DF(t.subsidiary)", nameof(ReturnPackingDataGridNSDTO.SourceSubsidiary)),
                 ("BUILTIN.DF(t.tosubsidiary)", nameof(ReturnPackingDataGridNSDTO.DestinationSubsidiary)),
                 ("BUILTIN.DF(tl.location)", nameof(ReturnPackingDataGridNSDTO.Location)),
@@ -33,12 +38,11 @@ internal class ReturnPackingIntegration(
                 ("t.memo", nameof(ReturnPackingDataGridNSDTO.Remarks))
             )
             .From("transaction t")
-            .WithSubsidiaries(httpContextAccessor, "t")
             .Join("transactionline tl", on: "tl.transaction = t.id")
             .LeftJoin("transferorderstatus s", on: "s.id = t.status")
             .WithFilters(
                 Equal("tl.mainline", "T"),
-                Equal("t.tosubsidiary", subsidiaryId))
+                Equal("tl.subsidiary", subsidiaryId))
             .WithFilters(PackingReturnsFilters())
             .WithDatagridIntent(intent)
             .Build();
@@ -60,11 +64,11 @@ internal class ReturnPackingIntegration(
                 ("BUILTIN.DF(tl.location)", nameof(ReturnPackingHeaderNSDTO.Location)),
                 ("BUILTIN.DF(t.transferlocation)", nameof(ReturnPackingHeaderNSDTO.TransferLocation)),
                 ("BUILTIN.DF(t.custbody_dbti_transfer_category)", nameof(ReturnPackingHeaderNSDTO.TransferCategory)),
-                ("BUILTIN.DF(t.custbody_dbti_prepared_by)", nameof(ReturnPackingHeaderNSDTO.PreparedBy))
+                ("CONCAT(e.firstname,CONCAT(' ',e.lastname))", nameof(ReturnPackingHeaderNSDTO.PreparedBy))
             )
             .From("transaction t")
             .Join("transactionline tl", on: "tl.transaction = t.id")
-            .WithSubsidiaries(httpContextAccessor, "t")
+            .LeftJoin("employee e", "t.custbody_dbti_prepared_by = e.id")
             .WithFilters(
                 Equal("t.tranid", id),
                 Equal("tl.mainline", "T"))
@@ -160,5 +164,30 @@ internal class ReturnPackingIntegration(
             QuantityReceived = nsdto.QuantityReceived,
             QuantityBackOrdered = nsdto.QuantityBackOrdered,
         };
+    }
+
+    public async Task<(IEnumerable<PackedItemFulfillmentDTO> Data, int Count)> GetPackedItemFulfillments(DataGridIntent intent)
+    {
+        var query = builderFactory.Create()
+            .Select(
+                ("t.id", nameof(PackedItemFulfillmentDTO.Id)),
+                ("t.tranid", nameof(PackedItemFulfillmentDTO.ReferenceNumber)),
+                ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(PackedItemFulfillmentDTO.Date)),
+                ("TO_CHAR(t.LastModifiedDate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(PackedItemFulfillmentDTO.DateLastModified)),
+                ("BUILTIN.DF(t.custbody_dbti_transfer_category)", nameof(PackedItemFulfillmentDTO.TransferCategory)),
+                ("BUILTIN.DF(tl.createdfrom)", nameof(PackedItemFulfillmentDTO.CreatedFrom))
+            )
+            .From("transaction t")
+            .Join("transactionline tl", "tl.mainline = 'T' and tl.transaction = t.id")
+            .WithFilters(
+                Equal("t.recordtype", "itemfulfillment"),
+                Equal("t.status", "B")
+            )
+            .WithDatagridIntent(intent)
+            .Build();
+
+        var response = await query.ExecuteWithPaging<PackedItemFulfillmentDTO>(netsuiteService);
+
+        return (response.items, response.totalResults);
     }
 }

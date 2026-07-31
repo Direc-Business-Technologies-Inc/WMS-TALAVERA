@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace Application.UseCases.Queries.Transaction.Receiving;
 
-public record GetItemReceiptSourceQry(string Ref) : IRequest<ItemReceiptDTO?>;
+public record GetItemReceiptSourceQry(string Ref, string? itemFulfillment = null) : IRequest<ItemReceiptDTO?>;
 
 public class GetItemReceiptSourceQryHandler(
     IReceivingIntegration receivingIntegration) : IRequestHandler<GetItemReceiptSourceQry, ItemReceiptDTO?>
@@ -20,7 +20,17 @@ public class GetItemReceiptSourceQryHandler(
         if (header == null) return null;
 
         var isTransferOrder = header.Type.Equals("Returns", StringComparison.OrdinalIgnoreCase) || header.Type.Equals("TrnfrOrd", StringComparison.OrdinalIgnoreCase);
-        var lines = await receivingIntegration.GetItemReceiptLinesAsync(request.Ref, isTransferOrder);
+
+        List<ItemReceiptLineDTO> lines = [];
+        if (isTransferOrder && request.itemFulfillment is not null)
+        {
+            lines = [.. await receivingIntegration.GetItemReceiptItemFulfillmentLinesAsync(request.itemFulfillment)];
+        }
+        else
+        {
+            lines = [.. await receivingIntegration.GetItemReceiptLinesAsync(request.Ref, isTransferOrder)];
+        }
+
         header.Lines = [..lines];
 
         return header;

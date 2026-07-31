@@ -1,4 +1,5 @@
 ﻿@using Web.BlazorServer.Components.Custom
+@using Web.BlazorServer.Components.Pages.Transaction.Others.BarcodeScanning
 @using Web.BlazorServer.ViewModels.Others
 @using Web.BlazorServer.ViewModels.Transaction.SupplierReturn
 
@@ -27,10 +28,10 @@
                     <RadzenFormField Text="Return Category" class="rz-w-100">
                         <ChildContent>
                             <RadzenTextBox Disabled="IsDisabled" Visible="@ReadOnly" Value="@Model.ReturnCategory?.Name" Placeholder="No category given" />
-                            <QuickVirtualizedDropdown  Disabled="IsDisabled" Name="str_return_categ" @bind-Value:get="@Model.ReturnCategory" @bind-Value:set="@CategorySet" Visible="@(!ReadOnly)" TItem="ReturnCategoryVM" DataGetter="@CategoryProvider" TextProperty="@nameof(ReturnCategoryVM.Name)" />
+                            <QuickVirtualizedDropdown Disabled="IsDisabled" Name="str_return_categ" @bind-Value:get="@Model.ReturnCategory" @bind-Value:set="@CategorySet" Visible="@(!ReadOnly)" TItem="ReturnCategoryVM" DataGetter="@CategoryProvider" TextProperty="@nameof(ReturnCategoryVM.Name)" />
                         </ChildContent>
                         <Helper>
-                            <RadzenRequiredValidator Visible="@IsEditable" Component="str_return_categ" />
+                            <RadzenRequiredValidator Visible="@(!ReadOnly)" Component="str_return_categ" />
                         </Helper>
                     </RadzenFormField>
                 </RadzenColumn>
@@ -71,20 +72,11 @@
                     <RadzenFormField Text="Purchase Subcategory" class="rz-w-100">
                         <ChildContent>
                             <RadzenTextBox Disabled="IsDisabled" Visible="@(!IsEditable)" Value="@Model.PurchaseSubcategory?.Name" Placeholder="No purchase subcategory given" />
-                            <QuickVirtualizedDropdown  @ref="@PurchaseSubcategoryDropdown" @bind-Value="@Model.PurchaseSubcategory" Visible="@IsEditable" TItem="PurchaseSubcategoryVM" DataGetter="@PurchaseSubcategoryProvider" TextProperty="@nameof(PurchaseSubcategoryVM.Name)" Disabled="@(Model.PurchaseCategory is null || IsDisabled)" />
+                            <QuickVirtualizedDropdown @ref="@PurchaseSubcategoryDropdown" @bind-Value="@Model.PurchaseSubcategory" Visible="@IsEditable" TItem="PurchaseSubcategoryVM" DataGetter="@PurchaseSubcategoryProvider" TextProperty="@nameof(PurchaseSubcategoryVM.Name)" Disabled="@(Model.PurchaseCategory is null || IsDisabled)" />
                         </ChildContent>
                     </RadzenFormField>
                 </RadzenColumn>
-                <RadzenColumn SizeMD="3">
-                    <RadzenFormField Text="Status" class="rz-w-100">
-                        <ChildContent>
-                            <RadzenTextBox Disabled="IsDisabled" ReadOnly Value="@Model.Status?.Name" Placeholder="No status given" />
-                        </ChildContent>
-                        <Helper>
-                        </Helper>
-                    </RadzenFormField>
-                </RadzenColumn>
-                <RadzenColumn SizeMD="3">
+                <RadzenColumn SizeMD="6">
                     <RadzenFormField Text="Warehouse" class="rz-w-100">
                         <ChildContent>
                             <RadzenTextBox Disabled="IsDisabled" Visible="@(!IsEditable)" Value="@Model.Location?.Name" Placeholder="No location given" />
@@ -104,6 +96,7 @@
                     <RadzenButton Icon="print" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Visible="@ReadOnly">
                         <RadzenLink Path="@PrintableURL" Text="Print" target="_blank" Icon="print" />
                     </RadzenButton>
+                    <RadzenButton ButtonType="ButtonType.Button" Icon="barcode" Visible="@IsEditable" Disabled="@(Model.Location is null)" Size="ButtonSize.Small" Click="OpenItemDialog" ButtonStyle="ButtonStyle.Primary" Text="Scan Barcodes" />
                     <RadzenButton ButtonType="ButtonType.Button" Icon="add" Visible="@IsEditable" Disabled="@(Model.Location is null)" Size="ButtonSize.Small" Click="OpenItemDialog" ButtonStyle="ButtonStyle.Success" />
                 </HeaderTemplate>
                 <Columns>
@@ -111,17 +104,42 @@
                     <RadzenDataGridColumn TItem="SupplierReturnLineVM" Title="Item Description" Property="@nameof(SupplierReturnLineVM.ItemDescription)" />
                     <RadzenDataGridColumn TItem="SupplierReturnLineVM" Title="UoM">
                         <Template Context="data">
-                            <RadzenText  Visible="@(!IsEditable)" TextStyle="TextStyle.Body2" Text="@(data.UoM?.Name ?? "-")" />
-                            <QuickVirtualizedDropdown Disabled="IsDisabled" @bind-Value:get="@data.UoM" @bind-Value:set="@(val => LineUoMSet(data, val))" Visible="@IsEditable" TItem="ItemUnitVM" DataGetter="@(intent => ItemUnitsProvider(intent, data.ItemId))" TextProperty="@nameof(ItemUnitVM.Name)" />
+                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center">
+                                <RadzenText Visible="@(!IsEditable)" TextStyle="TextStyle.Body2" Text="@(data.UoM?.Name ?? "-")" />
+                                <QuickVirtualizedDropdown Disabled="IsDisabled" @bind-Value:get="@data.UoM" @bind-Value:set="@(val => LineUoMSet(data, val))" Visible="@IsEditable" TItem="ItemUnitVM" DataGetter="@(intent => ItemUnitsProvider(intent, data.ItemId))" TextProperty="@nameof(ItemUnitVM.Name)" />
+                            </RadzenStack>
                         </Template>
                     </RadzenDataGridColumn>
                     <RadzenDataGridColumn TItem="SupplierReturnLineVM" Title="Available Quantity" Property="@nameof(SupplierReturnLineVM.QuantityOnHandByUoM)" Type="typeof(decimal)" FormatString="{0:#,##0.##}" />
                     <RadzenDataGridColumn TItem="SupplierReturnLineVM" Title="Alloted Quantity">
                         <Template Context="data">
-                            <RadzenText  Visible="@(!IsEditable)" TextStyle="TextStyle.Body2" Text="@data.QuantityAlloted.ToString()" />
-                            <RadzenNumeric Disabled="IsDisabled" Visible="@(IsEditable)" @bind-Value="@data.QuantityAlloted" Format="#,##0.##" />
+
+                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center">
+                                <RadzenText Visible="@(!IsEditable)" TextStyle="TextStyle.Body2" Text="@data.QuantityAlloted.ToString("#,##0.##")" />
+                                <RadzenFormField Visible="IsEditable">
+                                    <ChildContent>
+                                        <RadzenNumeric Disabled="IsDisabled"  @bind-Value="@data.QuantityAlloted" Format="#,##0.##" />
+                                    </ChildContent>
+                                    <Helper>
+                                        <RadzenText Visible="@(data.QuantityAlloted > data.QuantityAvailable)" TextStyle="TextStyle.Caption" class="rz-color-danger"  Text="Quantity exceeds available"/> 
+                                    </Helper>
+                                </RadzenFormField>
+                            </RadzenStack>
                         </Template>
                     </RadzenDataGridColumn>
+
+                    @if (IsEditable)
+                    {
+                        <RadzenDataGridColumn TItem="SupplierReturnLineVM"
+                                              Frozen
+                                              FrozenPosition="FrozenColumnPosition.Right"
+                                              Width="35px"
+                                              Filterable="false" Sortable="false" Pickable="false">
+                            <Template Context="data">
+                                <RadzenButton Disabled="Disabled" Icon="delete" ButtonStyle="ButtonStyle.Danger" Size="ButtonSize.ExtraSmall" Click="_ => RemoveLine(data)" />
+                            </Template>
+                        </RadzenDataGridColumn>
+                    }
                 </Columns>
             </AppTableWithSettings>
         </RadzenFieldset>
@@ -140,22 +158,32 @@
             </RadzenRow>
         </RadzenFieldset>
         <RadzenStack Gap="0.5em" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween">
-            <RadzenButton Disabled="IsDisabled" ButtonType="ButtonType.Button" Text="@ReturnString" Visible="@OnReturn.HasDelegate" Click="ReturnClicked" />
+            <RadzenButton Disabled="IsDisabled" ButtonStyle="ButtonStyle.Light" ButtonType="ButtonType.Button" Text="@ReturnString" Visible="@OnReturn.HasDelegate" Click="ReturnClicked" />
             <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5em">
                 <RadzenButton Disabled="IsDisabled" ButtonType="ButtonType.Button" Text="@SecondaryActionString" Visible="@OnSecondaryAction.HasDelegate" Click="SecondaryActionClicked" />
-                <RadzenButton Disabled="IsDisabled" ButtonType="ButtonType.Submit" Text="@SubmitString" Visible="@OnSubmit.HasDelegate" />
+                <RadzenButton Disabled="IsDisabled" ButtonStyle="ButtonStyle.Success" ButtonType="ButtonType.Submit" Text="@SubmitString" Visible="@OnSubmit.HasDelegate" />
             </RadzenStack>
         </RadzenStack>
     </RadzenStack>
 </RadzenTemplateForm>
 
 @code {
+    readonly DialogOptions dialogOptions = new()
+    {
+        CloseDialogOnOverlayClick = true,
+        CloseDialogOnEsc = true,
+        Draggable = true,
+        Resizable = true,
+        ShowClose = true,
+        Width = "75%"
+    };
+
     async Task OpenItemDialog()
     {
         List<ItemsVM> items = await DialogService.OpenAsync(
             "Select Items",
-            ds => @<ItemSelectionDialog Location="@(Model.Location?.Id ?? null)" />,
-    options: GridSettingsService.GetDialogOptions());
+            ds => @<ItemSelectionDialog Location="@(Model.Location?.Id ?? null)" Filters="ItemFilters" />,
+    options: dialogOptions);
 
         if (items is not null) await AddItems(items);
     }
@@ -165,9 +193,26 @@
         string? poRef = await DialogService.OpenAsync(
             "Select Purchase Order",
             ds => @<PurchaseOrderDialog />,
-    options: GridSettingsService.GetDialogOptions());
+    options: dialogOptions);
 
         if (poRef != null) await GetPurchaseOrder(poRef);
     }
+    
+    async Task OpenBarcodeDialog()
+    {
+        bool? save = await DialogService.OpenAsync(
+            "Table Settings",
+            ds => @<BarcodeScannerDialog BarcodeStore="BarcodeStore" Verifier="IsValidBarcode" />,
+            options: GridSettingsService.GetDialogOptions());
 
+        if (save == false)
+        {
+            BarcodeStore.Clear();
+        }
+        else if (save == true)
+        {
+            ApplyBarcodes();
+        }
+        await InvokeAsync(StateHasChanged);
+    }
 }

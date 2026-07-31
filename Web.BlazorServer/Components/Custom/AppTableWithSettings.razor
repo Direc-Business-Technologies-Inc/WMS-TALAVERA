@@ -49,6 +49,11 @@
 </AppTable>
 
 @code {
+
+    // to be honest. idk what i was trying to do here
+    // this whole thing was very patchwork-y
+    // i blame not having better requirement gathering
+    // i also blame myself :(
     [Parameter][EditorRequired] public required string Id { get; set; }
     [Parameter] public List<TItem> Data { get; set; } = new List<TItem>();
 

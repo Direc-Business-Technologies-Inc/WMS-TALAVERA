@@ -1,4 +1,5 @@
-﻿using Application.DataTransferObjects.Transactions.InventoryTransferRequest;
+﻿using Application.DataTransferObjects.Transactions.Commons.NS.Payload;
+using Application.DataTransferObjects.Transactions.InventoryTransferRequest;
 using Application.UseCases.Repositories.Integration.Others;
 using Application.UseCases.Repositories.Integration.Transaction.InventoryTransferRequest;
 using Integration.NS.DataTransferObjects.InventoryAdjustment;
@@ -39,14 +40,18 @@ public class InventoryTransferRequestIntegration(
                 ("t.subsidiary", nameof(InventoryTransferRequestNSDTO.SubsidiaryId)),
                 ("tl.location", nameof(InventoryTransferRequestNSDTO.SourceLocationId)),
                 ("tl.entity", nameof(InventoryTransferRequestNSDTO.CustomerId)),
+                ("s.id", nameof(InventoryTransferRequestNSDTO.StatusId)),
+                ("s.name", nameof(InventoryTransferRequestNSDTO.StatusName)),
                 ("BUILTIN.DF(t.transferlocation)", nameof(InventoryTransferRequestNSDTO.DestinationLocationName)),
                 ("t.transferlocation", nameof(InventoryTransferRequestNSDTO.DestinationLocationId)),
                 ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(InventoryTransferRequestNSDTO.Date)),
+                ("t.custbody_dbti_submitted_for_approval", nameof(InventoryTransferRequestNSDTO.SubmittedForApproval)),
                 ("CONCAT(e.firstname,CONCAT(' ',e.lastname))", nameof(InventoryTransferRequestNSDTO.PreparedBy))
             )
             .From("transaction t")
             .Join("transactionline tl", "tl.transaction = t.id AND tl.mainline='T'")
             .LeftJoin("employee e", on: "e.id = t.custbody_dbti_prepared_by")
+            .LeftJoin("CUSTOMLIST_DBTI_CR_APPROVAL_STATUSES s", on: "s.id = t.custbody_dbti_custom_approval_status")
             .WithSubsidiaries(httpContextAccessor, "t")
             .WithFilters(
                 DataGridFilterUtilities.Equal("t.recordtype", "inventorytransfer"),
@@ -63,6 +68,8 @@ public class InventoryTransferRequestIntegration(
             SourceLocation = new() { Id = result.SourceLocationId, Name = result.SourceLocationName },
             DestinationLocation = new() { Id = result.DestinationLocationId, Name = result.DestinationLocationName },
             Subsidiary = new() { Id = result.SubsidiaryId, Name = result.SubsidiaryName },
+            Status = new() { Id = result.StatusId, Name = result.StatusName },
+            IsEditable = !result.IsSubmittedForApproval && (result.StatusId == 2 || result.StatusId == 3), // status == draft || status == rejected
         });
     }
 
@@ -71,6 +78,7 @@ public class InventoryTransferRequestIntegration(
         var query = builderFactory.Create()
             .Select(
                 ("item.itemId", nameof(InventoryTransferRequestLineNSDTO.ItemCode)),
+                ("item.id", nameof(InventoryTransferRequestLineNSDTO.ItemID)),
                 ("item.displayname", nameof(InventoryTransferRequestLineNSDTO.ItemDescription)),
                 ("(tl.quantity / uom.conversionrate)", nameof(InventoryTransferRequestLineNSDTO.QuantityAlloted)),
                 ("BUILTIN.DF(tl.units)", nameof(InventoryTransferRequestLineNSDTO.UoMName)),
@@ -78,12 +86,15 @@ public class InventoryTransferRequestIntegration(
                 ("uom.conversionrate", nameof(InventoryTransferRequestLineNSDTO.UoMRate)),
                 ("iil.quantityonhand", nameof(InventoryTransferRequestLineNSDTO.QuantityOnHand)),
                 ("tl.location", nameof(InventoryTransferRequestLineNSDTO.LocationId)),
+                ("stl.id", nameof(InventoryTransferRequestLineNSDTO.SourceLine)),
+                ("tl.linesequencenumber", nameof(InventoryTransferRequestLineNSDTO.LineNumber)),
                 ("BUILTIN.DF(tl.location)", nameof(InventoryTransferRequestLineNSDTO.LocationName))
             )
             .From("transactionline tl")
             .Join("item item", on: "item.id = tl.item")
             .Join("transaction t", on: "t.id = tl.transaction")
             .Join("transactionline ml", on: "ml.transaction = t.id AND ml.mainline = 'T'")
+            .Join("transactionline stl", on: "stl.transaction = t.id AND stl.displayline = tl.id")
             .LeftJoin("unitstypeuom uom", on: "tl.units = uom.internalid")
             .LeftJoin("inventoryitemlocations iil", on: "tl.item = iil.item AND ml.location = iil.location")
             .WithFilters(
@@ -99,6 +110,9 @@ public class InventoryTransferRequestIntegration(
 
     public async Task<(IEnumerable<InventoryTransferRequestDataGridDTO> Data, int Count)> GetInventoryTransferRequestsDataGridAsync(DataGridIntent intent)
     {
+        if (intent.Sorts.Count == 0)
+            intent.Sorts.Add(DataGridSortUtilities.Descending(nameof(InventoryTransferRequestDataGridDTO.ReferenceNumber)));
+
         var query = builderFactory.Create()
             .Select(
                 ("t.id", nameof(InventoryTransferRequestDataGridDTO.Id)),
@@ -108,8 +122,9 @@ public class InventoryTransferRequestIntegration(
                 ("BUILTIN.DF(t.subsidiary)", nameof(InventoryTransferRequestDataGridDTO.SubsidiaryName)),
                 ("BUILTIN.DF(t.custbody_dbti_custom_approval_status)", nameof(InventoryTransferRequestDataGridDTO.StatusName)),
                 ("CONCAT(e.firstname,CONCAT(' ',e.lastname))", nameof(InventoryTransferRequestDataGridDTO.PreparedBy)),
-                ("BUILTIN.DF(t.transferLocation)", nameof(InventoryTransferRequestDataGridDTO.DestinationLocation)),
-                ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(InventoryTransferRequestDataGridDTO.Date))
+                ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(InventoryTransferRequestDataGridDTO.Date)),
+                ("TO_CHAR(t.lastmodifieddate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(InventoryTransferRequestDataGridDTO.DateLastModified)),
+                ("(SELECT TOP 1 BUILTIN.DF(pien.location) FROM transactionline pien WHERE pien.transaction = t.id AND pien.mainline='F')", nameof(InventoryTransferRequestDataGridDTO.DestinationLocation))
             )
             .From("transaction t")
             .Join("transactionline tl", "tl.transaction = t.id AND tl.mainline='T'")
@@ -136,7 +151,7 @@ public class InventoryTransferRequestIntegration(
             .WithDatagridIntent(intent)
             .Build();
 
-        var response = await netsuiteService.ExecuteSuiteQLQuery<InventoryTransferRequestStatusDTO>(query.Query, query.Limit, query.Offset);
+        var response = await query.ExecuteWithPaging<InventoryTransferRequestStatusDTO>(netsuiteService);
         return (response.items, response.totalResults);
     }
 
@@ -157,7 +172,45 @@ public class InventoryTransferRequestIntegration(
         return true;
     }
 
-    public string CreatePayload(InventoryTransferRequestDTO data)
+    public async Task<bool> SubmitInventoryTransferRequestForApproval(InventoryTransferRequestDTO data)
+    {
+        var url = netsuiteService.GetRestAPIURI + $"/record/v1/inventoryTransfer/{data.Id}";
+        var anon = new
+        {
+            custbody_dbti_submitted_for_approval = "T",
+        };
+        var payload = JsonSerializer.Serialize(anon, jsonOpts);
+
+        try
+        {
+            _ = await netsuiteService.MakeRequest<object>(url, payload, HttpMethod.Patch);
+        }
+        catch (Exception ex) when (ex.Message.Equals("Empty response from NetSuite API", StringComparison.OrdinalIgnoreCase))
+        {
+            // Empty response is but http response is a success status code
+        }
+
+        return true;
+    }
+
+    public async Task<bool> UpdateInventoryTransferRequest(InventoryTransferRequestDTO data)
+    {
+        var url = netsuiteService.GetRestAPIURI + $"/record/v1/inventoryTransfer/{data.Id}?replace=inventory";
+        var payload = CreatePayload(data, true);
+
+        try
+        {
+            _ = await netsuiteService.MakeRequest<object>(url, payload, HttpMethod.Patch);
+        }
+        catch (Exception ex) when (ex.Message.Equals("Empty response from NetSuite API", StringComparison.OrdinalIgnoreCase))
+        {
+            // Empty response is but http response is a success status code
+        }
+
+        return true;
+    }
+
+    public string CreatePayload(InventoryTransferRequestDTO data, bool setStatus = false)
     {
         var anon = new
         {
@@ -173,13 +226,16 @@ public class InventoryTransferRequestIntegration(
             {
                 items = data.Lines.Where(x => x.QuantityAlloted > 0).Select(x => new
                 {
+                    line = x.LineNumber,
                     item = x.ItemID,
                     adjustQtyBy = x.QuantityAlloted,
-                    fromBinNumbers =  string.Join(",", x.InventoryDetails.Where(y => y.Bin is not null).Select(y => y.Bin?.Id)),
+                    fromBinNumbers =  x.InventoryDetails.Any() ?
+                        string.Join(",", x.InventoryDetails.Where(y => y.Bin is not null).Select(y => y.Bin?.Id)) :
+                        null,
                     units = x.UoM?.Id.ToString() ?? null,
-                    inventoryDetail = new
+                    inventoryDetail = x.InventoryDetails.Any() ? new
                     {
-                        InventoryAssignment = new 
+                        InventoryAssignment = new
                         {
                             items = x.IsAllAssigned ? x.InventoryDetails.Select(y => new
                             {
@@ -188,7 +244,7 @@ public class InventoryTransferRequestIntegration(
                                 quantity = y.QuantityAlloted
                             }) : null,
                         }
-                    },
+                    } : null,
                 })
             } 
         };

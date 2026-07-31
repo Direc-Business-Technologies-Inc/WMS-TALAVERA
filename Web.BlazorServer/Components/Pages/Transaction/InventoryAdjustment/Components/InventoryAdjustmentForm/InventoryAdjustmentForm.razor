@@ -1,6 +1,7 @@
 ﻿@using Web.BlazorServer.Components.Custom
 @using Web.BlazorServer.Components.Pages.Transaction.InventoryAdjustment.Components.Dialogs
 @using Web.BlazorServer.Components.Pages.Transaction.Others
+@using Web.BlazorServer.Components.Pages.Transaction.Others.BarcodeScanning
 @using Web.BlazorServer.ViewModels.Others
 @using Web.BlazorServer.ViewModels.Transaction.InventoryAdjustment
 @inherits BaseComponent
@@ -19,24 +20,35 @@
                     <RadzenDatePicker Disabled="Disabled" DateFormat="MMMM dd, yyyy" ShowTime="false" TValue="DateTime" ReadOnly Value="@Model.Date" />
                 </RadzenFormField>
             </RadzenColumn>
-            <RadzenColumn SizeMD="6">
+            <RadzenColumn SizeMD="@(Issue ? 3 : 6)">
                 <RadzenFormField Text="Subsidiary" class="rz-w-100">
                     <RadzenTextBox Disabled="Disabled" Visible="@ReadOnly" ReadOnly Value="@Model.Subsidiary?.Name" Placeholder="Enter subsidiary" />
                     <QuickVirtualizedDropdown Disabled="Disabled" Visible="@(!ReadOnly)" ActionName="@ActionGetSubsidiaries" TItem="SubsidiaryVM" @bind-Value:get="@Model.Subsidiary" @bind-Value:set="@SetSubsidiary" DataGetter="@SubsidiaryProvider" TextProperty="@nameof(SubsidiaryVM.Name)" AllowFiltering />
                 </RadzenFormField>
             </RadzenColumn>
-            <RadzenColumn SizeMD="6">
+            <RadzenColumn SizeMD="@(Issue ? 3 : 6)">
                 <RadzenFormField Text="Location" class="rz-w-100">
                     <RadzenTextBox Disabled="Disabled" Visible="@ReadOnly" ReadOnly Value="@Model.Location?.Name" Placeholder="Enter location" />
                     <QuickVirtualizedDropdown @ref="@LocationDropdown" Visible="@(!ReadOnly)" Disabled="@(Model.Subsidiary is null || Disabled)" ActionName="@ActionGetLocations" TItem="LocationVM" @bind-Value="@Model.Location" DataGetter="@LocationProvider" TextProperty="@nameof(LocationVM.Name)" AllowFiltering AllowClear/>
                 </RadzenFormField>
             </RadzenColumn>
-            <RadzenColumn>
+            <RadzenColumn SizeMD="6" Visible="@Issue">
+                <RadzenFormField Text="Department" class="rz-w-100">
+                    <ChildContent>
+                    <RadzenTextBox Disabled="Disabled" Visible="@ReadOnly" ReadOnly Value="@Model.Department?.Name" Placeholder="Enter location" />
+                    <QuickVirtualizedDropdown Visible="@(!ReadOnly)" Disabled="@(Model.Subsidiary is null || Disabled)" ActionName="@ActionGetDepartments" TItem="DepartmentVM" @bind-Value="@Model.Department" DataGetter="@DepartmentProvider" TextProperty="@nameof(DepartmentVM.Name)" AllowFiltering AllowClear Name="ia_department" />
+                    </ChildContent>
+                    <Helper>
+                        <RadzenRequiredValidator Component="ia_department" />
+                    </Helper>
+                </RadzenFormField>
+            </RadzenColumn>
+            <RadzenColumn SizeMD="6">
                 <RadzenFormField Text="Adjustment Category" class="rz-w-100">
                     <RadzenTextBox ReadOnly Disabled="Disabled" Value="@Model.Category?.Name" Placeholder="Category not provided" />
                 </RadzenFormField>
             </RadzenColumn>
-            <RadzenColumn SizeMD="4">
+            <RadzenColumn SizeMD="3">
                 <RadzenFormField Text="Adjustment Reason" class="rz-w-100">
                     <ChildContent>
                         <RadzenTextBox Disabled="Disabled" Visible="@ReadOnly" ReadOnly Value="@Model.Reason?.Name" Placeholder="Enter adjustment reason" />
@@ -44,7 +56,7 @@
                     </ChildContent>
                 </RadzenFormField>
             </RadzenColumn>
-            <RadzenColumn SizeMD="4">
+            <RadzenColumn SizeMD="3">
                 <RadzenFormField Text="Account" class="rz-w-100">
                     <ChildContent>
                         <RadzenTextBox Disabled="Disabled" Visible="@ReadOnly" ReadOnly Value="@Model.Account?.Name" Placeholder="Enter account" />
@@ -60,6 +72,7 @@
     <RadzenFieldset Text="Lines">
         <AppTableWithSettings Id="inventory_adjustment_lines" Data="@Model.Lines">
             <HeaderTemplate>
+                <RadzenButton Visible="@(!ReadOnly)" Disabled="@(Model.Location is null || Disabled)" Icon="barcode" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Primary" Click="@OpenBarcodeDialog" Text="Scan Barcodes" />
                 <RadzenButton Visible="@(!ReadOnly)" Disabled="@(Model.Location is null || Disabled)" Icon="add" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Success" Click="@OpenItemDialog" />
             </HeaderTemplate>
             <Columns>
@@ -67,30 +80,45 @@
                 <RadzenDataGridColumn TItem="InventoryAdjustmentLineVM" Property="@nameof(InventoryAdjustmentLineVM.ItemDescription)" Title="Item Description" />
                 <RadzenDataGridColumn TItem="InventoryAdjustmentLineVM" Property="@nameof(InventoryAdjustmentLineVM.Location)" Title="Warehouse">
                     <Template Context="data">
-                        <RadzenTextBox Disabled="Disabled" Visible="@ReadOnly" ReadOnly Value="@(data.Location?.Name ?? "No location data")" Placeholder="Enter location" class="rz-w-100" />
+                        <RadzenStack AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal">
+
+                        <RadzenText Visible="@ReadOnly" TextStyle="TextStyle.Body2">@(data.Location?.Name ?? "No location data")</RadzenText>
                         <QuickVirtualizedDropdown Visible="@(!ReadOnly)" Disabled="@(Model.Subsidiary is null || Disabled)" ActionName="@ActionGetLocations" TItem="LocationVM" @bind-Value="@data.Location" DataGetter="@LocationProvider" TextProperty="@nameof(LocationVM.Name)" />
+                        </RadzenStack>
                     </Template>
                 </RadzenDataGridColumn>
-                <RadzenDataGridColumn TItem="InventoryAdjustmentLineVM" Property="@nameof(InventoryAdjustmentLineVM.UoM)" Title="UoM">
+                <RadzenDataGridColumn TItem="InventoryAdjustmentLineVM" Property="@nameof(InventoryAdjustmentLineVM.UoM)" Title="UoM" >
                     <Template Context="data">
-                        <RadzenTextBox Disabled="Disabled" Visible="@ReadOnly" ReadOnly Value="@(data.UoM?.Name ?? "No unit data")" Placeholder="Enter location" class="rz-w-100" />
-                        <QuickVirtualizedDropdown Disabled="Disabled" Visible="@(!ReadOnly)" ActionName="@ActionGetItemUnits" TItem="ItemUnitVM" @bind-Value:get="@data.UoM" @bind-Value:set="@(val => LineSetUoM(data,val))" DataGetter="@(intent => UnitsProvider(data.ItemId, intent))" TextProperty="@nameof(ItemUnitVM.Name)" />
+                        <RadzenStack AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal">
+                            <RadzenText Visible="@ReadOnly" TextStyle="TextStyle.Body2">@(data.UoM?.Name ?? "No unit data")</RadzenText>
+                            <QuickVirtualizedDropdown Disabled="Disabled" Visible="@(!ReadOnly)" ActionName="@ActionGetItemUnits" TItem="ItemUnitVM" @bind-Value:get="@data.UoM" @bind-Value:set="@(val => LineSetUoM(data,val))" DataGetter="@(intent => UnitsProvider(data.ItemId, intent))" TextProperty="@nameof(ItemUnitVM.Name)" />
+                        </RadzenStack>
                     </Template>
                 </RadzenDataGridColumn>
                 <RadzenDataGridColumn Visible="@ReadOnly" TItem="InventoryAdjustmentLineVM" Type="typeof(decimal)" Property="@nameof(InventoryAdjustmentLineVM.QuantityOld)" Title="On hand Quantity" FormatString="{0:#,##0.##}"/>
                 <RadzenDataGridColumn Visible="@(!ReadOnly)" TItem="InventoryAdjustmentLineVM" Type="typeof(decimal)" Property="@nameof(InventoryAdjustmentLineVM.QuantityOnHandByUoM)" Title="On hand Quantity" FormatString="{0:#,##0.##}" />
                 <RadzenDataGridColumn TItem="InventoryAdjustmentLineVM" Property="@nameof(InventoryAdjustmentLineVM.QuantityAlloted)" Title="Alloted Quantity">
                     <Template Context="data">
-                        <RadzenFormField Text="@(data.Type == InventoryAdjustmentLineVM.Types.Issue ? "Issue" : "Receipt")">
+                        <RadzenStack AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween">
+
+                        <RadzenText Visible="@ReadOnly" TextStyle="TextStyle.Body2">@data.QuantityAlloted.ToString("#,##0.##")</RadzenText>
+                        <RadzenButton Icon="assignment_turned_in"
+                                          ButtonStyle="ButtonStyle.Success"
+                                          Size="ButtonSize.ExtraSmall"
+                                          Disabled="Disabled"
+                                          Visible="@(ReadOnly && data.ItemUsesBins)"
+                                          Click="_ => OpenInventoryDetailDialog(data)" />
+
+                        <RadzenFormField Text="@(data.Type == InventoryAdjustmentLineVM.Types.Issue ? "Issue" : "Receipt")" Visible="@(!ReadOnly)">
                             <ChildContent>
                                 <RadzenNumeric Disabled="Disabled" ReadOnly="@ReadOnly" Name="line_details" @bind-Value="@data.QuantityAlloted" class="rz-w-100" Min="0" Max="@(data.QuantityAllotedMax)" Format="#,##0.##" />
                             </ChildContent>
                             <End>
-                                <RadzenButton Visible="@(!ReadOnly)" 
-                                              Icon="@(data.IsAllAssignedToBins ? "assignment_turned_in" : "assignment_returned")"
-                                              ButtonStyle="@(data.IsAllAssignedToBins ? ButtonStyle.Success : ButtonStyle.Warning)" 
+                                <RadzenButton Icon="@((data.IsAllAssignedToBins || ReadOnly) ? "assignment_turned_in" : "assignment_returned")"
+                                              ButtonStyle="@((data.IsAllAssignedToBins || ReadOnly)  ? ButtonStyle.Success : ButtonStyle.Warning)"
                                               Size="ButtonSize.ExtraSmall" 
                                               Disabled="Disabled"
+                                              Visible="@(data.ItemUsesBins)"
                                               Click="_ => OpenInventoryDetailDialog(data)" />
                             </End>
                             <Helper>
@@ -108,6 +136,7 @@
                                 }
                             </Helper>
                         </RadzenFormField>
+                        </RadzenStack>
                     </Template>
                 </RadzenDataGridColumn>
                 <RadzenDataGridColumn Visible="@ReadOnly" TItem="InventoryAdjustmentLineVM" Property="@nameof(InventoryAdjustmentLineVM.QuantityOnHandByUoM)" FormatString="{0:#,##0.##}" Title="New Quantity" />
@@ -141,8 +170,8 @@
             </RadzenColumn>
         </RadzenRow>
     </RadzenFieldset>
-    <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5em" JustifyContent="JustifyContent.SpaceBetween">
-        <RadzenButton Disabled="Disabled" ButtonType="ButtonType.Button" Text="@ReturnString" Click="ReturnClicked" />
+    <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5em" JustifyContent="JustifyContent.SpaceBetween" class="rz-mt-3">
+        <RadzenButton Disabled="Disabled" ButtonType="ButtonType.Button" Text="@ReturnString" Click="ReturnClicked" ButtonStyle="ButtonStyle.Light" />
         <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5em">
             <RadzenButton Disabled="Disabled" ButtonType="ButtonType.Button" Visible="OnSecondaryActionClicked.HasDelegate" Text="@SecondaryActionString" Click="SecondaryActionClicked" />
             <RadzenButton Disabled="Disabled" ButtonType="ButtonType.Submit" Visible="OnSubmit.HasDelegate" Text="@SubmitString" />
@@ -161,6 +190,15 @@
 
         if (items is not null) await AddItems(items);
     }
+    readonly DialogOptions InventoryDetailDialogOpts = new()
+        {
+            CloseDialogOnOverlayClick = true,
+            CloseDialogOnEsc = true,
+            Draggable = true,
+            Resizable = true,
+            Width = "80%",
+            ShowClose = true
+        };
 
     async Task OpenInventoryDetailDialog(InventoryAdjustmentLineVM line)
     {
@@ -173,15 +211,10 @@
             ToastService.Error("Please set a location");
             return;
         }
-        DialogOptions opts = new()
-        {
-            CloseDialogOnOverlayClick = true,
-            CloseDialogOnEsc = true,
-            Draggable = true,
-            Resizable = true,
-            Width = "80%",
-            ShowClose = true
-        };
+
+        Tuple<int, int>? DetailsId = (line.LineNumber is null) ?
+            null :
+            Tuple.Create(Model.Id, (int)line.LineNumber);
 
         InventoryDetailsDialog.Types Type = Issue ?
             InventoryDetailsDialog.Types.Outgoing : 
@@ -189,8 +222,8 @@
 
         List<InventoryDetailVM> items = await DialogService.OpenAsync(
             "Set Inventory Details",
-            ds => @<InventoryDetailsDialog LocationId="@line.Location.Id" Amount="@line.QuantityAlloted" Type="Type" ItemId="@line.ItemId" InventoryDetails="@line.InventoryDetails"/>,
-    options: opts);
+            ds => @<InventoryDetailsDialog LocationId="@line.Location.Id" Amount="@line.QuantityAlloted" Type="Type" ItemId="@line.ItemId" InventoryDetails="@line.InventoryDetails" LoadInventoryDetails="DetailsId" ReadOnly="ReadOnly"/>,
+    options: InventoryDetailDialogOpts);
 
         if (items is not null)
         {
@@ -198,4 +231,25 @@
             await InvokeAsync(StateHasChanged);
         }
     }
+
+    
+    
+    async Task OpenBarcodeDialog()
+    {
+        bool? save = await DialogService.OpenAsync(
+            "Table Settings",
+            ds => @<BarcodeScannerDialog BarcodeStore="BarcodeStore" Verifier="IsValidBarcode" />,
+            options: GridSettingsService.GetDialogOptions());
+
+        if (save == false)
+        {
+            BarcodeStore.Clear();
+        }
+        else if (save == true)
+        {
+            ApplyBarcodes();
+        }
+        await InvokeAsync(StateHasChanged);
+    }
+
 }

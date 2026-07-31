@@ -1,6 +1,7 @@
 ﻿using Application.DataTransferObjects.Transactions.Receiving;
 using Application.UseCases.Commands.Transaction.Receiving;
 using Application.UseCases.Queries.Transaction.Receiving;
+using Azure;
 using Mapster;
 using MediatR;
 using Microsoft.EntityFrameworkCore.Scaffolding.Metadata;
@@ -43,7 +44,7 @@ public class ReceivingHandler(
             ReferenceNumber = x.ReferenceNumber,
             Date = x.Date,
             DeliveryDate = x.DeliveryDate,
-            Vendor = x.VendorName,
+            VendorName = x.VendorName,
             Remarks = x.Memo
         });
 
@@ -99,6 +100,7 @@ public class ReceivingHandler(
 
         return new ReturnsVM()
         {
+            Id = x.Id,
             ReferenceNumber = x.ReferenceNumber,
             FromSubsidiary = x.FromSubsidiary,
             Vendor = x.Vendor,
@@ -147,9 +149,9 @@ public class ReceivingHandler(
         };
     }
 
-    public async Task<ItemReceiptVM?> GetItemReceiptSourceAsync(string docEntry)
+    public async Task<ItemReceiptVM?> GetItemReceiptSourceAsync(string docEntry, string? itemFulfillment = null)
     {
-        GetItemReceiptSourceQry query = new(docEntry);
+        GetItemReceiptSourceQry query = new(docEntry, itemFulfillment);
 
         var x = await Sender.Send(query);
         if (x is null) return null;
@@ -189,6 +191,22 @@ public class ReceivingHandler(
         return await Sender.Send(cmd);
     }
 
+    public async Task<(IEnumerable<ItemFulfillmentVM>, int)> GetTransferOrderItemFulfillments(int toId, DataGridIntent intent)
+    {
+        GetItemFulfillmentsForTransferOrderQry query = new GetItemFulfillmentsForTransferOrderQry(toId, intent);
+        var response = await Sender.Send(query);
+
+        return (response.Item1.Adapt<IEnumerable<ItemFulfillmentVM>>(), response.Item2);
+    }
+
+    public async Task<IEnumerable<ItemFulfillmentLineVM>> GetItemFulfillmentLinesAsync(int ifid, DataGridIntent intent)
+    {
+        GetItemFulfillmentLinesQry query = new(ifid, intent);
+        var result = Sender.Send(query);
+        return result.Adapt<IEnumerable<ItemFulfillmentLineVM>>();
+
+    }
+
     public async Task<BarcodeVM?> GetBarcodeData(string barcode)
     {
         GetBarcodeDataQry query = new(barcode);
@@ -197,4 +215,28 @@ public class ReceivingHandler(
 
         return code.Adapt<BarcodeVM>();
     }
+    public async Task<(IEnumerable<ItemReceiptDataGridVM>, int)> GetItemReceiptsDatagridAsync(DataGridIntent intent)
+    {
+        GetItemReceiptDataGridQry query = new(intent);
+        (var data, int count) = await Sender.Send(query);
+
+        return (data.Adapt<IEnumerable<ItemReceiptDataGridVM>>(), count);
+    }
+    
+    public async Task<(IEnumerable<PurchaseOrderStatusVM>, int)> GetPurchaseOrderStatuses(DataGridIntent intent)
+    {
+        GetPurchaseOrderStatusesQry query = new(intent);
+        (var data, int count) = await Sender.Send(query);
+
+        return (data.Adapt<IEnumerable<PurchaseOrderStatusVM>>(), count);
+    }
+    
+    public async Task<(IEnumerable<TransferOrderStatusVM>, int)> GetTransferOrderStatuses(DataGridIntent intent)
+    {
+        GetTransferOrderStatusesQry query = new(intent);
+        (var data, int count) = await Sender.Send(query);
+
+        return (data.Adapt<IEnumerable<TransferOrderStatusVM>>(), count);
+    }
+
 }

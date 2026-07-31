@@ -6,4 +6,5 @@ public static class ITRRoutes
     public const string INDEX = "/transactions/inventory-transfer-requests";
     public const string CREATE = $"{INDEX}/create";
     public const string VIEW = $"{INDEX}/view";
+    public const string UPDATE = $"{INDEX}/update";
 }

@@ -1,18 +1,14 @@
 ﻿@using Web.BlazorServer.Components.Custom
 @using Web.BlazorServer.Components.Security
 @using Web.BlazorServer.ViewModels.Administration.User
-@using Web.BlazorServer.ViewModels.Transaction.Receiving
 @using Web.BlazorServer.ViewModels.Transaction.StockTransferRequest
 
 @inherits BaseComponent
 
-<AppDataGrid @ref="@DataGrid" Id="purchase_order_grid" TItem="StockTransferRequestDataGridVM" DataGetter="@LoadDataAsync" GridSettings="@DataGridSettings" @bind-GridSettingsLoaded="@GridSettingsLoaded" ActionName="@ActionGetStockTransferRequests">
+<AppDataGrid @ref="@DataGrid" Id="@TableId" TItem="StockTransferRequestDataGridVM" DataGetter="@LoadDataAsync" GridSettings="@DataGridSettings" @bind-GridSettingsLoaded="@GridSettingsLoaded" ActionName="@ActionGetStockTransferRequests">
     <HeaderTemplate>
         <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center" Gap="8px">
             <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Start" AlignItems="AlignItems.Center" Gap="8px">
-                <RadzenFormField Text="Filter By Status">
-                    <QuickVirtualizedDropdown TItem="TransferOrderStatusVM" ActionName="@ActionGetTranferOrderStatuses" DataGetter="@TranferOrderStatusProvider" TextProperty="@nameof(TransferOrderStatusVM.Name)" @bind-Value:get="@StatusFilter" @bind-Value:set="@StatusFilterChanged" />
-                </RadzenFormField>
             </RadzenStack>
             <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" AlignItems="AlignItems.Center" Gap="8px">
                 <RadzenButton Icon="settings" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@OpenTableSettings" />
@@ -28,12 +24,28 @@
         <RadzenDataGridColumn TItem="StockTransferRequestDataGridVM"
                               Property="@nameof(StockTransferRequestDataGridVM.Date)"
                               Type="@typeof(DateTime)"
-                              FormatString="{0:yyyy-MM-dd}"
+                              FormatString="{0:MMMM dd, yyyy}"
                               Title="Date" />
         <RadzenDataGridColumn TItem="StockTransferRequestDataGridVM"
+                              FilterProperty="StatusName"
                               Property="@nameof(StockTransferRequestDataGridVM.StatusDisplayString)"
                               Type="@typeof(string)"
-                              Title="Status" />
+                              Title="Status" >
+
+            <FilterTemplate>
+                <div class="rz-grid-filter">
+                    <RadzenStack Gap="0.5em">
+                        <RadzenText TextStyle="TextStyle.Body2" class="rz-grid-filter-label">Filter</RadzenText>
+                        <RadzenFormField>
+                            <QuickVirtualizedDropdown @bind-Value="StatusFilter" TItem="TransferOrderStatusVM" DataGetter="TranferOrderStatusProvider" TextProperty="@nameof(TransferOrderStatusVM.Name)" />
+                        </RadzenFormField>
+                        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End">
+                            <RadzenButton Click="@(() => ApplyStatusFilter(context))">Apply</RadzenButton>
+                        </RadzenStack>
+                    </RadzenStack>
+                </div>
+            </FilterTemplate>
+        </RadzenDataGridColumn>
         <RadzenDataGridColumn TItem="StockTransferRequestDataGridVM"
                               Property="@nameof(StockTransferRequestDataGridVM.SourceLocation)"
                               Type="@typeof(string)"
@@ -49,6 +61,7 @@
         <RadzenDataGridColumn TItem="StockTransferRequestDataGridVM"
                               Property="@nameof(StockTransferRequestDataGridVM.ToSubsidiary)"
                               Type="@typeof(string)"
+                              Visible="@ShowToSubsidiary"
                               Title="To Subsidiary" />
         <RadzenDataGridColumn TItem="StockTransferRequestDataGridVM"
                               Property="@nameof(StockTransferRequestDataGridVM.PreparedBy)"
@@ -70,6 +83,7 @@
 </AppDataGrid>
 
 @code {
+    
     async Task OpenTableSettings()
     {
         await DialogService.OpenAsync(

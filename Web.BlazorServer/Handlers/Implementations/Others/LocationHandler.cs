@@ -16,6 +16,12 @@ public class LocationHandler(ISender sender) : ILocationHandler
         (var data, int count) = await sender.Send(query);
         return (data.Adapt<IEnumerable<LocationVM>>(), count);
     }
+    public async Task<(IEnumerable<LocationVM> Data, int Count)> GetCurrentUserLocationsAsync(DataGridIntent intent)
+    {
+        GetCurrentUserLocationsQry query = new(intent);
+        (var data, int count) = await sender.Send(query);
+        return (data.Adapt<IEnumerable<LocationVM>>(), count);
+    }
     public async Task<(IEnumerable<LocationVM> Data, int Count)> GetSublocationsOfLocationAsync(DataGridIntent intent, int location)
     {
         GetLocationSubLocationsQry query = new(intent, location);

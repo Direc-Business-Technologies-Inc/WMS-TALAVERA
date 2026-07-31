@@ -4,7 +4,7 @@
 
 <RadzenStack Gap="0.5em">
     <RadzenCard Variant="Variant.Outlined" class="rz-my-1">
-        <RadzenTemplateForm TItem="BarcodeVM" Data="@barcode" Submit="AddBarcodeScan">
+        <RadzenTemplateForm TItem="BarcodeVM" Data="@barcode" Submit="BarcodeScanned">
             <RadzenStack Gap="0.5em" Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center">
                 <RadzenFormField Text="Barcode" class="rz-w-100">
                     <ChildContent>
@@ -25,7 +25,7 @@
         </RadzenTemplateForm>
     </RadzenCard>
     <RadzenCard Variant="Variant.Outlined" class="rz-my-1">
-        @if (Barcodes.Count > 0)
+        @if (BarcodeStore.Any())
         {
             <RadzenTable GridLines="DataGridGridLines.None" class="rz-my-2 rz-mx-4">
 
@@ -35,17 +35,17 @@
                         <RadzenTableHeaderCell></RadzenTableHeaderCell>
                     </RadzenTableHeaderRow>
                 </RadzenTableHeader>
-                @foreach (var item in Barcodes.Values.ToList())
+                @foreach (var barcode in BarcodeStore.Barcodes)
                 {
                     <RadzenTableRow>
                         <RadzenTableCell>
-                            @(item.Barcode.Item?.Name ?? "NULL ITEM")
+                            @(barcode.Item?.Name ?? "NULL ITEM")
                         </RadzenTableCell>
                         <RadzenTableCell>
-                            @(item.Barcode.UoM?.Name ?? "NULL UOM")
+                            @(barcode.UoM?.Name ?? "NULL UOM")
                         </RadzenTableCell>
                         <RadzenTableCell>
-                            @("x" + item.Quantity)
+                            @("x" + BarcodeStore.GetBarcodeCount(barcode))
                         </RadzenTableCell>
                     </RadzenTableRow>
                 }

@@ -4,13 +4,14 @@ using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Razor.Internal;
 using Radzen;
+using Radzen.Blazor.Rendering;
 using Shared.Entities;
 using Shared.Libraries.Utilities;
+using Web.BlazorServer.Components.Pages.Transaction.Others.BarcodeScanning;
 using Web.BlazorServer.Handlers.Repositories.Transaction.Receiving;
 using Web.BlazorServer.ViewModels.Others;
 using Web.BlazorServer.ViewModels.Transaction.Commons;
 using Web.BlazorServer.ViewModels.Transaction.Receiving;
-using static Web.BlazorServer.Components.Pages.Transaction.Receiving.Components.ScanDialog;
 
 namespace Web.BlazorServer.Components.Pages.Transaction.Receiving.Components;
 
@@ -23,9 +24,10 @@ partial class ItemReceiptForm
     [Inject] IReceivingHandler receivingHandler { get; set; } = default!;
     [Inject] TooltipService tooltipService { get; set; } = default!;
 
-    Dictionary<string, BarcodeCollection> Barcodes { get; set; } = new();
-    string BarcodeSearchTerm = string.Empty;
-    bool BarcodeSearchDisabled = false;
+    readonly TooltipOptions LineDetailsTooltipOptions = new()
+    {
+        Position = TooltipPosition.Top
+    };
 
     readonly List<DropDownItem> Categories = new List<DropDownItem>()
     {
@@ -39,11 +41,18 @@ partial class ItemReceiptForm
             new List<int> { 1, 3 })
     ];
 
+    BarcodeStore BarcodeStore = new();
+
     public async Task Submit()
     {
         if (Data.Lines.Any(x => (!x.IsAllAssigned && x.IsReceived)))
         {
             ToastService.Error("Please assign inventory details to all lines");
+            return;
+        }
+        if (!Data.Lines.Any(x => x.QuantityAlloted > 0))
+        {
+            ToastService.Error("Please assign a quantity to at least one line");
             return;
         }
         if (Data.Lines.Where(x => x.IsReceived).Count(x => x.QuantityOpen < x.QuantityAlloted) > 0)
@@ -54,7 +63,7 @@ partial class ItemReceiptForm
 
         if (OnValidSubmit.HasDelegate && EditContext is not null && EditContext.Validate())
         {
-            Barcodes.Clear();
+            ApplyBarcodes();
             await OnValidSubmit.InvokeAsync(Data);
         }
     }
@@ -74,77 +83,68 @@ partial class ItemReceiptForm
                 break;
         }
     }
+    decimal GetLineQuantity(ItemReceiptLineVM line) => line.QuantityAlloted + BarcodeStore.CountItemQuantity(line.ItemId) / line.UoMRate;
 
-    async Task BarcodeScanned((BarcodeVM barcode, bool isGood) input)
+    void SetLineQuantity(ItemReceiptLineVM line, decimal amount)
     {
-        var item = Data.Lines.Where(x => x.ItemId == input.barcode.Item?.Id).FirstOrDefault();
-        if (item is null) throw new Exception($"Item {input.barcode.Item?.ItemNumber} is not included in this document");
+        var barcodeCount = BarcodeStore.CountItemQuantity(line.ItemId) / line.UoMRate;
+        amount = Math.Max(Math.Min(line.QuantityOpen, amount), barcodeCount);
 
-        decimal piecesToAdd = input.barcode.UoM?.ConversionRate ?? 0;
-        decimal diff = piecesToAdd / item.UoMRate;
-        if (input.isGood && item.QuantityOpen < item.QuantityAlloted + diff)
-            throw new Exception($"Scanned items exceed the expected quantity for item {item.ItemCode}");
+        decimal rawAmount = amount - barcodeCount;
+        line.QuantityAlloted = rawAmount;
+    }
+    
+    void ApplyBarcodes()
+    {
+        if (!BarcodeStore.Any()) return;
 
-        var key = input.barcode.Barcode;
-        if (!Barcodes.ContainsKey(key))
+        foreach (var item in BarcodeStore.Items)
         {
-            Barcodes[key] = new BarcodeCollection()
-            {
-                Barcode = input.barcode,
-                Line = item,
-                Count = 0,
-            };
+            var itemCount = BarcodeStore.CountItemQuantity(item);
+            var itemLine = Data.Lines.First(x => x.ItemId == item.Id);
+
+            if (itemLine != null) itemLine.QuantityAlloted += itemCount / itemLine.UoMRate;
         }
 
-        Barcodes[key].Count++;
-        Barcodes[key].Line.QuantityAlloted += diff;
-        Barcodes[key].Quantity += diff;
+        BarcodeStore.Clear();
     }
-
     async Task SetLineInventoryDetails(ItemReceiptLineVM line, List<InventoryDetailVM> details)
     {
         line.InventoryDetails = [.. details];
 
+        var countGood = details.Where(x => x.Status?.Id == 1).Sum(x => x.QuantityAlloted);
+        var countBad = details.Where(x => x.Status?.Id == 3).Sum(x => x.QuantityAlloted);
+
+        line.DetailsTooltipText = $"{countGood} Good, {countBad} Bad";
+
         await InvokeAsync(StateHasChanged);
     }
 
-    void ClearAddedBarcodes()
+    bool IsValidBarcode(BarcodeVM barcode, out string reason)
     {
-        foreach (var item in Barcodes.Values)
+        var line = Data.Lines.FirstOrDefault(x => x.ItemId == barcode.Item?.Id);
+        if (line is null)
         {
-            item.Line.QuantityAlloted -= item.Quantity;
+            reason = $"The item {barcode.Item?.ItemNumber} does not exist in the current document";
+            return false;
         }
 
-        Barcodes.Clear();
+        var itemCount = BarcodeStore.CountItemQuantity(line.ItemId) / line.UoMRate;
+        var incomingCount = (barcode.UoM?.ConversionRate ?? 0) / line.UoMRate;
+        if (line.QuantityOpen - line.QuantityAlloted - itemCount < incomingCount)
+        {
+            reason = $"The quantity of the item {line.ItemCode} exceeds the expected amount";
+            return false;
+        }
+
+        reason = "";
+        return true;
     }
 
-    public class BarcodeCollection
+    void ShowLineTooltip(ElementReference reference, ItemReceiptLineVM line)
     {
-        public required BarcodeVM Barcode { get; init; } 
-        public required ItemReceiptLineVM Line { get; init; }
-        public int Count { get; set; }
-        public decimal Quantity { get; set; }
-    }
-
-    public async Task SearchBarcode()
-    {
-        if (BarcodeSearchDisabled || string.IsNullOrEmpty(BarcodeSearchTerm)) return;
-
-        BarcodeSearchDisabled = true;
-        await InvokeAsync(StateHasChanged);
-
-        BarcodeVM? barcode;
-        if (Barcodes.ContainsKey(BarcodeSearchTerm))
-            barcode = Barcodes[BarcodeSearchTerm].Barcode;
-        else
-            barcode = await receivingHandler.GetBarcodeData(BarcodeSearchTerm);
-
-        if (barcode is not null)
-            await BarcodeScanned((barcode, true));
-
-        BarcodeSearchTerm = string.Empty;
-        BarcodeSearchDisabled = false;
-        await InvokeAsync(StateHasChanged);
+        if (!string.IsNullOrEmpty(line.DetailsTooltipText))
+            tooltipService.Open(reference, line.DetailsTooltipText, LineDetailsTooltipOptions);
     }
 
     private class DropDownItem()

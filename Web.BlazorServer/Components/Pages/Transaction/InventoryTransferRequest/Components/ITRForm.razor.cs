@@ -3,10 +3,12 @@ using Microsoft.AspNetCore.Components.Forms;
 using Shared.Entities;
 using Shared.Libraries.Utilities;
 using Web.BlazorServer.Components.Custom;
+using Web.BlazorServer.Components.Pages.Transaction.Others.BarcodeScanning;
 using Web.BlazorServer.Handlers.Repositories.Others;
 using Web.BlazorServer.Services.Repositories;
 using Web.BlazorServer.ViewModels.Others;
 using Web.BlazorServer.ViewModels.Transaction.InventoryTransferRequest;
+using Web.BlazorServer.ViewModels.Transaction.Receiving;
 
 namespace Web.BlazorServer.Components.Pages.Transaction.InventoryTransferRequest.Components;
 
@@ -17,6 +19,7 @@ public partial class ITRForm
     [Inject] IItemsHandler itemsHandler { get; set; } = default!;
     [Inject] IGridSettingsService GridSettingsService { get; set; } = default!;
     [Inject] ICustomerHandler customerHandler { get; set; } = default!;
+    [Inject] IInventoryHandler inventoryHandler { get; set; } = default!;
     [Parameter][EditorRequired] public InventoryTransferRequestVM Model { get; set; }
     [Parameter][EditorRequired] public EditContext EditContext { get; set; }
     [Parameter] public EventCallback<InventoryTransferRequestVM> OnSubmit { get; set; }
@@ -26,15 +29,23 @@ public partial class ITRForm
     [Parameter] public string SubmitLabel { get; set; } = "Submit";
     [Parameter] public string SecondaryActionLabel { get; set; } = "Action";
     [Parameter] public bool ReadOnly { get; set; } = false;
+    [Parameter] public bool EditMode { get; set; } = false;
     [Parameter] public bool Disabled { get; set; } = false;
 
     QuickVirtualizedDropdown<LocationVM> SourceLocationDropdown { get; set; } = default!;
     QuickVirtualizedDropdown<LocationVM> DestinationLocationDropdown { get; set; } = default!;
     QuickVirtualizedDropdown<SubsidiaryVM> SubsidiaryDropdown { get; set; } = default!;
 
+    BarcodeStore BarcodeStore = new();
+
+    HashSet<int> LoadedInventoryDetails = new();
+
     readonly List<AppFilterDescriptor> ItemFilters = [
         DataGridFilterUtilities.GreaterThan("QuantityOnHand", 0)
     ];
+
+    bool _isBusy = false;
+    bool IsDisabled => Disabled || _isBusy;
 
     async Task<(IEnumerable<CustomerVM>, int)> CustomerProvider(DataGridIntent intent)
     {
@@ -74,7 +85,6 @@ public partial class ITRForm
             Location = Model.SourceLocation
         }));
     }
-
     async Task SecondaryAction()
     {
         if (OnSecondaryAction.HasDelegate) await OnSecondaryAction.InvokeAsync(Model);
@@ -83,6 +93,36 @@ public partial class ITRForm
     async Task Return()
     {
         if (OnReturn.HasDelegate) await OnReturn.InvokeAsync(Model);
+    }
+
+    async Task LoadInventoryDetails(InventoryTransferRequestLineVM line)
+    {
+        if (Model.Id == 0)
+            return;
+        if (line.LineNumber is null || line.SourceLine is null)
+            return;
+        if (LoadedInventoryDetails.Contains((int)line.SourceLine))
+            return;
+
+        _isBusy = true;
+
+        var details = await inventoryHandler.GetInventoryDetails(Model.Id, (int)line.SourceLine);
+
+        foreach (var item in details)
+        {
+            item.QuantityAlloted = -item.QuantityAlloted; // quantity will be negative since it is outgoing
+        }
+        line.InventoryDetails.AddRange(details);
+        LoadedInventoryDetails.Add((int)line.SourceLine);
+        await MarkLineDirty(line);
+
+        _isBusy = false;
+    }
+
+    async Task MarkLineDirty(InventoryTransferRequestLineVM line) 
+    {
+        line.LineNumber = null;
+        await InvokeAsync(StateHasChanged);
     }
 
     async Task Submit()
@@ -111,6 +151,13 @@ public partial class ITRForm
 
         SourceLocationDropdown.Reset();
         DestinationLocationDropdown.Reset();
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    async Task RemoveLine(InventoryTransferRequestLineVM line)
+    {
+        Model.Lines.Remove(line);
 
         await InvokeAsync(StateHasChanged);
     }
@@ -161,13 +208,90 @@ public partial class ITRForm
 
     async Task SetLineUoM(InventoryTransferRequestLineVM line, ItemUnitVM? uom)
     {
-        decimal oldcr = line.UoM?.ConversionRate ?? 1;
+        var oldUoM = line.UoM;
+        line.UoM = uom;
+
+        if (line.LineNumber != null)
+        {
+            var prompt = await AlertService.PromptAsync("Changing the item unit will clear the inventory details");
+            if (!prompt)
+            {
+                line.UoM = oldUoM;
+                await InvokeAsync(StateHasChanged);
+                return;
+            }
+
+            line.InventoryDetails.Clear();
+        }
+
+        await MarkLineDirty(line);
+        decimal oldcr = oldUoM?.ConversionRate ?? 1;
         decimal newcr = uom?.ConversionRate ?? 1;
 
         line.QuantityAlloted *= oldcr / newcr;
+        line.InventoryDetails.ForEach(x => x.QuantityAlloted *= oldcr / newcr);
 
-        line.UoM = uom;
         await InvokeAsync(StateHasChanged);
+    }
+
+    async Task SetLineQuantity(InventoryTransferRequestLineVM line, decimal amount)
+    {
+        var oldAmount = line.QuantityAlloted;
+        line.QuantityAlloted = amount;
+
+        if (line.InventoryDetails.Count > 0 || line.LineNumber is not null) 
+        {
+            var prompt = await AlertService.PromptAsync("Changing quantity will clear inventory details");
+            if (!prompt)
+            {
+                line.QuantityAlloted = oldAmount;
+                await InvokeAsync(StateHasChanged);
+                return;
+            }
+        }
+
+        line.InventoryDetails.Clear();
+        await MarkLineDirty(line);
+    }
+
+    void ApplyBarcodes()
+    {
+        if (!BarcodeStore.Any()) return;
+
+        foreach (var item in BarcodeStore.Items)
+        {
+            var itemCount = BarcodeStore.CountItemQuantity(item);
+            var itemLine = Model.Lines.First(x => x.ItemID == item.Id);
+
+            if (itemLine != null) itemLine.QuantityAlloted += itemCount / (itemLine.UoM?.ConversionRate ?? 1);
+        }
+
+        BarcodeStore.Clear();
+    }
+
+
+    bool IsValidBarcode(BarcodeVM barcode, out string reason)
+    {
+        var line = Model.Lines.FirstOrDefault(x => x.ItemID == barcode.Item?.Id && barcode.UoM?.Id == x.UoM?.Id && barcode.UoM is not null) ??
+            Model.Lines.FirstOrDefault(x => x.ItemID == barcode.Item?.Id);
+        if (line is null)
+        {
+            reason = $"The item {barcode.Item?.ItemNumber} does not exist in the current document";
+            return false;
+        }
+
+        var uomRate = line.UoM?.ConversionRate ?? 1;
+        var itemCount = BarcodeStore.CountItemQuantity(line.ItemID) / uomRate;
+        var incomingCount = (barcode.UoM?.ConversionRate ?? 0) / uomRate;
+
+        if (line.QuantityOnHandByUoM - line.QuantityAlloted - itemCount < incomingCount)
+        {
+            reason = $"The quantity of the item {line.ItemCode} exceeds the expected amount";
+            return false;
+        }
+
+        reason = "";
+        return true;
     }
 
     bool _areEqual(LocationVM? a, LocationVM? b) => (a is null || b is null) ? false : a?.Id == b?.Id;

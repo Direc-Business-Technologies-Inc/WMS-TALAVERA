@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Components;
+using Web.BlazorServer.Components.Pages.Transaction.InventoryAdjustment.Components.InventoryAdjustmentForm;
 using Web.BlazorServer.Components.Security;
+using Web.BlazorServer.Handlers.Repositories.Others;
 using Web.BlazorServer.Handlers.Repositories.Transaction.InventoryAdjustment;
 using Web.BlazorServer.Helpers;
 using Web.BlazorServer.Services.Repositories;
@@ -12,10 +14,14 @@ public partial class InventoryAdjustmentCreatePage
     [Inject] public IInventoryAdjustmentHandler? inventoryAdjustmentHandler { get; set; }
     [Inject] public AppAuthenticationService authService { get; set; } = default!;
     [Inject] public IBusyDialogService BusyDialogService { get; set; } = default!;
+    [Inject] public ISubsidiaryHandler subsidiaryHandler { get; set; } = default!;
+    [Inject] public IHttpContextAccessor httpContextAccessor { get; set; } = default!;
     [SupplyParameterFromQuery] public string? Type { get; set; }
     bool IsIssue => Type is not null && Type.Equals("issue", StringComparison.OrdinalIgnoreCase);
     bool IsBusy = false;
     readonly string ActionCreateInventoryAdjustment = "Create Inventory Adjustment";
+
+    InventoryAdjustmentForm? Form { get; set; }
 
     List<ViewModels.System.NavigationRouteVM> AdditionalRoutes { get; set; } = [new() {
         Name = "Inventory Adjustment Document",
@@ -26,12 +32,12 @@ public partial class InventoryAdjustmentCreatePage
     protected override void OnInitialized()
     {
         base.OnInitialized();
-        AppBusyService.BusyChanged += OnBusyChanged;
     }
 
     async Task OnSubmit(InventoryAdjustmentVM data)
     {
         IsBusy = true;
+        BusyDialogService.Show(title: ActionCreateInventoryAdjustment);
         await InvokeAsync(StateHasChanged);
 
         var action = await AppActionFactory.RunConfirmedAsync(async () =>
@@ -47,29 +53,9 @@ public partial class InventoryAdjustmentCreatePage
             NavManager.NavigateTo(InventoryAdjustmentRoutes.INDEX);
         });
 
+        BusyDialogService.Hide();
         IsBusy = false;
         await InvokeAsync(StateHasChanged);
-    }
-
-    void OnBusyChanged(string key, bool isBusy)
-    {
-        if (!key.Equals(ActionCreateInventoryAdjustment))
-            return;
-
-        IsBusy = isBusy;
-
-        if (isBusy)
-            BusyDialogService.Show(title: ActionCreateInventoryAdjustment);
-        else
-            BusyDialogService.Hide();
-
-        _ = InvokeAsync(StateHasChanged);
-    }
-
-    public override void Dispose()
-    {
-        AppBusyService.BusyChanged -= OnBusyChanged;
-        base.Dispose();
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -77,6 +63,9 @@ public partial class InventoryAdjustmentCreatePage
         await base.OnAfterRenderAsync(firstRender);
         if (firstRender)
         {
+            IsBusy = true;
+            await InvokeAsync(StateHasChanged);
+
             FormData.Date = DateTime.Now;
             FormData.Memo = "Created via WMS";
             var nsEmployee = authService.GetClaimValue("com.direcbusiness.wms.nsEmployeeName");
@@ -87,10 +76,23 @@ public partial class InventoryAdjustmentCreatePage
                 Id = -1
             };
             AdditionalRoutes[0].Name = IsIssue ? "Goods Issue" : "Goods Receipt";
-            await InvokeAsync(StateHasChanged);
+
+
+            string? subsidiaryId = httpContextAccessor.HttpContext?.User?.FindFirst("com.direcbusiness.wms.nsSubsidiary")?.Value;
+            if (!string.IsNullOrEmpty(subsidiaryId) && int.TryParse(subsidiaryId, out int subId))
+            {
+                //FormData.Subsidiary = ;
+                var subsidiary = await subsidiaryHandler.GetSubsidiaryAsync(subId);
+                if (Form is null)
+                    FormData.Subsidiary = subsidiary;
+                else
+                    await Form.SetSubsidiary(subsidiary);
+
+                IsBusy = false;
+                await InvokeAsync(StateHasChanged);
+            }
         }
     }
-
     Task OnReturn(InventoryAdjustmentVM data)
     {
         NavManager.NavigateTo(InventoryAdjustmentRoutes.INDEX);

@@ -2,6 +2,8 @@
 using Application.UseCases.Repositories.Integration.Others;
 using Integration.NS.Helpers;
 using Integration.NS.Services;
+using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
 using Shared.Entities;
 using Shared.Libraries.Utilities;
 using Shared.Libraries.ViewModel;
@@ -15,6 +17,7 @@ namespace Integration.NS.Implementations.Others;
 
 public class LocationIntegration(
     INetSuiteApiClientService netsuiteService,
+    IHttpContextAccessor accessor,
     SuiteQLQueryBuilderFactoryService builderFactory) : ILocationIntegration
 {
     public async Task<(IEnumerable<LocationDTO> data, int count)> GetLocationsAsync(DataGridIntent intent)
@@ -70,6 +73,45 @@ public class LocationIntegration(
             .From("location")
             .WithFilter(
                 DataGridFilterUtilities.Equal("parent", location)
+            )
+            .WithDatagridIntent(intent)
+            .Build();
+
+        var result = await query.ExecuteWithPaging<LocationDTO>(netsuiteService);
+        return (result.items, result.totalResults);
+    }
+    public async Task<(IEnumerable<LocationDTO> data, int count)> GetCurrentUserAllowedLocations(DataGridIntent intent)
+    {
+        string? claimValue = accessor.HttpContext?.User?.FindFirst("com.direcbusiness.wms.nsEmployeeId")?.Value;
+        if (claimValue is null) return ([], 0);
+        int employeeId;
+        try
+        {
+            employeeId = int.Parse(claimValue);
+        }
+        catch 
+        {
+            return ([], 0);
+        }
+        return await GetUserAllowedLocations(intent, employeeId);
+    }
+    public async Task<(IEnumerable<LocationDTO> data, int count)> GetUserAllowedLocations(DataGridIntent intent, int employeeId)
+    {
+
+        var query = builderFactory.Create()
+            .Select(
+                ("loc.id", nameof(LocationDTO.Id)),
+                ("loc.externalId", nameof(LocationDTO.LocationNumber)),
+                ("loc.name", nameof(LocationDTO.Name)),
+                ("BUILTIN.DF(loc.mainaddress)", nameof(LocationDTO.Address)),
+                ("BUILTIN.DF(loc.subsidiary)", nameof(LocationDTO.Subsidiary)),
+                ("loc.subsidiary", nameof(LocationDTO.SubsidiaryId))
+            )
+            .From("employee e")
+            .Join("MAP_employee_custentity_dbti_wms_user_location_access map", "map.mapone = e.id")
+            .Join("location loc", "map.maptwo = loc.id")
+            .WithFilter(
+                DataGridFilterUtilities.Equal("e.id", employeeId)
             )
             .WithDatagridIntent(intent)
             .Build();

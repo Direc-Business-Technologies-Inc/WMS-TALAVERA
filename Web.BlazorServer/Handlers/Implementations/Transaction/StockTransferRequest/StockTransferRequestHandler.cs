@@ -94,4 +94,14 @@ public class StockTransferRequestHandler(
         await sender.Send(cmd);
         return true;
     }
+
+    public async Task<bool> SubmitStockTransferRequestForApproval(StockTransferRequestInfoVM data)
+    {
+        var dto = data.Adapt<StockTransferRequestInfoDTO>();
+        dto.TransferCategory = data.Category;
+        SubmitStockTransferRequestForApprovalCmd cmd = new(dto);
+
+        await sender.Send(cmd);
+        return true;
+    }
 }

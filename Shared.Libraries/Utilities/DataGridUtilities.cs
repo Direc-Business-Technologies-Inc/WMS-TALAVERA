@@ -12,7 +12,7 @@ namespace Shared.Libraries.Utilities;
 // i could have gone with a ComparisonOperatorEnum extension but i didn't really like it
 public static class DataGridFilterUtilities
 {
-    public static AppFilterDescriptor Filter(string property, ComparisonOperatorEnum op, object value)
+    public static AppFilterDescriptor Filter(string property, ComparisonOperatorEnum op, object? value)
     {
         return new AppFilterDescriptor()
         {
@@ -33,7 +33,8 @@ public static class DataGridFilterUtilities
     public static AppFilterDescriptor Contains(string property, object value) => Filter(property, ComparisonOperatorEnum.Contains, value);
     public static AppFilterDescriptor StartsWith(string property, object value) => Filter(property, ComparisonOperatorEnum.StartsWith, value);
     public static AppFilterDescriptor EndsWith(string property, object value) => Filter(property, ComparisonOperatorEnum.EndsWith, value);
-
+    public static AppFilterDescriptor IsNull(string property) => Filter(property, ComparisonOperatorEnum.IsNull, null);
+    public static AppFilterDescriptor NotNull(string property) => Filter(property, ComparisonOperatorEnum.IsNotNull, null);
     public static AppFilterDescriptor CreateFilter(this ComparisonOperatorEnum op, string property, object value) => Filter(property, op, value);
     
     public static AppFilterDescriptor Group(LogicalOperatorEnum op, params AppFilterDescriptor[] filters)

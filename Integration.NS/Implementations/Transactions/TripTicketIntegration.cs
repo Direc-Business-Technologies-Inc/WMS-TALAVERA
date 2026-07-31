@@ -5,6 +5,7 @@ using Integration.NS.Helpers;
 using Integration.NS.Services;
 using Microsoft.AspNetCore.Http;
 using Shared.Entities;
+using Shared.Libraries.Utilities;
 using static Shared.Libraries.Utilities.DataGridFilterUtilities;
 
 namespace Integration.NS.Implementations.Transactions;
@@ -17,6 +18,7 @@ public class TripTicketIntegration(
 {
     public async Task<(IEnumerable<TripTicketDataGridDTO> Data, int Count)> GetTripTicketsAsync(DataGridIntent intent, int subsidiaryId)
     {
+        if (intent.Sorts.Count == 0) intent.Sorts.Add(DataGridSortUtilities.Descending(nameof(TripTicketDataGridDTO.TripDate)));
         var query = CreateTripTicketListQuery()
             .WithDatagridIntent(intent)
             .Build();

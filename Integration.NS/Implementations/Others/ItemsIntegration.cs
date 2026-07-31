@@ -86,7 +86,7 @@ public class ItemsIntegration(
             .Build();
 
         var result = await netsuiteService.ExecuteSuiteQLQuery<ItemsNSDTO>(query.Query, query.Limit, query.Offset);
-        return (result.items.Select(ConvertItemNSDTO), result.count);
+        return (result.items.Select(ConvertItemNSDTO), result.totalResults);
     }
 
     public async Task<(IEnumerable<ItemsDTO> Data, int Count)> GetItemsDataGridAsync(DataGridIntent intent)
@@ -118,7 +118,7 @@ public class ItemsIntegration(
             .Build();
 
         var result = await netsuiteService.ExecuteSuiteQLQuery<ItemsNSDTO>(query.Query, query.Limit, query.Offset);
-        return (result.items.Select(ConvertItemNSDTO), result.count);
+        return (result.items.Select(ConvertItemNSDTO), result.totalResults);
     }
 
     public async Task<(IEnumerable<ItemUnitDTO> Data, int Count)> GetItemUnits(ItemsDTO item, DataGridIntent intent)

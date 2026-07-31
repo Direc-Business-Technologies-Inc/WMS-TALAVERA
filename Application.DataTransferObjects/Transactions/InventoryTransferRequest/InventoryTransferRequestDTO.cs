@@ -20,11 +20,13 @@ public class InventoryTransferRequestDTO
     public string Memo { get; set; } = string.Empty;
     public DateTime Date { get; set; }
     public List<InventoryTransferRequestLineDTO> Lines { get; set; } = [];
-    public InventoryTransferRequestStatusDTO? Status { get; set; } 
+    public InventoryTransferRequestStatusDTO? Status { get; set; }
+    public bool IsEditable { get; set; } = false;
+    public bool IsSubmittedForApproval { get; set; } = false;
 }
 
 public class InventoryTransferRequestStatusDTO
 {
-    public string Id { get; set; } = string.Empty;
+    public int Id { get; set; }
     public string Name { get; set; } = string.Empty;
 }

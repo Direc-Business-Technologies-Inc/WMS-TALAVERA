@@ -11,6 +11,16 @@ using Web.BlazorServer.ViewModels.Abstraction;
 
 namespace Web.BlazorServer.Components.Custom;
 
+/// <summary>
+///     Utility class for creating datagrids without much code
+///     Uses QuickDataGridAttributes attached to the properties
+///     in the given VM as rules on how to display the table.
+///     you can manually give the table columns and this will 
+///     just serve as a thing to reduce the rewriting of code
+///     for the whole "load data from database", "load
+///     datagrid settings" thing
+/// </summary>
+/// <typeparam name="TItem"></typeparam>
 public partial class QuickDataGrid<TItem> : BaseComponent where TItem : class
 {
 

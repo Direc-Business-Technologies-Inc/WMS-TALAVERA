@@ -14,6 +14,7 @@ public class ItemReceiptDTO
     public int VendorPrefferedBin { get; set; }
     public int DefaultBO { get; set; }
     public int? PreparedById { get; set; }
+    public int? ItemFulfillmentId { get; set; }
 
     public string Type { get; set; } = string.Empty;
     public string CreatedFrom { get; set; } = string.Empty;
@@ -45,6 +46,7 @@ public class ItemReceiptLineDTO
 
     public int ItemId { get; set; }
     public string ItemCode { get; set; } = string.Empty;
+    public string ItemBarcode { get; set; } = string.Empty;
     public string ItemDescription { get; set; } = string.Empty;
     public string UoM { get; set; } = string.Empty;
     public string Department { get; set; } = "Operations";
@@ -55,12 +57,13 @@ public class ItemReceiptLineDTO
         get => _isLocationBinUsed ? "T" : "F";
         set => _isLocationBinUsed = value.Equals("T", StringComparison.OrdinalIgnoreCase);
     }
+    public string ItemUseBins { get; set; } = string.Empty;
 
     public decimal UoMRate { get; set; }
     public decimal WeightActual { get; set; }
     public decimal WeightPerItem { get; set; }
     public decimal QuantityPlanned { get; set; }
-    public decimal QuantityOpen { get; set; }
+    public decimal QuantityOpen => QuantityPlanned - QuantityOpen;
     public decimal QuantityReceived { get; set; }
     public decimal QuantityAlloted { get; set; }
 
@@ -68,9 +71,11 @@ public class ItemReceiptLineDTO
         get => _isLocationBinUsed;
         set => _isLocationBinUsed = value;
     }
+    public bool ItemUsesBins => ItemUseBins.ToLowerInvariant().Equals("t");
 
     public bool _isLocationBinUsed = false;
-    public bool IsReceived { get; set; } = true;
+    public bool IsReceived { get; set; } = true; 
+
 
     public List<InventoryDetailDTO> InventoryDetails { get; set; } = [];
 

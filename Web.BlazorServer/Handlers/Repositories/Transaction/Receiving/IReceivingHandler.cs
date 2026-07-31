@@ -10,11 +10,15 @@ public interface IReceivingHandler
     Task<(IEnumerable<ReturnsDataGridVM> Data, int Count)> GetReturnsDataGridAsync(DataGridIntent intent);
     Task<PurchaseOrderVM?> GetPurchaseOrderAsync(string docEntry);
     Task<TransferOrderVM?> GetTransferOrderAsync(string docEntry);
-    Task<ItemReceiptVM?> GetItemReceiptSourceAsync(string docEntry);
+    Task<ItemReceiptVM?> GetItemReceiptSourceAsync(string docEntry, string? itemFulfillmentId = null);
     Task<ReturnsVM?> GetReturnsAsync(string docEntry);
     Task<(IEnumerable<TransferOrderLineVM> Data, int Count)> GetTransferOrderLinesDataGridAsync(string transferOrderId, DataGridIntent intent);
     Task<bool> PostItemReceipt(ItemReceiptVM Data);
     Task<bool> PostGoodsReceiptPOAsync(PurchaseOrderVM data);
     Task<BarcodeVM?> GetBarcodeData(string barcode);
-
+    Task<IEnumerable<ItemFulfillmentLineVM>> GetItemFulfillmentLinesAsync(int ifid, DataGridIntent intent);
+    Task<(IEnumerable<ItemFulfillmentVM>, int)> GetTransferOrderItemFulfillments(int toId, DataGridIntent intent);
+    Task<(IEnumerable<ItemReceiptDataGridVM>, int)> GetItemReceiptsDatagridAsync(DataGridIntent intent);
+    Task<(IEnumerable<TransferOrderStatusVM>, int)> GetTransferOrderStatuses(DataGridIntent intent);
+    Task<(IEnumerable<PurchaseOrderStatusVM>, int)> GetPurchaseOrderStatuses(DataGridIntent intent);
 }

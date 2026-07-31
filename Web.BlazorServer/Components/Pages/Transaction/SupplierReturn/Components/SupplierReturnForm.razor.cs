@@ -4,11 +4,13 @@ using Microsoft.AspNetCore.Components.Forms;
 using Shared.Entities;
 using Shared.Libraries.Utilities;
 using Web.BlazorServer.Components.Custom;
+using Web.BlazorServer.Components.Pages.Transaction.Others.BarcodeScanning;
 using Web.BlazorServer.Handlers.Repositories.Others;
 using Web.BlazorServer.Handlers.Repositories.Transaction.SupplierReturn;
 using Web.BlazorServer.Helpers;
 using Web.BlazorServer.Services.Repositories;
 using Web.BlazorServer.ViewModels.Others;
+using Web.BlazorServer.ViewModels.Transaction.Receiving;
 using Web.BlazorServer.ViewModels.Transaction.SupplierReturn;
 
 namespace Web.BlazorServer.Components.Pages.Transaction.SupplierReturn.Components;
@@ -38,6 +40,7 @@ public partial class SupplierReturnForm
     QuickVirtualizedDropdown<SubsidiaryVM> SubsidiaryDropdown { get; set; } = default!;
     QuickVirtualizedDropdown<PurchaseSubcategoryVM> PurchaseSubcategoryDropdown { get; set; } = default!;
 
+    // need a linter
     readonly string ActionGetPO = "Get Purchase Order";
     bool canSelectPO = true;
     bool IsEditable => !ReadOnly && Model.SourcePO is null;
@@ -45,8 +48,12 @@ public partial class SupplierReturnForm
     bool IsDisabled => Disabled || LoadingPO;
     bool LoadingPO = false;
 
-    readonly string[] StatusIdsNormal = ["A", "B"];
-    readonly string[] StatusIdsBad = ["B"];
+    BarcodeStore BarcodeStore = new();
+
+    readonly List<AppFilterDescriptor> ItemFilters = [
+        DataGridFilterUtilities.GreaterThan("QuantityAvailable", 0)
+    ];
+
     const string PRINTABLE_URL = "https://11608969.extforms.netsuite.com/app/site/hosting/scriptlet.nl?script=1671&deploy=1&compid=11608969&ns-at=AAEJ7tMQ9evIwFEEUifIBokQgQ0jhowAItpfjv5Smu7B76K41lU&recordType=vendorreturnauthorization&transactionDefault=true";
 
     protected override void OnParametersSet()
@@ -174,7 +181,14 @@ public partial class SupplierReturnForm
 
         action.OnSuccess(async (po) =>
         {
+            var prepBy = Model.PreparedBy;
             po.Adapt(Model);
+            Model.CreatedFrom = po.ReferenceNumber;
+            Model.Status = new ReturnStatusVM() { Name = "Pending Approval" };
+            Model.PreparedBy = prepBy;
+            Model.ReturnCategory = null;
+            Model.Date = DateTime.Now;
+            Model.Memo = $"Created via WMS from {po.ReferenceNumber}";
             canSelectPO = false;
         });
 
@@ -219,6 +233,13 @@ public partial class SupplierReturnForm
             }));
     }
 
+    async Task RemoveLine(SupplierReturnLineVM line)
+    {
+        Model.Lines.Remove(line);
+
+        await InvokeAsync(StateHasChanged);
+    }
+
     string PrintableURL => $"{PRINTABLE_URL}&recordId={Model.Id}";
     async Task LineUoMSet(SupplierReturnLineVM line, ItemUnitVM? uom)
     {
@@ -229,5 +250,45 @@ public partial class SupplierReturnForm
         line.UoM = uom;
 
         await InvokeAsync(StateHasChanged);
+    }
+
+    void ApplyBarcodes()
+    {
+        if (!BarcodeStore.Any()) return;
+
+        foreach (var item in BarcodeStore.Items)
+        {
+            var itemCount = BarcodeStore.CountItemQuantity(item);
+            var itemLine = Model.Lines.First(x => x.ItemId == item.Id);
+
+            if (itemLine != null) itemLine.QuantityAlloted += itemCount / (itemLine.UoM?.ConversionRate ?? 1);
+        }
+
+        BarcodeStore.Clear();
+    }
+
+
+    bool IsValidBarcode(BarcodeVM barcode, out string reason)
+    {
+        var line = Model.Lines.FirstOrDefault(x => x.ItemId == barcode.Item?.Id && barcode.UoM?.Id == x.UoM?.Id && barcode.UoM is not null) ??
+            Model.Lines.FirstOrDefault(x => x.ItemId == barcode.Item?.Id);
+        if (line is null)
+        {
+            reason = $"The item {barcode.Item?.ItemNumber} does not exist in the current document";
+            return false;
+        }
+
+        var uomRate = line.UoM?.ConversionRate ?? 1;
+        var itemCount = BarcodeStore.CountItemQuantity(line.ItemId) / uomRate;
+        var incomingCount = (barcode.UoM?.ConversionRate ?? 0) / uomRate;
+
+        if (line.QuantityOnHandByUoM - line.QuantityAlloted - itemCount < incomingCount)
+        {
+            reason = $"The quantity of the item {line.ItemCode} exceeds the expected amount";
+            return false;
+        }
+
+        reason = "";
+        return true;
     }
 }

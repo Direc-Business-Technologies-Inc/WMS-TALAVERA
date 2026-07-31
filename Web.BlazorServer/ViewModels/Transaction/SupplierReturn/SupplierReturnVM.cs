@@ -17,6 +17,7 @@ public class SupplierReturnVM
     public string ReferenceNumber { get; set; } = string.Empty;
     public string Memo { get; set; } = string.Empty;
     public string PreparedBy { get; set; } = string.Empty;
+    public string CreatedFrom { get; set; } = string.Empty;
     public List<SupplierReturnLineVM> Lines { get; set; } = [];
 
     public int? SourcePO { get; set; }

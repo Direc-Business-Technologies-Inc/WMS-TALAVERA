@@ -45,7 +45,7 @@ public partial class AppDataGrid<TItem> : BaseComponent where TItem : class
     #endregion Parameter
 
     bool _isFirstLoad { get; set; } = true;
-    public RadzenDataGrid<TItem> DataGrid { get; set; } = default!;
+    public RadzenDataGrid<TItem>? DataGrid { get; set; } = default!;
     public DataGridResultVM<TItem> DGResult { get; set; } = new DataGridResultVM<TItem>();
     public EventCallback<DataGridResultVM<TItem>> DGResultChanged { get; set; }
     public IDataGridIntentAdapter DatagridAdapter { get; set; } = default!;
@@ -76,10 +76,10 @@ public partial class AppDataGrid<TItem> : BaseComponent where TItem : class
 
         await InvokeAsync(StateHasChanged);
 
-        foreach (var item in args.Filters.Where(x => x.Type is null))
+        foreach (var item in args.Filters?.Where(x => x.Type is null) ?? [])
         {
-            var columnsCollection = DataGrid.ColumnsCollection;
-            var column = columnsCollection.FirstOrDefault(x => x.Property == item.Property);
+            var columnsCollection = DataGrid?.ColumnsCollection;
+            var column = columnsCollection?.FirstOrDefault(x => x.Property == item.Property);
             if (column is not null)
             {
                 item.Type = column.Type;
@@ -100,7 +100,7 @@ public partial class AppDataGrid<TItem> : BaseComponent where TItem : class
             DGResult = await DataGetter!(DatagridAdapter.QueryIntent);
         }
 
-        SelectedItems = [.. DataGrid.Data.Where(d => SelectedItems.Contains(d))];
+        SelectedItems = [.. DataGrid?.Data?.Where(d => SelectedItems.Contains(d)) ?? []];
         if (DatagridAdapter is not null)
             DatagridAdapter.ClearIntent();
 

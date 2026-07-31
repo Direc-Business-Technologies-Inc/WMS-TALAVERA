@@ -14,4 +14,5 @@ public interface ISubsidiaryIntegration
     Task<(IEnumerable<SubsidiaryDTO> Data, int Count)> GetSubsidiariesByVendorAsync(DataGridIntent intent, int vendorId);
     Task<(IEnumerable<SubsidiaryDTO> Data, int Count)> GetSubsidiariesByCustomerAsync(DataGridIntent intent, int customerId);
     Task<IEnumerable<SubsidiaryDTO>> GetChildSubsidiariesAsync(int subsidiaryId);
+    Task<SubsidiaryDTO?> GetSubsidiaryAsync(int subsidiaryid);
 }

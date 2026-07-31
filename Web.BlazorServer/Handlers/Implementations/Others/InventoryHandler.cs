@@ -24,6 +24,13 @@ public class InventoryHandler(ISender sender) : IInventoryHandler
         return (data.Adapt<IEnumerable<InventoryBalanceVM>>(), count);
     }
 
+    public async Task<IEnumerable<InventoryDetailVM>> GetInventoryDetails(int documentId, int lineId)
+    {
+        GetInventoryDetailsQry qry = new(documentId, lineId);
+        var details = await sender.Send(qry);
+        return details.Adapt<IEnumerable<InventoryDetailVM>>();
+    }
+
     public async Task<(IEnumerable<InventoryStatusVM>, int)> GetInventoryStatusAsync(DataGridIntent intent)
     {
         GetInventoryStatusesQry qry = new(intent);

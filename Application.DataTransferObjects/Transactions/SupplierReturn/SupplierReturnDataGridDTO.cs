@@ -14,5 +14,7 @@ public class SupplierReturnDataGridDTO
     public string Memo { get; set; } = string.Empty;
     public string PreparedBy { get; set; } = string.Empty;
     public string StatusName { get; set; } = string.Empty;
+    public string CreatedFrom { get; set; } = string.Empty;
     public DateTime Date { get; set; }
+    public DateTime DateLastModified { get; set; }
 }

@@ -93,6 +93,7 @@ public static class BlazorServerHandlersDI
         services.TryAddTransient<IBusinessAccountHandler, BusinessAccountHandler>();
         services.TryAddTransient<IInventoryAdjustmentHandler, InventoryAdjustmentHandler>();
         services.TryAddTransient<ITripTicketHandler, TripTicketHandler>();
+        services.TryAddTransient<IDepartmentHandler, DepartmentHandler>();
 
         return services;
     }

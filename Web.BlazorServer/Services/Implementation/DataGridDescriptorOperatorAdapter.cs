@@ -23,6 +23,7 @@ public class DataGridDescriptorOperatorAdapter : IDataGridDescriptorOperatorAdap
             FilterOperator.IsNotEmpty => ComparisonOperatorEnum.IsNotEmpty,
             FilterOperator.IsNull => ComparisonOperatorEnum.IsNull,
             FilterOperator.IsNotNull => ComparisonOperatorEnum.IsNotNull,
+            FilterOperator.In => ComparisonOperatorEnum.In,
             _ => throw new NotSupportedException($"Filter operator '{filterOperator}' is not supported.")
         };
     }

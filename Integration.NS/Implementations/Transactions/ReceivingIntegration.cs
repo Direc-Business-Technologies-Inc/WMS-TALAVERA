@@ -1,4 +1,5 @@
 ﻿using Application.DataTransferObjects.Others.NS;
+using Application.DataTransferObjects.Transactions.InventoryTransferRequest;
 using Application.DataTransferObjects.Transactions.Receiving;
 using Application.DataTransferObjects.Transactions.Receiving.NS.Payload;
 using Application.DataTransferObjects.Transactions.Receiving.SAP;
@@ -11,17 +12,19 @@ using Integration.NS.Services;
 using Integration.SAP.Entities.Transactional.Receiving;
 using Mapster;
 using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
 using Shared.Entities;
 using Shared.Libraries.Utilities;
 using Shared.Libraries.ViewModel;
 using System.Numerics;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
 using static Shared.Libraries.Utilities.DataGridFilterUtilities;
 using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace Integration.NS.Implementations.Transactions;
-
+// this class sucks
 public class ReceivingIntegration(
     INetSuiteApiClientService netsuiteService,
     IHttpContextAccessor httpContext,
@@ -73,11 +76,12 @@ public class ReceivingIntegration(
                 ("BUILTIN.DF(tl.location)", nameof(PurchaseOrderLineDTO.Location)),
                 ("item.displayname", nameof(PurchaseOrderLineDTO.ItemDescription)),
                 ("item.itemid", nameof(PurchaseOrderLineDTO.ItemCode)),
-                ("tl.quantity", nameof(PurchaseOrderLineDTO.QuantityPlanned))
+                ("(tl.quantity / NVL(uom.conversionrate, 1))", nameof(PurchaseOrderLineDTO.QuantityPlanned))
             )
             .From("transaction t")
             .Join("transactionline tl", on: "tl.transaction = t.id")
             .Join("item", on: "item.id = tl.item")
+            .LeftJoin("unitstypeuom uom", on: "uom.internalid = tl.units")
             .WithFilters(
                 Equal("t.tranid", docEntry),
                 Equal("tl.mainline", "F")
@@ -90,23 +94,36 @@ public class ReceivingIntegration(
 
     public async Task<(IEnumerable<PurchaseOrderDataGridDTO>, int)> GetPurchaseOrdersListAsync(DataGridIntent intent)
     {
+        if (intent.Sorts.Count == 0) intent.Sorts.Add(DataGridSortUtilities.Descending("ReferenceNumber"));
+
+        int[] AllowedLocations = [-1];
+        string? claimValue = httpContext.HttpContext?.User?.FindFirst("com.direcbusiness.wms.nsAllowedLocations")?.Value;
+        if (claimValue is not null)
+        {
+            AllowedLocations = JsonSerializer.Deserialize<int[]>(claimValue) ?? [-1];
+        }
+
         var builder = builderFactory.Create()
             .Select(
                 ("t.id", "Id"),
                 ("t.tranid", "ReferenceNumber"),
                 ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", "Date"),
+                ("TO_CHAR(t.lastmodifieddate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", "DateLastModified"),
                 ("t.location", "Location"),
                 ("TO_CHAR(t.custbody_dbti_order_date, 'YYYY-MM-DD\"T\"HH24:MI:SS')", "DeliveryDate"),
                 ("t.memo", "Memo"),
+                ("t.location", "LocationId"),
                 ("BUILTIN.DF(t.entity)", "VendorName"),
                 ("s.name", nameof(PurchaseOrderDataGridDTO.Status)),
                 ("t.transferlocation", "TransferLocation"))
             .From("transaction t")
+            .Join("transactionline tl", "tl.transaction = t.id")
             .LeftJoin("purchaseorderstatus s", on: "s.id = t.status")
             .WithDatagridIntent(intent)
             .WithFilters(
                 Equal("t.recordtype", "purchaseorder"),
-                In("t.status", new string[] { "B", "E" })
+                In("t.status", new string[] { "B", "E" }),
+                In("tl.location", AllowedLocations)
             )
             .WithSubsidiaries(httpContext, "t");
 
@@ -118,11 +135,30 @@ public class ReceivingIntegration(
 
     public async Task<(IEnumerable<TransferOrderDataGridDTO>, int count)> GetTransferOrderListAsync(DataGridIntent intent)
     {
+
+        if (intent.Sorts.Count == 0) intent.Sorts.Add(DataGridSortUtilities.Descending("ReferenceNumber"));
+
+        List<int> allowedSubsidiaries = [];
+        string? claimValue = httpContext.HttpContext?.User?.FindFirst("com.direcbusiness.wms.nsAllowedSubsidiaries")?.Value;
+        if (claimValue is not null)
+        {
+            allowedSubsidiaries = JsonSerializer.Deserialize<List<int>>(claimValue) ?? [];
+        }
+
+        int[] AllowedLocations = [-1];
+        claimValue = httpContext.HttpContext?.User?.FindFirst("com.direcbusiness.wms.nsAllowedLocations")?.Value;
+        if (claimValue is not null)
+        {
+            AllowedLocations = JsonSerializer.Deserialize<int[]>(claimValue) ?? [-1];
+        }
+
+
         var query = builderFactory.Create()
             .Select(
                 ("t.id", "Id"),
                 ("t.tranid", "ReferenceNumber"),
                 ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", "Date"),
+                ("TO_CHAR(t.lastmodifieddate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", "DateLastModified"),
                 ("BUILTIN.DF(t.subsidiary)", "SourceSubsidiary"),
                 ("BUILTIN.DF(t.tosubsidiary)", "DestinationSubsidiary"),
                 ("BUILTIN.DF(tl.location)", "Location"),
@@ -135,12 +171,22 @@ public class ReceivingIntegration(
             .LeftJoin("transferorderstatus s", on: "t.status = s.id")
             .WithFilters(
                 Equal("tl.mainline", "T"),
-                In("t.recordtype", new string[] { "transferorder", "intercompanytransferorder" }),
                 NotEqual("t.custbody_dbti_transfer_category", 4), // returns - bad items
                 NotEqual("t.custbody_dbti_transfer_category", 3), // returns - good items
-                In("t.status", new string[] { "F", "E" }))
+                In("t.status", new string[] { "F", "E" }),
+                Any(
+                    All(
+                        Equal("t.recordtype", "intercompanytransferorder"),
+                        In("t.tosubsidiary", allowedSubsidiaries)
+                    ),
+                    All(
+                        Equal("t.recordtype", "transferorder"),
+                        In("t.subsidiary", allowedSubsidiaries)
+                    )
+                ),
+                In("t.transferlocation", AllowedLocations)
+            )
             .WithDatagridIntent(intent)
-            .WithSubsidiaries(httpContext, "t")
             .Build();
 
         var response = await netsuiteService.ExecuteSuiteQLQuery<TransferOrderDataGridDTO>(query.Query, limit: query.Limit, offset: query.Offset);
@@ -169,11 +215,11 @@ public class ReceivingIntegration(
                 ("BUILTIN.DF(t.tosubsidiary)", "ToSubsidiary"),
                 ("BUILTIN.DF(tl.location)", "Location"),
                 ("BUILTIN.DF(t.transferlocation)", "TransferLocation"),
-                ("t.custbody_dbti_prepared_by", "PreparedBy")
+                ("CONCAT(e.firstname,CONCAT(' ',e.lastname))", "PreparedBy")
             )
             .From("transaction t")
             .Join("transactionline tl", on: "tl.transaction = t.id")
-            .WithSubsidiaries(httpContext, "t")
+            .LeftJoin("employee e", on: "e.id = t.custbody_dbti_prepared_by")
             .WithFilters(
                 In("t.recordtype", new string[] { "transferorder", "intercompanytransferorder" }),
                 Equal("tl.mainline", "T"),
@@ -193,14 +239,15 @@ public class ReceivingIntegration(
             .Select(
                 ("item.itemId", "ItemCode"),
                 ("BUILTIN.DF(tl.units)", "UoM"),
-                ("BUILTIN.DF(tl.location)", "Warehouse"),
+                ("BUILTIN.DF(tl.location)", "DestinationLocation"),
                 ("item.displayname", "ItemDescription"),
-                ("tl.quantity", "QuantityPlanned"),
-                ("tl.quantityshiprecv", "QuantityReceived"),
-                ("(tl.quantity - tl.quantityshiprecv)", "QuantityOpen"))
+                ("(tl.quantity / NVL(uom.conversionrate, 1))", "QuantityPlanned"),
+                ("(tl.quantityshiprecv / NVL(uom.conversionrate, 1))", "QuantityReceived"),
+                ("((tl.quantity - tl.quantityshiprecv) / NVL(uom.conversionrate, 1))", "QuantityOpen"))
             .From("transactionline tl")
             .Join("item item", on: "item.id = tl.item")
             .Join("transaction t", on: "t.id = tl.transaction")
+            .LeftJoin("unitstypeuom uom", on: "uom.internalid = tl.units")
             .WithFilters(
                 NotEqual("t.custbody_dbti_transfer_category", 3),
                 NotEqual("t.custbody_dbti_transfer_category", 4),
@@ -216,30 +263,43 @@ public class ReceivingIntegration(
 
     public async Task<(IEnumerable<ReturnsDataGridDTO>, int count)> GetReturnsListAsync(DataGridIntent intent)
     {
+
+        if (intent.Sorts.Count == 0) intent.Sorts.Add(DataGridSortUtilities.Descending("ReferenceNumber"));
+
+        int[] AllowedLocations = [-1];
+        string? claimValue = httpContext.HttpContext?.User?.FindFirst("com.direcbusiness.wms.nsAllowedLocations")?.Value;
+        if (claimValue is not null)
+        {
+            AllowedLocations = JsonSerializer.Deserialize<int[]>(claimValue) ?? [-1];
+        }
+
+
         var query = builderFactory.Create()
             .Select(
                 ("t.id", "Id"),
                 ("t.tranid", "ReferenceNumber"),
                 ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", "Date"),
+                ("TO_CHAR(t.lastmodifieddate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", "DateLastModified"),
                 ("BUILTIN.DF(t.subsidiary)", "SourceSubsidiary"),
                 ("BUILTIN.DF(t.tosubsidiary)", "DestinationSubsidiary"),
                 ("BUILTIN.DF(t.custbody_dbti_return_to_vendor)", "VendorName"),
-                ("BUILTIN.DF(t.location)", "Location"),
+                ("BUILTIN.DF(ml.location)", "Location"),
                 ("s.name", nameof(ReturnsDataGridDTO.Status)),
                 ("BUILTIN.DF(t.transferlocation)", "TransferLocation"),
-
                 ("t.memo", "Memo")
             )
             .From("transaction t")
             .LeftJoin("transferorderstatus s", on: "s.id = t.status")
+            .LeftJoin("transactionline ml", "ml.transaction = t.id AND ml.mainline = 'T'")
             .WithDatagridIntent(intent)
-            .WithSubsidiaries(httpContext, "t")
+            .WithSubsidiaries(httpContext, "t", true)
             .WithFilters(
                 Equal("t.recordtype", "intercompanytransferorder"),
                 In("t.status", new string[] { "F", "E" }),
                 Any(
                     Equal("t.custbody_dbti_transfer_category", 3),
-                    Equal("t.custbody_dbti_transfer_category", 4))
+                    Equal("t.custbody_dbti_transfer_category", 4)),
+                In("t.transferlocation", AllowedLocations)
             ).Build();
 
         var response = await netsuiteService.ExecuteSuiteQLQuery<ReturnsDataGridDTO>(query.Query, limit: query.Limit, offset: query.Offset);
@@ -250,17 +310,19 @@ public class ReceivingIntegration(
     {
         var query = builderFactory.Create()
             .Select(
+                ("t.id", nameof(ReturnsDTO.Id)),
                 ("t.tranid", "ReferenceNumber"),
                 ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", "Date"),
                 ("BUILTIN.DF(t.subsidiary)", "FromSubsidiary"),
                 ("BUILTIN.DF(t.custbody_dbti_return_to_vendor)", "Vendor"),
                 ("BUILTIN.DF(tl.location)", "FromWarehouse"),
                 ("BUILTIN.DF(t.transferlocation)", "ToWarehouse"),
-                ("t.custbody_dbti_prepared_by", "PreparedBy")
+                ("CONCAT(e.firstname,CONCAT(' ',e.lastname))", "PreparedBy")
             )
             .From("transaction t")
             .Join("transactionline tl", "tl.transaction = t.id AND tl.mainline = 'T'")
-            .WithSubsidiaries(httpContext, "t")
+            .LeftJoin("employee e", "e.id = t.custbody_dbti_prepared_by")
+            .WithSubsidiaries(httpContext, "t", true)
             .WithFilters(
                 Equal("t.recordtype", "intercompanytransferorder"),
                 Any(
@@ -344,12 +406,83 @@ public class ReceivingIntegration(
         });
     }
 
-    public async Task<IEnumerable<ItemReceiptLineDTO>> GetItemReceiptLinesAsync(string docEntry, bool transferorder = false)
+    const string IF_RECEIPTS_QUERY = """
+                SELECT
+        			sum(rtl.quantity) / uom.conversionrate
+        		FROM
+        			previoustransactionlinelink pttl
+        			JOIN transactionline rtl ON pttl.nextline = rtl.id
+        			AND pttl.nextdoc = rtl.transaction
+        		WHERE
+        			pttl.previousdoc = tl.transaction
+        			AND pttl.previousline = tl.id
+        			AND pttl.nexttype = 'ItemRcpt'
+        """;
+
+    const string IF_TO_LINE_ID= """
+            SELECT
+                ttl.id
+        	FROM
+        		previoustransactionlinelink tolink
+            JOIN 
+                transactionline shippingline ON shippingline.id = tolink.previousline and shippingline.transaction = tolink.previousdoc
+            JOIN 
+                transactionline ttl on ttl.transferorderitemlineid = shippingline.transferorderitemlineid and ttl.transaction = shippingline.transaction
+        	WHERE
+        		tolink.nextdoc = tl.transaction
+                AND ttl.transactionlinetype = 'RECEIVING'
+        		AND tolink.nextline = tl.id
+        		AND tolink.previoustype = 'TrnfrOrd'
+        """;
+
+    public async Task<IEnumerable<ItemReceiptLineDTO>> GetItemReceiptItemFulfillmentLinesAsync(string docEntry)
     {
+
         var builder = builderFactory.Create()
             .Select(
                 ("item.itemid", "ItemCode"),
                 ("item.id", "ItemId"),
+                ($"({IF_TO_LINE_ID})", "LineNumber"),
+                ("uom.unitname", "UoM"),
+                ("uom.conversionrate", "UoMRate"),
+                ("loc.name", nameof(ItemReceiptLineDTO.LocationName)),
+                ("loc.id", nameof(ItemReceiptLineDTO.LocationId)),
+                ("barcode.name", nameof(ItemReceiptLineDTO.ItemBarcode)),
+                ("loc.usebins", "LocationUsesBins"),
+                ("item.displayname", "ItemDescription"),
+                ("pb.bin", "PrefferedBinAssignmentId"),
+                ("item.weight", nameof(ItemReceiptLineDTO.WeightPerItem)),
+                ("tl.custcol_dbti_actual_weight", nameof(ItemReceiptLineDTO.WeightActual)),
+                ("ABS(tl.quantity / uom.conversionrate)", "QuantityPlanned"),
+                ("item.usebins", "ItemUseBins"),
+                ($"({IF_RECEIPTS_QUERY})", "QuantityReceived")
+            )
+            .From("transactionline tl")
+            .Join("item", on: "tl.item = item.id")
+            .Join("transaction t", on: "tl.transaction = t.id")
+            .Join("location loc", on: "tl.location = loc.id")
+            .Join("unitstypeuom uom", on: "tl.units = uom.internalid")
+            .LeftJoin("CUSTOMRECORD_BARCODE_PER_UOM barcode", "barcode.custrecord_bpu_uom = tl.units AND barcode.custrecord_bpu_item = tl.item")
+            .LeftJoin("(SELECT ibq.bin, ibq.item, b.location FROM itembinquantity ibq JOIN bin b ON ibq.bin = b.id WHERE preferredbin = \'T\') pb", on: "pb.item = item.id AND pb.location = tl.location")
+            .WithFilters(
+                Equal("t.tranid", docEntry)
+            );
+
+        var query = builder.Build();
+
+        var response = await netsuiteService.ExecuteSuiteQLQuery<ItemReceiptLineDTO>(query.Query);
+        return [.. response.items];
+    }
+
+
+    public async Task<IEnumerable<ItemReceiptLineDTO>> GetItemReceiptLinesAsync(string docEntry, bool transferorder = false)
+    {
+
+        var builder = builderFactory.Create()
+            .Select(
+                ("item.itemid", "ItemCode"),
+                ("item.id", "ItemId"),
+                ("item.usebins", nameof(ItemReceiptLineDTO.ItemUseBins)),
                 ("tl.id", "LineNumber"),
                 ("uom.unitname", "UoM"),
                 ("uom.conversionrate", "UoMRate"),
@@ -357,11 +490,11 @@ public class ReceivingIntegration(
                 ("loc.id", nameof(ItemReceiptLineDTO.LocationId)),
                 ("loc.usebins", "LocationUsesBins"),
                 ("item.displayname", "ItemDescription"),
+                ("barcode.name", nameof(ItemReceiptLineDTO.ItemBarcode)),
                 ("pb.bin", "PrefferedBinAssignmentId"),
                 ("item.weight", nameof(ItemReceiptLineDTO.WeightPerItem)),
                 ("tl.custcol_dbti_actual_weight", nameof(ItemReceiptLineDTO.WeightActual)),
-                ("(tl.quantity / uom.conversionrate)", "QuantityPlanned"),
-                ("(tl.quantity - tl.quantityshiprecv) / uom.conversionrate", "QuantityOpen"),
+                ("ABS(tl.quantity / uom.conversionrate)", "QuantityPlanned"),
                 ("(tl.quantityshiprecv / uom.conversionrate)", "QuantityReceived")
             )
             .From("transactionline tl")
@@ -370,6 +503,7 @@ public class ReceivingIntegration(
             .Join("location loc", on: "tl.location = loc.id")
             .Join("unitstypeuom uom", on: "tl.units = uom.internalid")
             .LeftJoin("(SELECT ibq.bin, ibq.item, b.location FROM itembinquantity ibq JOIN bin b ON ibq.bin = b.id WHERE preferredbin = \'T\') pb", on: "pb.item = item.id AND pb.location = tl.location")
+            .LeftJoin("CUSTOMRECORD_BARCODE_PER_UOM barcode", "barcode.custrecord_bpu_uom = tl.units AND barcode.custrecord_bpu_item = tl.item")
             .WithFilters(
                 Equal("t.tranid", docEntry),
                 Equal("tl.mainline", "F")
@@ -391,7 +525,7 @@ public class ReceivingIntegration(
 
     public async Task<bool> PostItemReceipt(ItemReceiptDTO dto)
     {
-        var uri = dto.SourceType == ItemReceiptDTO.SourceTypes.PurchaseOrder ? 
+        var uri = dto.SourceType == ItemReceiptDTO.SourceTypes.PurchaseOrder ?
             $"{netsuiteService.GetRestAPIURI}/record/v1/purchaseOrder/{dto.SourceInternalId}/!transform/itemReceipt" :
             $"{netsuiteService.GetRestletURI}?script=1853&deploy=1";
 
@@ -423,7 +557,10 @@ public class ReceivingIntegration(
                 if (hasBadLines) tasks.Add(netsuiteService.MakeRequestOAuth1<object>(uri, badPayload));
             }
 
-            await Task.WhenAll(tasks);
+            foreach (Task x in tasks)
+            {
+                await x;
+            }
 
         }
         catch (Exception ex)
@@ -442,13 +579,16 @@ public class ReceivingIntegration(
             .Select(
                 ("b.name", nameof(BarcodeNSDTO.Barcode)),
                 ("b.custrecord_bpu_item", nameof(BarcodeNSDTO.ItemId)),
-                ("BUILTIN.DF(b.custrecord_bpu_item)", nameof(BarcodeNSDTO.ItemName)),
+                ("item.fullName", nameof(BarcodeNSDTO.ItemName)),
+                ("item.itemId", nameof(BarcodeNSDTO.ItemCode)),
+                ("item.weight", nameof(BarcodeNSDTO.ItemWeight)),
                 ("uom.internalid", nameof(BarcodeNSDTO.UoMId)),
                 ("uom.unitName", nameof(BarcodeNSDTO.UoMName)),
                 ("uom.conversionRate", nameof(BarcodeNSDTO.UoMRate))
             )
             .From("CUSTOMRECORD_BARCODE_PER_UOM b")
             .Join("unitstypeuom uom", on: "b.custrecord_bpu_uom = uom.internalid")
+            .Join("item", "item.id = b.custrecord_bpu_item")
             .WithFilter(
                 DataGridFilterUtilities.Equal("b.name", barcode)
             );
@@ -463,6 +603,8 @@ public class ReceivingIntegration(
             {
                 Id = barcodeData.ItemId,
                 Name = barcodeData.ItemName,
+                ItemNumber = barcodeData.ItemCode,
+                Weight = barcodeData.ItemWeight
             },
             UoM = new()
             {
@@ -473,6 +615,97 @@ public class ReceivingIntegration(
         });
     }
 
+
+    public async Task<(IEnumerable<ItemFulfillmentDTO>, int)> GetSTRItemFulfillments(int strId, DataGridIntent intent)
+    {
+        intent = intent.Adapt<DataGridIntent>();
+        if (intent.Sorts.Count == 0)
+            intent.Sorts.Add(DataGridSortUtilities.Descending(nameof(ItemFulfillmentDTO.DateLastModified)));
+
+
+        var query = builderFactory.Create()
+            .Select(
+                ("t.id", nameof(ItemFulfillmentDTO.Id)),
+                ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(ItemFulfillmentDTO.Date)),
+                ("TO_CHAR(t.lastmodifieddate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(ItemFulfillmentDTO.DateLastModified)),
+                ("t.tranid", nameof(ItemFulfillmentDTO.ReferenceNumber)),
+                ("s.name", nameof(ItemFulfillmentDTO.Status)),
+                ("CONCAT(e.firstname, CONCAT(' ', e.lastname))", nameof(ItemFulfillmentDTO.PreparedBy))
+            )
+            .From("transaction t")
+            .Join("itemfulfillmentstatus s", on: "t.status = s.id")
+            .Join("transactionline ml", on: "ml.transaction = t.id AND ml.mainline = 'T'")
+            .LeftJoin("employee e", on: "e.id = t.custbody_dbti_prepared_by")
+            .LeftJoin("(SELECT SUM(1) AS count, custrecord_dbti_ttf_item_fulfillment_num AS ifnum FROM CUSTOMRECORD_DBTI_TRIP_TICKET_IF GROUP BY custrecord_dbti_ttf_item_fulfillment_num) ttx", "ttx.ifnum = t.id")
+            .WithFilters(
+                Equal("t.recordtype", "itemfulfillment"),
+                Equal("t.status", "C"),
+                Equal("ml.createdfrom", strId),
+                GreaterThan("ttx.count", 0)
+            )
+            .WithDatagridIntent(intent)
+            .Build();
+
+        var response = await query.ExecuteWithPaging<ItemFulfillmentDTO>(netsuiteService);
+
+        return (response.items, response.totalResults);
+    }
+
+    public async Task<IEnumerable<ItemFulfillmentLineDTO>> GetItemFulfillmentLines(int ifId, DataGridIntent intent)
+    {
+        var query = builderFactory.Create()
+            .Select(
+                ("tl.id", nameof(ItemFulfillmentLineDTO.LineNumber)),
+                ("item.itemid", nameof(ItemFulfillmentLineDTO.ItemCode)),
+                ("tl.item", nameof(ItemFulfillmentLineDTO.ItemId)),
+                ("t.id", nameof(ItemFulfillmentLineDTO.ItemFullfillmentId)),
+                ("tl.quantity", nameof(ItemFulfillmentLineDTO.QuantityOpen))
+            )
+            .From("transactionline tl")
+            .Join("transaction t", on: "t.id = tl.transaction")
+            .Join("item", on: "tl.item = item.id")
+            .WithFilters(
+                Equal("t.recordtype", "itemfulfillment"),
+                Equal("tl.transaction", ifId)
+            )
+            .WithDatagridIntent(intent)
+            .Build();
+
+        var response = await netsuiteService.ExecuteSuiteQLQuery<ItemFulfillmentLineDTO>(query.Query);
+        return response.items;
+    }
+    public async Task<(IEnumerable<ItemReceiptDataGridDTO> data, int count)> GetItemReceiptsDatagrid(DataGridIntent intent)
+    {
+        if (intent.Sorts.Count == 0)
+            intent.Sorts.Add(DataGridSortUtilities.Descending(nameof(ItemReceiptDataGridDTO.DateLastModified)));
+        
+        var query = builderFactory.Create()
+            .Select(
+                ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(ItemReceiptDataGridDTO.Date)),
+                ("TO_CHAR(t.lastmodifieddate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(ItemReceiptDataGridDTO.DateLastModified)),
+                ("t.id", nameof(ItemReceiptDataGridDTO.Id)),
+                ("t.tranid", nameof(ItemReceiptDataGridDTO.ReferenceNumber)),
+                ("categ.name", nameof(ItemReceiptDataGridDTO.TransferCategory)),
+                ("tcf.tranid", nameof(ItemReceiptDataGridDTO.CreatedFrom)),
+                ("BUILTIN.DF(tl.location)", nameof(ItemReceiptDataGridDTO.FromLocation)),
+                ("BUILTIN.DF(t.transferlocation)", nameof(ItemReceiptDataGridDTO.ToLocation))
+            )
+            .From("transaction t")
+            .Join("transactionline tl", "tl.transaction = t.id AND tl.mainline = 'T'")
+            .LeftJoin("CUSTOMLIST_DBTI_TRANSFER_CATEGORY_LIST categ", "t.custbody_dbti_transfer_category = categ.id")
+            .LeftJoin("transaction tcf", "tl.createdfrom = tcf.id")
+            .WithFilters(
+                Equal("t.recordtype", "itemreceipt")
+            )
+            .WithDatagridIntent(intent)
+            .Build();
+
+        var response = await query.ExecuteWithPaging<ItemReceiptDataGridDTO>(netsuiteService);
+        return (response.items, response.totalResults);
+    }
+
+
+    private string CreateReturnsJson(ItemReceiptDTO dto, bool isGood) => CreateTOJson(dto, isGood);
     private string CreateTOJson(ItemReceiptDTO dto, bool isGood)
     {
         int statusId = isGood ? INVENTORY_STATUS_ID_GOOD : INVENTORY_STATUS_ID_BAD;
@@ -484,6 +717,7 @@ public class ReceivingIntegration(
             transferCategory = isGood ? 1 : 2,
             custbody_dbti_prepared_by = dto.PreparedById,
             receiverEmployeeId = dto.PreparedById,
+            fulfillmentId = dto.ItemFulfillmentId,
             lines = lines.Where(x => x.QuantityAlloted > 0).Select(line =>
             {
                 return new
@@ -492,6 +726,7 @@ public class ReceivingIntegration(
                     quantity = line.InventoryDetails.Sum(x => x.Status?.Id == statusId ? x.QuantityAlloted : 0),
                     inventoryDetail = line.InventoryDetails.Where(x => x.Status?.Id == statusId).Select(y => new
                     {
+                        binNumber = y.Bin?.BinNumber,
                         inventoryStatus = statusId,
                         quantity = y.QuantityAlloted
                     })
@@ -500,9 +735,6 @@ public class ReceivingIntegration(
         };
         return JsonSerializer.Serialize(obj, JSON_OPTS);
     }
-
-    private string CreateReturnsJson(ItemReceiptDTO dto, bool isGood) => CreateTOJson(dto, isGood);
-
     private string CreatePOJson(ItemReceiptDTO dto, bool isGood)
     {
         int statusId = isGood ? INVENTORY_STATUS_ID_GOOD : INVENTORY_STATUS_ID_BAD;
@@ -510,43 +742,77 @@ public class ReceivingIntegration(
 
         var obj = new
         {
+            defaultValues = new {
+                itemfulfillment = dto.ItemFulfillmentId
+            },
             custbody_dbti_receiving_category = isGood ? 1 : 2,
             custbody_dbti_prepared_by = dto.PreparedById,
             custbody_dbti_received_by = dto.PreparedById,
             item = new
             {
-                items = lines.Where(line => line.QuantityPlanned != line.QuantityReceived).Select(line =>
+                items = dto.Lines.Select(line =>
                 {
                     decimal lineQuantity = line.InventoryDetails.Sum(x => x.Status?.Id == statusId ? x.QuantityAlloted : 0);
-                    bool isItemReceived = line.IsReceived && lineQuantity > 0;
+                    bool isItemReceived = line.IsReceived && lineQuantity > 0 && line.InventoryDetails.Any(x => x.Status?.Id == statusId);
+
                     return new
                     {
                         itemreceive = isItemReceived,
                         orderLine = line.LineNumber,
                         quantity = isItemReceived ? lineQuantity : (decimal?)null,
                         custcol_dbti_actual_weight = isItemReceived ? line.WeightActual : (decimal?)null,
-                        rate = isGood ? (decimal?)null : 0,
+                        rate = isItemReceived && isGood ? (decimal?)null : 0,
                         inventoryDetail = isItemReceived ? new
                         {
                             inventoryAssignment = new
                             {
                                 items = line.InventoryDetails.Where(x => x.Status?.Id == statusId).Select(x =>
-                                new 
+                                new
                                 {
                                     inventoryStatus = statusId,
                                     binNumber = x.Bin?.Id,
-                                    quantity = lineQuantity
+                                    quantity = x.QuantityAlloted
                                 })
                             }
                         } : null,
-                        location = line.LocationId
+                        location = isItemReceived ? line.LocationId : (int?)null
                     };
                 })
             },
-            memo = "Created via WMS MWsDAE"
+            memo = "Created via WMS"
         };
 
         return JsonSerializer.Serialize(obj, JSON_OPTS);
+    }
+
+    public async Task<(IEnumerable<PurchaseOrderStatusDTO>, int)> GetPurchaseOrderStatuses(DataGridIntent intent)
+    {
+        var query = builderFactory.Create()
+            .Select(
+                ("s.name", nameof(PurchaseOrderStatusDTO.Name)),
+                ("s.id", nameof(PurchaseOrderStatusDTO.Id))
+            )
+            .From("purchaseorderstatus s")
+            .WithDatagridIntent(intent)
+            .Build();
+
+        var response = await query.ExecuteWithPaging<PurchaseOrderStatusDTO>(netsuiteService);
+        return (response.items, response.totalResults);
+    }
+
+    public async Task<(IEnumerable<TransferOrderStatusDTO>, int)> GetTransferOrderStatuses(DataGridIntent intent)
+    {
+        var query = builderFactory.Create()
+            .Select(
+                ("s.name", nameof(TransferOrderStatusDTO.Name)),
+                ("s.id", nameof(TransferOrderStatusDTO.Id))
+            )
+            .From("transferorderstatus s")
+            .WithDatagridIntent(intent)
+            .Build();
+
+        var response = await query.ExecuteWithPaging<TransferOrderStatusDTO>(netsuiteService);
+        return (response.items, response.totalResults);
     }
 
     readonly JsonSerializerOptions JSON_OPTS = new JsonSerializerOptions()

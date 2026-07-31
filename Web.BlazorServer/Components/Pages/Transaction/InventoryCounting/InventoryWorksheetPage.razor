@@ -1,3 +1,4 @@
+@using Web.BlazorServer.Components.Pages.Transaction.Others.BarcodeScanning
 @using global::Shared.Libraries.ViewModel
 @using global::Shared.Libraries.ViewModel.Common
 @using Web.BlazorServer.Components.Custom
@@ -57,12 +58,20 @@
                                       Data="@FormData.Lines"
                                       Id="inventory_worksheet_lines">
                     <HeaderTemplate>
-                        <RadzenButton Text="Add Line"
-                                      Icon="add"
-                                      Size="ButtonSize.Small"
-                                      ButtonStyle="ButtonStyle.Primary"
-                                      Disabled="@string.IsNullOrWhiteSpace(FormData?.Location?.LocationName)"
-                                      Click="@AddLine" />
+                        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5em">
+                            <RadzenButton Text="Scan Barcodes"
+                                          Icon="barcode"
+                                          Size="ButtonSize.Small"
+                                          ButtonStyle="ButtonStyle.Primary"
+                                          Disabled="@string.IsNullOrWhiteSpace(FormData?.Location?.LocationName)"
+                                          Click="@OpenBarcodeDialog" />
+                            <RadzenButton Text="Add Line"
+                                          Icon="add"
+                                          Size="ButtonSize.Small"
+                                          ButtonStyle="ButtonStyle.Primary"
+                                          Disabled="@string.IsNullOrWhiteSpace(FormData?.Location?.LocationName)"
+                                          Click="@AddLine" />
+                        </RadzenStack>
                     </HeaderTemplate>
                     <Columns>
                         <RadzenDataGridColumn TItem="InventoryWorksheetCreateLineVM"
@@ -88,7 +97,16 @@
                                               Title="Item Name"
                                               Type="@typeof(string)">
                             <Template Context="line">
-                                @line.MaterialName
+                                <RadzenDropDown TValue="InventoryItemVM"
+                                                Data="@InventoryItems"
+                                                @bind-Value="@line.SelectedItem"
+                                                Change="@(_ => OnItemChanged(line))"
+                                                AllowClear
+                                                AllowFiltering
+                                                FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                                                TextProperty="@nameof(InventoryItemVM.MaterialName)"
+                                                Placeholder="Select item"
+                                                class="rz-w-100" />
                             </Template>
                         </RadzenDataGridColumn>
                         <RadzenDataGridColumn TItem="InventoryWorksheetCreateLineVM"
@@ -154,3 +172,29 @@
         </RadzenStack>
     </RadzenTemplateForm>
 </AppContent>
+
+@code {
+    readonly DialogOptions dialogOptions = new()
+    {
+        CloseDialogOnOverlayClick = true,
+        CloseDialogOnEsc = true,
+        Draggable = true,
+        Resizable = true,
+        Width = "600px",
+        ShowClose = true
+    };
+
+    async Task OpenBarcodeDialog()
+    {
+        var barcodesScanned = new BarcodeStore();
+        bool? save = await DialogService.OpenAsync(
+            "Table Settings",
+            ds => @<BarcodeScannerDialog BarcodeStore="barcodesScanned" />,
+            options: dialogOptions);
+
+        if (save == true) AddScannedBarcodes(barcodesScanned);
+        await InvokeAsync(StateHasChanged);
+        await ReloadLinesAsync();
+    }
+
+}

@@ -246,6 +246,13 @@
                                             TItem="ItemFulfillmentVM"
                                             Data="@FormData.ItemFulfillments"
                                             AllowPaging ShowPagingSummary>
+                                <HeaderTemplate>
+                                    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End">
+                                        <RadzenButton Icon="print" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light">
+                                            <RadzenLink Path="@PrintableURL" Text="Print" target="_blank" Icon="print" />
+                                        </RadzenButton>
+                                    </RadzenStack>
+                                </HeaderTemplate>
                                 <Columns>
                                     <RadzenDataGridColumn TItem="ItemFulfillmentVM"
                                                           Property="@nameof(ItemFulfillmentVM.OrderNumber)"
@@ -265,9 +272,6 @@
                     <RadzenStack class="rz-mt-4" Orientation="Orientation.Horizontal"
                                  AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
                         <RadzenButton Text="Back" ButtonStyle="ButtonStyle.Base" Click="@GoBack" />
-                        <RadzenButton Icon="print" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light">
-                            <RadzenLink Path="@PrintableURL" Text="Print" target="_blank" Icon="print" />
-                        </RadzenButton>
                         <RadzenButton Visible="@Creating"
                                       ButtonStyle="ButtonStyle.Success"
                                       ButtonType="ButtonType.Submit"

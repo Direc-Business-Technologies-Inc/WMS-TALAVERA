@@ -14,12 +14,12 @@
 <PageTitle>Inventory Transfer Requests</PageTitle>
 
 
-<AppContent>
-    <RadzenStack Orientation="Orientation.Horizontal"
+<RadzenStack Orientation="Orientation.Horizontal"
              AlignItems="AlignItems.Center"
              JustifyContent="JustifyContent.SpaceBetween"
              class="rz-mb-4">
-        <AppBreadCrumbs ModuleCode="OITR" />
-    </RadzenStack>
+    <AppBreadCrumbs ModuleCode="OITR" />
+</RadzenStack>
+<AppContent>
     <ITRTable RowAction="@(itr => NavManager.NavigateTo(ITRRoutes.VIEW + $"?ref={itr.ReferenceNumber}"))" />
 </AppContent>

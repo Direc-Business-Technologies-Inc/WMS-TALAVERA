@@ -1,5 +1,6 @@
 ﻿@using Web.BlazorServer.Components.Custom
 @using Web.BlazorServer.Components.Pages.Transaction.Others
+@using Web.BlazorServer.Components.Pages.Transaction.Others.BarcodeScanning
 @using Web.BlazorServer.Services.Repositories
 @using Web.BlazorServer.ViewModels.Others
 @using Web.BlazorServer.ViewModels.Transaction.Receiving
@@ -85,7 +86,7 @@
                             <RadzenCheckBox @bind-Value="data.IsReceived" Disabled="@(data.IsComplete || Disabled)" />
                         </Template>
                     </RadzenDataGridColumn>
-                    <RadzenDataGridColumn TItem="ItemReceiptLineVM" Property="@nameof(ItemReceiptLineVM.ItemCode)" Title="Item Code" />
+                    <RadzenDataGridColumn TItem="ItemReceiptLineVM" Property="@nameof(ItemReceiptLineVM.ItemBarcode)" Title="Item Barcode" />
                     <RadzenDataGridColumn TItem="ItemReceiptLineVM" Property="@nameof(ItemReceiptLineVM.ItemDescription)" Title="Item Description" />
                     <RadzenDataGridColumn TItem="ItemReceiptLineVM" Property="@nameof(ItemReceiptLineVM.UoM)" Title="UoM" />
                     <RadzenDataGridColumn TItem="ItemReceiptLineVM" Property="@nameof(ItemReceiptLineVM.Department)" Title="Department" />
@@ -103,10 +104,12 @@
                             <RadzenStack>
                                 <RadzenFormField Text="Quantity">
                                     <ChildContent>
-                                        <RadzenNumeric Name="line_quantity_good" @bind-Value="@data.QuantityAlloted" Disabled="@(!data.IsReceived || Disabled || Data.Location is null)" Max="@(data.QuantityOpen)" Min="0"/>
+                                        <RadzenNumeric Name="line_quantity_good" Value="@(GetLineQuantity(data))" Change="@(x => SetLineQuantity(data, x))" Disabled="@(!data.IsReceived || Disabled || Data.Location is null)" TValue="decimal" Max="@(data.QuantityOpen)" Min="0"/>
                                     </ChildContent>
                                     <End>
-                                        <RadzenButton Icon="@(data.IsAllAssigned ? "assignment_turned_in" : "assignment_returned")"
+                                        <RadzenButton Visible="@data.ItemUsesBins"
+                                                      Icon="@(data.IsAllAssigned ? "assignment_turned_in" : "assignment_returned")"
+                                                      MouseEnter="@(args => ShowLineTooltip(args, data))"
                                                       ButtonStyle="@(data.IsAllAssigned ? ButtonStyle.Success : ButtonStyle.Warning)"
                                                       Size="ButtonSize.ExtraSmall"
                                                       Disabled="Disabled"
@@ -141,11 +144,18 @@
     {
         bool? save = await DialogService.OpenAsync(
             "Table Settings",
-            ds => @<ScanDialog OnBarcodeAdded="BarcodeScanned" Barcodes="Barcodes" />,
+            ds => @<BarcodeScannerDialog BarcodeStore="BarcodeStore" Verifier="IsValidBarcode" />,
             options: GridSettingsService.GetDialogOptions());
-        
-        if (save == false) ClearAddedBarcodes();
-        else if (save == true) Barcodes.Clear();
+
+        if (save == false)
+        {
+            BarcodeStore.Clear();
+        }
+        else if (save == true)
+        {
+            ApplyBarcodes();
+        }
+        await InvokeAsync(StateHasChanged);
     }
 
     
@@ -171,7 +181,7 @@
 
         List<InventoryDetailVM> items = await DialogService.OpenAsync(
             "Set Inventory Details",
-            ds => @<InventoryDetailsDialog LocationId="@line.LocationId" StatusFilters="StatusFilters" Amount="@line.QuantityAlloted" Type="Type" ItemId="@line.ItemId" InventoryDetails="@line.InventoryDetails"/>,
+            ds => @<InventoryDetailsDialog LocationId="@line.LocationId" Amount="@line.QuantityAlloted" Type="Type" ItemId="@line.ItemId" InventoryDetails="@line.InventoryDetails"/>,
     options: opts);
 
         

@@ -18,7 +18,7 @@ public partial class PurchaseOrderDialog
 
     async Task<(IEnumerable<PurchaseOrderDataGridVM>, int)> PurchaseOrdersProvider(DataGridIntent intent)
     {
-        intent.Filters.Add(DataGridFilterUtilities.Equal(nameof(PurchaseOrderDataGridVM.Status), "F"));
+        intent.Filters.Add(DataGridFilterUtilities.Equal(nameof(PurchaseOrderDataGridVM.StatusId), "F"));
         return await returnHandler.GetPurchaseOrdersDataGridAsync(intent);
     }
 

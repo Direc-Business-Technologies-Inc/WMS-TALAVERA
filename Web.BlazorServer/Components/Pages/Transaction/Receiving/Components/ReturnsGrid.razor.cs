@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Components;
 using Radzen;
+using Radzen.Blazor;
 using Shared.Entities;
 using Shared.Kernel;
 using Web.BlazorServer.Components.Shared.Abstraction;
@@ -19,6 +20,8 @@ partial class ReturnsGrid
     DataGridSettings DataGridSettings { get; set; }
 
     string ActionGetPurchaseOrders { get; } = EnumHelper.GetEnumDescription(AppActions.GetAllPurchaseOrders);
+
+    TransferOrderStatusVM? StatusFilter = null;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -61,6 +64,28 @@ partial class ReturnsGrid
 
         AppBusyService.SetBusy(ActionGetPurchaseOrders, false);
         return DataGridResultVM<ReturnsDataGridVM>.New(action.Result.Data ?? [], action.Result.Count);
+    }
+
+    Task<(IEnumerable<TransferOrderStatusVM>, int)> GetTransferOrderStatuses(DataGridIntent intent)
+    {
+        return ReceivingHandler.GetTransferOrderStatuses(intent);
+    }
+
+    async Task ApplyStatusFilter(RadzenDataGridColumn<ReturnsDataGridVM> column)
+    {
+
+        column.ClearFilters();
+        if (StatusFilter is null)
+        {
+            await DataGrid.DataGrid.Reload();
+            return;
+        }
+
+        column.SetFilterOperator(FilterOperator.Equals);
+        column.SetFilterValue(StatusFilter.Name);
+        column.SetLogicalFilterOperator(LogicalFilterOperator.And);
+
+        await DataGrid.DataGrid.Reload();
     }
 
     void ViewItem(ReturnsDataGridVM purchaseOrder) => NavManager.NavigateTo($"/transactions/purchasing/receiving/returns/view?ref={purchaseOrder.ReferenceNumber}", true);

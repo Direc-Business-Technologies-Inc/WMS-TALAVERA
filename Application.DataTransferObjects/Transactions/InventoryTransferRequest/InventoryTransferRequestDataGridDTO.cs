@@ -17,4 +17,5 @@ public class InventoryTransferRequestDataGridDTO
     public string Memo { get; set; } = string.Empty;
     public string StatusName { get; set; } = string.Empty;
     public DateTime Date { get; set; }
+    public DateTime DateLastModified { get; set; }
 }

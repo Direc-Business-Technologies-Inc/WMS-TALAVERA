@@ -1,4 +1,5 @@
 ﻿using Shared.Entities;
+using Web.BlazorServer.ViewModels.Others;
 using Web.BlazorServer.ViewModels.Transaction.InventoryAdjustment;
 
 namespace Web.BlazorServer.Handlers.Repositories.Transaction.InventoryAdjustment;
@@ -12,4 +13,5 @@ public interface IInventoryAdjustmentHandler
     Task<(IEnumerable<InventoryAdjustmentCategoryVM> Data, int Count)> GetInventoryAdjustmentCategoriesAsync(DataGridIntent intent);
     Task<(IEnumerable<InventoryAdjustmentDataGridVM> Data, int Count)> GetIssuesDataGridAsync(DataGridIntent intent);
     Task<(IEnumerable<InventoryAdjustmentDataGridVM> Data, int Count)> GetReceiptsDataGridAsync(DataGridIntent intent);
+    Task<(IEnumerable<DepartmentVM> Data, int Count)> GetDepartmentsAsync(DataGridIntent intent);
 }

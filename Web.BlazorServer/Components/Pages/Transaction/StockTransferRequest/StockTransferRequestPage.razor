@@ -21,13 +21,13 @@
     <RadzenTabs @bind-SelectedIndex="@SelectedTab" @bind-SelectedIndex:after="@TabChanged">
         <Tabs>
             <RadzenTabsItem Text="Transfer Orders">
-                <STRDataGrid DataGetter="@(async (intent) => await strHandler.GetTransferOrdersList(intent))" OnAddClicked="CreateTO"/>
+                <STRDataGrid TableId="str_to_datagrid" DataGetter="@(async (intent) => await strHandler.GetTransferOrdersList(intent))" OnAddClicked="CreateTO" ShowToSubsidiary="false"/>
             </RadzenTabsItem>
             <RadzenTabsItem Text="Intercompany Transfer Orders">
-                <STRDataGrid DataGetter="@(async (intent) => await strHandler.GetInterCompanyTransferOrdersList(intent))" OnAddClicked="CreateICTO" />
+                <STRDataGrid TableId="str_icto_datagrid" DataGetter="@(async (intent) => await strHandler.GetInterCompanyTransferOrdersList(intent))" OnAddClicked="CreateICTO" />
             </RadzenTabsItem>
             <RadzenTabsItem Text="Returns">
-                <STRDataGrid DataGetter="@(async (intent) => await strHandler.GetReturnsList(intent))" OnAddClicked="CreateReturns" />
+                <STRDataGrid TableId="str_returns_datagrid" DataGetter="@(async (intent) => await strHandler.GetReturnsList(intent))" OnAddClicked="CreateReturns" />
             </RadzenTabsItem>
         </Tabs>
     </RadzenTabs>
