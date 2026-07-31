@@ -21,6 +21,8 @@ public partial class InventoryDetailsDialog
     [Parameter] public bool ReadOnly { get; set; } = false;
     [Parameter] public List<AppFilterDescriptor> StatusFilters { get; set; } = [];
     [Parameter] public List<InventoryDetailVM> InventoryDetails { get; set; } = [];
+    // this was a bad idea probably but it allows the inventory details dialog to load inventory details from the db
+    // the first int in the tuple corresponds to the transaction id and the second corresponds to the line number
     [Parameter] public Tuple<int, int>? LoadInventoryDetails { get; set; } = null;
 
     List<DetailItem> Details = [];

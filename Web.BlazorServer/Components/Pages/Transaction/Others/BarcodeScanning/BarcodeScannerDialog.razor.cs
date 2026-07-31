@@ -55,5 +55,18 @@ public partial class BarcodeScannerDialog
 
     Task<BarcodeVM?> GetBarcodeData(BarcodeVM barcode) => receivingHandler.GetBarcodeData(barcode.Barcode);
 
+    /// <summary>
+    ///     BarcodeVerifier gives the enclosing components a chance to verify the barcode
+    ///     e.g. the enclosing component can verify if the item in the barcode hasn't 
+    ///     exceeded the required count. the enclosing component can then give a reason
+    ///     using the 'out string reason'.
+    ///     
+    ///     using out string reason is less code than having to create a exception like
+    ///     InvalidBarcodeException and the enclosing class having to throw that exception
+    ///     although that would probably make more sense
+    /// </summary>
+    /// <param name="barcode"></param>
+    /// <param name="reason">Reason why the barcode is invalid</param>
+    /// <returns> true if the barcode is valid, false otherwise </returns>
     public delegate bool BarcodeVerifier(BarcodeVM barcode, out string reason);
 }

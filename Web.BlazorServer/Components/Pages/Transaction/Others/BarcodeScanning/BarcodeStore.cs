@@ -5,6 +5,12 @@ using Web.BlazorServer.ViewModels.Transaction.Receiving;
 
 namespace Web.BlazorServer.Components.Pages.Transaction.Others.BarcodeScanning;
 
+/// <summary>
+///     This class is used to temporarily store the scanned barcode items
+///     The idea is to give the user's a list of items scanned that they
+///     can review and when they see a anomaly or a mistake they can 
+///     revert the scanned items 
+/// </summary>
 public class BarcodeStore
 {
     private Dictionary<string, BarcodeStoreItem> _items = new();

@@ -9,6 +9,16 @@ using Web.BlazorServer.ViewModels.Others;
 
 namespace Web.BlazorServer.Components.Custom;
 
+/// <summary>
+///     Basically just a wrapper for a radzen dropdown just made so
+///     I dont have to bother rewriting code for the loaddataasync.
+///     Actions are all run as loading actions so that when there
+///     is an error, it is shown to the user -- this may not be needed
+///     and is probably best to hide the error notif when not in dev 
+///     environment
+///     Has renderfragments for loading indicators and empty template
+/// </summary>
+/// <typeparam name="TItem"></typeparam>
 public partial class QuickVirtualizedDropdown<TItem> : BaseComponent where TItem : class
 {
     [Parameter] public TItem? Value { get; set; } = null;
