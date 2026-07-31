@@ -11,6 +11,8 @@ public class BarcodeNSDTO
 {
     public string Barcode { get; set; } = string.Empty;
     public string ItemName { get; set; } = string.Empty;
+    public string ItemCode { get; set; } = string.Empty;
+    public decimal ItemWeight { get; set; }
     public int ItemId { get; set; }
     public string UoMName { get; set; } = string.Empty;
     public decimal UoMRate { get; set; }

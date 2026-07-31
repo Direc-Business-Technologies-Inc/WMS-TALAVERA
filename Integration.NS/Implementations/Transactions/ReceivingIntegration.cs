@@ -574,13 +574,16 @@ public class ReceivingIntegration(
             .Select(
                 ("b.name", nameof(BarcodeNSDTO.Barcode)),
                 ("b.custrecord_bpu_item", nameof(BarcodeNSDTO.ItemId)),
-                ("BUILTIN.DF(b.custrecord_bpu_item)", nameof(BarcodeNSDTO.ItemName)),
+                ("item.fullName", nameof(BarcodeNSDTO.ItemName)),
+                ("item.itemId", nameof(BarcodeNSDTO.ItemCode)),
+                ("item.weight", nameof(BarcodeNSDTO.ItemWeight)),
                 ("uom.internalid", nameof(BarcodeNSDTO.UoMId)),
                 ("uom.unitName", nameof(BarcodeNSDTO.UoMName)),
                 ("uom.conversionRate", nameof(BarcodeNSDTO.UoMRate))
             )
             .From("CUSTOMRECORD_BARCODE_PER_UOM b")
             .Join("unitstypeuom uom", on: "b.custrecord_bpu_uom = uom.internalid")
+            .Join("item", "item.id = b.custrecord_bpu_item")
             .WithFilter(
                 DataGridFilterUtilities.Equal("b.name", barcode)
             );
@@ -595,6 +598,8 @@ public class ReceivingIntegration(
             {
                 Id = barcodeData.ItemId,
                 Name = barcodeData.ItemName,
+                ItemNumber = barcodeData.ItemCode,
+                Weight = barcodeData.ItemWeight
             },
             UoM = new()
             {
