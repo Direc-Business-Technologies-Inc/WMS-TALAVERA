@@ -17,7 +17,7 @@ namespace Api.CoreWebAPI.Controllers.Packing;
 public class VendorReturnAuthorizationController(ISender Sender) : ControllerBase
 {
     [HttpPost("PendingReturn")]
-    public async Task<ApiResult<IEnumerable<VendorReturnAuthorizationVM>>> GetAllVendorReturnAuthorization(RequestPerSubsidiaryDTO req)
+    public async Task<ApiResult<IEnumerable<VendorReturnAuthorizationVM>>> GetAllVendorReturnAuthorization(RequestPerUserDTO req)
     {
         var result = await Sender.Send(new GetVendorReturnAuthorizationQry(req));
 

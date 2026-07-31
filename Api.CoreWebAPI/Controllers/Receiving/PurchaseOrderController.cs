@@ -16,7 +16,7 @@ namespace Api.CoreWebAPI.Controllers.Receiving;
 public class PurchaseOrderController(ISender Sender) : ControllerBase
 {
     [HttpPost("PendingReceipt")]
-    public async Task<ApiResult<IEnumerable<PurchaseOrderVM>>> GetAllPO(RequestPerSubsidiaryDTO req)
+    public async Task<ApiResult<IEnumerable<PurchaseOrderVM>>> GetAllPO(RequestPerUserDTO req)
     {
         var result = await Sender.Send(new GetPurchaseOrdersQry(req));
 

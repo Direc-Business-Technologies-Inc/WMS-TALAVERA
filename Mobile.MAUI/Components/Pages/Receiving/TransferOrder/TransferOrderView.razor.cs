@@ -20,6 +20,7 @@ public partial class TransferOrderView : IAsyncDisposable
     AppAction<List<TransferOrderVM>> ActionGetTransferOrder;
 
     int UserSubsidiaryId { get; set; }
+    int UserId { get; set; }
 
     private List<TransferOrderVM> FilteredData { get; set; } = [];
     private string SearchText { get; set; } = string.Empty;
@@ -33,7 +34,7 @@ public partial class TransferOrderView : IAsyncDisposable
             TaskAsync = async () =>
             {
                 await InvokeAsync(StateHasChanged);
-                var res = await Client.Post<List<TransferOrderVM>>("/Receiving/TransferOrder/PendingReceipt", new { NetsuiteUserSubsidiaryInternalId = UserSubsidiaryId });
+                var res = await Client.Post<List<TransferOrderVM>>("/Receiving/TransferOrder/PendingReceipt", new { NetsuiteUserSubsidiaryInternalId = UserSubsidiaryId, NetsuiteUserInternalId = UserId });
                 return res;
             },
             OnSuccess = async (result) =>
@@ -58,6 +59,7 @@ public partial class TransferOrderView : IAsyncDisposable
                 var auth = JsonSerializer.Deserialize<AuthenticationVM>(userAuth);
 
                 UserSubsidiaryId = auth.NetsuiteSubsidiaryInternalId;
+                UserId = auth.NetsuiteEmployeeInternalId;
             }
 
             await LoadData();

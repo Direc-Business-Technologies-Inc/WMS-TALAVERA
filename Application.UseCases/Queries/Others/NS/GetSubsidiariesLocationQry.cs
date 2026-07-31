@@ -6,7 +6,7 @@ using MediatR;
 
 namespace Application.UseCases.Queries.Others.NS;
 
-public record GetSubsidiariesLocationQry(RequestPerSubsidiaryDTO subsidiary) : IRequest<IEnumerable<LocationDTO>>;
+public record GetSubsidiariesLocationQry(RequestPerUserDTO subsidiary) : IRequest<IEnumerable<LocationDTO>>;
 
 public class GetSubsidiariesLocationQryHandler(
     INetSuiteApiClientService netSuiteApiClientService)

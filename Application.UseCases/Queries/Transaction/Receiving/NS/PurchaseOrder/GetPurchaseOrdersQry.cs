@@ -6,7 +6,7 @@ using MediatR;
 
 namespace Application.UseCases.Queries.Transaction.Receiving.NS.PurchaseOrder;
 
-public record GetPurchaseOrdersQry(RequestPerSubsidiaryDTO subsidiary) : IRequest<IEnumerable<OrdersDTO>>;
+public record GetPurchaseOrdersQry(RequestPerUserDTO user) : IRequest<IEnumerable<OrdersDTO>>;
 
 public class GetPurchaseOrdersQryHandler(
     INetSuiteApiClientService netSuiteApiClientService)
@@ -18,7 +18,8 @@ public class GetPurchaseOrdersQryHandler(
     {
         var parameters = new Dictionary<string, string>
         {
-            ["subsidiaryid"] = request.subsidiary.NetsuiteUserSubsidiaryInternalId.ToString()
+            ["subsidiaryid"] = request.user.NetsuiteUserSubsidiaryInternalId.ToString(),
+            ["userid"] = request.user.NetsuiteUserInternalId.ToString()
         };
 
         var Data = await netSuiteApiClientService.NetsuiteQuery<OrdersDTO>("NS_PurchaseOrder_Get_PendingReceipt", parameters);

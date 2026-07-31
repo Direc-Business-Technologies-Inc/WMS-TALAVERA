@@ -16,7 +16,7 @@ namespace Api.CoreWebAPI.Controllers.Packing;
 public class ReturnsController(ISender Sender) : ControllerBase
 {
     [HttpPost("PendingFulfillment")]
-    public async Task<ApiResult<IEnumerable<ReturnsVM>>> GetAllReturns(RequestPerSubsidiaryDTO req)
+    public async Task<ApiResult<IEnumerable<ReturnsVM>>> GetAllReturns(RequestPerUserDTO req)
     {
         var result = await Sender.Send(new GetReturnsQry(req));
 

@@ -17,7 +17,7 @@ namespace Api.CoreWebAPI.Controllers.Receiving;
 public class ReturnsController(ISender Sender) : ControllerBase
 {
     [HttpPost("PendingReceipt")]
-    public async Task<ApiResult<IEnumerable<ReturnsVM>>> GetAllReturns(RequestPerSubsidiaryDTO req)
+    public async Task<ApiResult<IEnumerable<ReturnsVM>>> GetAllReturns(RequestPerUserDTO req)
     {
         var result = await Sender.Send(new GetReturnsQry(req));
 

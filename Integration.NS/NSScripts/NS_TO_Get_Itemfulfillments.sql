@@ -27,6 +27,7 @@ FROM (
         JOIN transaction t ON tl.transaction = t.id AND tl.mainline = 'T'
     WHERE
         t.recordtype = 'itemfulfillment'
+        AND t.status = 'C'
         AND tl.createdfrom = @id
 ) sub
 WHERE
