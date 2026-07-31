@@ -74,7 +74,8 @@ public class ItemReceiptLineDTO
     public bool ItemUsesBins => ItemUseBins.ToLowerInvariant().Equals("t");
 
     public bool _isLocationBinUsed = false;
-    public bool IsReceived { get; set; } = true;
+    public bool IsReceived { get; set; } = true; 
+
 
     public List<InventoryDetailDTO> InventoryDetails { get; set; } = [];
 

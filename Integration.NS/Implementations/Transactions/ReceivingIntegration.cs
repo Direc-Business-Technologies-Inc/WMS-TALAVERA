@@ -454,6 +454,7 @@ public class ReceivingIntegration(
                 ("item.weight", nameof(ItemReceiptLineDTO.WeightPerItem)),
                 ("tl.custcol_dbti_actual_weight", nameof(ItemReceiptLineDTO.WeightActual)),
                 ("ABS(tl.quantity / uom.conversionrate)", "QuantityPlanned"),
+                ("item.usebins", "ItemUseBins"),
                 ($"({IF_RECEIPTS_QUERY})", "QuantityReceived")
             )
             .From("transactionline tl")
@@ -461,8 +462,8 @@ public class ReceivingIntegration(
             .Join("transaction t", on: "tl.transaction = t.id")
             .Join("location loc", on: "tl.location = loc.id")
             .Join("unitstypeuom uom", on: "tl.units = uom.internalid")
-            .LeftJoin("(SELECT ibq.bin, ibq.item, b.location FROM itembinquantity ibq JOIN bin b ON ibq.bin = b.id WHERE preferredbin = \'T\') pb", on: "pb.item = item.id AND pb.location = tl.location")
             .LeftJoin("CUSTOMRECORD_BARCODE_PER_UOM barcode", "barcode.custrecord_bpu_uom = tl.units AND barcode.custrecord_bpu_item = tl.item")
+            .LeftJoin("(SELECT ibq.bin, ibq.item, b.location FROM itembinquantity ibq JOIN bin b ON ibq.bin = b.id WHERE preferredbin = \'T\') pb", on: "pb.item = item.id AND pb.location = tl.location")
             .WithFilters(
                 Equal("t.tranid", docEntry)
             );
@@ -493,6 +494,7 @@ public class ReceivingIntegration(
                 ("pb.bin", "PrefferedBinAssignmentId"),
                 ("item.weight", nameof(ItemReceiptLineDTO.WeightPerItem)),
                 ("tl.custcol_dbti_actual_weight", nameof(ItemReceiptLineDTO.WeightActual)),
+                ("item.usebins", "ItemUseBins"),
                 ("ABS(tl.quantity / uom.conversionrate)", "QuantityPlanned"),
                 ("(tl.quantityshiprecv / uom.conversionrate)", "QuantityReceived")
             )
