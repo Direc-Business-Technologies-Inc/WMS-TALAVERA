@@ -613,8 +613,10 @@ public class ReceivingIntegration(
 
     public async Task<(IEnumerable<ItemFulfillmentDTO>, int)> GetSTRItemFulfillments(int strId, DataGridIntent intent)
     {
+        intent = intent.Adapt<DataGridIntent>();
         if (intent.Sorts.Count == 0)
             intent.Sorts.Add(DataGridSortUtilities.Descending(nameof(ItemFulfillmentDTO.DateLastModified)));
+
 
         var query = builderFactory.Create()
             .Select(
@@ -629,10 +631,12 @@ public class ReceivingIntegration(
             .Join("itemfulfillmentstatus s", on: "t.status = s.id")
             .Join("transactionline ml", on: "ml.transaction = t.id AND ml.mainline = 'T'")
             .LeftJoin("employee e", on: "e.id = t.custbody_dbti_prepared_by")
+            .LeftJoin("(SELECT SUM(1) AS count, custrecord_dbti_ttf_item_fulfillment_num AS ifnum FROM CUSTOMRECORD_DBTI_TRIP_TICKET_IF GROUP BY custrecord_dbti_ttf_item_fulfillment_num) ttx", "ttx.ifnum = t.id")
             .WithFilters(
                 Equal("t.recordtype", "itemfulfillment"),
                 Equal("t.status", "C"),
-                Equal("ml.createdfrom", strId)
+                Equal("ml.createdfrom", strId),
+                GreaterThan("ttx.count", 0)
             )
             .WithDatagridIntent(intent)
             .Build();
