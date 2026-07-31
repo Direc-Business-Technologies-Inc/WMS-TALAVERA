@@ -67,7 +67,7 @@
                             <RadzenStack Visible="@ReadOnly" Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" class="rz-w-100">
                                 <RadzenText TextStyle="TextStyle.Body2">@data.QuantityAlloted.ToString("#,##0.##")</RadzenText>
                                     <RadzenButton Disabled="IsDisabled"
-                                                  Visible="@data.ItemUsesBins"
+                                                  Visible="@data.UsesBins"
                                                   Icon="@(data.IsAllAssigned ? "assignment_turned_in" : "assignment_returned")"
                                                   ButtonStyle="@(data.IsAllAssigned ? ButtonStyle.Success : ButtonStyle.Warning)"
                                                   Size="ButtonSize.ExtraSmall" Click="() => OpenInventoryDetailDialog(data, data.ItemID, data.QuantityAlloted)" />
@@ -78,7 +78,7 @@
                                 </ChildContent>
                                 <End>
                                     <RadzenButton Disabled="IsDisabled"
-                                                  Visible="@data.ItemUsesBins"
+                                                  Visible="@data.UsesBins"
                                                   Icon="@(data.IsAllAssigned ? "assignment_turned_in" : "assignment_returned")" 
                                                   ButtonStyle="@(data.IsAllAssigned ? ButtonStyle.Success : ButtonStyle.Warning)" 
                                                   Size="ButtonSize.ExtraSmall" Click="() => OpenInventoryDetailDialog(data, data.ItemID, data.QuantityAlloted)" />
@@ -137,6 +137,7 @@
         );
 
         if (items is not null) await AddItems(items);
+        await InvokeAsync(StateHasChanged);
     }
 
     readonly DialogOptions dialogOptions = new()
