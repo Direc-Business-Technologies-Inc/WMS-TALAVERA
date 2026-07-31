@@ -3,11 +3,13 @@ using Microsoft.AspNetCore.Components.Forms;
 using Shared.Entities;
 using Shared.Libraries.Utilities;
 using Web.BlazorServer.Components.Custom;
+using Web.BlazorServer.Components.Pages.Transaction.Others.BarcodeScanning;
 using Web.BlazorServer.Handlers.Repositories.Others;
 using Web.BlazorServer.Handlers.Repositories.Transaction.InventoryAdjustment;
 using Web.BlazorServer.Services.Repositories;
 using Web.BlazorServer.ViewModels.Others;
 using Web.BlazorServer.ViewModels.Transaction.InventoryAdjustment;
+using Web.BlazorServer.ViewModels.Transaction.Receiving;
 
 namespace Web.BlazorServer.Components.Pages.Transaction.InventoryAdjustment.Components.InventoryAdjustmentForm;
 
@@ -41,6 +43,8 @@ public partial class InventoryAdjustmentForm
     public string ActionGetReasons => "Get Inventory Adjustment Reasons";
     public QuickVirtualizedDropdown<BusinessAccountVM> AccountDropdown { get; set; } = default!;
     public QuickVirtualizedDropdown<LocationVM> LocationDropdown { get; set; } = default!;
+
+    private BarcodeStore BarcodeStore = new();
 
     async Task<(IEnumerable<SubsidiaryVM>, int)> SubsidiaryProvider(DataGridIntent intent)
     {
@@ -168,5 +172,45 @@ public partial class InventoryAdjustmentForm
            await OnSubmit.InvokeAsync(Model);
 
         }
+    }
+
+    void ApplyBarcodes()
+    {
+        if (!BarcodeStore.Any()) return;
+
+        foreach (var item in BarcodeStore.Items)
+        {
+            var itemCount = BarcodeStore.CountItemQuantity(item);
+            var itemLine = Model.Lines.First(x => x.ItemId == item.Id);
+
+            if (itemLine != null) itemLine.QuantityAlloted += itemCount / (itemLine.UoM?.ConversionRate ?? 1);
+        }
+
+        BarcodeStore.Clear();
+    }
+
+
+    bool IsValidBarcode(BarcodeVM barcode, out string reason)
+    {
+        var line = Model.Lines.FirstOrDefault(x => x.ItemId == barcode.Item?.Id && barcode.UoM?.Id == x.UoM?.Id && barcode.UoM is not null) ??
+            Model.Lines.FirstOrDefault(x => x.ItemId == barcode.Item?.Id);
+        if (line is null)
+        {
+            reason = $"The item {barcode.Item?.ItemNumber} does not exist in the current document";
+            return false;
+        }
+
+        var uomRate = line.UoM?.ConversionRate ?? 1;
+        var itemCount = BarcodeStore.CountItemQuantity(line.ItemId) / uomRate;
+        var incomingCount = (barcode.UoM?.ConversionRate ?? 0) / uomRate;
+
+        if (Issue && line.QuantityOnHandByUoM - line.QuantityAlloted - itemCount < incomingCount)
+        {
+            reason = $"The quantity of the item {line.ItemCode} exceeds the expected amount";
+            return false;
+        }
+
+        reason = "";
+        return true;
     }
 }
