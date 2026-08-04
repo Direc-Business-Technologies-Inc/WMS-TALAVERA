@@ -31,6 +31,7 @@ public class SuiteQLQueryBuilder
     public Dictionary<string, string> PropertyMap { get; set; } = new();
     private string? _groupBy;
     private string? _tableName;
+    private bool _isDistinct;
     private List<string> _joins = [];
     private HashSet<string> _uniqueColumns = new();
 
@@ -100,8 +101,10 @@ public class SuiteQLQueryBuilder
 
     private string BuildSelect()
     {
+        var selectKeyword = _isDistinct ? "SELECT DISTINCT " : "SELECT ";
+
         if (SelectColumns.Count == 0) return "SELECT * ";
-        return "SELECT " + string.Join(", ", SelectColumns.Select(c => c.alias != null ? $"{c.col} AS {c.alias}" : c.col));
+        return selectKeyword + string.Join(", ", SelectColumns.Select(c => c.alias != null ? $"{c.col} AS {c.alias}" : c.col));
     }
 
     private string BuildFrom()
@@ -268,6 +271,12 @@ public class SuiteQLQueryBuilder
         };
 
         return "(" + string.Join($" {op} ", filter.Filters.Select(x => _parseFilter(x, propertyMap))) + ")";
+    }
+
+    public SuiteQLQueryBuilder Distinct()
+    {
+        _isDistinct = true;
+        return this;
     }
 
     public SuiteQLQueryBuilder Select(params (string col, string? alias)[] columns)
