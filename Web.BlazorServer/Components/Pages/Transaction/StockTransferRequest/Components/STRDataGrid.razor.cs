@@ -65,6 +65,12 @@ partial class STRDataGrid
                     Property = "Date",
                     Direction = SortDirectionEnum.Descending
                 });
+
+                intent.Sorts.Add(new()
+                {
+                    Property = "ReferenceNumber",
+                    Direction = SortDirectionEnum.Descending
+                });
             }
             if (StatusFilter is not null)
             {

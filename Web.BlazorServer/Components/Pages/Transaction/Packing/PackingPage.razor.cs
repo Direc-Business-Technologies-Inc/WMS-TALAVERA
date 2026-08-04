@@ -54,6 +54,10 @@ partial class PackingPage
             intent.Sorts.Add(
                 DataGridSortUtilities.Descending(nameof(PackedItemFulfillmentVM.DateLastModified))
             );
+
+            intent.Sorts.Add(
+                DataGridSortUtilities.Descending(nameof(PackedItemFulfillmentVM.ReferenceNumber))
+            );
         }
         return packingHandler.GetPackedItemFulfillments(intent);
     }

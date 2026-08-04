@@ -27,12 +27,42 @@ public partial class InventoryAdjustmentPage
     {
         if (InventoryAdjustmentHandler is null) throw new Exception("No handlers registered for inventory adjustment");
 
+        if (intent.Sorts.Count == 0)
+        {
+            intent.Sorts.Add(new()
+            {
+                Property = "Date",
+                Direction = SortDirectionEnum.Descending
+            });
+
+            intent.Sorts.Add(new()
+            {
+                Property = "ReferenceNumber",
+                Direction = SortDirectionEnum.Descending
+            });
+        }
+
         return await InventoryAdjustmentHandler.GetIssuesDataGridAsync(intent);
     }
 
     async Task<(IEnumerable<InventoryAdjustmentDataGridVM> Data, int Count)> ReceiptsProvider(DataGridIntent intent)
     {
         if (InventoryAdjustmentHandler is null) throw new Exception("No handlers registered for inventory adjustment");
+
+        if (intent.Sorts.Count == 0)
+        {
+            intent.Sorts.Add(new()
+            {
+                Property = "Date",
+                Direction = SortDirectionEnum.Descending
+            });
+
+            intent.Sorts.Add(new()
+            {
+                Property = "ReferenceNumber",
+                Direction = SortDirectionEnum.Descending
+            });
+        }
 
         return await InventoryAdjustmentHandler.GetReceiptsDataGridAsync(intent);
     }

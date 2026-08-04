@@ -56,6 +56,12 @@ partial class ReturnsGrid
                     Property = "Date",
                     Direction = SortDirectionEnum.Descending
                 });
+
+                intent.Sorts.Add(new()
+                {
+                    Property = "ReferenceNumber",
+                    Direction = SortDirectionEnum.Descending
+                });
             }
             return await ReceivingHandler.GetReturnsDataGridAsync(intent);
 

@@ -58,6 +58,12 @@ public partial class PurchaseOrderGrid
                     Property = "Date",
                     Direction = SortDirectionEnum.Descending
                 });
+
+                intent.Sorts.Add(new()
+                {
+                    Property = "ReferenceNumber",
+                    Direction = SortDirectionEnum.Descending
+                });
             }
 
             return await ReceivingHandler.GetPurchaseOrderDataGridAsync(intent);

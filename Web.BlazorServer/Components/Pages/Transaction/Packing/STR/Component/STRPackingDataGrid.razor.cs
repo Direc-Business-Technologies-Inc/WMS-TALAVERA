@@ -52,7 +52,13 @@ partial class STRPackingDataGrid
             {
                 intent.Sorts.Add(new()
                 {
-                    Property = nameof(StockTransferRequestPackingDataGridVM.Date),
+                    Property = "Date",
+                    Direction = SortDirectionEnum.Descending
+                });
+
+                intent.Sorts.Add(new()
+                {
+                    Property = "ReferenceNumber",
                     Direction = SortDirectionEnum.Descending
                 });
             }

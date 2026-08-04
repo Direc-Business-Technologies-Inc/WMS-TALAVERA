@@ -54,6 +54,12 @@ partial class TripTicketDataGrid
                     Property = nameof(TripTicketDataGridVM.TripDate),
                     Direction = SortDirectionEnum.Descending
                 });
+
+                intent.Sorts.Add(new()
+                {
+                    Property = nameof(TripTicketDataGridVM.Name),
+                    Direction = SortDirectionEnum.Descending
+                });
             }
 
             return await TripTicketHandler.GetTTDataGridAsync(intent, CurrentUserService.NsSubsidiaryId);
