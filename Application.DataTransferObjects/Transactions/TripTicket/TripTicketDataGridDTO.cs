@@ -13,4 +13,5 @@ public class TripTicketDataGridDTO
     public string TruckPlateNumber { get; set; } = string.Empty;
     public int TruckPlateNumberId { get; set; } 
     public DateTime? TripDate { get; set; }
+    public string TruckSeal { get; set; } = string.Empty;
 }

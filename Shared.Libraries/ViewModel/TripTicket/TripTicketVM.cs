@@ -18,5 +18,7 @@ public class TripTicketVM
 
     public DateTime? TripDate { get; set; }
 
+    public string TruckSeal { get; set; } = string.Empty;
+
     public List<ItemFulfillmentVM> ItemFulfillments { get; set; } = [];
 }

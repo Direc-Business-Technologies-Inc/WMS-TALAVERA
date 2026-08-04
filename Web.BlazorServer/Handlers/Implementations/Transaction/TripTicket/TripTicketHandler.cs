@@ -36,6 +36,7 @@ public class TripTicketHandler(ISender Sender) : ITripTicketHandler
         {
             Id = response.NetsuiteTripTicketInternalId,
             TripDate = response.TripDate,
+            TruckSeal = response.TruckSeal,
             Destinations = string.IsNullOrWhiteSpace(response.Destination)
                 ? []
                 : [new LocationVM { LocationName = response.Destination }],

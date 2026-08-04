@@ -90,7 +90,8 @@ public class TripTicketIntegration(
                 ("CONCAT(eh.firstname, CONCAT(' ', eh.lastname))", nameof(TripTicketDataGridDTO.HelperName)),
                 ("eh.id", nameof(TripTicketDataGridDTO.HelperId)),
                 ("BUILTIN.DF(tt.custrecord_dbti_trt_origin_location)", nameof(TripTicketDataGridDTO.Location)),
-                ("TO_CHAR(tt.custrecord_dbti_trt_date, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(TripTicketDataGridDTO.TripDate))
+                ("TO_CHAR(tt.custrecord_dbti_trt_date, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(TripTicketDataGridDTO.TripDate)),
+                ("tt.custrecord_dbti_trt_truck_seal", nameof(TripTicketDataGridDTO.TruckSeal))
             )
             .From("customrecord_dbti_trip_ticket tt")
             .LeftJoin(($"({transactionBuilder.Query}) ms" ), "ms.TicketNumber = tt.id")

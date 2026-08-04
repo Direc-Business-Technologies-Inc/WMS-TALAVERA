@@ -18,6 +18,9 @@ public class TripTicketPayloadDTO
     [JsonPropertyName("custrecord_dbti_trt_date")]
     public string Date { get; set; }
 
+    [JsonPropertyName("custrecord_dbti_trt_truck_seal")]
+    public string TruckSeal { get; set; }
+
     [JsonPropertyName("custrecord_dbti_trt_helper")]
     public ReferenceValue Helper { get; set; }
 
@@ -55,6 +58,8 @@ public class TripTicketPayloadDTO
             {
                 Id = tripticket.Driver!.NetsuiteEmployeeInternalId.ToString()
             },
+
+            TruckSeal = tripticket.TruckSeal,
 
             Date = tripticket.TripDate.ToString("MM/dd/yyyy"),
 
