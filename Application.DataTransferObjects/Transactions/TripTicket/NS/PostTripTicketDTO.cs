@@ -16,5 +16,7 @@ public class PostTripTicketDTO
 
     public DateTime TripDate { get; set; }
 
+    public string TruckSeal { get; set; } = string.Empty;
+
     public List<ItemFulfillmentDTO> ItemFulfillments { get; set; } = new();
 }
