@@ -90,14 +90,25 @@
             </RadzenRow>
         </RadzenFieldset>
         <RadzenFieldset Text="Lines">
-            <AppTableWithSettings TItem="SupplierReturnLineVM" Id="return_to_supplier_lines" Data="@Model.Lines">
+            <AppTable @ref="@LinesTable"
+                      Id="return_to_supplier_lines"
+                      TItem="SupplierReturnLineVM"
+                      GridSettingsLoaded
+                      OnRowClick="@OnRowClick"
+                      SelectedItems="selectedItems"
+                      Data="@Model.Lines">
                 <HeaderTemplate>
-
-                    <RadzenButton Icon="print" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Visible="@ReadOnly">
-                        <RadzenLink Path="@PrintableURL" Text="Print" target="_blank" Icon="print" />
-                    </RadzenButton>
-                    <RadzenButton ButtonType="ButtonType.Button" Icon="barcode" Visible="@IsEditable" Disabled="@(Model.Location is null)" Size="ButtonSize.Small" Click="OpenItemDialog" ButtonStyle="ButtonStyle.Primary" Text="Scan Barcodes" />
-                    <RadzenButton ButtonType="ButtonType.Button" Icon="add" Visible="@IsEditable" Disabled="@(Model.Location is null)" Size="ButtonSize.Small" Click="OpenItemDialog" ButtonStyle="ButtonStyle.Success" />
+                    <RadzenStack Orientation="Orientation.Horizontal"
+                                 JustifyContent="JustifyContent.End"
+                                 AlignItems="AlignItems.Center"
+                                 Gap="8px">
+                        <RadzenButton Icon="print" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Visible="@ReadOnly">
+                            <RadzenLink Path="@PrintableURL" Text="Print" target="_blank" Icon="print" />
+                        </RadzenButton>
+                        <RadzenButton Disabled="Disabled" Text="Scan Barcodes" Icon="barcode" Click="OpenBarcodeDialog" ButtonType="ButtonType.Button" Size="ButtonSize.Small" />
+                        <RadzenButton ButtonType="ButtonType.Button" Icon="add" Visible="@IsEditable" Disabled="@(Model.Location is null)" Size="ButtonSize.Small" Click="OpenItemDialog" ButtonStyle="ButtonStyle.Success" />
+                        <RadzenButton Icon="settings" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@OpenTableSettings" />
+                    </RadzenStack>
                 </HeaderTemplate>
                 <Columns>
                     <RadzenDataGridColumn TItem="SupplierReturnLineVM" Title="Item Code" Property="@nameof(SupplierReturnLineVM.ItemCode)" />
@@ -118,10 +129,10 @@
                                 <RadzenText Visible="@(!IsEditable)" TextStyle="TextStyle.Body2" Text="@data.QuantityAlloted.ToString("#,##0.##")" />
                                 <RadzenFormField Visible="IsEditable">
                                     <ChildContent>
-                                        <RadzenNumeric Disabled="IsDisabled"  @bind-Value="@data.QuantityAlloted" Format="#,##0.##" />
+                                        <RadzenNumeric Disabled="IsDisabled" @bind-Value="@data.QuantityAlloted" Format="#,##0.##" />
                                     </ChildContent>
                                     <Helper>
-                                        <RadzenText Visible="@(data.QuantityAlloted > data.QuantityAvailable)" TextStyle="TextStyle.Caption" class="rz-color-danger"  Text="Quantity exceeds available"/> 
+                                        <RadzenText Visible="@(data.QuantityAlloted > data.QuantityAvailable)" TextStyle="TextStyle.Caption" class="rz-color-danger" Text="Quantity exceeds available" />
                                     </Helper>
                                 </RadzenFormField>
                             </RadzenStack>
@@ -141,7 +152,7 @@
                         </RadzenDataGridColumn>
                     }
                 </Columns>
-            </AppTableWithSettings>
+            </AppTable>
         </RadzenFieldset>
         <RadzenFieldset Text="Additional Details">
             <RadzenRow Gap="0.5em">
@@ -188,6 +199,20 @@
         if (items is not null) await AddItems(items);
     }
 
+    async Task OpenTableSettings()
+    {
+        await DialogService.OpenAsync(
+            "Table Settings",
+            ds => @<AppGridSettings TItem="SupplierReturnLineVM"
+            @bind-Grid=@LinesTable.DataGrid
+            @bind-GridSettings=@TableSettings
+                 ReloadEntirePage="false" />
+    ,
+        options: GridSettingsService.GetDialogOptions());
+
+        await LinesTable.DataGrid.Reload();
+    }
+
     async Task OpenPurchaseOrderDialog()
     {
         string? poRef = await DialogService.OpenAsync(
@@ -201,7 +226,7 @@
     async Task OpenBarcodeDialog()
     {
         bool? save = await DialogService.OpenAsync(
-            "Table Settings",
+           "Scan Barcodes",
             ds => @<BarcodeScannerDialog BarcodeStore="BarcodeStore" Verifier="IsValidBarcode" />,
             options: GridSettingsService.GetDialogOptions());
 

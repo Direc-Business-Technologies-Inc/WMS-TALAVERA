@@ -666,7 +666,8 @@ namespace Integration.NS.Services
             var orderId = Data.Select(x => x.NetsuiteOrderInternalId).FirstOrDefault();
             var isUsedBin = Data.Select(x => x.IsLocationUsedBin).FirstOrDefault();
 
-            string url = string.Format(isUsedBin ? ItemFulfillmentUrl : ItemFulfillmentUrlNotUsedBin, "vendorReturnAuthorization", orderId);
+            //string url = string.Format(isUsedBin ? ItemFulfillmentUrl : ItemFulfillmentUrlNotUsedBin, "vendorReturnAuthorization", orderId);
+            string url = string.Format(ItemFulfillmentUrlNotUsedBin, "vendorReturnAuthorization", orderId);
 
             var badTO = Data.Where(x => x.IsBad).ToList();
 

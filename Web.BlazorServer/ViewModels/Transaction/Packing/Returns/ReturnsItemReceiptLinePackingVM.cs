@@ -20,6 +20,7 @@ public class ReturnsItemReceiptLinePackingVM
     public string ItemDescription { get; set; } = string.Empty;
     public string UoM { get; set; } = string.Empty;
     public string Location { get; set; } = string.Empty;
+    public decimal QuantityAvailable { get; set; }
     public decimal QuantityPlanned { get; set; }
     public decimal QuantityBackOrdered { get; set; }
     public decimal QuantityOpen { get; set; }

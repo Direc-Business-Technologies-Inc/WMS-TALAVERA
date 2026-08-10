@@ -2,6 +2,8 @@
 
 public class TOxItemFulfillmentLineVM : TransactionVM
 {
+    public int TransferCategory { get; set; }
+
     public int NetsuiteFromLocationInternalId { get; set; }
     public int NetsuiteToLocationInternalId { get; set; }
 

@@ -76,9 +76,21 @@
             </RadzenRow>
         </RadzenFieldset>
         <RadzenFieldset AllowCollapse Text="Lines">
-            <AppTableWithSettings Data="@Data.Lines" Id="item_receipt_lines">
+            <AppTable @ref="@LinesTable"
+                      Id="item_receipt_lines"
+                      TItem="ItemReceiptLineVM"
+                      GridSettingsLoaded
+                      OnRowClick="@OnRowClick"
+                      SelectedItems="selectedItems"
+                      Data="@Data.Lines">
                 <HeaderTemplate>
-                    <RadzenButton Disabled="Disabled" Text="Scan Barcodes" Icon="barcode" Click="OpenBarcodeDialog" ButtonType="ButtonType.Button" Size="ButtonSize.Small" />
+                    <RadzenStack Orientation="Orientation.Horizontal"
+                                 JustifyContent="JustifyContent.End"
+                                 AlignItems="AlignItems.Center"
+                                 Gap="8px">
+                        <RadzenButton Disabled="Disabled" Text="Scan Barcodes" Icon="barcode" Click="OpenBarcodeDialog" ButtonType="ButtonType.Button" Size="ButtonSize.Small" />
+                        <RadzenButton Icon="settings" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@OpenTableSettings" />
+                    </RadzenStack>
                 </HeaderTemplate>
                 <Columns>
                     <RadzenDataGridColumn TItem="ItemReceiptLineVM" Width="30px">
@@ -91,21 +103,24 @@
                     <RadzenDataGridColumn TItem="ItemReceiptLineVM" Property="@nameof(ItemReceiptLineVM.UoM)" Title="UoM" />
                     <RadzenDataGridColumn TItem="ItemReceiptLineVM" Property="@nameof(ItemReceiptLineVM.Department)" Title="Department" />
                     <RadzenDataGridColumn TItem="ItemReceiptLineVM" Property="@nameof(ItemReceiptLineVM.LocationName)" Title="Warehouse" />
-                    <RadzenDataGridColumn TItem="ItemReceiptLineVM" Property="@nameof(ItemReceiptLineVM.WeightActual)" Title="Actual Weight" >
+                    <RadzenDataGridColumn TItem="ItemReceiptLineVM" Property="@nameof(ItemReceiptLineVM.WeightActual)" Title="Actual Weight">
                         <Template Context="data">
-                            <RadzenNumeric Min="0" @bind-Value="data.WeightActual" ShowUpDown="false" Disabled="@(!data.IsReceived || Disabled)"/>
+                            <RadzenNumeric Min="0" @bind-Value="data.WeightActual" ShowUpDown="false" Disabled="@(!data.IsReceived || Disabled)" />
                         </Template>
                     </RadzenDataGridColumn>
                     <RadzenDataGridColumn TItem="ItemReceiptLineVM" Property="@nameof(ItemReceiptLineVM.WeightRecord)" Title="Record Weight" />
                     <RadzenDataGridColumn TItem="ItemReceiptLineVM" Property="@nameof(ItemReceiptLineVM.QuantityPlanned)" Title="Planned Quantity" />
                     <RadzenDataGridColumn TItem="ItemReceiptLineVM" Property="@nameof(ItemReceiptLineVM.QuantityReceived)" Title="Received Quantity" />
-                    <RadzenDataGridColumn TItem="ItemReceiptLineVM" Property="@nameof(ItemReceiptLineVM.QuantityAlloted)" Title="Quantity" >
+                    <RadzenDataGridColumn TItem="ItemReceiptLineVM" Property="@nameof(ItemReceiptLineVM.QuantityAlloted)" Title="Quantity">
                         <Template Context="data">
                             <RadzenStack>
                                 <RadzenFormField Text="Quantity">
                                     <ChildContent>
-                                        <RadzenNumeric Name="line_quantity_good" Value="@(GetLineQuantity(data))" Change="@(x => SetLineQuantity(data, x))" Disabled="@(!data.IsReceived || Disabled || Data.Location is null)" TValue="decimal" Max="@(data.QuantityOpen)" Min="0"/>
+                                        <RadzenNumeric Name="line_quantity_good" @bind-Value="@data.QuantityAlloted" Disabled="@(!data.IsReceived || Disabled || Data.Location is null)" TValue="decimal" Min="0" />
                                     </ChildContent>
+                                    <Helper>
+                                        <RadzenText Visible="@(data.QuantityAlloted > data.QuantityOpen)" TextStyle="TextStyle.Caption" class="rz-color-danger" Text="Quantity exceeds available" />
+                                    </Helper>
                                     <End>
                                         <RadzenButton Visible="@data.ItemUsesBins"
                                                       Icon="@(data.IsAllAssigned ? "assignment_turned_in" : "assignment_returned")"
@@ -120,7 +135,7 @@
                         </Template>
                     </RadzenDataGridColumn>
                 </Columns>
-            </AppTableWithSettings>
+            </AppTable>
         </RadzenFieldset>
         <RadzenFieldset Text="Additional Details">
             <RadzenRow>
@@ -143,7 +158,7 @@
     async Task OpenBarcodeDialog()
     {
         bool? save = await DialogService.OpenAsync(
-            "Table Settings",
+            "Scan Barcodes",
             ds => @<BarcodeScannerDialog BarcodeStore="BarcodeStore" Verifier="IsValidBarcode" />,
             options: GridSettingsService.GetDialogOptions());
 
@@ -158,6 +173,19 @@
         await InvokeAsync(StateHasChanged);
     }
 
+    async Task OpenTableSettings()
+    {
+        await DialogService.OpenAsync(
+            "Table Settings",
+            ds => @<AppGridSettings TItem="ItemReceiptLineVM"
+                    @bind-Grid=@LinesTable.DataGrid
+                    @bind-GridSettings=@TableSettings
+                 ReloadEntirePage="false" />
+    ,
+        options: GridSettingsService.GetDialogOptions());
+
+        await LinesTable.DataGrid.Reload();
+    }
     
     async Task OpenInventoryDetailDialog(ItemReceiptLineVM line)
     {

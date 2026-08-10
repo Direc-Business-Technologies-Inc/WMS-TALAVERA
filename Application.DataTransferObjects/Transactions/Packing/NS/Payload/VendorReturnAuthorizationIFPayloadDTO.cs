@@ -60,17 +60,17 @@ public class VendorReturnAuthorizationIFPayloadDTO
                             ]
                         };
 
-                        var inventoryDetail = !isUsedBin ? new InventoryDetail
+                        var inventoryDetail = /*!isUsedBin ?*/ new InventoryDetail
                         {
                             InventoryAssignmentList = new InventoryAssignmentList
                             {
                                 InventoryAssignment = assignment
                             }
-                        }
-                        : new InventoryDetail
-                        {
-                            InventoryAssignment = assignment
                         };
+                        //: new InventoryDetail
+                        //{
+                        //    InventoryAssignment = assignment
+                        //};
 
                         return new OrderLineItem
                         {

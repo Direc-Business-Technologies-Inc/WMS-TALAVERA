@@ -96,6 +96,7 @@ internal class VendorReturnAuthorizationPackingIntegration(
                 ("q.MaterialName", nameof(VendorReturnAuthorizationPackingLineNSDTO.ItemDescription)),
                 ("q.UoMName", nameof(VendorReturnAuthorizationPackingLineNSDTO.UoM)),
                 ("q.LocationName", nameof(VendorReturnAuthorizationPackingLineNSDTO.Warehouse)),
+                ("q.LocationItemQuantityAvailable", nameof(VendorReturnAuthorizationPackingLineNSDTO.QuantityAvailable)),
                 ("q.LineQuantity", nameof(VendorReturnAuthorizationPackingLineNSDTO.QuantityPlanned)),
                 ("q.LineQuantityPacked", nameof(VendorReturnAuthorizationPackingLineNSDTO.QuantityReceived))
             )
@@ -155,6 +156,7 @@ internal class VendorReturnAuthorizationPackingIntegration(
             ItemDescription = nsdto.ItemDescription,
             UoM = nsdto.UoM,
             Warehouse = nsdto.Warehouse,
+            QuantityAvailable = nsdto.QuantityAvailable,
             QuantityPlanned = nsdto.QuantityPlanned,
             QuantityReceived = nsdto.QuantityReceived,
         };

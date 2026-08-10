@@ -1,15 +1,19 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
+using Radzen;
+using Radzen.Blazor.Rendering;
 using Shared.Entities;
 using Shared.Libraries.Utilities;
 using Web.BlazorServer.Components.Custom;
 using Web.BlazorServer.Components.Pages.Transaction.Others.BarcodeScanning;
+using Web.BlazorServer.Components.Shared.Abstraction;
 using Web.BlazorServer.Handlers.Repositories.Others;
 using Web.BlazorServer.Handlers.Repositories.Transaction.InventoryAdjustment;
 using Web.BlazorServer.Services.Repositories;
 using Web.BlazorServer.ViewModels.Others;
 using Web.BlazorServer.ViewModels.Transaction.InventoryAdjustment;
 using Web.BlazorServer.ViewModels.Transaction.Receiving;
+using Web.BlazorServer.ViewModels.Transaction.SupplierReturn;
 
 namespace Web.BlazorServer.Components.Pages.Transaction.InventoryAdjustment.Components.InventoryAdjustmentForm;
 
@@ -27,6 +31,8 @@ public partial class InventoryAdjustmentForm
     [Parameter] public bool Disabled { get; set; } = false;
     [Parameter] public bool Issue { get; set; } = false;
 
+    AppTable<InventoryAdjustmentLineVM> LinesTable = default!;
+    DataGridSettings TableSettings { get; set; } = new();
     [Inject] ISubsidiaryHandler subsidiaryHandler { get; set; } = default!;
     [Inject] ILocationHandler locationHandler { get; set; } = default!;
     [Inject] IItemsHandler itemsHandler { get; set; } = default!;
@@ -126,6 +132,12 @@ public partial class InventoryAdjustmentForm
             }
         ));
         await InvokeAsync(StateHasChanged);
+
+        // Reload the table to display new items
+        if (LinesTable?.DataGrid != null)
+        {
+            await LinesTable.DataGrid.Reload();
+        }
     }
 
     Task DeleteLine(InventoryAdjustmentLineVM line) {
@@ -181,19 +193,63 @@ public partial class InventoryAdjustmentForm
         foreach (var item in BarcodeStore.Items)
         {
             var itemCount = BarcodeStore.CountItemQuantity(item);
-            var itemLine = Model.Lines.First(x => x.ItemId == item.Id);
 
-            if (itemLine != null) itemLine.QuantityAlloted += itemCount / (itemLine.UoM?.ConversionRate ?? 1);
+            InventoryAdjustmentLineVM? itemLine;
+
+            if (selectedItems.Any())
+            {
+                //itemLine = Model.Lines.FirstOrDefault(x => x.ItemId == selectedItems.First().ItemId && x.LineNumber == selectedItems.First().LineNumber);
+                itemLine = Model.Lines[selectedItemIndex];
+            }
+            else
+            {
+                itemLine = Model.Lines.FirstOrDefault(x => x.ItemId == item.Id);
+            }
+
+            if (itemLine != null)
+            {
+                itemLine.QuantityAlloted += itemCount / (itemLine.UoM?.ConversionRate ?? 1);
+            }
         }
 
         BarcodeStore.Clear();
     }
 
+    private IList<InventoryAdjustmentLineVM> selectedItems = new List<InventoryAdjustmentLineVM>();
+    private int selectedItemIndex { get; set; } = -1;
+
+    async Task OnRowClick(DataGridRowMouseEventArgs<InventoryAdjustmentLineVM> args)
+    {
+        if (selectedItems.Contains(args.Data))
+        {
+            selectedItems = new List<InventoryAdjustmentLineVM>();       // Unselect
+            selectedItemIndex = -1;
+        }
+        else
+        {
+            selectedItems = new List<InventoryAdjustmentLineVM>();
+            selectedItems = new List<InventoryAdjustmentLineVM> { args.Data }; // Select
+            selectedItemIndex = Model.Lines.IndexOf(args.Data);
+        }
+    }
 
     bool IsValidBarcode(BarcodeVM barcode, out string reason)
     {
         var line = Model.Lines.FirstOrDefault(x => x.ItemId == barcode.Item?.Id && barcode.UoM?.Id == x.UoM?.Id && barcode.UoM is not null) ??
             Model.Lines.FirstOrDefault(x => x.ItemId == barcode.Item?.Id);
+
+        if (selectedItems.Count != 0)
+        {
+            //line = selectedItems.FirstOrDefault(x => x.ItemId == barcode.Item?.Id);
+            line = Model.Lines[selectedItemIndex];
+
+            if (line.ItemId != barcode.Item?.Id)
+            {
+                reason = $"The item {barcode.Item?.ItemNumber} does not match the selected item {line.ItemCode}";
+                return false;
+            }
+        }
+
         if (line is null)
         {
             reason = $"The item {barcode.Item?.ItemNumber} does not exist in the current document";

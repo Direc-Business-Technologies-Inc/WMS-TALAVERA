@@ -24,6 +24,7 @@ SELECT
 	i.displayname as MaterialName,
 	b.id AS NetsuiteMaterialPrefferedBinId,
 	i.weight AS MaterialWeight,
+	ib1.quantityavailable as LocationItemQuantityAvailable,
 
 	ABS(tl.quantity) AS LineQuantity,
 	tl.quantityshiprecv AS LineQuantityPacked,
@@ -54,8 +55,22 @@ FROM item i
 	   JOIN bin b ON b.id = ibq.bin
 	   WHERE ibq.preferredbin = 'T'
     ) ibq ON ibq.item = i.id  AND ibq.location = tl.location
-	
+
 	LEFT JOIN bin b ON b.id = ibq.bin
+
+	LEFT JOIN (
+	SELECT
+		item,
+		BUILTIN.DF( item ) AS itemname,
+		location,
+		BUILTIN.DF( location ) AS locationname,
+		quantityavailable
+	FROM
+		AggregateItemLocation
+	ORDER BY
+		Item,
+		Location
+	) ib1 ON ib1.item = i.id  AND ib1.location = tl.location 
 WHERE
 	t.recordtype = 'vendorreturnauthorization'
 	AND t.status IN ('B', 'E')

@@ -147,17 +147,20 @@ public class SupplierReturnIntegration(
                 .LeftJoin("employee e", on: "e.id = t.custbody_dbti_prepared_by")
                 .LeftJoin("transaction tfrom", on: "tfrom.id = ml.createdfrom")
                 .WithSubsidiaries(httpContextAccessor, "t")
-                .WithFilter(DataGridFilterUtilities.Equal("t.recordtype", "vendorreturnauthorization"))
+                .WithFilters(
+                    DataGridFilterUtilities.Equal("t.recordtype", "vendorreturnauthorization"),
+                    DataGridFilterUtilities.In("t.custbody_dbti_purchase_subcategory", new string[] { "1", "2", "5" })
+                )
                 .WithDatagridIntent(intent)
                 .Build();
 
-        var response = await netsuiteService.ExecuteSuiteQLQuery<SupplierReturnDataGridDTO>(query.Query, query.Limit, query.Offset);
+         var response = await netsuiteService.ExecuteSuiteQLQuery<SupplierReturnDataGridDTO>(query.Query, query.Limit, query.Offset);
         return (response.items, response.totalResults);
     }
 
     public async Task<(IEnumerable<ReturnStatusDTO> Data, int Count)> GetReturnStatuses(DataGridIntent intent)
     {
-        var query = builderFactory.Create()
+        var query = builderFactory.Create() 
             .Select(
                 ("id", nameof(ReturnStatusDTO.Id)),
                 ("name", nameof(ReturnStatusDTO.Name))

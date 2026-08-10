@@ -104,6 +104,7 @@ public class ReceivingIntegration(
         }
 
         var builder = builderFactory.Create()
+            .Distinct()
             .Select(
                 ("t.id", "Id"),
                 ("t.tranid", "ReferenceNumber"),
@@ -636,12 +637,10 @@ public class ReceivingIntegration(
             .Join("itemfulfillmentstatus s", on: "t.status = s.id")
             .Join("transactionline ml", on: "ml.transaction = t.id AND ml.mainline = 'T'")
             .LeftJoin("employee e", on: "e.id = t.custbody_dbti_prepared_by")
-            .LeftJoin("(SELECT SUM(1) AS count, custrecord_dbti_ttf_item_fulfillment_num AS ifnum FROM CUSTOMRECORD_DBTI_TRIP_TICKET_IF GROUP BY custrecord_dbti_ttf_item_fulfillment_num) ttx", "ttx.ifnum = t.id")
             .WithFilters(
                 Equal("t.recordtype", "itemfulfillment"),
                 Equal("t.status", "C"),
-                Equal("ml.createdfrom", strId),
-                GreaterThan("ttx.count", 0)
+                Equal("ml.createdfrom", strId)
             )
             .WithDatagridIntent(intent)
             .Build();

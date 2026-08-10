@@ -27,7 +27,7 @@ public class InventoryIntegration(
                 ("b.binnumber", nameof(InventoryBalanceNSDTO.BinName)),
                 ("ib.location", nameof(InventoryBalanceNSDTO.LocationId)),
                 ("loc.name", nameof(InventoryBalanceNSDTO.LocationName)),
-                ("ib.quantityonhand", nameof(InventoryBalanceNSDTO.QuantityOnHand)),
+                ("ib.quantityavailable", nameof(InventoryBalanceNSDTO.QuantityOnHand)), // Change to quantityavailable to reflect the actual available quantity instead of on hand
                 ("ib.quantitypicked", nameof(InventoryBalanceNSDTO.QuantityCommited)),
                 ("is.name", nameof(InventoryBalanceNSDTO.StatusName)),
                 ("is.id", nameof(InventoryBalanceNSDTO.StatusId))

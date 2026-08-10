@@ -168,6 +168,8 @@
                       Id="str_form_lines"
                       TItem="StockTransferRequestLineVM"
                       GridSettingsLoaded
+                      OnRowClick="@OnRowClick"
+                      SelectedItems="selectedItems"
                       Data="@Model.Lines">
                 <HeaderTemplate>
                     <RadzenStack Orientation="Orientation.Horizontal"
@@ -269,7 +271,7 @@
     async Task OpenBarcodeDialog()
     {
         bool? save = await DialogService.OpenAsync(
-            "Table Settings",
+            "Scan Barcodes",
             ds => @<BarcodeScannerDialog BarcodeStore="BarcodeStore" Verifier="IsValidBarcode" />,
             options: GridSettingsService.GetDialogOptions());
 

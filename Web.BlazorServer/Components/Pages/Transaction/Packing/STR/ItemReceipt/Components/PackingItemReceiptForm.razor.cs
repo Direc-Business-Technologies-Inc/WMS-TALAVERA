@@ -1,11 +1,14 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
+using Radzen;
 using Web.BlazorServer.Components.Pages.Transaction.Others.BarcodeScanning;
-using Web.BlazorServer.Components.Pages.Transaction.Packing;
+using Web.BlazorServer.Components.Shared.Abstraction;
+using Web.BlazorServer.Services.Repositories;
 using Web.BlazorServer.ViewModels.Transaction.Packing.ItemReceipt;
+using Web.BlazorServer.ViewModels.Transaction.Packing.VendorReturnAuthorization;
 using Web.BlazorServer.ViewModels.Transaction.Receiving;
 
-namespace Web.BlazorServer.Components.Pages.Transaction.Packing.ItemReceipt.Components;
+namespace Web.BlazorServer.Components.Pages.Transaction.Packing.STR.ItemReceipt.Components;
 
 partial class PackingItemReceiptForm
 {
@@ -14,10 +17,16 @@ partial class PackingItemReceiptForm
     [Parameter] public EventCallback<ItemReceiptPackingVM> OnValidSubmit { get; set; }
 
     [Inject] NavigationManager NavManager { get; set; } = default!;
+    [Inject] IGridSettingsService GridSettingsService { get; set; } = default!;
+
+    AppTable<ItemReceiptLinePackingVM> LinesTable = default!;
+    DataGridSettings TableSettings { get; set; } = new();
 
     List<ItemReceiptLinePackingVM> FulfillableLines => [.. Data.Lines.Where(line => !line.IsComplete)];
 
     BarcodeStore BarcodeStore = new();
+
+    bool isPlannedGreaterOpen => Data.Lines.Any(line => line.QuantityAvailable < line.QuantityOpen);
 
     public async Task Submit()
     {
@@ -41,7 +50,17 @@ partial class PackingItemReceiptForm
         foreach (var item in BarcodeStore.Items)
         {
             var itemCount = BarcodeStore.CountItemQuantity(item);
-            var itemLine = Data.Lines.First(x => x.ItemCode == item.ItemNumber);
+            ItemReceiptLinePackingVM? itemLine;
+
+            if (selectedItems.Any())
+            {
+                itemLine = Data.Lines.FirstOrDefault(x => x.ItemCode == selectedItems.First().ItemCode && x.LineNumber == selectedItems.First().LineNumber);
+                //itemLine = Data.Lines[selectedItemIndex];
+            }
+            else
+            {
+                itemLine = Data.Lines.FirstOrDefault(x => x.ItemCode == item.ItemNumber);
+            }
 
             if (itemLine != null)
             {
@@ -55,10 +74,31 @@ partial class PackingItemReceiptForm
         BarcodeStore.Clear();
     }
 
+    private IList<ItemReceiptLinePackingVM> selectedItems = new List<ItemReceiptLinePackingVM>();
+
+    async Task OnRowClick(DataGridRowMouseEventArgs<ItemReceiptLinePackingVM> args)
+    {
+        if (selectedItems.Contains(args.Data))
+        {
+            selectedItems = new List<ItemReceiptLinePackingVM>();       // Unselect
+        }
+        else
+        {
+            selectedItems = new List<ItemReceiptLinePackingVM>();
+            selectedItems = new List<ItemReceiptLinePackingVM> { args.Data }; // Select
+        }
+    }
 
     bool IsValidBarcode(BarcodeVM barcode, out string reason)
     {
         var line = Data.Lines.FirstOrDefault(x => x.ItemCode == barcode.Item?.ItemNumber);
+
+        if (selectedItems.Count != 0)
+        {
+            line = selectedItems.FirstOrDefault(x => x.ItemCode == barcode.Item?.ItemNumber);
+            //line = Model.Lines[selectedItemIndex];
+        }
+
         if (line is null)
         {
             reason = $"The item {barcode.Item?.ItemNumber} does not exist in the current document";

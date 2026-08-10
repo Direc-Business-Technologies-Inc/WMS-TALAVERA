@@ -5,6 +5,7 @@ using Mapster;
 using MediatR;
 using Shared.Entities;
 using Shared.Libraries.Utilities;
+using System.Linq;
 using Web.BlazorServer.Components.Security;
 using Web.BlazorServer.Handlers.Repositories.Transaction.SupplierReturn;
 using Web.BlazorServer.ViewModels.Transaction.Receiving;
@@ -100,9 +101,17 @@ public class SupplierReturnHandler(
         newIntent.Filters.Add(
             DataGridFilterUtilities.Equal(nameof(PurchaseSubcategoryVM.PurchaseCategoryId), category.Id)
         );
+        newIntent.Take = 10;
 
         GetPurchaseSubcategoriesQry query = new(newIntent);
         (var data, int count) = await sender.Send(query);
+
+        if(category.Id == 3)
+        {
+            data = data.Where(x => x.Id == 5).ToList();
+            count = data.Count();
+        }
+
         return (data.Adapt<IEnumerable<PurchaseSubcategoryVM>>(), count);
     }
 }

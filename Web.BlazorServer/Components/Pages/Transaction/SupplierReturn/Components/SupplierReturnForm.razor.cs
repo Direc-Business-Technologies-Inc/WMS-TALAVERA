@@ -1,10 +1,13 @@
 using Mapster;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
+using Radzen;
+using Radzen.Blazor.Rendering;
 using Shared.Entities;
 using Shared.Libraries.Utilities;
 using Web.BlazorServer.Components.Custom;
 using Web.BlazorServer.Components.Pages.Transaction.Others.BarcodeScanning;
+using Web.BlazorServer.Components.Shared.Abstraction;
 using Web.BlazorServer.Handlers.Repositories.Others;
 using Web.BlazorServer.Handlers.Repositories.Transaction.SupplierReturn;
 using Web.BlazorServer.Helpers;
@@ -12,6 +15,7 @@ using Web.BlazorServer.Services.Repositories;
 using Web.BlazorServer.ViewModels.Others;
 using Web.BlazorServer.ViewModels.Transaction.Receiving;
 using Web.BlazorServer.ViewModels.Transaction.SupplierReturn;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace Web.BlazorServer.Components.Pages.Transaction.SupplierReturn.Components;
 
@@ -35,6 +39,9 @@ public partial class SupplierReturnForm
     [Parameter] public string ReturnString { get; set; } = "Return";
     [Parameter] public bool ReadOnly { get; set; } = false;
     [Parameter] public bool Disabled { get; set; } = false;
+
+    AppTable<SupplierReturnLineVM> LinesTable = default!;
+    DataGridSettings TableSettings { get; set; } = new();
 
     QuickVirtualizedDropdown<LocationVM> LocationDropdown { get; set; } = default!;
     QuickVirtualizedDropdown<SubsidiaryVM> SubsidiaryDropdown { get; set; } = default!;
@@ -231,6 +238,14 @@ public partial class SupplierReturnForm
                 QuantityAvailable = x.QuantityAvailable,
                 QuantityAlloted = 0
             }));
+
+        await InvokeAsync(StateHasChanged);
+
+        // Reload the table to display new items
+        if (LinesTable?.DataGrid != null)
+        {
+            await LinesTable.DataGrid.Reload();
+        }
     }
 
     async Task RemoveLine(SupplierReturnLineVM line)
@@ -259,19 +274,66 @@ public partial class SupplierReturnForm
         foreach (var item in BarcodeStore.Items)
         {
             var itemCount = BarcodeStore.CountItemQuantity(item);
-            var itemLine = Model.Lines.First(x => x.ItemId == item.Id);
+            //var itemLine = Model.Lines.First(x => x.ItemId == item.Id);
 
-            if (itemLine != null) itemLine.QuantityAlloted += itemCount / (itemLine.UoM?.ConversionRate ?? 1);
+            //if (itemLine != null) itemLine.QuantityAlloted += itemCount / (itemLine.UoM?.ConversionRate ?? 1);
+
+            SupplierReturnLineVM? itemLine;
+
+            if (selectedItems.Any())
+            {
+                //itemLine = Model.Lines.FirstOrDefault(x => x.ItemId == selectedItems.First().ItemId && x.LineNumber == selectedItems.First().LineNumber);
+                itemLine = Model.Lines[selectedItemIndex];
+            }
+            else
+            {
+                itemLine = Model.Lines.FirstOrDefault(x => x.ItemId == item.Id);
+            }
+
+            if (itemLine != null)
+            {
+                itemLine.QuantityAlloted += itemCount / (itemLine.UoM?.ConversionRate ?? 1);
+            }
         }
 
         BarcodeStore.Clear();
     }
 
+    private IList<SupplierReturnLineVM> selectedItems = new List<SupplierReturnLineVM>();
+    private int selectedItemIndex { get; set; } = -1;
+
+    async Task OnRowClick(DataGridRowMouseEventArgs<SupplierReturnLineVM> args)
+    {
+        if (selectedItems.Contains(args.Data))
+        {
+            selectedItems = new List<SupplierReturnLineVM>();       // Unselect
+            selectedItemIndex = -1;
+        }
+        else
+        {
+            selectedItems = new List<SupplierReturnLineVM>();
+            selectedItems = new List<SupplierReturnLineVM> { args.Data }; // Select
+            selectedItemIndex = Model.Lines.IndexOf(args.Data);
+        }
+    }
 
     bool IsValidBarcode(BarcodeVM barcode, out string reason)
     {
         var line = Model.Lines.FirstOrDefault(x => x.ItemId == barcode.Item?.Id && barcode.UoM?.Id == x.UoM?.Id && barcode.UoM is not null) ??
             Model.Lines.FirstOrDefault(x => x.ItemId == barcode.Item?.Id);
+
+        if (selectedItems.Count != 0)
+        {
+            //line = selectedItems.FirstOrDefault(x => x.ItemId == barcode.Item?.Id);
+            line = Model.Lines[selectedItemIndex];
+
+            if (line.ItemId != barcode.Item?.Id)
+            {
+                reason = $"The item {barcode.Item?.ItemNumber} does not match the selected item {line.ItemCode}";
+                return false;
+            }
+        }
+
         if (line is null)
         {
             reason = $"The item {barcode.Item?.ItemNumber} does not exist in the current document";

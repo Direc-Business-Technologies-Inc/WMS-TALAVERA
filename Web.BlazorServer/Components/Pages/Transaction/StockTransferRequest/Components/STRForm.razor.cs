@@ -1,25 +1,19 @@
 using Application.DataTransferObjects.Transactions.StockTransferRequest;
-using Mapster;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
 using Radzen;
+using Radzen.Blazor.Rendering;
 using Shared.Entities;
-using Shared.Libraries.Utilities;
 using Web.BlazorServer.Components.Custom;
 using Web.BlazorServer.Components.Pages.Transaction.Others.BarcodeScanning;
 using Web.BlazorServer.Components.Shared.Abstraction;
-using Web.BlazorServer.Defaults;
-using Web.BlazorServer.Handlers.Implementations.Others;
 using Web.BlazorServer.Handlers.Repositories.Others;
 using Web.BlazorServer.Handlers.Repositories.Transaction.StockTransferRequest;
 using Web.BlazorServer.Helpers;
-using Web.BlazorServer.Services.Implementation;
 using Web.BlazorServer.Services.Repositories;
-using Web.BlazorServer.ViewModels.Abstraction;
 using Web.BlazorServer.ViewModels.Others;
 using Web.BlazorServer.ViewModels.Transaction.Receiving;
 using Web.BlazorServer.ViewModels.Transaction.StockTransferRequest;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace Web.BlazorServer.Components.Pages.Transaction.StockTransferRequest.Components;
 
@@ -67,8 +61,8 @@ public partial class STRForm
     const string PRINTABLE_URL_INTERCOMPANY = "https://11608969.extforms.netsuite.com/app/site/hosting/scriptlet.nl?script=1671&deploy=1&compid=11608969&ns-at=AAEJ7tMQ9evIwFEEUifIBokQgQ0jhowAItpfjv5Smu7B76K41lU&recordType=tranferOrder&isPickingTicket=true";
     const string PRINTABLE_URL_TO = "https://11608969.extforms.netsuite.com/app/site/hosting/scriptlet.nl?script=1671&deploy=1&compid=11608969&ns-at=AAEJ7tMQ9evIwFEEUifIBokQgQ0jhowAItpfjv5Smu7B76K41lU&recordType=tranferOrder&isPickingTicket=true";
 
-    public string ReferenceString => string.IsNullOrEmpty(Model.ReferenceNumber) ? 
-        ReadOnly ? "N/A" : "Auto-Generated" : 
+    public string ReferenceString => string.IsNullOrEmpty(Model.ReferenceNumber) ?
+        ReadOnly ? "N/A" : "Auto-Generated" :
         Model.ReferenceNumber;
     public string StatusString => Model.Status is null ?
         ReadOnly ? "N/A" : "To be submitted" :
@@ -103,7 +97,7 @@ public partial class STRForm
             ToastService.Error("Please add at least one item");
             return;
         }
-        
+
         if (Model.Lines.Any(x => x.QuantityAlloted > x.QuantityOnHandByUoM))
         {
             ToastService.Error("Some alloted items exceed the available quantity", "Error");
@@ -129,12 +123,18 @@ public partial class STRForm
                 ItemDescription = item.Name,
                 Warehouse = Model.SourceLocation?.Name ?? string.Empty,
                 UoM = item.StockUnit,
-                QuantityOnHand = item.QuantityAvailable,
+                QuantityOnHand = item.QuantityOnHand,
+                QuantityAvailable = item.QuantityAvailable,
                 QuantityAlloted = 0
             });
         }
-        await LinesTable.DataGrid.Reload();
         await InvokeAsync(StateHasChanged);
+
+        // Reload the table to display new items
+        if (LinesTable?.DataGrid != null)
+        {
+            await LinesTable.DataGrid.Reload();
+        }
     }
 
     async Task<(IEnumerable<LocationVM>, int)> SourceLocationProvider(DataGridIntent intent)
@@ -143,7 +143,7 @@ public partial class STRForm
 
         await _concurrencySemaphore.WaitAsync();
 
-        var result =  await LocationHandler.GetLocationsBySubsidiaryAsync(intent, Model.Subsidiary.Id);
+        var result = await LocationHandler.GetLocationsBySubsidiaryAsync(intent, Model.Subsidiary.Id);
 
         _concurrencySemaphore.Release();
         return result;
@@ -289,9 +289,40 @@ public partial class STRForm
         return a is null || b is null ? false : a.Id == b.Id;
     }
 
+    private IList<StockTransferRequestLineVM> selectedItems = new List<StockTransferRequestLineVM>();
+    private int selectedItemIndex { get; set; } = -1;
+
+    async Task OnRowClick(DataGridRowMouseEventArgs<StockTransferRequestLineVM> args)
+    {
+        if (selectedItems.Contains(args.Data))
+        {
+            selectedItems = new List<StockTransferRequestLineVM>();       // Unselect
+            selectedItemIndex = -1;
+        }
+        else
+        {
+            selectedItems = new List<StockTransferRequestLineVM>();
+            selectedItems = new List<StockTransferRequestLineVM> { args.Data }; // Select
+            selectedItemIndex = Model.Lines.IndexOf(args.Data);
+        }
+    }
+
     bool IsValidBarcode(BarcodeVM barcode, out string reason)
     {
         var line = Model.Lines.FirstOrDefault(x => x.ItemId == barcode.Item?.Id);
+
+        if (selectedItems.Count != 0)
+        {
+            //line = selectedItems.FirstOrDefault(x => x.ItemId == barcode.Item?.Id);
+            line = Model.Lines[selectedItemIndex];
+
+            if(line.ItemId != barcode.Item?.Id)
+            {
+                reason = $"The item {barcode.Item?.ItemNumber} does not match the selected item {line.ItemCode}";
+                return false;
+            }
+        }
+
         if (line is null)
         {
             reason = $"The item {barcode.Item?.ItemNumber} does not exist in the current document";
@@ -335,9 +366,27 @@ public partial class STRForm
         foreach (var item in BarcodeStore.Items)
         {
             var itemCount = BarcodeStore.CountItemQuantity(item);
-            var itemLine = Model.Lines.First(x => x.ItemId == item.Id);
 
-            if (itemLine != null) itemLine.QuantityAlloted += itemCount / (itemLine.UoM?.ConversionRate ?? 1);
+            //var itemLine = Model.Lines.First(x => x.ItemId == item.Id);
+
+            //if (itemLine != null) itemLine.QuantityAlloted += itemCount / (itemLine.UoM?.ConversionRate ?? 1);
+
+            StockTransferRequestLineVM? itemLine;
+
+            if (selectedItems.Any())
+            {
+                //itemLine = Model.Lines.FirstOrDefault(x => x.ItemId == selectedItems.First().ItemId && x.LineNumber == selectedItems.First().LineNumber);
+                itemLine = Model.Lines[selectedItemIndex];
+            }
+            else
+            {
+                itemLine = Model.Lines.FirstOrDefault(x => x.ItemId == item.Id);
+            }
+
+            if (itemLine != null)
+            {
+                itemLine.QuantityAlloted += itemCount / (itemLine.UoM?.ConversionRate ?? 1);
+            }
         }
 
         BarcodeStore.Clear();
@@ -411,7 +460,7 @@ public partial class STRForm
     }
 
     string PrintableURL => Model.Category.IsInterCompany ? $"{PRINTABLE_URL_INTERCOMPANY}&recordId={Model.Id}" : $"{PRINTABLE_URL_TO}&recordId={Model.Id}";
-        
+
     void Return()
     {
         if (!string.IsNullOrEmpty(ReturnURI)) NavManager.NavigateTo(ReturnURI, true);

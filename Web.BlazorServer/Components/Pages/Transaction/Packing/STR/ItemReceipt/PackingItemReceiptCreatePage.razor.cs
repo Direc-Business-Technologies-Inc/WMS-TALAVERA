@@ -1,11 +1,10 @@
 using Microsoft.AspNetCore.Components;
-using Web.BlazorServer.Components.Pages.Transaction.Packing;
 using Web.BlazorServer.Defaults;
 using Web.BlazorServer.Handlers.Repositories.Transaction.Packing.ItemReceipt;
 using Web.BlazorServer.Services.Repositories;
 using Web.BlazorServer.ViewModels.Transaction.Packing.ItemReceipt;
 
-namespace Web.BlazorServer.Components.Pages.Transaction.Packing.ItemReceipt;
+namespace Web.BlazorServer.Components.Pages.Transaction.Packing.STR.ItemReceipt;
 
 partial class PackingItemReceiptCreatePage
 {

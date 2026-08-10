@@ -39,13 +39,22 @@
                 </RadzenColumn>
             </RadzenRow>
         </RadzenFieldset>
+        <RadzenAlert Visible="@isPlannedGreaterOpen" Variant="Variant.Filled" AlertStyle="AlertStyle.Danger" Size="AlertSize.ExtraSmall" Shade="Shade.Lighter" AllowClose=false>
+            One or more items have a planned quantity greater than the available quantity.
+        </RadzenAlert>
         <RadzenFieldset AllowCollapse Text="Lines">
-            <AppTableWithSettings Data="@FulfillableLines" Id="packing_vendor_return_authorization_item_receipt_lines">
-
+            <AppTable @ref="@LinesTable"
+                      Id="packing_vendor_return_authorization_item_receipt_lines"
+                      TItem="VendorReturnAuthorizationItemReceiptLinePackingVM"
+                      GridSettingsLoaded
+                      OnRowClick="@OnRowClick"
+                      SelectedItems="selectedItems"
+                      Data="@FulfillableLines">
                 <HeaderTemplate>
                     <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5em">
                         <RadzenButton Icon="barcode" ButtonStyle="ButtonStyle.Primary" Click="(() => OpenBarcodeDialog(false))" Size="ButtonSize.Small" Text="Scan Good Items" />
                         <RadzenButton Icon="barcode" ButtonStyle="ButtonStyle.Danger" Click="(() => OpenBarcodeDialog(true))" Size="ButtonSize.Small" Text="Scan Bad Items" />
+                        <RadzenButton Icon="settings" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@OpenTableSettings" />
                     </RadzenStack>
                 </HeaderTemplate>
                 <Columns>
@@ -58,6 +67,7 @@
                     <RadzenDataGridColumn TItem="VendorReturnAuthorizationItemReceiptLinePackingVM" Property="@nameof(VendorReturnAuthorizationItemReceiptLinePackingVM.ItemDescription)" Title="Item Description" />
                     <RadzenDataGridColumn TItem="VendorReturnAuthorizationItemReceiptLinePackingVM" Property="@nameof(VendorReturnAuthorizationItemReceiptLinePackingVM.UoM)" Title="UoM" />
                     <RadzenDataGridColumn TItem="VendorReturnAuthorizationItemReceiptLinePackingVM" Property="@nameof(VendorReturnAuthorizationItemReceiptLinePackingVM.Location)" Title="Warehouse" />
+                    <RadzenDataGridColumn TItem="VendorReturnAuthorizationItemReceiptLinePackingVM" Property="@nameof(VendorReturnAuthorizationItemReceiptLinePackingVM.QuantityAvailable)" Title="Available Quantity" />
                     <RadzenDataGridColumn TItem="VendorReturnAuthorizationItemReceiptLinePackingVM" Property="@nameof(VendorReturnAuthorizationItemReceiptLinePackingVM.QuantityPlanned)" Title="Planned Quantity" />
                     <RadzenDataGridColumn TItem="VendorReturnAuthorizationItemReceiptLinePackingVM" Property="@nameof(VendorReturnAuthorizationItemReceiptLinePackingVM.QuantityReceived)" Title="Received Quantity" />
                     <RadzenDataGridColumn TItem="VendorReturnAuthorizationItemReceiptLinePackingVM" Property="@nameof(VendorReturnAuthorizationItemReceiptLinePackingVM.QuantityBad)" Title="Quantity">
@@ -93,7 +103,7 @@
                         </Template>
                     </RadzenDataGridColumn>
                 </Columns>
-            </AppTableWithSettings>
+            </AppTable>
         </RadzenFieldset>
         <RadzenStack JustifyContent="JustifyContent.SpaceBetween" Orientation="Orientation.Horizontal">
             <RadzenButton ButtonStyle="ButtonStyle.Light" ButtonType="ButtonType.Button" Click="@Return" Text="Return" />
@@ -113,6 +123,20 @@
         Width = "600px",
         ShowClose = true
     };
+
+    async Task OpenTableSettings()
+    {
+        await DialogService.OpenAsync(
+            "Table Settings",
+            ds => @<AppGridSettings TItem="VendorReturnAuthorizationItemReceiptLinePackingVM"
+                @bind-Grid=@LinesTable.DataGrid
+                @bind-GridSettings=@TableSettings
+                 ReloadEntirePage="false" />
+    ,
+        options: GridSettingsService.GetDialogOptions());
+
+        await LinesTable.DataGrid.Reload();
+    }
     
     async Task OpenBarcodeDialog(bool bad)
     {

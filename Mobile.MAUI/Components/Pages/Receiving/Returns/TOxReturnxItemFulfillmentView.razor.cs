@@ -1,41 +1,40 @@
 using Microsoft.JSInterop;
-using Mobile.MAUI.Helpers.Extensions;
-using Mobile.MAUI.Services;
-using Shared.Libraries.ViewModel.Authentication;
-using Shared.Libraries.ViewModel.TransferOrder;
-using System.Globalization;
-using System.Text.Json;
+using Shared.Libraries.ViewModel.ItemFulfillment;
+using static Mobile.MAUI.Enums.CustomEnum;
 using static Mobile.MAUI.MauiProgram;
+using AppAction = Mobile.MAUI.Services.AppAction;
+using static Mobile.MAUI.Helpers.FormatHelper;
+using Mobile.MAUI.Services;
+using System.Globalization;
 
-namespace Mobile.MAUI.Components.Pages.Receiving.TransferOrder;
+namespace Mobile.MAUI.Components.Pages.Receiving.Returns;
 
-public partial class TransferOrderView : IAsyncDisposable
+public partial class TOxReturnxItemFulfillmentView : IAsyncDisposable
 {
+    [Parameter]
+    public int NetsuiteOrderInternalId { get; set; }
+
+    [Parameter]
+    public string TOOrderNumber { get; set; }
+
     private IJSObjectReference JsObj { get; set; }
 
-    List<TransferOrderVM> Data { get; set; } = [];
+    List<ItemFulfillmentVM> Data { get; set; } = [];
 
-    AppAction<List<TransferOrderVM>> ActionGetTransferOrder;
+    AppAction<List<ItemFulfillmentVM>> ActionGetTOxItemfulfillments;
 
-    int UserSubsidiaryId { get; set; }
-    int UserId { get; set; }
-
-    private List<TransferOrderVM> FilteredData { get; set; } = [];
-
+    private List<ItemFulfillmentVM> FilteredData { get; set; } = [];
     private string SearchText { get; set; } = string.Empty;
-
-    public string TOOrderNumber;
 
     protected override async Task OnInitializedAsync()
     {
-        string userId = await AuthState.GetAuthenticatedUserId();
-        ActionGetTransferOrder = new AppAction<List<TransferOrderVM>>
+        ActionGetTOxItemfulfillments = new AppAction<List<ItemFulfillmentVM>>
         {
-            Name = "GetTransferOrder",
+            Name = "GetTOxItemfulfillments",
             TaskAsync = async () =>
             {
                 await InvokeAsync(StateHasChanged);
-                var res = await Client.Post<List<TransferOrderVM>>("/Receiving/TransferOrder/PendingReceipt", new { NetsuiteUserSubsidiaryInternalId = UserSubsidiaryId, NetsuiteUserInternalId = UserId });
+                var res = await Client.Post<List<ItemFulfillmentVM>>("/Receiving/Returns/ItemFulfillment", new { NetsuiteOrderInternalId = NetsuiteOrderInternalId });
                 return res;
             },
             OnSuccess = async (result) =>
@@ -54,15 +53,6 @@ public partial class TransferOrderView : IAsyncDisposable
     {
         if (firstRender)
         {
-            string? userAuth = await SecureStorage.GetAsync("UserAuth");
-            if (userAuth is not null)
-            {
-                var auth = JsonSerializer.Deserialize<AuthenticationVM>(userAuth);
-
-                UserSubsidiaryId = auth.NetsuiteSubsidiaryInternalId;
-                UserId = auth.NetsuiteEmployeeInternalId;
-            }
-
             await LoadData();
         }
 
@@ -75,7 +65,12 @@ public partial class TransferOrderView : IAsyncDisposable
 
     async Task LoadData()
     {
-        await ActionFactory.ExecuteAppActionAsync(ActionGetTransferOrder);
+        await ActionFactory.ExecuteAppActionAsync(ActionGetTOxItemfulfillments);
+    }
+
+    async Task LoadItemFulfillments()
+    {
+        await ActionFactory.ExecuteAppActionAsync(ActionGetTOxItemfulfillments);
     }
 
     #region Search
@@ -121,7 +116,7 @@ public partial class TransferOrderView : IAsyncDisposable
             .ToList();
     }
 
-    private static bool MatchesSearch(TransferOrderVM row, string search)
+    private static bool MatchesSearch(ItemFulfillmentVM row, string search)
     {
         if (ContainsIgnoreCase(row.OrderNumber, search))
             return true;

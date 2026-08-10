@@ -42,48 +42,61 @@
             </RadzenRow>
         </RadzenFieldset>
         <RadzenFieldset Text="Lines">
-            <AppTableWithSettings Id="inventory_transfer_request_lines_table" Data="@Model.Lines">
+            <AppTable @ref="@LinesTable"
+                      Id="inventory_transfer_request_lines_table"
+                      TItem="InventoryTransferRequestLineVM"
+                      GridSettingsLoaded
+                      OnRowClick="@OnRowClick"
+                      SelectedItems="selectedItems"
+                      Data="@Model.Lines">
                 <HeaderTemplate>
-                    <RadzenButton Visible="@(!ReadOnly)" Icon="barcode" Disabled="@(Model.SourceLocation is null || IsDisabled)" ButtonStyle="ButtonStyle.Primary" Click="(() => OpenBarcodeDialog())" Size="ButtonSize.Small" Text="Scan Barcodes"/>
-                    <RadzenButton Visible="@(!ReadOnly)" Icon="add" Disabled="@(Model.SourceLocation is null || IsDisabled)" ButtonStyle="ButtonStyle.Success" Click="(() => OpenItemDialog())" Size="ButtonSize.Small" />
+                    <RadzenStack Orientation="Orientation.Horizontal"
+                                 JustifyContent="JustifyContent.End"
+                                 AlignItems="AlignItems.Center"
+                                 Gap="8px">
+                        <RadzenButton Visible="@(!ReadOnly)" Icon="barcode" Disabled="@(Model.SourceLocation is null || IsDisabled)" ButtonStyle="ButtonStyle.Primary" Click="(() => OpenBarcodeDialog())" Size="ButtonSize.Small" Text="Scan Barcodes" />
+                        <RadzenButton Visible="@(!ReadOnly)" Icon="add" Disabled="@(Model.SourceLocation is null || IsDisabled)" ButtonStyle="ButtonStyle.Success" Click="(() => OpenItemDialog())" Size="ButtonSize.Small" />
+                    </RadzenStack>
                 </HeaderTemplate>
                 <Columns>
                     <RadzenDataGridColumn TItem="InventoryTransferRequestLineVM" Property="@nameof(InventoryTransferRequestLineVM.ItemCode)" Title="Item Code" />
                     <RadzenDataGridColumn TItem="InventoryTransferRequestLineVM" Property="@nameof(InventoryTransferRequestLineVM.ItemDescription)" Title="Item Description" />
                     <RadzenDataGridColumn TItem="InventoryTransferRequestLineVM" Title="UoM">
                         <Template Context="data">
-                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center">
-                            <RadzenText Visible="@ReadOnly" TextStyle="TextStyle.Body2">@data.UoM?.Name</RadzenText>
-                            <RadzenFormField Visible="@(!ReadOnly)" class="rz-w-100">
+                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center">
+                                <RadzenText Visible="@ReadOnly" TextStyle="TextStyle.Body2">@data.UoM?.Name</RadzenText>
+                                <RadzenFormField Visible="@(!ReadOnly)" class="rz-w-100">
                                     <QuickVirtualizedDropdown Disabled="IsDisabled" TItem="ItemUnitVM" DataGetter="@(intent => ItemUnitProvider(intent, data.ItemID))" TextProperty="@nameof(ItemUnitVM.Name)" @bind-Value:get="@data.UoM" @bind-Value:set="@(val => SetLineUoM(data, val))" />
-                            </RadzenFormField>
-                        </RadzenStack>
+                                </RadzenFormField>
+                            </RadzenStack>
                         </Template>
                     </RadzenDataGridColumn>
                     <RadzenDataGridColumn TItem="InventoryTransferRequestLineVM" Type="typeof(decimal)" Property="@nameof(InventoryTransferRequestLineVM.QuantityOnHandByUoM)" FormatString="{0:#,##0.##}" Title="On Hand Quantity" />
                     <RadzenDataGridColumn TItem="InventoryTransferRequestLineVM" Title="Alloted Quantity">
                         <Template Context="data">
-                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center">
-                            <RadzenStack Visible="@ReadOnly" Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" class="rz-w-100">
-                                <RadzenText TextStyle="TextStyle.Body2">@data.QuantityAlloted.ToString("#,##0.##")</RadzenText>
+                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center">
+                                <RadzenStack Visible="@ReadOnly" Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" class="rz-w-100">
+                                    <RadzenText TextStyle="TextStyle.Body2">@data.QuantityAlloted.ToString("#,##0.##")</RadzenText>
                                     <RadzenButton Disabled="IsDisabled"
-                                                  Visible="@data.UsesBins"
                                                   Icon="@(data.IsAllAssigned ? "assignment_turned_in" : "assignment_returned")"
                                                   ButtonStyle="@(data.IsAllAssigned ? ButtonStyle.Success : ButtonStyle.Warning)"
                                                   Size="ButtonSize.ExtraSmall" Click="() => OpenInventoryDetailDialog(data, data.ItemID, data.QuantityAlloted)" />
-                            </RadzenStack>
-                            <RadzenFormField class="rz-w-100" Visible="@(!ReadOnly)">
-                                <ChildContent>
-                                        <RadzenNumeric Disabled="IsDisabled" ReadOnly="@ReadOnly" @bind-Value:get="@data.QuantityAlloted" @bind-Value:set="@((amount) => SetLineQuantity(data, amount))" Min="0" Max="@(data.QuantityOnHandByUoM / (data.UoM?.ConversionRate ?? 1))" Format="#,##0.##" />
-                                </ChildContent>
-                                <End>
-                                    <RadzenButton Disabled="IsDisabled"
-                                                  Visible="@data.UsesBins"
-                                                  Icon="@(data.IsAllAssigned ? "assignment_turned_in" : "assignment_returned")" 
-                                                  ButtonStyle="@(data.IsAllAssigned ? ButtonStyle.Success : ButtonStyle.Warning)" 
-                                                  Size="ButtonSize.ExtraSmall" Click="() => OpenInventoryDetailDialog(data, data.ItemID, data.QuantityAlloted)" />
-                                </End>
-                            </RadzenFormField>
+                                </RadzenStack>
+                                <RadzenFormField class="rz-w-100" Visible="@(!ReadOnly)">
+                                    <ChildContent>
+                                        @* <RadzenNumeric Disabled="IsDisabled" ReadOnly="@ReadOnly" @bind-Value:get="@data.QuantityAlloted" @bind-Value:set="@((amount) => SetLineQuantity(data, amount))" Min="0" Max="@(data.QuantityOnHandByUoM / (data.UoM?.ConversionRate ?? 1))" Format="#,##0.##" /> *@
+                                        <RadzenNumeric Disabled="IsDisabled" ReadOnly="@ReadOnly" @bind-Value="@data.QuantityAlloted" Min="0" Format="#,##0.##" />
+                                    </ChildContent>
+                                    <Helper>
+                                        <RadzenText Visible="@(data.QuantityAlloted > data.QuantityOnHandByUoM)" TextStyle="TextStyle.Caption" class="rz-color-danger" Text="Quantity exceeds on hand" />
+                                    </Helper>
+                                    <End>
+                                        <RadzenButton Disabled="IsDisabled"
+                                                      Icon="@(data.IsAllAssigned ? "assignment_turned_in" : "assignment_returned")"
+                                                      ButtonStyle="@(data.IsAllAssigned ? ButtonStyle.Success : ButtonStyle.Warning)"
+                                                      Size="ButtonSize.ExtraSmall" Click="() => OpenInventoryDetailDialog(data, data.ItemID, data.QuantityAlloted)" />
+                                    </End>
+                                </RadzenFormField>
                             </RadzenStack>
                         </Template>
                     </RadzenDataGridColumn>
@@ -101,7 +114,7 @@
                         </RadzenDataGridColumn>
                     }
                 </Columns>
-            </AppTableWithSettings>
+            </AppTable>
         </RadzenFieldset>
         <RadzenFieldset Text="Additional Details">
             <RadzenRow>
@@ -128,12 +141,26 @@
 </RadzenTemplateForm>
 
 @code {
+    async Task OpenTableSettings()
+    {
+        await DialogService.OpenAsync(
+            "Table Settings",
+            ds => @<AppGridSettings TItem="InventoryTransferRequestLineVM"
+@bind-Grid=@LinesTable.DataGrid
+@bind-GridSettings=@TableSettings
+                 ReloadEntirePage="false" />
+    ,
+        options: GridSettingsService.GetDialogOptions());
+
+        await LinesTable.DataGrid.Reload();
+    }
+
     async Task OpenItemDialog()
     {
         List<ItemsVM> items = await DialogService.OpenAsync(
             "Select Items",
             ds =>@<ItemSelectionDialog Location="@(Model.SourceLocation?.Id ?? null)" Filters="@ItemFilters" />,
-            options: dialogOptions
+    options: dialogOptions
         );
 
         if (items is not null) await AddItems(items);
@@ -149,8 +176,9 @@
         Width = "72%",
         ShowClose = true
     };
-   
-    async Task OpenInventoryDetailDialog(InventoryTransferRequestLineVM line, int itemId, decimal totalQuantity) {
+
+    async Task OpenInventoryDetailDialog(InventoryTransferRequestLineVM line, int itemId, decimal totalQuantity)
+    {
         var type = InventoryDetailsDialog.Types.Outgoing;
         if (Model.SourceLocation is null) return;
 
@@ -159,21 +187,22 @@
         List<InventoryDetailVM> details = await DialogService.OpenAsync(
             "Enter Inventory Details",
             ds => @<InventoryDetailsDialog LocationId="@(Model.SourceLocation.Id)" ItemId="itemId" Amount="totalQuantity" Type="@type" InventoryDetails="@line.InventoryDetails" ReadOnly="ReadOnly" />,
-            options: dialogOptions
+    options: dialogOptions
         );
 
-        if (details is not null) {
+        if (details is not null)
+        {
             line.InventoryDetails = [.. details];
             await MarkLineDirty(line);
         }
     }
-    
+
     async Task OpenBarcodeDialog()
     {
         bool? save = await DialogService.OpenAsync(
             "Table Settings",
             ds => @<BarcodeScannerDialog BarcodeStore="BarcodeStore" Verifier="IsValidBarcode" />,
-            options: GridSettingsService.GetDialogOptions());
+    options: GridSettingsService.GetDialogOptions());
 
         if (save == false)
         {

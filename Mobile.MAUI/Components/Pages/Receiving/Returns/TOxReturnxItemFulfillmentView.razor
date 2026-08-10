@@ -1,9 +1,13 @@
-﻿@using Mobile.MAUI.Components.Base
+@page "/receiving/returns/itemfulfillment/{NetsuiteOrderInternalId:int}/{TOOrderNumber}"
+@using Mobile.MAUI.Components.Base
 @using Shared.Libraries.ViewModel
-@using Shared.Libraries.ViewModel.Returns
+@using Shared.Libraries.ViewModel.ItemFulfillment
 
+@layout CleanLayout
 @inherits BaseComponent
 <RadzenStack>
+    <PageHeading Title="Item Fulfillments" BackPath="/receiving" Click="LoadItemFulfillments" Id="@TOOrderNumber" />
+
     <RadzenStack class="mt-4">
         <RadzenStack Gap="8px" class="rz-px-2 rz-mb-2">
             <RadzenTextBox Value="@SearchText"
@@ -21,16 +25,16 @@
             }
         </RadzenStack>
 
-        <Loading IsLoading="@ActionGetReturns.Busy" Text="Loading Returns..">
+        <Loading IsLoading="@ActionGetTOxItemfulfillments.Busy" Text="Loading ItemFulfillments..">
             <ChildContent>
                 <RadzenStack>
                     <EmptyListTemplate ReloadCallback="LoadData" Visible="@(FilteredData.Count == 0)" />
-                    <RadzenDataList Data="@(FilteredData ?? Enumerable.Empty<ReturnsVM>())"
-                                    TItem="ReturnsVM"
+                    <RadzenDataList Data="@(FilteredData ?? Enumerable.Empty<ItemFulfillmentVM>())"
+                                    TItem="ItemFulfillmentVM"
                                     class="trans-list">
                         <Template Context="row">
                             <RadzenStack class="trans-card"
-                                         @onclick="@(() => NavManager.NavigateTo($"/receiving/returns/itemfulfillment/{row.NetsuiteOrderInternalId}/{TOOrderNumber = row.OrderNumber}"))"
+                                         @onclick="@(() => NavManager.NavigateTo($"/receiving/returns/itemfulfillment/items/{NetsuiteOrderInternalId}/{TOOrderNumber}/{row.OrderNumber}"))"
                                          Orientation="Orientation.Horizontal"
                                          AlignItems="AlignItems.Center"
                                          JustifyContent="JustifyContent.SpaceBetween">
@@ -48,7 +52,6 @@
 
                                 <RadzenStack Orientation="Orientation.Horizontal" Gap="6px" class="trans-badges">
                                     <RadzenBadge Text="@row.GetShortName(row.OrderStatus)" class="trans-status-badge" />
-                                    <RadzenBadge Text="@row.GetTransferCategory(row.TransferCategory)" class="trans-status-badge" />
                                 </RadzenStack>
                             </RadzenStack>
                         </Template>
@@ -58,7 +61,5 @@
         </Loading>
     </RadzenStack>
 </RadzenStack>
-
-
 
 

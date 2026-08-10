@@ -23,6 +23,8 @@ public partial class ReturnsView : IAsyncDisposable
     private List<ReturnsVM> FilteredData { get; set; } = [];
     private string SearchText { get; set; } = string.Empty;
 
+    public string TOOrderNumber;
+
     protected override async Task OnInitializedAsync()
     {
         string userId = await AuthState.GetAuthenticatedUserId();

@@ -88,6 +88,7 @@ public class VendorReturnAuthorizationItemReceiptPackingHandler(ISender sender) 
             ItemDescription = dto.MaterialName,
             UoM = dto.UoMName,
             Location = dto.LocationName,
+            QuantityAvailable = dto.LocationItemQuantityAvailable,
             QuantityPlanned = quantityPlanned,
             QuantityOpen = quantityOpen,
             QuantityReceived = quantityReceived

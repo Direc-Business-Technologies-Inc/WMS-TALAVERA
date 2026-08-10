@@ -86,6 +86,8 @@ public class ReturnsItemReceiptPackingHandler(ISender sender) : IReturnsItemRece
             ItemDescription = dto.MaterialName,
             UoM = dto.UoMName,
             Location = dto.LocationName,
+            
+            QuantityAvailable = dto.LocationItemQuantityAvailable,
             QuantityPlanned = quantityPlanned,
             QuantityBackOrdered = quantityBackOrdered,
             QuantityOpen = quantityOpen,

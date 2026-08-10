@@ -64,6 +64,12 @@ public partial class InventoryTransferRequestCreate : BaseForm<InventoryTransfer
             return;
         }
 
+        if (data.Lines.Any(x => x.QuantityAlloted > x.QuantityAvailable))
+        {
+            ToastService.Error("Some alloted quantities exceed the available quantity");
+            return;
+        }
+
         IsBusy = true;
         await InvokeAsync(StateHasChanged);
 

@@ -70,7 +70,7 @@
             await SetDefaultSubsidiary();
     }
 
-    
+
     Task<SubsidiaryVM?> LoadDefaultSubsidiary()
     {
         string? subsidiaryId = httpContextAccessor.HttpContext?.User?.FindFirst("com.direcbusiness.wms.nsSubsidiary")?.Value;
@@ -92,16 +92,16 @@
         var subsidiary = await LoadDefaultSubsidiary();
         if (!FormData.IsIntercompany || subsidiary?.Id == 2) // branch = THM MAIN
             await Form.OnSubsidiaryChanged(subsidiary);
-            // i dont like the whole newline before block start "{"  
-            // makes code look like pyramids
-            // also makes me want to omit the "{}" in one line blocks
-            // which is probably not a good thing
-            // i hate myself
+        // i dont like the whole newline before block start "{"  
+        // makes code look like pyramids
+        // also makes me want to omit the "{}" in one line blocks
+        // which is probably not a good thing
+        // i hate myself
         else
             await Form.OnToSubsidiaryChanged(subsidiary);
-            // this sucks 
-            // should really set up automated unit tests
-            // 
+        // this sucks 
+        // should really set up automated unit tests
+        // 
 
         IsLoadingDefaultSubsidiary = false;
         await InvokeAsync(StateHasChanged);
@@ -140,6 +140,12 @@
 
     async Task<bool> Create(StockTransferRequestInfoVM model)
     {
+        if (model.Lines.Any(x => x.QuantityAlloted > x.QuantityAvailable))
+        {
+            ToastService.Error("Some alloted quantities exceed the available quantity");
+            return false;
+        }
+
         IsCreating = true;
         await InvokeAsync(StateHasChanged);
         var action = await AppActionFactory.RunAsync(async () =>

@@ -8,10 +8,12 @@ using Radzen.Blazor.Rendering;
 using Shared.Entities;
 using Shared.Libraries.Utilities;
 using Web.BlazorServer.Components.Pages.Transaction.Others.BarcodeScanning;
+using Web.BlazorServer.Components.Shared.Abstraction;
 using Web.BlazorServer.Handlers.Repositories.Transaction.Receiving;
 using Web.BlazorServer.ViewModels.Others;
 using Web.BlazorServer.ViewModels.Transaction.Commons;
 using Web.BlazorServer.ViewModels.Transaction.Receiving;
+using Web.BlazorServer.ViewModels.Transaction.StockTransferRequest;
 
 namespace Web.BlazorServer.Components.Pages.Transaction.Receiving.Components;
 
@@ -23,6 +25,9 @@ partial class ItemReceiptForm
     [Parameter] public bool Disabled { get; set; } = false;
     [Inject] IReceivingHandler receivingHandler { get; set; } = default!;
     [Inject] TooltipService tooltipService { get; set; } = default!;
+
+    AppTable<ItemReceiptLineVM> LinesTable = default!;
+    DataGridSettings TableSettings { get; set; } = new();
 
     readonly TooltipOptions LineDetailsTooltipOptions = new()
     {
@@ -83,17 +88,23 @@ partial class ItemReceiptForm
                 break;
         }
     }
-    decimal GetLineQuantity(ItemReceiptLineVM line) => line.QuantityAlloted + BarcodeStore.CountItemQuantity(line.ItemId) / line.UoMRate;
+    //decimal GetLineQuantity(ItemReceiptLineVM line) => line.QuantityAlloted + BarcodeStore.CountItemQuantity(line.ItemId) / line.UoMRate;
 
-    void SetLineQuantity(ItemReceiptLineVM line, decimal amount)
+    //void SetLineQuantity(ItemReceiptLineVM line, decimal amount)
+    //{
+    //    var barcodeCount = BarcodeStore.CountItemQuantity(line.ItemId) / line.UoMRate;
+    //    amount = Math.Max(Math.Min(line.QuantityOpen, amount), barcodeCount);
+
+    //    decimal rawAmount = amount - barcodeCount;
+    //    line.QuantityAlloted = rawAmount;
+    //}
+
+    protected void OnFieldChanged(string propertyName)
     {
-        var barcodeCount = BarcodeStore.CountItemQuantity(line.ItemId) / line.UoMRate;
-        amount = Math.Max(Math.Min(line.QuantityOpen, amount), barcodeCount);
-
-        decimal rawAmount = amount - barcodeCount;
-        line.QuantityAlloted = rawAmount;
+        var field = new FieldIdentifier(Data, propertyName);
+        EditContext.NotifyFieldChanged(field);
     }
-    
+
     void ApplyBarcodes()
     {
         if (!BarcodeStore.Any()) return;
@@ -101,9 +112,26 @@ partial class ItemReceiptForm
         foreach (var item in BarcodeStore.Items)
         {
             var itemCount = BarcodeStore.CountItemQuantity(item);
-            var itemLine = Data.Lines.First(x => x.ItemId == item.Id);
 
-            if (itemLine != null) itemLine.QuantityAlloted += itemCount / itemLine.UoMRate;
+            //var itemLine = Data.Lines.FirstOrDefault(x => x.ItemId == item.Id);
+
+            //if (itemLine != null) itemLine.QuantityAlloted += itemCount / itemLine.UoMRate;
+
+            ItemReceiptLineVM? itemLine;
+
+            if (selectedItems.Any())
+            {
+                itemLine = Data.Lines.FirstOrDefault(x => x.ItemId == selectedItems.First().ItemId && x.LineNumber == selectedItems.First().LineNumber);
+            }
+            else
+            {
+                itemLine = Data.Lines.FirstOrDefault(x => x.ItemId == item.Id);
+            }
+
+            if (itemLine != null)
+            {
+                itemLine.QuantityAlloted += itemCount / itemLine.UoMRate;
+            }
         }
 
         BarcodeStore.Clear();
@@ -120,9 +148,30 @@ partial class ItemReceiptForm
         await InvokeAsync(StateHasChanged);
     }
 
+    private IList<ItemReceiptLineVM> selectedItems = new List<ItemReceiptLineVM>();
+
+    async Task OnRowClick(DataGridRowMouseEventArgs<ItemReceiptLineVM> args)
+    {
+        if (selectedItems.Contains(args.Data))
+        {
+            selectedItems = new List<ItemReceiptLineVM>();       // Unselect
+        }
+        else
+        {
+            selectedItems = new List<ItemReceiptLineVM>();
+            selectedItems = new List<ItemReceiptLineVM> { args.Data }; // Select
+        }
+    }
+
     bool IsValidBarcode(BarcodeVM barcode, out string reason)
     {
         var line = Data.Lines.FirstOrDefault(x => x.ItemId == barcode.Item?.Id);
+
+        if (selectedItems.Count != 0)
+        {
+            line = selectedItems.FirstOrDefault(x => x.ItemId == barcode.Item?.Id);
+        }
+
         if (line is null)
         {
             reason = $"The item {barcode.Item?.ItemNumber} does not exist in the current document";

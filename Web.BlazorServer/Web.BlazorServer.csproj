@@ -6,11 +6,6 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
 
-  <ItemGroup>
-    <Content Remove="wwwroot\assets\direc_2025_logo.png" />
-    <Content Remove="wwwroot\assets\old_direc_logo.png" />
-  </ItemGroup>
-
 	<ItemGroup>
 		<PackageReference Include="DotNetEnv" Version="3.1.1" />
 		<PackageReference Include="Flurl" Version="4.0.0" />

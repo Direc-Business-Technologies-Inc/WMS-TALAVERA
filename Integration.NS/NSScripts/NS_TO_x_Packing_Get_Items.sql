@@ -25,6 +25,7 @@ SELECT
     b.id AS NetsuiteMaterialPrefferedBinId,
 	ivb.custrecord_dbti_vba_assigned_bin AS NetsuiteMaterialVendorAssignedBin,
     i.weight AS MaterialWeight,
+	ib1.quantityavailable as LocationItemQuantityAvailable,
 
     ABS(tl.quantity) AS LineQuantity,
     tl.quantitypacked AS LineQuantityPacked,
@@ -68,6 +69,20 @@ LEFT JOIN (
 ) ivb ON ivb.item = i.id 
 	AND ivb.subsidiary = t.subsidiary 
 	AND ivb.custrecord_dbti_vba_location = tl.location
+
+LEFT JOIN (
+	SELECT
+		item,
+		BUILTIN.DF( item ) AS itemname,
+		location,
+		BUILTIN.DF( location ) AS locationname,
+		quantityavailable
+	FROM
+		AggregateItemLocation
+	ORDER BY
+		Item,
+		Location
+) ib1 ON ib1.item = i.id  AND ib1.location = tl.location 
 
 WHERE
     t.recordtype IN ('intercompanytransferorder', 'transferorder')

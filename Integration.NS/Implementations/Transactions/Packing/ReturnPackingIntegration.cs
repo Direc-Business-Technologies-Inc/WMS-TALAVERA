@@ -96,6 +96,7 @@ internal class ReturnPackingIntegration(
                 ("q.MaterialName", nameof(ReturnPackingLineNSDTO.ItemDescription)),
                 ("q.UoMName", nameof(ReturnPackingLineNSDTO.UoM)),
                 ("q.LocationName", nameof(ReturnPackingLineNSDTO.Warehouse)),
+                ("q.LocationItemQuantityAvailable", nameof(ReturnPackingLineNSDTO.QuantityAvailable)),
                 ("q.LineQuantity", nameof(ReturnPackingLineNSDTO.QuantityPlanned)),
                 ("q.LineQuantityPacked", nameof(ReturnPackingLineNSDTO.QuantityReceived)),
                 ("q.LineQuantityBackOrdered", nameof(ReturnPackingLineNSDTO.QuantityBackOrdered))
@@ -160,6 +161,7 @@ internal class ReturnPackingIntegration(
             ItemDescription = nsdto.ItemDescription,
             UoM = nsdto.UoM,
             Warehouse = nsdto.Warehouse,
+            QuantityAvailable = nsdto.QuantityAvailable,
             QuantityPlanned = nsdto.QuantityPlanned,
             QuantityReceived = nsdto.QuantityReceived,
             QuantityBackOrdered = nsdto.QuantityBackOrdered,

@@ -1,6 +1,7 @@
 ﻿namespace Shared.Libraries.ViewModel.Returns;
 public class ReturnsVM
 {
+    public int NetsuiteOrderInternalId { get; set; }
     public string OrderNumber { get; set; }
     public string OrderStatus { get; set; }
     public string OrderType { get; set; }

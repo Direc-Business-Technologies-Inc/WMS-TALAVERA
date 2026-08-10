@@ -50,8 +50,7 @@ internal class StockTransferRequestIntegration(
                 .WithFilters(
                     DataGridFilterUtilities.Equal("tl.mainline", "T"),
                     DataGridFilterUtilities.Equal("t.recordtype", "intercompanytransferorder"),
-                    DataGridFilterUtilities.NotEqual("t.custbody_dbti_transfer_category", 3),
-                    DataGridFilterUtilities.NotEqual("t.custbody_dbti_transfer_category", 4)
+                    DataGridFilterUtilities.Equal("t.custbody_dbti_transfer_category", 2)
                 )
                 .WithSubsidiaries(httpContextAccessor, "t")
                 .WithDatagridIntent(intent)
@@ -88,9 +87,7 @@ internal class StockTransferRequestIntegration(
                 .WithFilters(
                     DataGridFilterUtilities.Equal("tl.mainline", "T"),
                     DataGridFilterUtilities.In("t.recordtype", new string[] { "intercompanytransferorder", "transferorder" }),
-                    DataGridFilterUtilities.Any(
-                        DataGridFilterUtilities.Equal("t.custbody_dbti_transfer_category", 3),
-                        DataGridFilterUtilities.Equal("t.custbody_dbti_transfer_category", 4))
+                    DataGridFilterUtilities.In("t.custbody_dbti_transfer_category", new string[] { "3", "4" })
                 )
                 .WithDatagridIntent(intent)
                 .Build();
@@ -125,8 +122,7 @@ internal class StockTransferRequestIntegration(
                 .WithFilters(
                     DataGridFilterUtilities.Equal("tl.mainline", "T"),
                     DataGridFilterUtilities.Equal("t.recordtype", "transferorder"),
-                    DataGridFilterUtilities.NotEqual("t.custbody_dbti_transfer_category", 3),
-                    DataGridFilterUtilities.NotEqual("t.custbody_dbti_transfer_category", 4)
+                    DataGridFilterUtilities.Equal("t.custbody_dbti_transfer_category", 1)
                 )
                 .WithSubsidiaries(httpContextAccessor, "t")
                 .WithDatagridIntent(intent)

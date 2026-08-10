@@ -103,6 +103,7 @@ internal class StockTransferRequestPackingIntegration(
                 ("q.MaterialName", nameof(StrPackingLineNSDTO.ItemDescription)),
                 ("q.UoMName", nameof(StrPackingLineNSDTO.UoM)),
                 ("q.LocationName", nameof(StrPackingLineNSDTO.Warehouse)),
+                ("q.LocationItemQuantityAvailable", nameof(StrPackingLineNSDTO.QuantityAvailable)),
                 ("(q.LineQuantity / q.UoMRate)", nameof(StrPackingLineNSDTO.QuantityPlanned)),
                 ("(q.LineQuantityPacked / q.UoMRate)", nameof(StrPackingLineNSDTO.QuantityReceived)),
                 ("(q.LineQuantityBackOrdered / q.UoMRate)", nameof(StrPackingLineNSDTO.QuantityBackOrdered))
@@ -166,6 +167,7 @@ internal class StockTransferRequestPackingIntegration(
             ItemDescription = nsdto.ItemDescription,
             UoM = nsdto.UoM,
             Warehouse = nsdto.Warehouse,
+            QuantityAvailable = nsdto.QuantityAvailable,
             QuantityPlanned = nsdto.QuantityPlanned,
             QuantityReceived = nsdto.QuantityReceived,
             QuantityBackOrdered = nsdto.QuantityBackOrdered,
