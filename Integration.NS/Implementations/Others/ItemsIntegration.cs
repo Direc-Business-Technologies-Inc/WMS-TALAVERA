@@ -138,7 +138,9 @@ public class ItemsIntegration(
             .From("unitsTypeUom uom")
             .Join("item i", "i.unitstype = uom.unitstype")
             .WithDatagridIntent(intent)
-            .WithFilter(DataGridFilterUtilities.Equal("i.id", itemId))
+            .WithFilters(
+                DataGridFilterUtilities.Equal("uom.inuse", "T"),
+                DataGridFilterUtilities.Equal("i.id", itemId))
             .Build();
 
         var result = await netsuiteService.ExecuteSuiteQLQuery<ItemUnitDTO>(query.Query, query.Limit, query.Offset);
