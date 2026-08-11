@@ -28,6 +28,7 @@ public partial class ITRForm
     [Parameter] public EventCallback<InventoryTransferRequestVM> OnSubmit { get; set; }
     [Parameter] public EventCallback<InventoryTransferRequestVM> OnReturn { get; set; }
     [Parameter] public EventCallback<InventoryTransferRequestVM> OnSecondaryAction { get; set; }
+    [Parameter] public EventCallback<InventoryTransferRequestVM> OnApprovalAction { get; set; }
     [Parameter] public string ReturnLabel { get; set; } = "Return";
     [Parameter] public string SubmitLabel { get; set; } = "Submit";
     [Parameter] public string SecondaryActionLabel { get; set; } = "Action";
@@ -103,6 +104,11 @@ public partial class ITRForm
     async Task SecondaryAction()
     {
         if (OnSecondaryAction.HasDelegate) await OnSecondaryAction.InvokeAsync(Model);
+    }
+
+    async Task ApprovalAction()
+    {
+        if (OnApprovalAction.HasDelegate) await OnApprovalAction.InvokeAsync(Model);
     }
 
     async Task Return()

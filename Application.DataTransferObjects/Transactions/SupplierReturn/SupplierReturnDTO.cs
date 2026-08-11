@@ -23,6 +23,7 @@ public class SupplierReturnDTO
     public SubsidiaryDTO? Subsidiary { get; set; } = null;
     public string ReferenceNumber { get; set; } = string.Empty;
     public string Memo { get; set; } = string.Empty;
+    public bool IsSubmittedForApprovals { get; set; }
     public IEnumerable<SupplierReturnLineDTO> Lines { get; set; } = [];
 
     public int? SourcePO { get; set; }

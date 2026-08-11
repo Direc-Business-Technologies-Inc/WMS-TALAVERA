@@ -11,7 +11,6 @@
 
 <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" class="rz-mb-4">
     <RadzenStack Orientation="Orientation.Horizontal">
-        <RadzenButton ButtonType="ButtonType.Button" ButtonStyle="ButtonStyle.Success" Size="ButtonSize.Small" Text="Submit for Approval" Visible="(ReadOnly && Model.CanBeSubmittedForApprovals)" Click="SubmitForApproval" />
         <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5em" Visible="@Disabled">
             <RadzenProgressBarCircular ShowValue="false" Mode="ProgressBarMode.Indeterminate" Size="ProgressBarCircularSize.ExtraSmall" AriaLabel="Loading, extra small" />
             <RadzenText TextStyle="TextStyle.Caption">Please wait...</RadzenText>
@@ -260,8 +259,11 @@
         </RadzenFieldset>
         <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween">
             <RadzenButton Disabled="@Disabled" Text="@ReturnLabel" ButtonStyle="ButtonStyle.Light" ButtonType="ButtonType.Button" Click="@Return" />
-            <RadzenButton Disabled="@Disabled" Visible="@(ReadOnly && !string.IsNullOrEmpty(ActionURI))" Text="@ActionLabel" ButtonStyle="ButtonStyle.Success" ButtonType="@(ButtonType.Button)" Click="@ActionClicked" />
-            <RadzenButton Disabled="@Disabled" Visible="@(!ReadOnly)" Text="@ActionLabel" ButtonStyle="ButtonStyle.Success" ButtonType="@(ButtonType.Submit)" />
+            <RadzenStack Orientation="Orientation.Horizontal">
+                <RadzenButton Disabled="@Disabled" Visible="@(ReadOnly && !string.IsNullOrEmpty(ActionURI))" Text="@ActionLabel" ButtonStyle="ButtonStyle.Success" Variant="Variant.Outlined" Shade="Shade.Dark" ButtonType="ButtonType.Button" Click="@ActionClicked" />
+                <RadzenButton Disabled="@Disabled" Visible="@(!ReadOnly)" Text="@ActionLabel" ButtonStyle="ButtonStyle.Success" Variant="Variant.Outlined" Shade="Shade.Dark" ButtonType="ButtonType.Submit" />
+                <RadzenButton ButtonType="ButtonType.Button" ButtonStyle="ButtonStyle.Success" Size="ButtonSize.Small" Text="Submit for Approval" Visible="(ReadOnly && Model.CanBeSubmittedForApprovals)" Click="SubmitForApproval" />
+            </RadzenStack>
         </RadzenStack>
     </RadzenStack>
 </RadzenTemplateForm>

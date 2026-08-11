@@ -15,6 +15,8 @@ public partial class SupplierReturnView
     readonly string ActionGetReturn = "Get Return to Supplier";
     bool IsLoadingData => AppBusyService.IsBusy(ActionGetReturn);
 
+    bool IsBusy = false;
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         await base.OnAfterRenderAsync(firstRender);
@@ -50,6 +52,32 @@ public partial class SupplierReturnView
             response.Adapt(FormData);
             await InvokeAsync(StateHasChanged);
         });
+    }
+
+    async Task SubmitForApproval()
+    {
+        IsBusy = true;
+        await InvokeAsync(StateHasChanged);
+
+        var action = await AppActionFactory.RunConfirmedAsync(async () =>
+        {
+            await returnHandler.SubmitSupplierReturnForApproval(FormData);
+        }, "Submit Supplier Return for Approval");
+
+        action.OnSuccess(() =>
+        {
+            NavManager.NavigateTo(NavManager.Uri, true);
+            return Task.CompletedTask;
+        });
+
+        action.OnFailure((ex) =>
+        {
+            ToastService.Error(ex.Message);
+            return Task.CompletedTask;
+        });
+
+        IsBusy = false;
+        await InvokeAsync(StateHasChanged);
     }
 
     async Task Return(SupplierReturnVM _)

@@ -19,18 +19,13 @@
 <AppContent>
     <AppFormSkeleton TItem="InventoryTransferRequestVM" Loading="@IsLoadingData" />
     @if (!IsLoadingData) {
-        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" class="rz-mb-4">
-            <RadzenStack Orientation="Orientation.Horizontal">
-                <RadzenButton Visible="@(FormData.CanBeSubmittedForApproval)" ButtonType="ButtonType.Button" ButtonStyle="ButtonStyle.Success" Size="ButtonSize.Small" Text="Submit for Approval" Click="SubmitForApproval" />
-            </RadzenStack>
-            <RadzenStack Orientation="Orientation.Horizontal"
-                         AlignItems="AlignItems.Center"
-                         JustifyContent="JustifyContent.End"
-                         Gap="32px"
-                         class="rz-mb-2">
-                <AppContentBadge Title="Doc" Content="@FormData.ReferenceNumber" />
-                <AppContentBadge Title="Doc Date" Content="@FormData.Date.ToString("MM-dd-yy")" ChildBadgeStyle="BadgeStyle.Secondary" ChildShade="Shade.Default" />
-            </RadzenStack>
+        <RadzenStack Orientation="Orientation.Horizontal"
+                        AlignItems="AlignItems.Center"
+                        JustifyContent="JustifyContent.End"
+                        Gap="32px"
+                        class="rz-mb-2">
+            <AppContentBadge Title="Doc" Content="@FormData.ReferenceNumber" />
+            <AppContentBadge Title="Doc Date" Content="@FormData.Date.ToString("MM-dd-yy")" ChildBadgeStyle="BadgeStyle.Secondary" ChildShade="Shade.Default" />
         </RadzenStack>
         <ITRForm Model="@FormData"
                  EditContext="@EditContext"
@@ -38,6 +33,7 @@
                  Disabled="IsBusy"
                  OnReturn="OnReturn"
                  OnSecondaryAction="@(FormData.IsEditable ?  Edit : default!)"
+                 OnApprovalAction="@(FormData.CanBeSubmittedForApproval ? SubmitForApproval : default!)"
                  SecondaryActionLabel="Edit" />
     }
 </AppContent>

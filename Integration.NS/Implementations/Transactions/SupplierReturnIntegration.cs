@@ -1,5 +1,6 @@
 ﻿using Application.DataTransferObjects.Others.NS;
 using Application.DataTransferObjects.Transactions.Receiving;
+using Application.DataTransferObjects.Transactions.StockTransferRequest;
 using Application.DataTransferObjects.Transactions.SupplierReturn;
 using Application.UseCases.Repositories.Integration.Others;
 using Application.UseCases.Repositories.Integration.Transaction.SupplierReturn;
@@ -45,6 +46,7 @@ public class SupplierReturnIntegration(
                     ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(SupplierReturnNSDTO.Date)),
                     ("s.name", nameof(SupplierReturnNSDTO.StatusName)),
                     ("s.id", nameof(SupplierReturnNSDTO.StatusId)),
+                    ("t.custbody_dbti_submitted_for_approval", nameof(SupplierReturnNSDTO.SubmittedForApprovals)),
                     ("t.custbody_dbti_purchase_category", nameof(SupplierReturnNSDTO.PurchaseCategoryId)),
                     ("BUILTIN.DF(t.custbody_dbti_purchase_category)", nameof(SupplierReturnNSDTO.PurchaseCategoryName)),
                     ("t.custbody_dbti_purchase_subcategory", nameof(SupplierReturnNSDTO.PurchaseSubCategoryId)),
@@ -53,7 +55,7 @@ public class SupplierReturnIntegration(
                     ("CONCAT(e.firstname,CONCAT(' ',e.lastname))", nameof(SupplierReturnNSDTO.PreparedBy))
                 )
                 .From("transaction t")
-                .Join("VendorReturnAuthorizationStatus s", on: "t.status = s.id")
+                .LeftJoin("CUSTOMLIST_DBTI_CR_APPROVAL_STATUSES s", on: "s.id = t.custbody_dbti_custom_approval_status")
                 .LeftJoin("transactionline ml", "ml.mainline = 'T' and ml.transaction = t.id")
                 .LeftJoin("employee e", on: "e.id = t.custbody_dbti_prepared_by")
                 .LeftJoin("transaction tf", on: "tf.id = ml.createdfrom")
@@ -142,7 +144,7 @@ public class SupplierReturnIntegration(
                     ("s.name", nameof(SupplierReturnDataGridDTO.StatusName))
                 )
                 .From("transaction t")
-                .Join("VendorReturnAuthorizationStatus s", on: "t.status = s.id")
+                .LeftJoin("CUSTOMLIST_DBTI_CR_APPROVAL_STATUSES s", on: "s.id = t.custbody_dbti_custom_approval_status")
                 .LeftJoin("transactionline ml", on: "ml.mainline = 'T' and t.id = ml.transaction")
                 .LeftJoin("employee e", on: "e.id = t.custbody_dbti_prepared_by")
                 .LeftJoin("transaction tfrom", on: "tfrom.id = ml.createdfrom")
@@ -178,6 +180,22 @@ public class SupplierReturnIntegration(
     {
         if (data.SourcePO is null) return await CreateNewSupplierReturn(data);
         return await CreateSupplierReturnFromPurchaseOrder(data);
+    }
+
+    public async Task<bool> SubmitSupplierReturnForApproval(SupplierReturnDTO dto)
+    {
+        string payloadString = "{\"custbody_dbti_submitted_for_approval\":true}";
+        var url = $"{netsuiteService.GetRestAPIURI}/record/v1/vendorReturnAuthorization/{dto.Id}";
+
+        try
+        {
+            _ = await netsuiteService.MakeRequest<object>(url, payloadString, HttpMethod.Patch);
+        }
+        catch (Exception ex) when (ex.Message.Equals("Empty response from NetSuite API", StringComparison.OrdinalIgnoreCase))
+        {
+            // Empty response is but http response is a success status code
+        }
+        return true;
     }
 
     public async Task<bool> CreateNewSupplierReturn(SupplierReturnDTO data)

@@ -32,6 +32,7 @@ public partial class SupplierReturnForm
     [Parameter][EditorRequired] public required EditContext EditContext { get; set; }
 
     [Parameter] public EventCallback<SupplierReturnVM> OnSecondaryAction { get; set; }
+    [Parameter] public EventCallback<SupplierReturnVM> OnApprovalAction { get; set; }
     [Parameter] public EventCallback<SupplierReturnVM> OnSubmit { get; set; }
     [Parameter] public EventCallback<SupplierReturnVM> OnReturn { get; set; }
     [Parameter] public string SecondaryActionString { get; set; } = "Action";
@@ -213,6 +214,11 @@ public partial class SupplierReturnForm
     {
         if (OnSecondaryAction.HasDelegate)
             await OnSecondaryAction.InvokeAsync(Model);
+    }
+
+    async Task ApprovalAction()
+    {
+        if (OnApprovalAction.HasDelegate) await OnApprovalAction.InvokeAsync(Model);
     }
 
     async Task SubmitClicked()

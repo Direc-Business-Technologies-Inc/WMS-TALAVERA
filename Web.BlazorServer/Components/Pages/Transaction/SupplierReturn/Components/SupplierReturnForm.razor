@@ -171,7 +171,8 @@
         <RadzenStack Gap="0.5em" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween">
             <RadzenButton Disabled="IsDisabled" ButtonStyle="ButtonStyle.Light" ButtonType="ButtonType.Button" Text="@ReturnString" Visible="@OnReturn.HasDelegate" Click="ReturnClicked" />
             <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5em">
-                <RadzenButton Disabled="IsDisabled" ButtonType="ButtonType.Button" Text="@SecondaryActionString" Visible="@OnSecondaryAction.HasDelegate" Click="SecondaryActionClicked" />
+                <RadzenButton Disabled="IsDisabled" ButtonType="ButtonType.Button" Variant="Variant.Outlined" Shade="Shade.Dark" Text="@SecondaryActionString" Visible="@OnSecondaryAction.HasDelegate" Click="SecondaryActionClicked" />
+                <RadzenButton Disabled="IsDisabled" Visible="@OnApprovalAction.HasDelegate" ButtonType="ButtonType.Button" ButtonStyle="ButtonStyle.Success" Text="Submit for Approval" Click="@ApprovalAction" />
                 <RadzenButton Disabled="IsDisabled" ButtonStyle="ButtonStyle.Success" ButtonType="ButtonType.Submit" Text="@SubmitString" Visible="@OnSubmit.HasDelegate" />
             </RadzenStack>
         </RadzenStack>

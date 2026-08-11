@@ -33,6 +33,12 @@
     <AppFormSkeleton Loading="@IsLoadingData" TItem="SupplierReturnVM" />
     @if (!IsLoadingData)
     {
-        <SupplierReturnForm Model="@FormData" EditContext="@EditContext" ReadOnly OnReturn="@Return" />
+        <SupplierReturnForm Disabled="IsBusy" 
+            Model="@FormData" 
+            EditContext="@EditContext" 
+            ReadOnly 
+            OnReturn="@Return" 
+            OnApprovalAction="@(FormData.IsSubmittedForApprovals ? default! : SubmitForApproval)"
+            />
     }
 </AppContent>

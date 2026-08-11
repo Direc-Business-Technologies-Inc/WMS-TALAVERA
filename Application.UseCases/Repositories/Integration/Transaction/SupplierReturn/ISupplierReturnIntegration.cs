@@ -17,6 +17,7 @@ public interface ISupplierReturnIntegration
     Task<SupplierReturnDTO?> GetReturnAsync(string referenceNumber);
     Task<IEnumerable<SupplierReturnLineDTO>> GetReturnLinesAsync(string referenceNumber);
     Task<bool> CreateSupplierReturn(SupplierReturnDTO data);
+    Task<bool> SubmitSupplierReturnForApproval(SupplierReturnDTO data);
     Task<(IEnumerable<PurchaseOrderDataGridDTO>, int)> GetPurchaseOrdersListAsync(DataGridIntent intent);
     Task<SupplierReturnDTO?> GetReturnFromPurchaseOrderAsync(string purchaseOrderId);
     Task<IEnumerable<SupplierReturnLineDTO>> GetReturnFromPurchaseOrderLinesAsync(string purchaseOrderId);

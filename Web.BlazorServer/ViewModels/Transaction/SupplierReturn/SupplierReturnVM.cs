@@ -18,6 +18,7 @@ public class SupplierReturnVM
     public string Memo { get; set; } = string.Empty;
     public string PreparedBy { get; set; } = string.Empty;
     public string CreatedFrom { get; set; } = string.Empty;
+    public bool IsSubmittedForApprovals { get; set; }
     public List<SupplierReturnLineVM> Lines { get; set; } = [];
 
     public int? SourcePO { get; set; }
