@@ -17,5 +17,10 @@ public class TransferOrderLineDTO : TransactionDTO
     public string LocationUsedBin { get; set; } = string.Empty;
 
     public int NetsuiteMaterialPrefferedBinId { get; set; }
+    public decimal PreferredBinQuantityAvailableGood { get; set; }
+    public decimal PreferredBinQuantityAvailableBad { get; set; }
+
     public int NetsuiteMaterialVendorAssignedBin { get; set; }
+    public decimal VendorAssignedBinQuantityAvailableGood { get; set; }
+    public decimal VendorAssignedBinQuantityAvailableBad { get; set; }
 }

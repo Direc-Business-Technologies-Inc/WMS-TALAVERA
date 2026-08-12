@@ -37,7 +37,9 @@
             Model="@FormData" 
             EditContext="@EditContext" 
             ReadOnly 
-            OnReturn="@Return" 
+            OnReturn="@Return"
+            OnSecondaryAction="@(FormData.IsSubmittedForApprovals ? default! : Edit)"
+            SecondaryActionString="Edit"
             OnApprovalAction="@(FormData.IsSubmittedForApprovals ? default! : SubmitForApproval)"
             />
     }

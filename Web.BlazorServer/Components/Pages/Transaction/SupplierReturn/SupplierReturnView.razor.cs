@@ -1,5 +1,6 @@
 using Mapster;
 using Microsoft.AspNetCore.Components;
+using Web.BlazorServer.Components.Pages.Transaction.InventoryTransferRequest;
 using Web.BlazorServer.Handlers.Repositories.Transaction.SupplierReturn;
 using Web.BlazorServer.Helpers;
 using Web.BlazorServer.Services.Implementation;
@@ -85,6 +86,11 @@ public partial class SupplierReturnView
         NavManager.NavigateTo(SupplierReturnRoutes.INDEX);
     }
 
+    async Task Edit(SupplierReturnVM sr)
+    {
+        await Task.Delay(50);
+        NavManager.NavigateTo(SupplierReturnRoutes.UPDATE + $"?ref={sr.ReferenceNumber}");
+    }
     protected override Task InitializeEditing()
     {
         throw new NotImplementedException();

@@ -101,6 +101,7 @@ public class SupplierReturnIntegration(
     {
         var query = builderFactory.Create()
             .Select(
+                ("item.id", nameof(SupplierReturnLineNSDTO.ItemId)),
                 ("item.itemid", nameof(SupplierReturnLineNSDTO.ItemCode)),
                 ("uom.unitName", nameof(SupplierReturnLineNSDTO.UoMName)),
                 ("uom.internalid", nameof(SupplierReturnLineNSDTO.UoMId)),
@@ -214,6 +215,24 @@ public class SupplierReturnIntegration(
 
         return true;
     }
+
+    public async Task<bool> UpdateSupplierReturn(SupplierReturnDTO data)
+    {
+        string payload = CreatePayload(data);
+        var uri = netsuiteService.GetRestAPIURI + $"/record/v1/vendorReturnAuthorization/{data.Id}?replace=item";
+
+        try
+        {
+            _ = await netsuiteService.MakeRequest<object>(uri, payload, HttpMethod.Patch);
+        }
+        catch (Exception ex) when (ex.Message.Equals("Empty response from NetSuite API", StringComparison.OrdinalIgnoreCase))
+        {
+            // Empty response is but http response is a success status code
+        }
+
+        return true;
+    }
+
     public async Task<bool> CreateSupplierReturnFromPurchaseOrder(SupplierReturnDTO data)
     {
         if (data.SourcePO is null) throw new InvalidOperationException("INTERNAL ERROR: No purchase order reference given");

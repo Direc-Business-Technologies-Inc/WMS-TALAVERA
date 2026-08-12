@@ -40,6 +40,7 @@ public partial class SupplierReturnForm
     [Parameter] public string ReturnString { get; set; } = "Return";
     [Parameter] public bool ReadOnly { get; set; } = false;
     [Parameter] public bool Disabled { get; set; } = false;
+    [Parameter] public bool EditMode { get; set; } = false;
 
     AppTable<SupplierReturnLineVM> LinesTable = default!;
     DataGridSettings TableSettings { get; set; } = new();

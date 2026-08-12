@@ -27,6 +27,18 @@ public class SupplierReturnHandler(
         CreateSupplierReturnCmd cmd = new(dto);
         return await sender.Send(cmd); 
     }
+
+    public async Task<bool> UpdateSupplierReturnAsync(SupplierReturnVM data)
+    {
+        var dto = data.Adapt<SupplierReturnDTO>();
+        if (int.TryParse(authService.GetClaimValue("com.direcbusiness.wms.nsEmployeeId"), out int employeeId))
+        {
+            dto.PreparedById = employeeId;
+        }
+        UpdateSupplierReturnCmd cmd = new(dto);
+        return await sender.Send(cmd);
+    }
+
     public async Task<bool> SubmitSupplierReturnForApproval(SupplierReturnVM data)
     {
         var dto = data.Adapt<SupplierReturnDTO>();
