@@ -277,8 +277,8 @@ internal class StockTransferRequestIntegration(
     {
         string payloadString = CreateSTRPayload(dto);
         var url = dto.TransferCategory.IsInterCompany ?
-            $"{netsuiteService.GetRestAPIURI}/record/v1/interCompanyTransferOrder/{dto.Id}" :
-            $"{netsuiteService.GetRestAPIURI}/record/v1/transferOrder/{dto.Id}";
+            $"{netsuiteService.GetRestAPIURI}/record/v1/interCompanyTransferOrder/{dto.Id}?replace=item" :
+            $"{netsuiteService.GetRestAPIURI}/record/v1/transferOrder/{dto.Id}?replace=item";
 
         try
         {
