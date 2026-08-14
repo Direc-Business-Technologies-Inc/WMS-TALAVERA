@@ -261,7 +261,7 @@
             <RadzenButton Disabled="@Disabled" Text="@ReturnLabel" ButtonStyle="ButtonStyle.Light" ButtonType="ButtonType.Button" Click="@Return" />
             <RadzenStack Orientation="Orientation.Horizontal">
                 <RadzenButton Disabled="@Disabled" Visible="@(ReadOnly && !string.IsNullOrEmpty(ActionURI))" Text="@ActionLabel" ButtonStyle="ButtonStyle.Success" Variant="Variant.Outlined" Shade="Shade.Dark" ButtonType="ButtonType.Button" Click="@ActionClicked" />
-                <RadzenButton Disabled="@Disabled" Visible="@(!ReadOnly)" Text="@ActionLabel" ButtonStyle="ButtonStyle.Success" Variant="Variant.Outlined" Shade="Shade.Dark" ButtonType="ButtonType.Submit" />
+                <RadzenButton Disabled="@Disabled" Visible="@(!ReadOnly)" Text="@ActionLabel" Variant="Variant.Outlined" Shade="Shade.Dark" ButtonType="ButtonType.Submit" />
                 <RadzenButton ButtonType="ButtonType.Button" ButtonStyle="ButtonStyle.Success" Size="ButtonSize.Small" Text="Submit for Approval" Visible="(ReadOnly && Model.CanBeSubmittedForApprovals)" Click="SubmitForApproval" />
             </RadzenStack>
         </RadzenStack>

@@ -8,6 +8,7 @@ using Shared.Libraries.Utilities;
 using Web.BlazorServer.Components.Custom;
 using Web.BlazorServer.Components.Pages.Transaction.Others.BarcodeScanning;
 using Web.BlazorServer.Components.Shared.Abstraction;
+using Web.BlazorServer.Handlers.Implementations.Others;
 using Web.BlazorServer.Handlers.Repositories.Others;
 using Web.BlazorServer.Handlers.Repositories.Transaction.SupplierReturn;
 using Web.BlazorServer.Helpers;
@@ -45,6 +46,10 @@ public partial class SupplierReturnForm
     AppTable<SupplierReturnLineVM> LinesTable = default!;
     DataGridSettings TableSettings { get; set; } = new();
 
+    private List<ItemsVM> Items = new();
+
+    private readonly SemaphoreSlim _concurrencySemaphore = new SemaphoreSlim(2, 2);
+
     QuickVirtualizedDropdown<LocationVM> LocationDropdown { get; set; } = default!;
     QuickVirtualizedDropdown<SubsidiaryVM> SubsidiaryDropdown { get; set; } = default!;
     QuickVirtualizedDropdown<PurchaseSubcategoryVM> PurchaseSubcategoryDropdown { get; set; } = default!;
@@ -80,6 +85,34 @@ public partial class SupplierReturnForm
     {
         if (Model.Subsidiary is null) return ([], 0);
         return await locationHandler.GetLocationsBySubsidiaryAsync(intent, Model.Subsidiary.Id);
+    }
+
+    async Task<(IEnumerable<ItemsVM>, int)> LocationItemsProvider()
+    {
+        var itemIds = Model.Lines.Select(x => x.ItemId).Distinct().ToList();
+
+        DataGridIntent intent = new DataGridIntent
+        {
+            Filters = [
+                DataGridFilterUtilities.GreaterThan(nameof(ItemsVM.QuantityAvailable), 0),
+                DataGridFilterUtilities.In(nameof(ItemsVM.Id), itemIds)
+                ],
+
+            Take = 1000
+        };
+
+        await _concurrencySemaphore.WaitAsync();
+
+        int location = Model.Location.Id;
+
+        var result = location == 0 ?
+        await itemsHandler.GetItemsDataGridAsync(intent) :
+        await itemsHandler.GetItemsAtLocationDataGridAsync(intent, location);
+
+        Items = result.Data.ToList();
+
+        _concurrencySemaphore.Release();
+        return result;
     }
 
     async Task<(IEnumerable<SubsidiaryVM>, int)> SubsidiaryProvider(DataGridIntent intent)
@@ -147,12 +180,30 @@ public partial class SupplierReturnForm
 
         if (Model.Lines.Count > 0)
         {
-            var response = await AlertService.PromptAsync("Changing locations will remove all added items");
+            var response = await AlertService.PromptAsync("Changing the locations may remove items that are no longer available");
             if (!response) return;
         }
 
         Model.Location = vm;
-        Model.Lines.Clear();
+        //Model.Lines.Clear();
+
+        if (Model.Location is null) return;
+
+        await LocationItemsProvider();
+
+        var itemsById = Items.ToDictionary(x => x.Id);
+
+        Model.Lines.RemoveAll(line => !itemsById.ContainsKey(line.ItemId));
+
+        foreach (var line in Model.Lines)
+        {
+            var item = itemsById[line.ItemId];
+
+            line.Location = Model.Location;
+            line.QuantityOnHand = item.QuantityOnHand;
+            line.QuantityAvailable = item.QuantityAvailable;
+        }
+
         await InvokeAsync(StateHasChanged);
     }
 

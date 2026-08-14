@@ -222,6 +222,7 @@ public class InventoryTransferRequestIntegration(
             trandate = data.Date,
             Class = 1, // external
             department = 15, //operations
+            custbody_dbti_created_in_wms = true,
             inventory = new
             {
                 items = data.Lines.Where(x => x.QuantityAlloted > 0).Select(x => new

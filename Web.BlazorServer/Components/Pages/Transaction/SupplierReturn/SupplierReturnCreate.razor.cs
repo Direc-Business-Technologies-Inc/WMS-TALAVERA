@@ -24,7 +24,8 @@ public partial class SupplierReturnCreate
     protected override void OnParametersSet()
     {
         base.OnParametersSet();
-        FormData.Memo = "Created via WMS";
+        //FormData.Memo = "Created via WMS";
+        FormData.Memo = "";
         FormData.Date = DateTime.Now;
         FormData.Status = new() { Name = "Pending Approval" };
         var employeeName = authService.GetClaimValue("com.direcbusiness.wms.nsEmployeeName");

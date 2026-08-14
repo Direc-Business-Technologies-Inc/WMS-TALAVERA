@@ -1,9 +1,10 @@
 using Application.DataTransferObjects.Transactions.StockTransferRequest;
+using Domain.Entities.ValueObjects.Others;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
 using Radzen;
-using Radzen.Blazor.Rendering;
 using Shared.Entities;
+using Shared.Libraries.Utilities;
 using Web.BlazorServer.Components.Custom;
 using Web.BlazorServer.Components.Pages.Transaction.Others.BarcodeScanning;
 using Web.BlazorServer.Components.Shared.Abstraction;
@@ -51,6 +52,8 @@ public partial class STRForm
     private QuickVirtualizedDropdown<VendorVM>? VendorDropdown { get; set; }
 
     private List<TransferCategory> ReturnCategories = [.. TransferCategory.ReturnCategories];
+
+    private List<ItemsVM> Items = new();
 
     private readonly SemaphoreSlim _concurrencySemaphore = new SemaphoreSlim(2, 2);
 
@@ -142,8 +145,36 @@ public partial class STRForm
         if (Model.Subsidiary is null) return ([], 0);
 
         await _concurrencySemaphore.WaitAsync();
-
+        
         var result = await LocationHandler.GetLocationsBySubsidiaryAsync(intent, Model.Subsidiary.Id);
+
+        _concurrencySemaphore.Release();
+        return result;
+    }
+
+    async Task<(IEnumerable<ItemsVM>, int)> SourceLocationItems()
+    {
+        var itemIds = Model.Lines.Select(x => x.ItemId).Distinct().ToList();
+
+        DataGridIntent intent = new DataGridIntent
+        {
+            Filters = [
+                DataGridFilterUtilities.GreaterThan(nameof(ItemsVM.QuantityAvailable), 0),
+                DataGridFilterUtilities.In(nameof(ItemsVM.Id), itemIds)
+                ],
+
+            Take = 1000
+        };
+
+        await _concurrencySemaphore.WaitAsync();
+
+        int location = Model.SourceLocation.Id;
+
+        var result = location == 0 ?
+        await ItemsHandler.GetItemsDataGridAsync(intent) :
+        await ItemsHandler.GetItemsAtLocationDataGridAsync(intent, location);
+
+        Items = result.Data.ToList();
 
         _concurrencySemaphore.Release();
         return result;
@@ -247,7 +278,7 @@ public partial class STRForm
 
         if (Model.Lines.Any())
         {
-            var confirm = await DialogService.Confirm(message: "Changing source warehouse will clear added items") ?? false;
+            var confirm = await DialogService.Confirm(message: "Changing the source warehouse may remove items that are no longer available") ?? false;
             if (!confirm)
             {
                 await Task.Yield();
@@ -264,7 +295,24 @@ public partial class STRForm
             return;
         }
 
-        Model.Lines.Clear();
+        if (Model.SourceLocation is null) return;
+
+        await SourceLocationItems();
+
+        var itemsById = Items.ToDictionary(x => x.Id);
+
+        Model.Lines.RemoveAll(line => !itemsById.ContainsKey(line.ItemId));
+
+        foreach (var line in Model.Lines)
+        {
+            var item = itemsById[line.ItemId];
+
+            line.Warehouse = Model.SourceLocation?.Name ?? string.Empty;
+            line.QuantityOnHand = item.QuantityOnHand;
+            line.QuantityAvailable = item.QuantityAvailable;
+        }
+
+        //Model.Lines.Clear();
 
         await InvokeAsync(StateHasChanged);
     }
@@ -316,7 +364,7 @@ public partial class STRForm
             //line = selectedItems.FirstOrDefault(x => x.ItemId == barcode.Item?.Id);
             line = Model.Lines[selectedItemIndex];
 
-            if(line.ItemId != barcode.Item?.Id)
+            if (line.ItemId != barcode.Item?.Id)
             {
                 reason = $"The item {barcode.Item?.ItemNumber} does not match the selected item {line.ItemCode}";
                 return false;

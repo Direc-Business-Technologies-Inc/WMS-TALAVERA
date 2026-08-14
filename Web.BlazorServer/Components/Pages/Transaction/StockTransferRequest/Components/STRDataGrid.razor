@@ -37,11 +37,14 @@
                     <RadzenStack Gap="0.5em">
                         <RadzenText TextStyle="TextStyle.Body2" class="rz-grid-filter-label">Filter</RadzenText>
                         <RadzenFormField>
-                            <QuickVirtualizedDropdown @bind-Value="StatusFilter" TItem="TransferOrderStatusVM" DataGetter="TranferOrderStatusProvider" TextProperty="@nameof(TransferOrderStatusVM.Name)" />
+                            <QuickVirtualizedDropdown TItem="TransferOrderStatusVM" 
+                                @bind-Value="StatusFilter" 
+                                DataGetter="TranferOrderStatusProvider" 
+                                TextProperty="@nameof(TransferOrderStatusVM.Name)" />
                         </RadzenFormField>
-                        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End">
+                        @* <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End">
                             <RadzenButton Click="@(() => ApplyStatusFilter(context))">Apply</RadzenButton>
-                        </RadzenStack>
+                        </RadzenStack> *@
                     </RadzenStack>
                 </div>
             </FilterTemplate>

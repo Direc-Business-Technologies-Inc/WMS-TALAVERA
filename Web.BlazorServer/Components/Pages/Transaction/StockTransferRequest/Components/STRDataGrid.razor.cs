@@ -113,6 +113,15 @@ partial class STRDataGrid
         if (OnAddClicked.HasDelegate) await OnAddClicked.InvokeAsync();
     }
 
+    private async Task OnStatusFilterChanged(
+    TransferOrderStatusVM? value,
+    RadzenDataGridColumn<StockTransferRequestDataGridVM> column)
+    {
+        StatusFilter = value;
+
+        await ApplyStatusFilter(column);
+    }
+
     async Task ApplyStatusFilter(RadzenDataGridColumn<StockTransferRequestDataGridVM> column)
     {
 

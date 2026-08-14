@@ -26,7 +26,8 @@ public partial class InventoryTransferRequestCreate : BaseForm<InventoryTransfer
     protected override void OnParametersSet()
     {
         FormData.Date = DateTime.Now;
-        FormData.Memo = "Created via WMS";
+        //FormData.Memo = "Created via WMS";
+        FormData.Memo = "";
         var nameClaim = authService.GetClaimValue("com.direcbusiness.wms.nsEmployeeName");
         FormData.PreparedBy = string.IsNullOrEmpty(nameClaim) ? "No Netsuite Account Registered" : nameClaim;
     }

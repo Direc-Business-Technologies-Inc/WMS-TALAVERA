@@ -67,7 +67,7 @@ public partial class InventoryAdjustmentCreatePage
             await InvokeAsync(StateHasChanged);
 
             FormData.Date = DateTime.Now;
-            FormData.Memo = "Created via WMS";
+            FormData.Memo = "";
             var nsEmployee = authService.GetClaimValue("com.direcbusiness.wms.nsEmployeeName");
             FormData.PreparedBy = string.IsNullOrEmpty(nsEmployee) ? "No Netsuite Account Registered" : nsEmployee;
             FormData.Category = new()

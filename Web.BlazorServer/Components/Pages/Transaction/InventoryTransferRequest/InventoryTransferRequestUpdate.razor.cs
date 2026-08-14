@@ -84,6 +84,12 @@ public partial class InventoryTransferRequestUpdate
             return;
         }
 
+        if (data.Lines.Any(x => x.QuantityAlloted > x.QuantityAvailable))
+        {
+            ToastService.Error("Some alloted quantities exceed the available quantity");
+            return;
+        }
+
         await InvokeAsync(StateHasChanged);
 
         var action = await AppActionFactory.RunConfirmedAsync(async () =>

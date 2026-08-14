@@ -131,7 +131,8 @@
             }
         }
         FormData.Date = DateTime.Now;
-        FormData.Remarks = "Created via WMS";
+        // FormData.Remarks = "Created via WMS";
+        FormData.Remarks = "";
         var nsemployee = authService.GetClaimValue("com.direcbusiness.wms.nsEmployeeName");
         FormData.PreparedBy = string.IsNullOrEmpty(nsemployee) ? "No Netsuite Account Registered" : nsemployee;
 

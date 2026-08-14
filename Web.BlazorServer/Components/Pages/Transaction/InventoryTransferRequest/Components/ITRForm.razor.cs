@@ -43,6 +43,10 @@ public partial class ITRForm
     QuickVirtualizedDropdown<LocationVM> DestinationLocationDropdown { get; set; } = default!;
     QuickVirtualizedDropdown<SubsidiaryVM> SubsidiaryDropdown { get; set; } = default!;
 
+    private List<ItemsVM> Items = new();
+
+    private readonly SemaphoreSlim _concurrencySemaphore = new SemaphoreSlim(2, 2);
+
     BarcodeStore BarcodeStore = new();
 
     HashSet<int> LoadedInventoryDetails = new();
@@ -68,6 +72,35 @@ public partial class ITRForm
 
         return await locationHandler.GetLocationsBySubsidiaryAsync(intent, Model.Subsidiary.Id);
     }
+
+    async Task<(IEnumerable<ItemsVM>, int)> LocationItemsProvider()
+    {
+        var itemIds = Model.Lines.Select(x => x.ItemID).Distinct().ToList();
+
+        DataGridIntent intent = new DataGridIntent
+        {
+            Filters = [
+                DataGridFilterUtilities.GreaterThan(nameof(ItemsVM.QuantityAvailable), 0),
+                DataGridFilterUtilities.In(nameof(ItemsVM.Id), itemIds)
+                ],
+
+            Take = 1000
+        };
+
+        await _concurrencySemaphore.WaitAsync();
+
+        int location = Model.SourceLocation.Id;
+
+        var result = location == 0 ?
+        await itemsHandler.GetItemsDataGridAsync(intent) :
+        await itemsHandler.GetItemsAtLocationDataGridAsync(intent, location);
+
+        Items = result.Data.ToList();
+
+        _concurrencySemaphore.Release();
+        return result;
+    }
+
     async Task<(IEnumerable<LocationVM>, int)> DestinationLocationProvider(DataGridIntent intent)
     {
         if (Model.Subsidiary is null) return ([], 0);
@@ -190,7 +223,7 @@ public partial class ITRForm
 
         if (Model.Lines.Count > 0)
         {
-            var response = await AlertService.PromptAsync("Changing source location will clear added items", "Change Source Location?");
+            var response = await AlertService.PromptAsync("Changing the locations may remove items that are no longer available", "Change Source Location?");
             if (!response)
             {
                 await Task.Yield();
@@ -207,7 +240,25 @@ public partial class ITRForm
             return;
         }
 
-        Model.Lines.Clear();
+        if (Model.SourceLocation is null) return;
+
+        await LocationItemsProvider();
+
+        var itemsById = Items.ToDictionary(x => x.Id);
+
+        Model.Lines.RemoveAll(line => !itemsById.ContainsKey(line.ItemID));
+
+        foreach (var line in Model.Lines)
+        {
+            var item = itemsById[line.ItemID];
+
+            line.Location = Model.SourceLocation;
+            line.QuantityOnHand = item.QuantityOnHand;
+            line.QuantityAvailable = item.QuantityAvailable;
+        }
+
+
+        //Model.Lines.Clear();
         await InvokeAsync(StateHasChanged);
     }
 

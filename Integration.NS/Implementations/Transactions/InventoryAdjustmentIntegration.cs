@@ -246,6 +246,7 @@ public class InventoryAdjustmentIntegration(
             // concerns netsuite operations and setting the department/class by default is exactly that.
             // TODO would be great if there was some centralized place to store these values and also maybe strings that prompt or alert users.
             classId = 1, // external
+            custbody_dbti_created_in_wms = true,
             lines = dto.Lines.Select(line => new
             {
                 item = line.ItemId,

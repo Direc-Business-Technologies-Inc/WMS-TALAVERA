@@ -239,6 +239,7 @@ public class SupplierReturnIntegration(
         var payload = new
         {
             custbody_dbti_return_category = data.ReturnCategory?.Id ?? null,
+            custbody_dbti_created_in_wms = true,
             memo = data.Memo,
         };
         var payloadString = JsonSerializer.Serialize(payload, jsonOpts);
@@ -407,6 +408,7 @@ public class SupplierReturnIntegration(
             custbody_dbti_purchase_subcategory = data.PurchaseSubcategory?.Id ?? null,
             memo = data.Memo,       
             orderStatus = "A",
+            custbody_dbti_created_in_wms = true,
             item = new
             {
                 items = data.Lines.Select(x => new

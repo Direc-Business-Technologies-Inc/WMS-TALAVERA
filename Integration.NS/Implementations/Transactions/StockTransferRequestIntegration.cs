@@ -355,6 +355,7 @@ internal class StockTransferRequestIntegration(
             Department = new { id = "4" },
             Class = new { id = "1" },
             Memo = dto.Remarks,
+            custbody_dbti_created_in_wms = true,
             item = new
             {
                 items = dto.Lines.Select(line =>
