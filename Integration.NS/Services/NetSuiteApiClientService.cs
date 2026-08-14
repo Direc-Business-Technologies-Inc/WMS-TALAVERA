@@ -569,7 +569,8 @@ namespace Integration.NS.Services
         public async Task<bool> SaveReturnsItemReceipt(List<PostReturnsDTO> Data, int userId)
         {
             var orderId = Data.Select(x => x.NetsuiteOrderInternalId).FirstOrDefault();
-            string url = string.Format(ItemReceiptUrl + "?replace=item.inventoryDetail.inventoryAssignment", "transferOrder", orderId);
+            //string url = string.Format(ItemReceiptUrl + "?replace=item.inventoryDetail.inventoryAssignment", "transferOrder", orderId);
+            string url = string.Format(ItemReceiptUrl, "transferOrder", orderId);
 
             try
             {

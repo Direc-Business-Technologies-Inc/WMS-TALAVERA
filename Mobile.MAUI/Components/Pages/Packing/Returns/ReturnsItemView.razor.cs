@@ -81,7 +81,17 @@ public partial class ReturnsItemView : IAsyncDisposable
                     MaterialWeight = line.MaterialWeight,
 
                     NetsuiteMaterialPrefferedBinId = line.NetsuiteMaterialPrefferedBinId,
+                    PreferredBinQuantityAvailableGood = line.PreferredBinQuantityAvailableGood,
+                    PreferredBinQuantityAvailableBad = line.PreferredBinQuantityAvailableBad,
+
                     NetsuiteMaterialVendorAssignedBin = line.NetsuiteMaterialVendorAssignedBin,
+                    VendorAssignedBinQuantityAvailableGood = line.VendorAssignedBinQuantityAvailableGood,
+                    VendorAssignedBinQuantityAvailableBad = line.VendorAssignedBinQuantityAvailableBad,
+
+                    LocationItemQuantityAvailable = line.LocationItemQuantityAvailable,
+
+                    LocationItemQuantityAvailableGood = line.LocationItemQuantityAvailableGood,
+                    LocationItemQuantityAvailableBad = line.LocationItemQuantityAvailableBad,
 
                     LineQuantity = line.LineQuantity,
                     LineQuantityPacked = line.LineQuantityPacked,

@@ -13,6 +13,7 @@ public class TransactionDTO : InventoryItemDTO
 
     public int NetsuiteLocationInternalId { get; set; }
     public string LocationName { get; set; } = string.Empty;
+    public string LocationUsedBin { get; set; } = string.Empty;
 
     public int LineSequenceNumber { get; set; }
     public string TransactionLineType { get; set; } = string.Empty;
@@ -24,6 +25,9 @@ public class TransactionDTO : InventoryItemDTO
     public decimal LineQuantityPacked { get; set; }
     public decimal LineQuantityBackOrdered { get; set; }
     public decimal LineQuantityShipped { get; set; }
+
+    public decimal LocationItemQuantityAvailableGood { get; set; }
+    public decimal LocationItemQuantityAvailableBad { get; set; }
 
     public int NetsuiteUoMInternalId { get; set; }
     public string UoMName { get; set; } = string.Empty;

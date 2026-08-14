@@ -14,7 +14,7 @@ SELECT
     t.tosubsidiary AS NetsuiteToSubsidiaryInternalId,
 
     loc.name AS LocationName,
-    loc.usebins AS IsLocationUsedBin,
+    loc.usebins AS LocationUsedBin,
 
     tl.id AS LineSequenceNumber,
     tl.transactionlinetype AS TransactionLineType,
@@ -22,10 +22,20 @@ SELECT
     tl.item AS NetsuiteMaterialInternalId,
     i.itemid AS MaterialCode,
     i.displayname AS MaterialName,
+
     b.id AS NetsuiteMaterialPrefferedBinId,
-	ivb.custrecord_dbti_vba_assigned_bin AS NetsuiteMaterialVendorAssignedBin,
+	ibi1.quantityavailable AS PreferredBinQuantityAvailableGood,
+	ibi2.quantityavailable AS PreferredBinQuantityAvailableBad,
+
+	ba.custrecord_dbti_vba_assigned_bin AS NetsuiteMaterialVendorAssignedBin,
+	ibv1.quantityavailable AS VendorAssignedBinQuantityAvailableGood,
+	ibv2.quantityavailable AS VendorAssignedBinQuantityAvailableBad,
+
+    ibli1.quantityavailable AS LocationItemQuantityAvailableGood,
+    ibli2.quantityavailable AS LocationItemQuantityAvailableBad,
+
     i.weight AS MaterialWeight,
-    ib1.quantityavailable as LocationItemQuantityAvailable,
+    ail.quantityavailable as LocationItemQuantityAvailable,
 
     ABS(tl.quantity) AS LineQuantity,
     tl.quantitypacked AS LineQuantityPacked,
@@ -66,9 +76,9 @@ LEFT JOIN (
     FROM itemvendor iv
     JOIN customrecord_dbti_vendor_bin_assignment ba ON iv.vendor = ba.custrecord_dbti_vba_vendor
     WHERE iv.preferredvendor = 'T'
-) ivb ON ivb.item = i.id 
-	AND ivb.subsidiary = t.subsidiary 
-	AND ivb.custrecord_dbti_vba_location = tl.location
+) ba ON ba.item = i.id 
+	AND ba.subsidiary = t.subsidiary 
+	AND ba.custrecord_dbti_vba_location = tl.location
 
 LEFT JOIN (
 	SELECT
@@ -82,7 +92,65 @@ LEFT JOIN (
 	ORDER BY
 		Item,
 		Location
-) ib1 ON ib1.item = i.id  AND ib1.location = tl.location 
+) ail ON ail.item = i.id  AND ail.location = tl.location 
+
+LEFT JOIN inventorybalance ibv1
+    ON ibv1.item = i.id
+    AND ibv1.location = tl.location
+    AND ibv1.binnumber =
+        ba.custrecord_dbti_vba_assigned_bin
+    AND ibv1.inventorystatus = '1'
+
+LEFT JOIN inventorybalance ibv2
+    ON ibv2.item = i.id
+    AND ibv2.location = tl.location
+    AND ibv2.binnumber =
+        ba.custrecord_dbti_vba_assigned_bin
+    AND ibv2.inventorystatus = '3'
+
+LEFT JOIN inventorybalance ibi1
+    ON ibi1.item = i.id
+    AND ibi1.location = tl.location
+    AND ibi1.binnumber = b.id
+    AND ibi1.inventorystatus = '1'
+
+LEFT JOIN inventorybalance ibi2
+    ON ibi2.item = i.id
+    AND ibi2.location = tl.location
+    AND ibi2.binnumber = b.id
+    AND ibi2.inventorystatus = '3'
+
+LEFT JOIN (
+    SELECT
+        ib.item,
+        ib.location,
+        ib.inventorystatus,
+        SUM(ib.quantityavailable) AS quantityavailable
+    FROM
+        inventorybalance ib
+    GROUP BY
+        ib.item,
+        ib.location,
+        ib.inventorystatus
+) ibli1 ON ibli1.item = i.id 
+    AND ibli1.location = tl.location
+    AND ibli1.inventorystatus = '1'
+
+LEFT JOIN (
+    SELECT
+        ib.item,
+        ib.location,
+        ib.inventorystatus,
+        SUM(ib.quantityavailable) AS quantityavailable
+    FROM
+        inventorybalance ib
+    GROUP BY
+        ib.item,
+        ib.location,
+        ib.inventorystatus
+) ibli2 ON ibli2.item = i.id 
+    AND ibli2.location = tl.location
+    AND ibli2.inventorystatus = '3'
 
 WHERE
     t.recordtype IN ('intercompanytransferorder')

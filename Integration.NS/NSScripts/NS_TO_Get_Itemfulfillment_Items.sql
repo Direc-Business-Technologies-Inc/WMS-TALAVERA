@@ -14,7 +14,7 @@ SELECT
     t.tosubsidiary AS NetsuiteToSubsidiaryInternalId,
 
     loc.name AS LocationName,
-    loc.usebins AS IsLocationUsedBin,
+    loc.usebins AS LocationUsedBin,
 
     oto.id AS LineSequenceNumber,
     tl.transactionlinetype AS TransactionLineType,

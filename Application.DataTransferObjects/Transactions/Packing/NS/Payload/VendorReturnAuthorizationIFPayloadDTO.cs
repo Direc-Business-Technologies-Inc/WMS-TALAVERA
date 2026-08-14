@@ -41,7 +41,7 @@ public class VendorReturnAuthorizationIFPayloadDTO
                                 {
                                     InventoryStatus = new ReferenceValue
                                     {
-                                        Id = /*line.IsBad ? "3" :*/ "1"
+                                        Id = line.IsBad ? "3" : "1"
                                     },
                                     Quantity = line.ScannedQuantity,
                                     BinNumber = !line.IsLocationUsedBin ? null :

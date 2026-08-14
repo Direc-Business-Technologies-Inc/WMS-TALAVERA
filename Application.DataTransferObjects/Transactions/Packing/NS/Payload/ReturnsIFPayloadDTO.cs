@@ -41,7 +41,7 @@ public class ReturnsIFPayloadDTO
                                 {
                                     InventoryStatus = new ReferenceValue
                                     {
-                                        Id = /*line.IsBad ? "3" :*/ "1"
+                                        Id = line.TransferCategory == 3 ? "1" : "3" //if transfer category is good then status is good
                                     },
                                     Quantity = line.ScannedQuantity,
                                     BinNumber = !line.IsLocationUsedBin ? null :

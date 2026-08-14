@@ -82,7 +82,14 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
                     MaterialWeight = line.MaterialWeight,
 
                     NetsuiteMaterialPrefferedBinId = line.NetsuiteMaterialPrefferedBinId,
+                    PreferredBinQuantityAvailableGood = line.PreferredBinQuantityAvailableGood,
+
                     NetsuiteMaterialVendorAssignedBin = line.NetsuiteMaterialVendorAssignedBin,
+                    VendorAssignedBinQuantityAvailableGood = line.VendorAssignedBinQuantityAvailableGood,
+
+                    LocationItemQuantityAvailable = line.LocationItemQuantityAvailable,
+
+                    LocationItemQuantityAvailableGood = line.LocationItemQuantityAvailableGood,
 
                     LineQuantity = line.LineQuantity,
                     LineQuantityPacked = line.LineQuantityPacked,
@@ -123,7 +130,13 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
                     MaterialWeight = line.MaterialWeight,
 
                     NetsuiteMaterialPrefferedBinId = line.NetsuiteMaterialPrefferedBinId,
+                    PreferredBinQuantityAvailableBad = line.PreferredBinQuantityAvailableBad,
+
                     NetsuiteMaterialVendorAssignedBin = line.NetsuiteMaterialVendorAssignedBin,
+                    VendorAssignedBinQuantityAvailableBad = line.VendorAssignedBinQuantityAvailableBad,
+
+                    LocationItemQuantityAvailable = line.LocationItemQuantityAvailable,
+                    LocationItemQuantityAvailableBad = line.LocationItemQuantityAvailableBad,
 
                     LineQuantity = line.LineQuantity,
                     LineQuantityPacked = line.LineQuantityPacked,
@@ -405,7 +418,7 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
                 var badQty = bad?.ScannedQuantity ?? 0;
 
                 return g.ScannedQuantity > 0 ||
-                        (g.ScannedQuantity + badQty) < g.NSLineQuantityPacked;
+                        (g.ScannedQuantity + badQty) <= g.NSLineQuantityPacked;
             })
             .Concat(BadVRAItems.Where(x => x.NSLineQuantityPacked != 0))
             .Select(x => new VendorReturnAuthorizationLineVM

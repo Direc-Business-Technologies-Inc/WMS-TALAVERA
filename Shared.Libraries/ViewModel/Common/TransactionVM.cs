@@ -25,6 +25,11 @@ public class TransactionVM : InventoryItemVM
     public decimal LineQuantityShipped { get; set; }
     public decimal LineQuantityBackOrdered { get; set; }
 
+    public decimal LocationItemQuantityAvailable { get; set; }
+
+    public decimal LocationItemQuantityAvailableGood { get; set; }
+    public decimal LocationItemQuantityAvailableBad { get; set; }
+
     public int NetsuiteUoMInternalId { get; set; }
     public string UoMName { get; set; } = string.Empty;
     public decimal UoMRate { get; set; }

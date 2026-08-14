@@ -14,8 +14,11 @@ public class ReturnsLineDTO : TransactionDTO
     public int NetsuitePrefferedBadBinId { get; set; }
     public int NetsuiteToSubsidiaryInternalId { get; set; }
 
-    public string LocationUsedBin { get; set; } = string.Empty;
-
     public int NetsuiteMaterialPrefferedBinId { get; set; }
+    public decimal PreferredBinQuantityAvailableGood { get; set; }
+    public decimal PreferredBinQuantityAvailableBad { get; set; }
+
     public int NetsuiteMaterialVendorAssignedBin { get; set; }
+    public decimal VendorAssignedBinQuantityAvailableGood { get; set; }
+    public decimal VendorAssignedBinQuantityAvailableBad { get; set; }
 }

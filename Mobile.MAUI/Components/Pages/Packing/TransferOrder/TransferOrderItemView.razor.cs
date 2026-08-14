@@ -89,7 +89,14 @@ public partial class TransferOrderItemView : IAsyncDisposable
                     MaterialWeight = line.MaterialWeight,
 
                     NetsuiteMaterialPrefferedBinId = line.NetsuiteMaterialPrefferedBinId,
+                    PreferredBinQuantityAvailableGood = line.PreferredBinQuantityAvailableGood,
+
                     NetsuiteMaterialVendorAssignedBin = line.NetsuiteMaterialVendorAssignedBin,
+                    VendorAssignedBinQuantityAvailableGood = line.VendorAssignedBinQuantityAvailableGood,
+
+                    LocationItemQuantityAvailable = line.LocationItemQuantityAvailable,
+
+                    LocationItemQuantityAvailableGood = line.LocationItemQuantityAvailableGood,
 
                     LineQuantity = line.LineQuantity,
                     LineQuantityPacked = line.LineQuantityPacked,
@@ -132,7 +139,14 @@ public partial class TransferOrderItemView : IAsyncDisposable
                     MaterialWeight = line.MaterialWeight,
 
                     NetsuiteMaterialPrefferedBinId = line.NetsuiteMaterialPrefferedBinId,
+                    PreferredBinQuantityAvailableBad = line.PreferredBinQuantityAvailableBad,
+
                     NetsuiteMaterialVendorAssignedBin = line.NetsuiteMaterialVendorAssignedBin,
+                    VendorAssignedBinQuantityAvailableBad = line.VendorAssignedBinQuantityAvailableBad,
+
+                    LocationItemQuantityAvailable = line.LocationItemQuantityAvailable,
+                    LocationItemQuantityAvailableBad = line.LocationItemQuantityAvailableBad,
+
 
                     LineQuantity = line.LineQuantity,
                     LineQuantityPacked = line.LineQuantityPacked,
@@ -414,7 +428,7 @@ public partial class TransferOrderItemView : IAsyncDisposable
                 var badQty = bad?.ScannedQuantity ?? 0;
 
                 return g.ScannedQuantity > 0 ||
-                        (g.ScannedQuantity + badQty) < g.NSLineQuantityPacked;
+                        (g.ScannedQuantity + badQty) <= g.NSLineQuantityPacked;
             })
             .Concat(BadTOItems.Where(x => x.NSLineQuantityPacked != 0))
             .Select(x => new TransferOrderLineVM
