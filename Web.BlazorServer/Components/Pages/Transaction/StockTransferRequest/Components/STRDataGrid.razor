@@ -22,6 +22,10 @@
                               Property="@nameof(StockTransferRequestDataGridVM.ReferenceNumber)"
                               Title="Reference Number" />
         <RadzenDataGridColumn TItem="StockTransferRequestDataGridVM"
+                              Visible="@ShowPurchaseCategory"
+                              Property="@nameof(StockTransferRequestDataGridVM.PurchaseCategory)"
+                              Title="Purchase Category" />
+        <RadzenDataGridColumn TItem="StockTransferRequestDataGridVM"
                               Property="@nameof(StockTransferRequestDataGridVM.Date)"
                               Type="@typeof(DateTime)"
                               FormatString="{0:MMMM dd, yyyy}"

@@ -4,6 +4,7 @@ public class StockTransferRequestDataGridVM
 {
     public int Id { get; set; }
     public string ReferenceNumber { get; set; } = string.Empty;
+    public string PurchaseCategory { get; set; } = string.Empty;
     public string SourceLocation { get; set; } = string.Empty;
     public string DestinationLocation { get; set; } = string.Empty;
     public string Subsidiary { get; set; } = string.Empty;

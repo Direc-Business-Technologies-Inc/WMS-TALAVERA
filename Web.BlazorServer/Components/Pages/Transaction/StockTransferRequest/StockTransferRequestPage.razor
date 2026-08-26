@@ -27,7 +27,7 @@
                 <STRDataGrid TableId="str_icto_datagrid" DataGetter="@(async (intent) => await strHandler.GetInterCompanyTransferOrdersList(intent))" OnAddClicked="CreateICTO" />
             </RadzenTabsItem>
             <RadzenTabsItem Text="Returns">
-                <STRDataGrid TableId="str_returns_datagrid" DataGetter="@(async (intent) => await strHandler.GetReturnsList(intent))" OnAddClicked="CreateReturns" />
+                <STRDataGrid TableId="str_returns_datagrid" DataGetter="@(async (intent) => await strHandler.GetReturnsList(intent))" OnAddClicked="CreateReturns" ShowPurchaseCategory="false"/>
             </RadzenTabsItem>
         </Tabs>
     </RadzenTabs>
