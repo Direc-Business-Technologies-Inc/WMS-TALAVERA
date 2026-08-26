@@ -1,3 +1,4 @@
+using Android.Hardware.Lights;
 using Microsoft.JSInterop;
 using Mobile.MAUI.Components.Reusables;
 using Mobile.MAUI.Services;
@@ -6,6 +7,7 @@ using Shared.Libraries.ViewModel;
 using Shared.Libraries.ViewModel.Authentication;
 using Shared.Libraries.ViewModel.PurchaseOrder;
 using System.Text.Json;
+using static Mobile.MAUI.Components.Reusables.WeightOptionDialog;
 using static Mobile.MAUI.Enums.CustomEnum;
 using static Mobile.MAUI.Helpers.FormatHelper;
 using static Mobile.MAUI.MauiProgram;
@@ -27,6 +29,7 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
 
     List<PurchaseOrderLineVM> GoodPOItems = [];
     List<PurchaseOrderLineVM> BadPOItems = [];
+    List<PurchaseOrderLineVM> MissingItems = [];
     List<ItemBarcodesPerUoMVM> ItemBarcodes = [];
     List<BarcodeRequestVM> ItemRequest = [];
 
@@ -34,6 +37,7 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
 
     PurchaseOrderLineVM? GoodSelectedLine;
     PurchaseOrderLineVM? BadSelectedLine;
+    PurchaseOrderLineVM? MissingSelectedLine;
     //PurchaseOrderLineVM? LastScanned => POItems.OrderByDescending(x => x.ScanCount).FirstOrDefault();
 
     int ScanCount { get; set; }
@@ -43,6 +47,7 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
     bool NextScanIsBad = false;
     bool MoveOn = false;
     bool IsWeightDialogOpen = false;
+    ReceiveMode ReceiveByWeightMode = ReceiveMode.WithoutWeight;
 
     decimal? ChangeWeight = null;
 
@@ -189,6 +194,8 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
     {
         if (firstRender)
         {
+            ReceiveByWeightMode = await SelectWeightOption();
+
             await ActionFactory.ExecuteAppActionAsync(ActionGetPOItems);
 
             ItemRequest = GoodPOItems.Select(i => new BarcodeRequestVM
@@ -205,6 +212,7 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
 
                 UserId = auth.NetsuiteEmployeeInternalId;
             }
+
         }
 
         if (GoodPOItems.Count > 0 && JsObj is null)
@@ -350,13 +358,18 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
 
             if (NextScanIsBad)
             {
-                ChangeWeight = await GetWeightAsync(barcode.MaterialName, barcode.UoMName);
-
-                if (!ChangeWeight.HasValue || ChangeWeight.Value == 0m)
+                if (ReceiveByWeightMode == ReceiveMode.WithWeight)
                 {
-                    await Toast.Warning("Scan cancelled - no weight entered");
-                    return;
+                    ChangeWeight = await GetWeightAsync(barcode.MaterialName, barcode.UoMName);
+
+                    if (!ChangeWeight.HasValue || ChangeWeight.Value == 0m)
+                    {
+                        await Toast.Warning("Scan cancelled - no weight entered");
+                        return;
+                    }
                 }
+                else
+                    ChangeWeight = 0;
 
                 badLine.ScannedQuantity += barcode.UoMRate / badLine.UoMRate;
                 badLine.ScannedWeight += ChangeWeight ?? 0m;
@@ -372,13 +385,20 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
                 }
                 else if (!barcode.DefaultWeight.HasValue)
                 {
-                    weight = await GetWeightAsync(barcode.MaterialName, barcode.UoMName);
-
-                    if (!weight.HasValue || weight.Value == 0m)
+                    if (ReceiveByWeightMode == ReceiveMode.WithWeight)
                     {
-                        await Toast.Warning("Scan cancelled - no weight entered");
-                        return;
+                        weight = await GetWeightAsync(barcode.MaterialName, barcode.UoMName);
+
+                        if (!weight.HasValue || weight.Value == 0m)
+                        {
+                            await Toast.Warning("Scan cancelled - no weight entered");
+                            return;
+                        }
                     }
+                    else
+                        weight = 0;
+
+                    
 
                     barcode.DefaultWeight = weight;
                 }
@@ -555,13 +575,18 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
                     return;
                 }
 
-                ChangeWeight = await GetWeightAsync(barcode.MaterialName, barcode.UoMName);
-
-                if (!ChangeWeight.HasValue || ChangeWeight.Value == 0m)
+                if (ReceiveByWeightMode == ReceiveMode.WithWeight)
                 {
-                    await Toast.Warning("Scan cancelled - no weight entered");
-                    return;
+                    ChangeWeight = await GetWeightAsync(barcode.MaterialName, barcode.UoMName);
+
+                    if (!ChangeWeight.HasValue || ChangeWeight.Value == 0m)
+                    {
+                        await Toast.Warning("Scan cancelled - no weight entered");
+                        return;
+                    }
                 }
+                else
+                    ChangeWeight = 0;
 
                 var badScannedQuantity = barcode.UoMRate / badLine.UoMRate;
                 var badScannedWeight = ChangeWeight ?? 0m;
@@ -588,13 +613,20 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
                     return;
                 }
 
-                decimal? weight = await GetWeightAsync(barcode.MaterialName, barcode.UoMName);
+                decimal? weight = null;
 
-                if (!weight.HasValue || weight.Value == 0m)
+                if (ReceiveByWeightMode == ReceiveMode.WithWeight)
                 {
-                    await Toast.Warning("Scan cancelled - no weight entered");
-                    return;
+                    weight = await GetWeightAsync(barcode.MaterialName, barcode.UoMName);
+
+                    if (!weight.HasValue || weight.Value == 0m)
+                    {
+                        await Toast.Warning("Scan cancelled - no weight entered");
+                        return;
+                    }
                 }
+                else
+                    weight = 0;
 
                 var goodScannedQuantity = barcode.UoMRate / goodLine.UoMRate;
                 var goodScannedWeight = weight ?? 0m;
@@ -689,13 +721,19 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
                     return;
                 }
 
-                ChangeWeight = await GetWeightAsync(barcode.MaterialName, barcode.UoMName);
 
-                if (!ChangeWeight.HasValue || ChangeWeight.Value == 0m)
+                if (ReceiveByWeightMode == ReceiveMode.WithWeight)
                 {
-                    await Toast.Warning("Scan cancelled - no weight entered");
-                    return;
+                    ChangeWeight = await GetWeightAsync(barcode.MaterialName, barcode.UoMName);
+
+                    if (!ChangeWeight.HasValue || ChangeWeight.Value == 0m)
+                    {
+                        await Toast.Warning("Scan cancelled - no weight entered");
+                        return;
+                    }
                 }
+                else
+                    ChangeWeight = 0;
 
                 var badScannedQuantity = barcode.UoMRate / badLine.UoMRate;
                 var badScannedWeight = ChangeWeight ?? 0m;
@@ -719,13 +757,20 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
                     return;
                 }
 
-                decimal? weight = await GetWeightAsync(barcode.MaterialName, barcode.UoMName);
+                decimal? weight = null;
 
-                if (!weight.HasValue || weight.Value == 0m)
+                if (ReceiveByWeightMode == ReceiveMode.WithWeight)
                 {
-                    await Toast.Warning("Scan cancelled - no weight entered");
-                    return;
+                    weight = await GetWeightAsync(barcode.MaterialName, barcode.UoMName);
+
+                    if (!weight.HasValue || weight.Value == 0m)
+                    {
+                        await Toast.Warning("Scan cancelled - no weight entered");
+                        return;
+                    }
                 }
+                else
+                    weight = 0;
 
                 var goodScannedQuantity = barcode.UoMRate / goodLine.UoMRate;
                 var goodScannedWeight = weight ?? 0m;
@@ -764,6 +809,30 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
                     { "UomName", uomName }
                 },
                 new DialogOptions());
+        }
+        finally
+        {
+            IsWeightDialogOpen = false;
+        }
+    }
+
+    private async Task<ReceiveMode> SelectWeightOption()
+    {
+        IsWeightDialogOpen = true;
+
+        try
+        {
+            return await Dialog.OpenAsync<WeightOptionDialog>(
+                "Weight Option",
+                null,
+                new DialogOptions
+                {
+                    ShowTitle = false,
+                    ShowClose = false,
+                    CloseDialogOnOverlayClick = false,
+                    Resizable = false,
+                    Draggable = false
+                });
         }
         finally
         {

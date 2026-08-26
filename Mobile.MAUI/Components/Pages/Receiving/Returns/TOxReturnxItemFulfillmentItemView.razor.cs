@@ -6,6 +6,7 @@ using Shared.Libraries.ViewModel;
 using Shared.Libraries.ViewModel.Authentication;
 using Shared.Libraries.ViewModel.ItemFulfillment;
 using System.Text.Json;
+using static Mobile.MAUI.Components.Reusables.WeightOptionDialog;
 using static Mobile.MAUI.Helpers.FormatHelper;
 using static Mobile.MAUI.MauiProgram;
 using AppAction = Mobile.MAUI.Services.AppAction;
@@ -42,6 +43,8 @@ public partial class TOxReturnxItemFulfillmentItemView : IAsyncDisposable
     bool SaveBtnDisabled => ScanCount == 0;
     bool IsWeightDialogOpen = false;
     decimal? ChangeWeight = null;
+
+    ReceiveMode ReceiveByWeightMode = ReceiveMode.WithoutWeight;
 
     int UserId = 0;
 
@@ -149,6 +152,8 @@ public partial class TOxReturnxItemFulfillmentItemView : IAsyncDisposable
     {
         if (firstRender)
         {
+            ReceiveByWeightMode = await SelectWeightOption();
+
             await ActionFactory.ExecuteAppActionAsync(ActionGetReturnsItems);
 
             ItemRequest = ReturnsItems.Select(i => new BarcodeRequestVM
@@ -261,13 +266,18 @@ public partial class TOxReturnxItemFulfillmentItemView : IAsyncDisposable
                 return;
             }
 
-            weight = await GetWeightAsync(barcode.MaterialName, barcode.UoMName);
-
-            if (!weight.HasValue || weight.Value == 0m)
+            if (ReceiveByWeightMode == ReceiveMode.WithWeight)
             {
-                await Toast.Warning("Scan cancelled - no weight entered");
-                return;
+                weight = await GetWeightAsync(barcode.MaterialName, barcode.UoMName);
+
+                if (!weight.HasValue || weight.Value == 0m)
+                {
+                    await Toast.Warning("Scan cancelled - no weight entered");
+                    return;
+                }
             }
+            else
+                weight = 0;
 
             line.ScannedQuantity += barcode.UoMRate / line.UoMRate;
             line.ScannedWeight += weight ?? 0m;
@@ -321,13 +331,18 @@ public partial class TOxReturnxItemFulfillmentItemView : IAsyncDisposable
 
             decimal? weight = null;
 
-            weight = await GetWeightAsync(barcode.MaterialName, barcode.UoMName);
-
-            if (!weight.HasValue || weight.Value == 0m)
+            if (ReceiveByWeightMode == ReceiveMode.WithWeight)
             {
-                await Toast.Warning("Scan cancelled - no weight entered");
-                return;
+                weight = await GetWeightAsync(barcode.MaterialName, barcode.UoMName);
+
+                if (!weight.HasValue || weight.Value == 0m)
+                {
+                    await Toast.Warning("Scan cancelled - no weight entered");
+                    return;
+                }
             }
+            else
+                weight = 0;
 
             line.ScannedQuantity -= barcode.UoMRate / line.UoMRate;
             line.ScannedWeight -= weight ?? 0m;
@@ -405,6 +420,30 @@ public partial class TOxReturnxItemFulfillmentItemView : IAsyncDisposable
                     { "UomName", uomName }
                 },
                 new DialogOptions());
+        }
+        finally
+        {
+            IsWeightDialogOpen = false;
+        }
+    }
+
+    private async Task<ReceiveMode> SelectWeightOption()
+    {
+        IsWeightDialogOpen = true;
+
+        try
+        {
+            return await Dialog.OpenAsync<WeightOptionDialog>(
+                "Weight Option",
+                null,
+                new DialogOptions
+                {
+                    ShowTitle = false,
+                    ShowClose = false,
+                    CloseDialogOnOverlayClick = false,
+                    Resizable = false,
+                    Draggable = false
+                });
         }
         finally
         {

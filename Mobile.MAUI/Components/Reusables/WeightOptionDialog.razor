@@ -1,0 +1,106 @@
+﻿<RadzenStack Gap="16px" Style="padding: 20px; max-width: 380px;">
+    <!-- Header -->
+    <RadzenStack Gap="2px">
+        <RadzenText Text="How would you like to receive these items?"
+                    TextStyle="TextStyle.Body2"
+                    class="rz-m-0 rz-text-secondary" />
+    </RadzenStack>
+
+    <!-- Receive Options -->
+    <RadzenStack Gap="10px">
+
+        <!-- Receive with Weight -->
+        <RadzenStack Orientation="Orientation.Horizontal"
+                     AlignItems="AlignItems.Center"
+                     Gap="12px"
+                     @onclick="@(() => SelectMode(ReceiveMode.WithWeight))"
+                     Style="@GetOptionStyle(ReceiveMode.WithWeight)">
+            <RadzenStack AlignItems="AlignItems.Center"
+                         JustifyContent="JustifyContent.Center"
+                         Style="width:34px; height:34px; min-width:34px; border-radius:6px; background-color:#f0f0f0;">
+                <RadzenIcon Icon="balance" Style="font-size: 18px; color: #333;" />
+            </RadzenStack>
+            <RadzenStack Gap="2px" Style="text-align: left; flex: 1;">
+                <RadzenText Text="Receive with Weight"
+                            TextStyle="TextStyle.Body2"
+                            class="rz-m-0"
+                            Style="font-weight:600;" />
+                <RadzenText Text="Capture weight measurements during receiving"
+                            TextStyle="TextStyle.Caption"
+                            class="rz-m-0 rz-text-secondary" />
+            </RadzenStack>
+        </RadzenStack>
+
+        <!-- Receive without Weight -->
+        <RadzenStack Orientation="Orientation.Horizontal"
+                     AlignItems="AlignItems.Center"
+                     Gap="12px"
+                     @onclick="@(() => SelectMode(ReceiveMode.WithoutWeight))"
+                     Style="@GetOptionStyle(ReceiveMode.WithoutWeight)">
+            <RadzenStack AlignItems="AlignItems.Center"
+                         JustifyContent="JustifyContent.Center"
+                         Style="width:34px; height:34px; min-width:34px; border-radius:6px; background-color:#f0f0f0;">
+                <RadzenIcon Icon="package_2" Style="font-size: 18px; color: #333;" />
+            </RadzenStack>
+            <RadzenStack Gap="2px" Style="text-align: left; flex: 1;">
+                <RadzenText Text="Receive without Weight"
+                            TextStyle="TextStyle.Body2"
+                            class="rz-m-0"
+                            Style="font-weight:600;" />
+                <RadzenText Text="Skip weight capture and receive by quantity"
+                            TextStyle="TextStyle.Caption"
+                            class="rz-m-0 rz-text-secondary" />
+            </RadzenStack>
+        </RadzenStack>
+
+    </RadzenStack>
+
+    <!-- Actions -->
+    <RadzenStack Orientation="Orientation.Horizontal"
+                 JustifyContent="JustifyContent.End"
+                 Gap="8px">
+        <RadzenButton Text="Proceed"
+                      Click="@OnProceed"
+                      ButtonStyle="ButtonStyle.Success" />
+    </RadzenStack>
+</RadzenStack>
+
+@code
+{
+    [Inject]
+    DialogService DialogService { get; set; } = default!;
+
+    private ReceiveMode SelectedMode { get; set; } = ReceiveMode.WithoutWeight;
+
+    private void SelectMode(ReceiveMode mode)
+    {
+        SelectedMode = mode;
+    }
+
+    private string GetOptionStyle(ReceiveMode mode)
+    {
+        var isSelected = SelectedMode == mode;
+
+        var border = isSelected ? "2px solid #22a559" : "1px solid #e2e2e2";
+        var padding = isSelected ? "9px 13px" : "10px 14px"; // compensate for thicker border
+        var background = isSelected ? "#f2faf5" : "#ffffff";
+        var shadow = isSelected
+            ? "0 2px 6px rgba(34,165,89,0.25)"
+            : "0 1px 2px rgba(0,0,0,0.06)";
+
+        return $"width:100%; min-height:60px; border-radius:8px; cursor:pointer; " +
+               $"border:{border}; padding:{padding}; background-color:{background}; " +
+               $"box-shadow:{shadow}; transition: border-color .15s ease, background-color .15s ease, box-shadow .15s ease;";
+    }
+
+    private void OnProceed()
+    {
+        DialogService.Close(SelectedMode);
+    }
+
+    public enum ReceiveMode
+    {
+        WithWeight,
+        WithoutWeight
+    }
+}

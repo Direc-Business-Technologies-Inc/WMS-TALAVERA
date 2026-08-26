@@ -1,0 +1,34 @@
+﻿.receive-option {
+    width: 100%;
+    min-height: 64px;
+    padding: 10px 12px;
+    border: 2px solid transparent;
+    border-radius: 5px;
+    background-color: white;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+    .receive-option:hover {
+        background-color: #f7f7f7;
+    }
+
+/* SELECTED */
+.receive-option-selected {
+    border-color: #ff0000;
+    background-color: #fff5f5;
+}
+
+/* Text */
+.option-title {
+    font-weight: 600;
+}
+
+/* Icon */
+.option-icon {
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    border-radius: 4px;
+    background-color: #39a949;
+}
