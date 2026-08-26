@@ -183,7 +183,7 @@ public class TripTicketIntegration(
                         IsNull("t.custbody_dbti_fully_received")
                     )
                 ))
-            .WithSubsidiaries(httpContextAccessor, "t")
+            //.WithSubsidiaries(httpContextAccessor, "t")
             .GroupBy("TicketNumber")
             .Build();
 
