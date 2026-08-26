@@ -1,0 +1,60 @@
+﻿<RadzenStack Gap="16px" Style="padding: 20px; max-width: 380px;">
+
+    <RadzenText Text="Manual Entry"
+                TextStyle="TextStyle.H6"
+                class="rz-m-0" />
+
+    <!-- Item -->
+    <RadzenStack Gap="4px">
+        <RadzenText Text="Item" TextStyle="TextStyle.Caption" class="rz-m-0 field-label" />
+        <RadzenTextBox Value="@ItemName" Disabled="true" class="rz-w-100 readonly-field" />
+    </RadzenStack>
+
+    <!-- Planned Qty -->
+    <RadzenStack Gap="4px">
+        <RadzenText Text="Planned Qty" TextStyle="TextStyle.Caption" class="rz-m-0 field-label" />
+        <RadzenNumeric TValue="decimal" Value="@PlannedQty" Disabled="true" class="rz-w-100 readonly-field" />
+    </RadzenStack>
+
+    <!-- Remaining Qty -->
+    <RadzenStack Gap="4px">
+        <RadzenText Text="Remaining Qty" TextStyle="TextStyle.Caption" class="rz-m-0 field-label" />
+        <RadzenNumeric TValue="decimal" Value="@RemainingQty" Disabled="true" class="rz-w-100 readonly-field" />
+    </RadzenStack>
+
+    <!-- Good Qty -->
+    <RadzenStack Gap="4px">
+        <RadzenText Text="@(DontShowBad ? "Good Qty" : "Quantity")" TextStyle="TextStyle.Caption" class="rz-m-0 good-label" />
+        <RadzenNumeric @bind-Value="@GoodQty"
+                        Min="0"
+                        class="rz-w-100 good-field" />
+    </RadzenStack>
+
+    <!-- Bad Qty -->
+    <RadzenStack Gap="4px" Visible="@DontShowBad">
+        <RadzenText Text="Bad Qty" TextStyle="TextStyle.Caption" class="rz-m-0 bad-label" />
+        <RadzenNumeric @bind-Value="@BadQty"
+                        Min="0"
+                        class="rz-w-100 bad-field" />
+    </RadzenStack>
+
+    @if (!string.IsNullOrEmpty(ValidationMessage))
+    {
+        <RadzenText Text="@ValidationMessage" TextStyle="TextStyle.Caption" class="rz-m-0" Style="color:#e53935;" />
+    }
+
+    <!-- Actions -->
+    <RadzenStack Orientation="Orientation.Horizontal"
+                 JustifyContent="JustifyContent.SpaceBetween"
+                 Gap="8px">
+        <RadzenButton Text="Cancel"
+                      Click="@OnCancel"
+                      ButtonStyle="ButtonStyle.Light"
+                      class="rz-flex-1" />
+        <RadzenButton Text="Confirm"
+                      Click="@OnConfirm"
+                      ButtonStyle="ButtonStyle.Success"
+                      class="rz-flex-1" />
+    </RadzenStack>
+
+</RadzenStack>

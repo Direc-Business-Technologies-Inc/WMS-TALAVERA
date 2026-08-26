@@ -231,8 +231,50 @@ public partial class TOxItemFulfillmentItemView : IAsyncDisposable
         await ActionFactory.ExecuteAppActionAsync(ActionGetTOxItemfulfillmentItems);
     }
 
-    private void SelectGoodLine(TOxItemFulfillmentLineVM item)
+    private async void SelectGoodLine(TOxItemFulfillmentLineVM item)
     {
+        if (ManualEntry)
+        {
+            IsWeightDialogOpen = true;
+
+            try
+            {
+                var result = await Dialog.OpenAsync<ManualEntryDialog>(
+                    "Manual Entry",
+                    new Dictionary<string, object>
+                    {
+                        { "ItemName", item.MaterialName },
+                        { "PlannedQty", item.NSLineQuantityReceived }
+                    },
+                    new DialogOptions
+                    {
+                        ShowClose = true,
+                    });
+
+                if (result is ManualEntryDialog.ManualEntryResult entry)
+                {
+                    item.ScannedQuantity = entry.GoodQty;
+
+                    if (entry.BadQty != 0)
+                    {
+                        var badItem = BadIFItems.FirstOrDefault(
+                            y =>
+                            y.LineSequenceNumber == item.LineSequenceNumber &&
+                            y.NetsuiteMaterialInternalId == item.NetsuiteMaterialInternalId);
+
+                        if (badItem != null)
+                        {
+                            badItem.ScannedQuantity = entry.BadQty;
+                        }
+                    }
+                }
+            }
+            finally
+            {
+                IsWeightDialogOpen = false;
+            }
+        }
+
         if (GoodSelectedLine?.LineSequenceNumber == item.LineSequenceNumber)
         {
             GoodSelectedLine = null;
@@ -494,6 +536,14 @@ public partial class TOxItemFulfillmentItemView : IAsyncDisposable
     {
         NegateQuantity = !NegateQuantity;
         MoveOn = false;
+    }
+
+    private bool ManualEntry = false;
+    private void ToggleManualEntry()
+    {
+        ManualEntry = !ManualEntry;
+        MoveOn = false;
+        NegateQuantity = false;
     }
 
     async void ToggleWeight()

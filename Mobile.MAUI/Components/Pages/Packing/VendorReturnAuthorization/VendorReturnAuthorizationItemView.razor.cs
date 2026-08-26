@@ -7,6 +7,7 @@ using AppAction = Mobile.MAUI.Services.AppAction;
 using Shared.Libraries.ViewModel.VendorReturnAuthorization;
 using static Mobile.MAUI.Enums.CustomEnum;
 using static Mobile.MAUI.Helpers.FormatHelper;
+using Mobile.MAUI.Components.Reusables;
 
 namespace Mobile.MAUI.Components.Pages.Packing.VendorReturnAuthorization;
 
@@ -223,8 +224,47 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
         await ActionFactory.ExecuteAppActionAsync(ActionGetVRAItems);
     }
 
-    private void SelectGoodLine(VendorReturnAuthorizationLineVM item)
+    private async void SelectGoodLine(VendorReturnAuthorizationLineVM item)
     {
+        if (ManualEntry)
+        {
+            try
+            {
+                var result = await Dialog.OpenAsync<ManualEntryDialog>(
+                    "Manual Entry",
+                    new Dictionary<string, object>
+                    {
+                        { "ItemName", item.MaterialName },
+                        { "PlannedQty", item.NSLineQuantityReceived }
+                    },
+                    new DialogOptions
+                    {
+                        ShowClose = true,
+                    });
+
+                if (result is ManualEntryDialog.ManualEntryResult entry)
+                {
+                    item.ScannedQuantity = entry.GoodQty;
+
+                    if (entry.BadQty != 0)
+                    {
+                        var badItem = BadVRAItems.FirstOrDefault(
+                            y =>
+                            y.LineSequenceNumber == item.LineSequenceNumber &&
+                            y.NetsuiteMaterialInternalId == item.NetsuiteMaterialInternalId);
+
+                        if (badItem != null)
+                        {
+                            badItem.ScannedQuantity = entry.BadQty;
+                        }
+                    }
+                }
+            }
+            finally
+            {
+            }
+        }
+
         if (GoodSelectedLine?.LineSequenceNumber == item.LineSequenceNumber)
         {
             GoodSelectedLine = null;
@@ -234,7 +274,7 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
             GoodSelectedLine = item;
         }
 
-        InvokeAsync(StateHasChanged);
+        await InvokeAsync(StateHasChanged);
     }
 
     private bool IsSelectedGood(VendorReturnAuthorizationLineVM row)
@@ -486,6 +526,14 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
     {
         NegateQuantity = !NegateQuantity;
         MoveOn = false;
+    }
+
+    private bool ManualEntry = false;
+    private void ToggleManualEntry()
+    {
+        ManualEntry = !ManualEntry;
+        MoveOn = false;
+        NegateQuantity = false;
     }
 
     //async void ToggleWeight()

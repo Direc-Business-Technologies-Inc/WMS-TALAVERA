@@ -184,8 +184,38 @@ public partial class TOxReturnxItemFulfillmentItemView : IAsyncDisposable
         await ActionFactory.ExecuteAppActionAsync(ActionGetReturnsItems);
     }
 
-    private void SelectLine(TOxItemFulfillmentLineVM item)
+    private async void SelectLine(TOxItemFulfillmentLineVM item)
     {
+        if (ManualEntry)
+        {
+            IsWeightDialogOpen = true;
+
+            try
+            {
+                var result = await Dialog.OpenAsync<ManualEntryDialog>(
+                    "Manual Entry",
+                    new Dictionary<string, object>
+                    {
+                        { "ItemName", item.MaterialName },
+                        { "PlannedQty", item.NSLineQuantityReceived },
+                        { "NoBad", 1}
+                    },
+                    new DialogOptions
+                    {
+                        ShowClose = true,
+                    });
+
+                if (result is ManualEntryDialog.ManualEntryResult entry)
+                {
+                    item.ScannedQuantity = entry.GoodQty;
+                }
+            }
+            finally
+            {
+                IsWeightDialogOpen = false;
+            }
+        }
+
         if (SelectedLine?.LineSequenceNumber == item.LineSequenceNumber)
         {
             SelectedLine = null;
@@ -462,6 +492,13 @@ public partial class TOxReturnxItemFulfillmentItemView : IAsyncDisposable
     private void ToggleNegateQuantity()
     {
         NegateQuantity = !NegateQuantity;
+    }
+
+    private bool ManualEntry = false;
+    private void ToggleManualEntry()
+    {
+        ManualEntry = !ManualEntry;
+        NegateQuantity = false;
     }
 
     public async ValueTask DisposeAsync()

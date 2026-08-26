@@ -6,6 +6,7 @@ using Shared.Libraries.ViewModel.Returns;
 using static Mobile.MAUI.MauiProgram;
 using AppAction = Mobile.MAUI.Services.AppAction;
 using static Mobile.MAUI.Helpers.FormatHelper;
+using Mobile.MAUI.Components.Reusables;
 
 namespace Mobile.MAUI.Components.Pages.Packing.Returns;
 
@@ -179,8 +180,35 @@ public partial class ReturnsItemView : IAsyncDisposable
         await ActionFactory.ExecuteAppActionAsync(ActionGetReturnsItems);
     }
 
-    private void SelectLine(ReturnsLineVM item)
+    private async void SelectLine(ReturnsLineVM item)
     {
+        if (ManualEntry)
+        {
+            try
+            {
+                var result = await Dialog.OpenAsync<ManualEntryDialog>(
+                    "Manual Entry",
+                    new Dictionary<string, object>
+                    {
+                        { "ItemName", item.MaterialName },
+                        { "PlannedQty", item.NSLineQuantityReceived },
+                        { "NoBad", 1}
+                    },
+                    new DialogOptions
+                    {
+                        ShowClose = true,
+                    });
+
+                if (result is ManualEntryDialog.ManualEntryResult entry)
+                {
+                    item.ScannedQuantity = entry.GoodQty;
+                }
+            }
+            finally
+            {
+            }
+        }
+
         if (SelectedLine?.LineSequenceNumber == item.LineSequenceNumber)
         {
             SelectedLine = null;
@@ -419,6 +447,13 @@ public partial class ReturnsItemView : IAsyncDisposable
     private void ToggleNegateQuantity()
     {
         NegateQuantity = !NegateQuantity;
+    }
+
+    private bool ManualEntry = false;
+    private void ToggleManualEntry()
+    {
+        ManualEntry = !ManualEntry;
+        NegateQuantity = false;
     }
 
     //private async Task<decimal?> GetWeightAsync(string itemName, string uomName)

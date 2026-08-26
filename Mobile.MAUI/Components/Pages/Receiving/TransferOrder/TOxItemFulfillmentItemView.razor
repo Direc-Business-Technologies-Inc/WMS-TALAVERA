@@ -134,7 +134,7 @@
 
                         @if (!IsActionPanelCollapsed)
                         {
-                            <RadzenStack Gap="14px" Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center">
+                            <RadzenStack Gap="8px" Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center">
 
                                 <RadzenStack Gap="4px" Orientation="Orientation.Vertical" AlignItems="AlignItems.Center" class="scan-action-item">
                                     <RadzenButton Class="rz-border-radius-5"
@@ -186,6 +186,19 @@
 
                                     <RadzenText TextStyle="TextStyle.Caption" class="scan-action-label rz-m-0">
                                         Weight
+                                    </RadzenText>
+                                </RadzenStack>
+
+                                <RadzenStack Gap="4px" Orientation="Orientation.Vertical" AlignItems="AlignItems.Center" class="scan-action-item">
+                                    <RadzenButton class="rz-border-radius-5"
+                                                  Icon="draft"
+                                                  ButtonStyle="@(ManualEntry ? ButtonStyle.Success : ButtonStyle.Base)"
+                                                  Size="ButtonSize.Small"
+                                                  Click="@(args => ToggleManualEntry())"
+                                                  Disabled="@ActionSaveScan.Busy" />
+
+                                    <RadzenText TextStyle="TextStyle.Caption" class="scan-action-label rz-m-0">
+                                        Manual
                                     </RadzenText>
                                 </RadzenStack>
 

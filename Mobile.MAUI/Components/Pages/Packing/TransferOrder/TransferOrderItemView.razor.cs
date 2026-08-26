@@ -7,6 +7,7 @@ using static Mobile.MAUI.Enums.CustomEnum;
 using static Mobile.MAUI.MauiProgram;
 using AppAction = Mobile.MAUI.Services.AppAction;
 using static Mobile.MAUI.Helpers.FormatHelper;
+using Mobile.MAUI.Components.Reusables;
 
 namespace Mobile.MAUI.Components.Pages.Packing.TransferOrder;
 
@@ -253,8 +254,47 @@ public partial class TransferOrderItemView : IAsyncDisposable
             == row.LineSequenceNumber;
     }
 
-    private void SelectBadLine(TransferOrderLineVM item)
+    private async void SelectBadLine(TransferOrderLineVM item)
     {
+        if (ManualEntry)
+        {
+            try
+            {
+                var result = await Dialog.OpenAsync<ManualEntryDialog>(
+                    "Manual Entry",
+                    new Dictionary<string, object>
+                    {
+                        { "ItemName", item.MaterialName },
+                        { "PlannedQty", item.NSLineQuantityReceived }
+                    },
+                    new DialogOptions
+                    {
+                        ShowClose = true,
+                    });
+
+                if (result is ManualEntryDialog.ManualEntryResult entry)
+                {
+                    item.ScannedQuantity = entry.GoodQty;
+
+                    if (entry.BadQty != 0)
+                    {
+                        var badItem = BadTOItems.FirstOrDefault(
+                            y =>
+                            y.LineSequenceNumber == item.LineSequenceNumber &&
+                            y.NetsuiteMaterialInternalId == item.NetsuiteMaterialInternalId);
+
+                        if (badItem != null)
+                        {
+                            badItem.ScannedQuantity = entry.BadQty;
+                        }
+                    }
+                }
+            }
+            finally
+            {
+            }
+        }
+
         if (BadSelectedLine?.LineSequenceNumber == item.LineSequenceNumber)
         {
             BadSelectedLine = null;
@@ -264,7 +304,7 @@ public partial class TransferOrderItemView : IAsyncDisposable
             BadSelectedLine = item;
         }
 
-        InvokeAsync(StateHasChanged);
+        await InvokeAsync(StateHasChanged);
     }
 
     private bool IsSelectedBad(TransferOrderLineVM row)
@@ -506,6 +546,14 @@ public partial class TransferOrderItemView : IAsyncDisposable
     {
         NegateQuantity = !NegateQuantity;
         MoveOn = false;
+    }
+
+    private bool ManualEntry = false;
+    private void ToggleManualEntry()
+    {
+        ManualEntry = !ManualEntry;
+        MoveOn = false;
+        NegateQuantity = false;
     }
 
     async Task MoveScan(string scanned)

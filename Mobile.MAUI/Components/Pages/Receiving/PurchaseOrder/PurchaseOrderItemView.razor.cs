@@ -1,4 +1,3 @@
-using Android.Hardware.Lights;
 using Microsoft.JSInterop;
 using Mobile.MAUI.Components.Reusables;
 using Mobile.MAUI.Services;
@@ -227,8 +226,51 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
         await ActionFactory.ExecuteAppActionAsync(ActionGetPOItems);
     }
 
-    private void SelectGoodLine(PurchaseOrderLineVM item)
+    private async void SelectGoodLine(PurchaseOrderLineVM item)
     {
+        if (ManualEntry)
+        {
+            IsWeightDialogOpen = true;
+
+            try
+            {
+                var result = await Dialog.OpenAsync<ManualEntryDialog>(
+                    "Manual Entry",
+                    new Dictionary<string, object>
+                    {
+                        { "ItemName", item.MaterialName },
+                        { "PlannedQty", item.NSLineQuantityReceived }
+                    },
+                    new DialogOptions
+                    {
+                        ShowClose = true,
+                    });
+
+                if (result is ManualEntryDialog.ManualEntryResult entry)
+                {
+                    item.ScannedQuantity = entry.GoodQty;
+
+                    if (entry.BadQty != 0)
+                    {
+                        var badItem = BadPOItems.FirstOrDefault(
+                            y => 
+                            y.LineSequenceNumber == item.LineSequenceNumber &&
+                            y.NetsuiteMaterialInternalId == item.NetsuiteMaterialInternalId);
+
+                        if (badItem != null)
+                        {
+                            badItem.ScannedQuantity = entry.BadQty;
+                        }
+                    }
+                }
+            }
+            finally
+            {
+                IsWeightDialogOpen = false;
+            }
+        }
+
+
         if (GoodSelectedLine?.LineSequenceNumber == item.LineSequenceNumber)
         {
             GoodSelectedLine = null;
@@ -503,6 +545,14 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
     {
         NegateQuantity = !NegateQuantity;
         MoveOn = false;
+    }
+
+    private bool ManualEntry = false;
+    private void ToggleManualEntry()
+    {
+        ManualEntry = !ManualEntry;
+        MoveOn = false;
+        NegateQuantity = false;
     }
 
     async void ToggleWeight()
