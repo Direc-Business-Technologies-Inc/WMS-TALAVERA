@@ -523,6 +523,7 @@ public class ReceivingIntegration(
 
     const int INVENTORY_STATUS_ID_GOOD = 1;
     const int INVENTORY_STATUS_ID_BAD = 3;
+    const int INVENTORY_STATUS_ID_MISSING = 6;
 
     public async Task<bool> PostItemReceipt(ItemReceiptDTO dto)
     {
@@ -530,48 +531,142 @@ public class ReceivingIntegration(
             $"{netsuiteService.GetRestAPIURI}/record/v1/purchaseOrder/{dto.SourceInternalId}/!transform/itemReceipt" :
             $"{netsuiteService.GetRestletURI}?script=1853&deploy=1";
 
-        (string goodPayload, string badPayload) = dto.SourceType switch
-        {
-            ItemReceiptDTO.SourceTypes.PurchaseOrder => (CreatePOJson(dto, true), CreatePOJson(dto, false)),
-            ItemReceiptDTO.SourceTypes.TransferOrder => (CreateTOJson(dto, true), CreateTOJson(dto, false)),
-            _ => (CreateReturnsJson(dto, true), CreateReturnsJson(dto, false))
-        };
-
         List<Exception> exceptions = [];
+        List<Task> tasks = [];
 
         try
         {
+            // Determine which statuses actually exist in the receipt
+            var hasGoodLines = dto.Lines.Any(x =>
+                x.InventoryDetails.Any(y =>
+                    y.Status?.Id == INVENTORY_STATUS_ID_GOOD));
 
-            var hasGoodLines = dto.Lines.Any(x => x.InventoryDetails.Any(y => y.Status?.Id.Equals(INVENTORY_STATUS_ID_GOOD) ?? false));
-            var hasBadLines = dto.Lines.Any(x => x.InventoryDetails.Any(y => y.Status?.Id.Equals(INVENTORY_STATUS_ID_BAD) ?? false));
-            List<Task> tasks = [];
+            var hasBadLines = dto.Lines.Any(x =>
+                x.InventoryDetails.Any(y =>
+                    y.Status?.Id == INVENTORY_STATUS_ID_BAD));
 
-            if (dto.SourceType.Equals(ItemReceiptDTO.SourceTypes.PurchaseOrder))
+            var hasMissingLines = dto.Lines.Any(x =>
+                x.InventoryDetails.Any(y =>
+                    y.Status?.Id == INVENTORY_STATUS_ID_MISSING));
+
+            // Helper to create the correct payload for the source type
+            string CreatePayload(int statusId)
             {
-                if (hasGoodLines) tasks.Add(netsuiteService.MakeRequest<object>(uri, goodPayload, HttpMethod.Post));
-                if (hasBadLines) tasks.Add(netsuiteService.MakeRequest<object>(uri, badPayload, HttpMethod.Post));
+                return dto.SourceType switch
+                {
+                    ItemReceiptDTO.SourceTypes.PurchaseOrder =>
+                        CreatePOJson(dto, statusId),
 
+                    ItemReceiptDTO.SourceTypes.TransferOrder =>
+                        CreateTOJson(dto, statusId),
+
+                    _ =>
+                        CreateReturnsJson(dto, statusId)
+                };
             }
-            else
+
+            void AddPostTask(bool hasLines, int statusId)
             {
-                if (hasGoodLines) tasks.Add(netsuiteService.MakeRequestOAuth1<object>(uri, goodPayload));
-                if (hasBadLines) tasks.Add(netsuiteService.MakeRequestOAuth1<object>(uri, badPayload));
+                if (!hasLines)
+                    return;
+
+                var payload = CreatePayload(statusId);
+
+                if (dto.SourceType == ItemReceiptDTO.SourceTypes.PurchaseOrder)
+                {
+                    tasks.Add(
+                        netsuiteService.MakeRequest<object>(
+                            uri,
+                            payload,
+                            HttpMethod.Post));
+                }
+                else
+                {
+                    tasks.Add(
+                        netsuiteService.MakeRequestOAuth1<object>(
+                            uri,
+                            payload));
+                }
             }
 
-            foreach (Task x in tasks)
-            {
-                await x;
-            }
+            AddPostTask(hasBadLines, INVENTORY_STATUS_ID_BAD);
+            AddPostTask(hasGoodLines, INVENTORY_STATUS_ID_GOOD);
+            AddPostTask(hasMissingLines, INVENTORY_STATUS_ID_MISSING);
 
+            await Task.WhenAll(tasks);
         }
         catch (Exception ex)
         {
-            if (!ex.Message.Equals("Empty response from NetSuite API", StringComparison.OrdinalIgnoreCase))
-                exceptions.Add(new Exception("Error posting items: " + ex.Message));
+            foreach (var task in tasks.Where(t => t.IsFaulted))
+            {
+                foreach (var exception in task.Exception!.Flatten().InnerExceptions)
+                {
+                    if (!exception.Message.Equals(
+                            "Empty response from NetSuite API",
+                            StringComparison.OrdinalIgnoreCase))
+                    {
+                        exceptions.Add(new Exception(
+                            "Error posting items: " + exception.Message,
+                            exception));
+                    }
+                }
+            }
         }
 
-        if (exceptions.Count > 0) throw new Exception(string.Join("\n\n", exceptions.Select(ex => ex.Message)));
+        if (exceptions.Count > 0)
+        {
+            throw new Exception(
+                string.Join(
+                    "\n\n",
+                    exceptions.Select(ex => ex.Message)));
+        }
+
         return true;
+
+        //(string goodPayload, string badPayload) = dto.SourceType switch
+        //{
+        //    ItemReceiptDTO.SourceTypes.PurchaseOrder => (CreatePOJson(dto, true), CreatePOJson(dto, false)),
+        //    ItemReceiptDTO.SourceTypes.TransferOrder => (CreateTOJson(dto, true), CreateTOJson(dto, false)),
+        //    _ => (CreateReturnsJson(dto, true), CreateReturnsJson(dto, false))
+        //};
+
+        //List<Exception> exceptions = [];
+
+        //try
+        //{
+
+        //    var hasGoodLines = dto.Lines.Any(x => x.InventoryDetails.Any(y => y.Status?.Id.Equals(INVENTORY_STATUS_ID_GOOD) ?? false));
+        //    var hasBadLines = dto.Lines.Any(x => x.InventoryDetails.Any(y => y.Status?.Id.Equals(INVENTORY_STATUS_ID_BAD) ?? false));
+        //    var hasMissingLines = dto.Lines.Any(x => x.InventoryDetails.Any(y => y.Status?.Id.Equals(INVENTORY_STATUS_ID_MISSING) ?? false));
+
+        //    List<Task> tasks = [];
+
+        //    if (dto.SourceType.Equals(ItemReceiptDTO.SourceTypes.PurchaseOrder))
+        //    {
+        //        if (hasGoodLines) tasks.Add(netsuiteService.MakeRequest<object>(uri, goodPayload, HttpMethod.Post));
+        //        if (hasBadLines) tasks.Add(netsuiteService.MakeRequest<object>(uri, badPayload, HttpMethod.Post));
+
+        //    }
+        //    else
+        //    {
+        //        if (hasGoodLines) tasks.Add(netsuiteService.MakeRequestOAuth1<object>(uri, goodPayload));
+        //        if (hasBadLines) tasks.Add(netsuiteService.MakeRequestOAuth1<object>(uri, badPayload));
+        //    }
+
+        //    foreach (Task x in tasks)
+        //    {
+        //        await x;
+        //    }
+
+        //}
+        //catch (Exception ex)
+        //{
+        //    if (!ex.Message.Equals("Empty response from NetSuite API", StringComparison.OrdinalIgnoreCase))
+        //        exceptions.Add(new Exception("Error posting items: " + ex.Message));
+        //}
+
+        //if (exceptions.Count > 0) throw new Exception(string.Join("\n\n", exceptions.Select(ex => ex.Message)));
+        //return true;
     }
 
     public async Task<BarcodeDTO?> GetBarcodeData(string barcode)
@@ -705,10 +800,40 @@ public class ReceivingIntegration(
 
 
     private string CreateReturnsJson(ItemReceiptDTO dto, bool isGood) => CreateTOJson(dto, isGood);
+    private string CreateReturnsJson(ItemReceiptDTO dto, int statusId) => CreateTOJson(dto, statusId);
     private string CreateTOJson(ItemReceiptDTO dto, bool isGood)
     {
         int statusId = isGood ? INVENTORY_STATUS_ID_GOOD : INVENTORY_STATUS_ID_BAD;
         var lines = dto.Lines.Where(x => x.InventoryDetails.Any(y => y.Status?.Id == statusId));
+
+        var obj = new
+        {
+            transferOrderId = dto.SourceInternalId,
+            transferCategory = isGood ? 1 : 2,
+            custbody_dbti_prepared_by = dto.PreparedById,
+            receiverEmployeeId = dto.PreparedById,
+            fulfillmentId = dto.ItemFulfillmentId,
+            lines = lines.Where(x => x.QuantityAlloted > 0).Select(line =>
+            {
+                return new
+                {
+                    orderLine = line.LineNumber,
+                    quantity = line.InventoryDetails.Sum(x => x.Status?.Id == statusId ? x.QuantityAlloted : 0),
+                    inventoryDetail = line.InventoryDetails.Where(x => x.Status?.Id == statusId).Select(y => new
+                    {
+                        binNumber = y.Bin?.BinNumber,
+                        inventoryStatus = statusId,
+                        quantity = y.QuantityAlloted
+                    })
+                };
+            })
+        };
+        return JsonSerializer.Serialize(obj, JSON_OPTS);
+    }
+    private string CreateTOJson(ItemReceiptDTO dto, int statusId)
+    {
+        var lines = dto.Lines.Where(x => x.InventoryDetails.Any(y => y.Status?.Id == statusId));
+        var isGood = statusId == INVENTORY_STATUS_ID_GOOD;
 
         var obj = new
         {
@@ -769,6 +894,56 @@ public class ReceivingIntegration(
                                 new
                                 {
                                     inventoryStatus = statusId,
+                                    binNumber = x.Bin?.Id,
+                                    quantity = x.QuantityAlloted
+                                })
+                            }
+                        } : null,
+                        location = isItemReceived ? line.LocationId : (int?)null
+                    };
+                })
+            },
+            memo = "Created via WMS"
+        };
+
+        return JsonSerializer.Serialize(obj, JSON_OPTS);
+    }
+
+    private string CreatePOJson(ItemReceiptDTO dto, int statusId)
+    {
+        var lines = dto.Lines.Where(x => x.InventoryDetails.Any(y => y.Status?.Id == statusId));
+        var isGood = statusId == INVENTORY_STATUS_ID_GOOD;
+        var obj = new
+        {
+            defaultValues = new
+            {
+                itemfulfillment = dto.ItemFulfillmentId
+            },
+            custbody_dbti_receiving_category = isGood ? 1 : 2,
+            custbody_dbti_prepared_by = dto.PreparedById,
+            custbody_dbti_received_by = dto.PreparedById,
+            item = new
+            {
+                items = dto.Lines.Select(line =>
+                {
+                    decimal lineQuantity = line.InventoryDetails.Sum(x => x.Status?.Id == statusId ? x.QuantityAlloted : 0);
+                    bool isItemReceived = line.IsReceived && lineQuantity > 0 && line.InventoryDetails.Any(x => x.Status?.Id == statusId);
+
+                    return new
+                    {
+                        itemreceive = isItemReceived,
+                        orderLine = line.LineNumber,
+                        quantity = isItemReceived ? lineQuantity : (decimal?)null,
+                        custcol_dbti_actual_weight = isItemReceived ? line.WeightActual : (decimal?)null,
+                        rate = isItemReceived && isGood ? (decimal?)null : 0,
+                        inventoryDetail = isItemReceived ? new
+                        {
+                            inventoryAssignment = new
+                            {
+                                items = line.InventoryDetails.Where(x => x.Status?.Id == statusId).Select(x =>
+                                new
+                                {
+                                    inventoryStatus = 1,
                                     binNumber = x.Bin?.Id,
                                     quantity = x.QuantityAlloted
                                 })
