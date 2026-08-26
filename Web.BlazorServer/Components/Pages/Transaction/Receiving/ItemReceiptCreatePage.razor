@@ -40,6 +40,6 @@
     </RadzenStack>
     @if (!IsLoadingData)
     {
-        <ItemReceiptForm Disabled="IsBusy" Data="@FormData" EditContext="EditContext" OnValidSubmit="@OnValidSubmit"/>
+        <ItemReceiptForm Disabled="IsBusy" Data="@FormData" EditContext="EditContext" OnValidSubmit="@OnValidSubmit" Doc="@Doc"/>
     }
 </AppContent>

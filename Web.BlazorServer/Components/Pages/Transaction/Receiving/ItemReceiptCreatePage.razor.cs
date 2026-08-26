@@ -13,6 +13,7 @@ namespace Web.BlazorServer.Components.Pages.Transaction.Receiving;
 partial class ItemReceiptCreatePage
 {
     [SupplyParameterFromQuery] public string? Ref { get; set; }
+    [SupplyParameterFromQuery] public string? Doc { get; set; }
     [SupplyParameterFromQuery] public int? IfId { get; set; }
     [SupplyParameterFromQuery] public string? ItemFulfillment { get; set; }
     [Inject] IReceivingHandler? receivingHandler { get; set; }

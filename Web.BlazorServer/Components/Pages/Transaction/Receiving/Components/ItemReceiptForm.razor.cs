@@ -23,11 +23,14 @@ partial class ItemReceiptForm
     [Parameter] public EditContext? EditContext { get; set; } = null;
     [Parameter] public EventCallback<ItemReceiptVM> OnValidSubmit { get; set; }
     [Parameter] public bool Disabled { get; set; } = false;
+    [Parameter] public string Doc { get; set; } = string.Empty;
     [Inject] IReceivingHandler receivingHandler { get; set; } = default!;
     [Inject] TooltipService tooltipService { get; set; } = default!;
 
     AppTable<ItemReceiptLineVM> LinesTable = default!;
     DataGridSettings TableSettings { get; set; } = new();
+
+    bool ChangeBadToConfiscated => !string.IsNullOrWhiteSpace(Doc) && Doc == "PO";
 
     readonly TooltipOptions LineDetailsTooltipOptions = new()
     {

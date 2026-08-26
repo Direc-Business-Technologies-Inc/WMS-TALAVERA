@@ -52,7 +52,7 @@
             <RadzenButton ButtonStyle="ButtonStyle.Light" ButtonType="ButtonType.Button" Text="Return" Click="@(_ => NavManager.NavigateTo("/transactions/purchasing/receiving"))" />
         </RadzenStack>
         <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5em">
-            <RadzenButton ButtonStyle="ButtonStyle.Success" ButtonType="ButtonType.Button" Text="Create Item Receipt" Click="@(_ => NavManager.NavigateTo($"/transactions/purchasing/receiving/create-item-receipt?ref={Model.ReferenceNumber}"))" />
+            <RadzenButton ButtonStyle="ButtonStyle.Success" ButtonType="ButtonType.Button" Text="Create Item Receipt" Click="@(_ => NavManager.NavigateTo($"/transactions/purchasing/receiving/create-item-receipt?ref={Model.ReferenceNumber}&doc=PO"))" />
         </RadzenStack>
     </RadzenStack>
 </RadzenStack>

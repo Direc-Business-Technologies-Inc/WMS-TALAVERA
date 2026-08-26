@@ -19,6 +19,7 @@ public partial class InventoryDetailsDialog
     [Parameter] public int? ItemId { get; set; } = null;
     [Parameter] public int? StatusId { get; set; } = null;
     [Parameter] public bool ReadOnly { get; set; } = false;
+    [Parameter] public bool ChangeBadToConfiscated { get; set; } = false;
     [Parameter] public List<AppFilterDescriptor> StatusFilters { get; set; } = [];
     [Parameter] public List<InventoryDetailVM> InventoryDetails { get; set; } = [];
     // this was a bad idea probably but it allows the inventory details dialog to load inventory details from the db
@@ -149,7 +150,18 @@ public partial class InventoryDetailsDialog
         {
             newIntent.Filters.AddRange(StatusFilters);
         }
-        return await inventoryHandler.GetInventoryStatusAsync(newIntent);
+
+        var res = await inventoryHandler.GetInventoryStatusAsync(newIntent);
+
+        var cbtc = res.Item1.FirstOrDefault(x => x.Id == 3);
+
+        if (ChangeBadToConfiscated && cbtc != null)
+        {
+            cbtc.Name = "CONFISCATED";
+        }
+
+        return res;
+
     }
 
     async Task Submit()
