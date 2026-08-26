@@ -20,3 +20,4 @@ WHERE
 	t.recordtype = 'purchaseorder' AND
 	t.status IN ('B', 'E') AND
 	t.subsidiary = @subsidiaryid
+ORDER BY t.lastmodifieddate desc

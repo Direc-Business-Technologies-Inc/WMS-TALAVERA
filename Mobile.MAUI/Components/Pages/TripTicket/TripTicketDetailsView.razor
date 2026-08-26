@@ -3,9 +3,32 @@
 
 @inherits BaseComponent
 
-<RadzenTemplateForm TItem="TripTicketVM" Data="@Model" Submit="OnConfirm">
+<RadzenTemplateForm TItem="TripTicketVM" Data="@Model" Submit="OnConfirm" Style="height:calc(100vh - 120px); overflow-y:auto; overflow-x:hidden;">
 
     <RadzenStack Gap="1rem">
+
+        <RadzenFormField Text="To Subsidiary" Style="width:100%">
+            <ChildContent>
+                <RadzenDropDown Name="ToSubsidiary"
+                                Multiple="true"
+                                @bind-Value="Model.ToSubsidiaries"
+                                Data="@Subsidiaries"
+                                TextProperty="SubsidiaryName"
+                                Style="width:100%" />
+            </ChildContent>
+        </RadzenFormField>
+        <RadzenRequiredValidator Component="ToSubsidiary" Text="To Subsidiary is required" />
+
+        <RadzenFormField Text="From Subsidiary" Style="width:100%">
+            <ChildContent>
+                <RadzenDropDown Name="FromSubsidiary"
+                                @bind-Value="Model.FromSubsidiary"
+                                Data="@Subsidiaries"
+                                TextProperty="SubsidiaryName"
+                                Style="width:100%" />
+            </ChildContent>
+        </RadzenFormField>
+        <RadzenRequiredValidator Component="FromSubsidiary" Text="From Subsidiary is required" />
 
         <RadzenFormField Text="Destination" Style="width:100%">
             <ChildContent>
@@ -18,6 +41,21 @@
             </ChildContent>
         </RadzenFormField>
         <RadzenRequiredValidator Component="Destination" Text="Destination is required" />
+
+        @if (Model.Destinations?.Any() == true)
+        {
+            <RadzenText TextStyle="TextStyle.Body2"
+                        Style="margin-top:-8px; margin-bottom:8px; color:#666;">
+                <strong>Route:</strong><br />
+
+                @foreach (var (destination, index) in Model.Destinations
+                            .OrderBy(x => x.RoutingPriority)
+                            .Select((x, index) => (x, index)))
+                {
+                    <div>@(index + 1). @destination.LocationName</div>
+                }
+            </RadzenText>
+        }
 
         <RadzenFormField Text="Truck Plate Number" Style="width:100%">
             <ChildContent>
@@ -72,6 +110,16 @@
             </ChildContent>
         </RadzenFormField>
         <RadzenRequiredValidator Component="OriginLocation" Text="Origin Location is required" />
+
+        <RadzenFormField Text="Truck Seal" Style="width:100%">
+            <ChildContent>
+                <RadzenTextBox Name="TruckSeal"
+                               @bind-Value="Model.TruckSeal"
+                               Style="width:100%" />
+            </ChildContent>
+        </RadzenFormField>
+
+        <RadzenRequiredValidator Component="TruckSeal" Text="Truck Seal is required" />
 
         <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="8px">
             <RadzenButton Text="Cancel" Click="OnCancel" ButtonStyle="ButtonStyle.Warning" />

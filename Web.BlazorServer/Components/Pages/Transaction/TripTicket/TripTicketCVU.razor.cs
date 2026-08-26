@@ -6,9 +6,12 @@ using Shared.Kernel;
 using Shared.Libraries.ViewModel;
 using Shared.Libraries.ViewModel.Common;
 using Shared.Libraries.ViewModel.ItemFulfillment;
+using Shared.Libraries.ViewModel.TripTicket;
 using Shared.Services.Repository;
+using Web.BlazorServer.Components.Custom;
 using Web.BlazorServer.Components.Shared.Abstraction;
 using Web.BlazorServer.Defaults;
+using Web.BlazorServer.Handlers.Implementations.Others;
 using Web.BlazorServer.Handlers.Repositories.Others;
 using Web.BlazorServer.Handlers.Repositories.Transaction.TripTicket;
 using Web.BlazorServer.Helpers;
@@ -28,7 +31,8 @@ partial class TripTicketCVU
     [Inject] ITripTicketHandler TripTicketHandler { get; set; } = default!;
     [Inject] IGridSettingsService GridSettingsService { get; set; } = default!;
     [Inject] ILocationHandler locationHandler { get; set; } = default!;
-    [Inject] ICurrentUserService currentUser { get; set; } = default!; 
+    [Inject] ISubsidiaryHandler subsidiaryHandler { get; set; } = default!;
+    [Inject] ICurrentUserService currentUser { get; set; } = default!;
     #endregion Injects
 
     PageActionTypeEnum PageAction { get; set; }
@@ -39,20 +43,31 @@ partial class TripTicketCVU
 
     readonly string ActionView = EnumHelper.GetEnumDescription(AppActions.ViewTripTicket);
     readonly string ActionCreate = EnumHelper.GetEnumDescription(AppActions.CreateTripTicket);
+    readonly string ActionGetParentTripTickets = EnumHelper.GetEnumDescription(AppActions.GetParentTripTickets);
     readonly string ActionGetFulfillments = EnumHelper.GetEnumDescription(AppActions.GetPackedTripTicketFulfillments);
     readonly string ActionGetDrivers = EnumHelper.GetEnumDescription(AppActions.GetTripTicketDrivers);
     readonly string ActionGetHelpers = EnumHelper.GetEnumDescription(AppActions.GetTripTicketHelpers);
+    readonly string ActionGetSubsidiaries = EnumHelper.GetEnumDescription(AppActions.GetTripTicketSubsidiaries);
     readonly string ActionGetLocations = EnumHelper.GetEnumDescription(AppActions.GetTripTicketLocations);
     readonly string ActionGetTruckPlateNumbers = EnumHelper.GetEnumDescription(AppActions.GetTripTicketTruckPlateNumbers);
 
+    private readonly SemaphoreSlim _concurrencySemaphore = new SemaphoreSlim(2, 2);
+
     AppTable<ItemFulfillmentVM> FulfillmentLinesTable { get; set; } = default!;
     DataGridSettings FulfillmentLinesTableSettings { get; set; } = new();
-    List<ItemFulfillmentVM> PackedFulfillments { get; set; } = [];
-    List<DriverVM> Drivers { get; set; } = [];
-    List<HelperVM> Helpers { get; set; } = [];
-    List<LocationVM> Locations { get; set; } = [];
-    List<LocationVM> DestinationLocations { get; set; } = [];
-    List<TruckPlateNumberVM> TruckPlateNumbers { get; set; } = [];
+    List<TripTicketVM> ParentTripTickets { get; set; } = new();
+    List<ItemFulfillmentVM> PackedFulfillments { get; set; } = new();
+    List<DriverVM> Drivers { get; set; } = new();
+    List<HelperVM> Helpers { get; set; } = new();
+    List<LocationVM> Locations { get; set; } = new();
+    List<LocationVM> DestinationLocations { get; set; } = new();
+    List<SubsidiaryVM> FromSubsidiary { get; set; } = new();
+    List<SubsidiaryVM> ToSubsidiaries { get; set; } = new();
+    List<TruckPlateNumberVM> TruckPlateNumbers { get; set; } = new();
+
+    QuickVirtualizedDropdown<LocationVM> LocationDropdown { get; set; } = default!;
+
+    bool IsBusy = false;
 
     const string PRINTABLE_URL = "https://11608969.extforms.netsuite.com/app/site/hosting/scriptlet.nl?script=1671&deploy=1&compid=11608969&ns-at=AAEJ7tMQ9evIwFEEUifIBokQgQ0jhowAItpfjv5Smu7B76K41lU&recordType=customrecord_dbti_trip_ticket&transactionDefault=false";
     List<NavigationRouteVM> AdditionalRoutes { get; set; } =
@@ -142,10 +157,13 @@ partial class TripTicketCVU
         if (!ValidateFormData())
             return;
 
+        IsBusy = true;
+        await InvokeAsync(StateHasChanged);
+
         var action = await AppActionFactory.RunAsync(async () =>
         {
             AppBusyService.SetBusy(ActionCreate, true);
-            var result =  await TripTicketHandler.PostTripTicketAsync(FormData);
+            var result = await TripTicketHandler.PostTripTicketAsync(FormData);
             if (!result) throw new Exception("Failed to create Trip Ticket.");
             return result;
         }, AppActionOptionPresets.Confirmed(ActionCreate));
@@ -154,6 +172,7 @@ partial class TripTicketCVU
 
         action.OnSuccess(result =>
         {
+            IsBusy = false;
             if (!result)
             {
                 ToastService.Error("Failed to create Trip Ticket.");
@@ -174,6 +193,7 @@ partial class TripTicketCVU
         if (Creating)
         {
             await LoadPackedFulfillmentsAsync();
+            await LoadSubsidiariesAsync();
             await LoadDriversAsync();
             await LoadHelpersAsync();
             await LoadLocationsAsync();
@@ -238,6 +258,67 @@ partial class TripTicketCVU
         });
     }
 
+    async Task LoadSubsidiariesAsync()
+    {
+        var action = await AppActionFactory.RunAsync(async () =>
+        {
+            AppBusyService.SetBusy(ActionGetSubsidiaries, true);
+
+            return await subsidiaryHandler.GetSubsidiariesAsync(new() { Take = -1 });
+
+        }, AppActionOptionPresets.Loading(ActionGetSubsidiaries));
+
+        AppBusyService.SetBusy(ActionGetSubsidiaries, false);
+        action.OnSuccess(result =>
+        {
+            FromSubsidiary = result.Count == 0 ? [] : [.. result.Data.Select(x => new SubsidiaryVM {
+                NetsuiteSubsidiaryInternalId = x.Id,
+                SubsidiaryName = x.Name,
+            })];
+
+            ToSubsidiaries = result.Count == 0 ? [] : [.. result.Data.Select(x => new SubsidiaryVM {
+                NetsuiteSubsidiaryInternalId = x.Id,
+                SubsidiaryName = x.Name,
+            })];
+
+            var userSubsidiary = CurrentUserService.NsSubsidiaryId;
+
+            FormData.FromSubsidiary = FromSubsidiary.FirstOrDefault(x => x.NetsuiteSubsidiaryInternalId == userSubsidiary);
+            return Task.CompletedTask;
+        });
+    }
+
+    async Task<(IEnumerable<SubsidiaryVM>, int)> SubsidiaryProvider(DataGridIntent intent)
+    {
+
+        await _concurrencySemaphore.WaitAsync();
+
+        try
+        {
+            var result = await subsidiaryHandler.GetSubsidiariesAsync(intent);
+
+            var subsidiaries = result.Data.Select(x => new SubsidiaryVM
+            {
+                NetsuiteSubsidiaryInternalId = x.Id,
+                SubsidiaryName = x.Name,
+            });
+
+            return (subsidiaries.ToList(), result.Count);
+        }
+        finally
+        {
+            _concurrencySemaphore.Release();
+        }
+    }
+
+    public async Task OnSubsidiaryChanged(List<SubsidiaryVM>? value)
+    {
+        var originalValue = FormData.ToSubsidiaries;
+        FormData.ToSubsidiaries = value ?? [];
+
+        await InvokeAsync(StateHasChanged);
+    }
+
     async Task LoadLocationsAsync()
     {
         var action = await AppActionFactory.RunAsync(async () =>
@@ -282,6 +363,37 @@ partial class TripTicketCVU
         });
     }
 
+    async Task<(IEnumerable<LocationVM>, int)> DestinationsProvider(DataGridIntent intent)
+    {
+
+        await _concurrencySemaphore.WaitAsync();
+
+        try
+        {
+            var result = await locationHandler.GetLocationsAsync(intent);
+
+            var location = result.Data.Select(x => new LocationVM
+            {
+                NetsuiteLocationInternalId = x.Id,
+                LocationName = x.Name,
+            });
+
+            return (location.ToList(), result.Count);
+        }
+        finally
+        {
+            _concurrencySemaphore.Release();
+        }
+    }
+
+    public async Task OnDestinationChanged(List<LocationVM>? value)
+    {
+        var originalValue = FormData.Destinations;
+        FormData.Destinations = value ?? [];
+
+        await InvokeAsync(StateHasChanged);
+    }
+
 
     async Task LoadTruckPlateNumbersAsync()
     {
@@ -297,6 +409,104 @@ partial class TripTicketCVU
             TruckPlateNumbers = result is null ? [] : [.. result];
             return Task.CompletedTask;
         });
+    }
+
+    async Task GetTripTicketItemFulfillments(int ttref)
+    {
+        if (ttref <= 0)
+        {
+            NavError("Please select a trip ticket from the list.");
+            return;
+        }
+
+        var action = await AppActionFactory.RunAsync(async () =>
+        {
+            AppBusyService.SetBusy(ActionView, true);
+            return await TripTicketHandler.GetTripTicketBaseParentAsync(ttref);
+        }, AppActionOptionPresets.Loading(ActionView));
+
+        AppBusyService.SetBusy(ActionView, false);
+
+        action.OnSuccess(async result =>
+        {
+            if (result is null)
+            {
+                NavError($"Trip Ticket \"{ttref}\" could not be found.");
+                return;
+            }
+
+            FormData.Id = result.Id;
+            FormData.ParentName = result.ParentName;
+            FormData.Parent = result.Parent;
+            FormData.TruckSeal = result.TruckSeal;
+
+            FormData.OriginLocation = result.OriginLocation != null
+            ? Locations.FirstOrDefault(x =>
+                x.NetsuiteLocationInternalId == result.OriginLocation.NetsuiteLocationInternalId)
+            : null;
+
+            FormData.Destinations = result.Destinations != null
+            ? DestinationLocations
+                .Where(x => result.Destinations.Any(y =>
+                    x.NetsuiteLocationInternalId == y.NetsuiteLocationInternalId))
+                .ToList()
+            : [];
+
+            FormData.FromSubsidiary = result.FromSubsidiary != null
+            ? FromSubsidiary.FirstOrDefault(x =>
+                x.NetsuiteSubsidiaryInternalId == result.FromSubsidiary.NetsuiteSubsidiaryInternalId)
+            : null;
+            FormData.ToSubsidiaries = result.ToSubsidiaries != null
+            ? ToSubsidiaries
+                .Where(x => result.ToSubsidiaries.Any(y =>
+                    x.NetsuiteSubsidiaryInternalId == y.NetsuiteSubsidiaryInternalId))
+                .ToList()
+            : [];
+
+            FormData.TruckPlateNumber = result.TruckPlateNumber != null
+            ? TruckPlateNumbers.FirstOrDefault(x =>
+                x.NetsuiteTruckPlateNoInternalId == result.TruckPlateNumber.NetsuiteTruckPlateNoInternalId)
+            : null;
+
+            FormData.Driver = result.Driver != null
+            ? Drivers.FirstOrDefault(x =>
+                x.NetsuiteEmployeeInternalId == result.Driver.NetsuiteEmployeeInternalId)
+            : null;
+
+            FormData.Helper = result.Helper != null
+            ? Helpers.FirstOrDefault(x =>
+                x.NetsuiteEmployeeInternalId == result.Helper.NetsuiteEmployeeInternalId)
+            : null;
+
+            FormData.ItemFulfillments = result.ItemFulfillments;
+            //result.Adapt(FormData);
+            //AdaptToClone();
+            //await ResetFormContext();
+            //UnsavedChangesService.MarkClean();
+        });
+
+        action.OnFailure(ex =>
+        {
+            NavError(ex.Message);
+            return Task.CompletedTask;
+        });
+    }
+
+    protected void OnDestinationsChanged(object value)
+    {
+        if (value is null)
+        {
+            FormData.Destinations = [];
+        }
+
+        OnFieldChanged(nameof(FormData.Destinations));
+    }
+
+    protected void OnToSubsidiaryChanged(object value)
+    {
+        FormData.ToSubsidiaries = (value as IEnumerable<SubsidiaryVM>)?.ToList() ?? [];
+
+        OnFieldChanged(nameof(FormData.ToSubsidiaries));
     }
 
     bool ValidateFormData()
@@ -368,6 +578,9 @@ partial class TripTicketCVU
         NavManager.NavigateTo(TripTicketRoutes.Root, true);
     }
 
+    string GetParent(int parent) =>
+        parent != 0 ? string.Empty : parent.ToString();
+
     string GetEmployeeName(EmployeeVM? employee) =>
         employee is null
             ? string.Empty
@@ -381,6 +594,14 @@ partial class TripTicketCVU
     string GetDestinationsText() =>
         string.Join(", ", FormData.Destinations
             .Select(x => x.LocationName)
+            .Where(x => !string.IsNullOrWhiteSpace(x)));
+
+    string GetFromSubsidiaryText(SubsidiaryVM? subsidiary) =>
+        subsidiary?.SubsidiaryName ?? string.Empty;
+
+    string GetToSubsidiaryText() =>
+        string.Join(", ", FormData.ToSubsidiaries
+            .Select(x => x.SubsidiaryName)
             .Where(x => !string.IsNullOrWhiteSpace(x)));
 
     void NavError(string message)

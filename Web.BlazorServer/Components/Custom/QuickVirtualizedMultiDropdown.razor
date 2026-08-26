@@ -1,0 +1,45 @@
+﻿@typeparam TItem
+@inherits BaseComponent
+<RadzenDropDown @ref="Dropdown"
+                Data="@Data"
+                @bind-Value:get="@Value"
+                @bind-Value:set="@(value => ValueChanged.InvokeAsync(value))"
+                LoadData="@LoadDataAsync"
+                Count="DataCount"
+                Name="@Name"
+                Disabled="@Disabled"
+                Visible="@Visible"
+                ReadOnly="@ReadOnly"
+                AllowVirtualization
+                Multiple="true"
+                AllowClear="@AllowClear"
+                TextProperty="@TextProperty"
+                ValueProperty="@ValueProperty"
+                AllowFiltering="@AllowFiltering">
+    <FooterTemplate>
+        @if (ShowLoadingIndicator && IsBusy)
+        {
+            if (LoadingIndicator is not null)
+            {
+                @LoadingIndicator
+            }
+            else
+            {
+                <RadzenProgressBar Mode="ProgressBarMode.Indeterminate" Value="100" ShowValue="false" class="rz-w-100" Style="height: 6px" />
+            }
+        }
+    </FooterTemplate>
+    <EmptyTemplate>
+        @if (ShowEmptyTemplate)
+        {
+            if (EmptyTemplate is not null)
+            {
+                @EmptyTemplate
+            }
+            else
+            {
+                <RadzenText TextAlign="TextAlign.Center" class="rz-w-100 rz-color-base-600 rz-p-3" TextStyle="TextStyle.Body1" Style="font-style: italic;" Text="No Data" />
+            }
+        }
+    </EmptyTemplate>
+</RadzenDropDown>

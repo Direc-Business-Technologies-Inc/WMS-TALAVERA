@@ -16,13 +16,14 @@ public partial class TripTicketDetailsView
     AppAction<List<DriverVM>> ActionGetDrivers;
     AppAction<List<HelperVM>> ActionGetHelpers;
     AppAction<List<TruckPlateNumberVM>> ActionGetTruckPlateNumbers;
+    AppAction<List<SubsidiaryVM>> ActionGetSubsidiaries;
 
     List<LocationVM> Destination { get; set; } = [];
     List<DriverVM> Drivers { get; set; } = [];
     List<HelperVM> Helpers { get; set; } = [];
     List<TruckPlateNumberVM> TruckPlateNumbers { get; set; } = [];
     List<LocationVM> OriginLocations { get; set; } = [];
-
+    List<SubsidiaryVM> Subsidiaries { get; set; } = [];
     public TripTicketVM Model { get; set; } = new();
 
     int UserSubsidiaryId { get; set; }
@@ -43,7 +44,8 @@ public partial class TripTicketDetailsView
                 Destination = result.Data.Select(line => new LocationVM
                 {
                     LocationName = line.LocationName,
-                    NetsuiteLocationInternalId = line.NetsuiteLocationInternalId
+                    NetsuiteLocationInternalId = line.NetsuiteLocationInternalId,
+                    RoutingPriority = line.RoutingPriority
                 }).ToList() ?? [];
 
                 await InvokeAsync(StateHasChanged);
@@ -118,6 +120,29 @@ public partial class TripTicketDetailsView
                 await InvokeAsync(StateHasChanged);
             }
         };
+
+        ActionGetSubsidiaries = new AppAction<List<SubsidiaryVM>>
+        {
+            Name = "GetSubsidiaries",
+            TaskAsync = async () =>
+            {
+                await InvokeAsync(StateHasChanged);
+                var res = await Client.Get<List<SubsidiaryVM>>("/Lookup/Subsidiaries");
+                return res;
+            },
+            OnSuccess = async (result) =>
+            {
+                Subsidiaries = result.Data ?? new();
+
+                //// If we have the user subsidiary id, set the FromSubsidiary by default
+                //if (UserSubsidiaryId != 0)
+                //{
+                //    Model.FromSubsidiary = Subsidiaries.FirstOrDefault(s => s.NetsuiteSubsidiaryInternalId == UserSubsidiaryId);
+                //}
+
+                await InvokeAsync(StateHasChanged);
+            }
+        };
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -132,6 +157,7 @@ public partial class TripTicketDetailsView
                 UserSubsidiaryId = auth.NetsuiteSubsidiaryInternalId;
             }
 
+            await ActionFactory.ExecuteAppActionAsync(ActionGetSubsidiaries);
             await ActionFactory.ExecuteAppActionAsync(ActionGetDestinations);
             await ActionFactory.ExecuteAppActionAsync(ActionGetDrivers);
             await ActionFactory.ExecuteAppActionAsync(ActionGetHelpers);
@@ -149,7 +175,10 @@ public partial class TripTicketDetailsView
             Helper = Model.Helper,
             TruckPlateNumber = Model.TruckPlateNumber,
             OriginLocation = Model.OriginLocation,
-            TripDate = Model.TripDate
+            TripDate = Model.TripDate,
+            ToSubsidiaries = Model.ToSubsidiaries,
+            FromSubsidiary = Model.FromSubsidiary,
+            TruckSeal = Model.TruckSeal
         };
 
         DialogService.Close(result);

@@ -1,7 +1,4 @@
-﻿using Application.DataTransferObjects.Transactions.Receiving.NS;
-using Application.DataTransferObjects.Transactions.TripTicket.NS;
-using Application.UseCases.Commands.Transaction.Packing.NS.VendorReturnAuthorization;
-using Application.UseCases.Commands.Transaction.Receiving.NS.PurchaseOrder;
+﻿using Application.DataTransferObjects.Transactions.TripTicket.NS;
 using Application.UseCases.Commands.Transaction.TripTicket.NS;
 using Application.UseCases.Queries.Transaction.TripTicket.NS;
 using Mapster;

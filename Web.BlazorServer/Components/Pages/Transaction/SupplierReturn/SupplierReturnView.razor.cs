@@ -73,6 +73,8 @@ public partial class SupplierReturnView
 
         action.OnFailure((ex) =>
         {
+            if (ex is null) return Task.CompletedTask;
+
             ToastService.Error(ex.Message);
             return Task.CompletedTask;
         });

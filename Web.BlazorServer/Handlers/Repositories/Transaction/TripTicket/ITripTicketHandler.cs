@@ -9,7 +9,9 @@ namespace Web.BlazorServer.Handlers.Repositories.Transaction.TripTicket;
 public interface ITripTicketHandler
 {
     Task<(IEnumerable<TripTicketDataGridVM> Data, int Count)> GetTTDataGridAsync(DataGridIntent intent, int subsidiaryId);
+    Task<(IEnumerable<TripTicketDataGridVM> Data, int Count)> GetParentTripTicketsAsync(DataGridIntent intent);
     Task<TripTicketVM?> GetTripTicketAsync(int id);
+    Task<TripTicketVM?> GetTripTicketBaseParentAsync(int id);
     Task<IEnumerable<ItemFulfillmentVM>> GetTripTicketFulfillmentsAsync(int id);
     Task<IEnumerable<ItemFulfillmentVM>> GetPackedItemFulfillmentsAsync();
     Task<IEnumerable<DriverVM>> GetDriversAsync();

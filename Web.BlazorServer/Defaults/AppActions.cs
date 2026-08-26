@@ -237,6 +237,8 @@ public enum AppActions
     #region Transaction - Trip Ticket
     [Description("Get All Trip Ticket")]
     GetAllTripTickets,
+    [Description("Get Parent Trip Tickets")]
+    GetParentTripTickets,
     [Description("View Trip Ticket")]
     ViewTripTicket,
     [Description("Create Trip Ticket")]
@@ -247,6 +249,8 @@ public enum AppActions
     GetTripTicketDrivers,
     [Description("Get Trip Ticket Helpers")]
     GetTripTicketHelpers,
+    [Description("Get Trip Ticket Subsidiaries")]
+    GetTripTicketSubsidiaries,
     [Description("Get Trip Ticket Locations")]
     GetTripTicketLocations,
     [Description("Get Trip Ticket Truck Plate Numbers")]

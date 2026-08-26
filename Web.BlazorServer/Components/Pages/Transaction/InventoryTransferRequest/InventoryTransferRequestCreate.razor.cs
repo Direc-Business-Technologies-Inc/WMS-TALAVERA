@@ -53,24 +53,6 @@ public partial class InventoryTransferRequestCreate : BaseForm<InventoryTransfer
 
     async Task OnSubmit(InventoryTransferRequestVM data)
     {
-
-        if (data.Lines.Count == 0)
-        {
-            ToastService.Error("Please add at least one line to the inventory transfer request.");
-            return;
-        }
-        if (LinesNeedAssignment(data, out var lines))
-        {
-            ToastService.Error("Please assign inventory details to lines: " + string.Join(", ", lines.Select(l => l.ItemCode)));
-            return;
-        }
-
-        if (data.Lines.Any(x => x.QuantityAlloted > x.QuantityAvailable))
-        {
-            ToastService.Error("Some alloted quantities exceed the available quantity");
-            return;
-        }
-
         IsBusy = true;
         await InvokeAsync(StateHasChanged);
 
@@ -109,11 +91,4 @@ public partial class InventoryTransferRequestCreate : BaseForm<InventoryTransfer
         AppBusyService.BusyChanged -= OnBusyChanged;
         base.Dispose();
     }
-
-    private bool LinesNeedAssignment(InventoryTransferRequestVM data, out List<InventoryTransferRequestLineVM> lines)
-    {
-        lines = [..data.Lines.Where(x => !x.IsAllAssigned)];
-        return lines.Any();
-    }
-
 }

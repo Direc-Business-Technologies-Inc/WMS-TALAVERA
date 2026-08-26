@@ -30,6 +30,7 @@ public partial class STRForm
     [Parameter] public string? ActionURI { get; set; }
     [Parameter] public string ActionLabel { get; set; } = "Submit";
     [Parameter] public string ReturnLabel { get; set; } = "Return";
+    [Parameter] public bool EditMode { get; set; } = false;
 
     [Inject] IGridSettingsService GridSettingsService { get; set; } = default!;
     [Inject] ILocationHandler LocationHandler { get; set; } = default!;
@@ -183,12 +184,28 @@ public partial class STRForm
     async Task<(IEnumerable<LocationVM>, int)> DestinationLocationProvider(DataGridIntent intent)
     {
         if (Model.ToSubsidiary is null) return ([], 0);
+        if (Model.Subsidiary is null) return ([], 0);
 
         await _concurrencySemaphore.WaitAsync();
-        var result = await LocationHandler.GetLocationsBySubsidiaryAsync(intent, Model.ToSubsidiary.Id);
 
-        _concurrencySemaphore.Release();
-        return result;
+
+        try
+        {
+            if (Model.IsIntercompany)
+            {
+                return await LocationHandler.GetLocationsBySubsidiaryAsync(
+                    intent,
+                    Model.ToSubsidiary.Id);
+            }
+
+            return await LocationHandler.GetLocationsBySubsidiaryAsync(
+                    intent,
+                    Model.Subsidiary.Id);
+        }
+        finally
+        {
+            _concurrencySemaphore.Release();
+        }
     }
 
     async Task<(IEnumerable<VendorVM>, int)> VendorProvider(DataGridIntent intent)
@@ -296,6 +313,7 @@ public partial class STRForm
         }
 
         if (Model.SourceLocation is null) return;
+        if (Model.Lines == null || Model.Lines.Count == 0) return;
 
         await SourceLocationItems();
 
@@ -477,6 +495,8 @@ public partial class STRForm
 
         action.OnFailure((ex) =>
         {
+            if (ex is null) return Task.CompletedTask;
+
             ToastService.Error(ex.Message);
             return Task.CompletedTask;
         });

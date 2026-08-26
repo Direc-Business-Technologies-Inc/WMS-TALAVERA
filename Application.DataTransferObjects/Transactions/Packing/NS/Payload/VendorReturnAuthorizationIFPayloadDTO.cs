@@ -60,25 +60,25 @@ public class VendorReturnAuthorizationIFPayloadDTO
                             ]
                         };
 
-                        var inventoryDetail = /*!isUsedBin ?*/ new InventoryDetail
-                        {
-                            InventoryAssignmentList = new InventoryAssignmentList
-                            {
-                                InventoryAssignment = assignment
-                            }
-                        };
+                        //var inventoryDetail = !isUsedBin ? new InventoryDetail
+                        //{
+                        //    InventoryAssignmentList = new InventoryAssignmentList
+                        //    {
+                        //        InventoryAssignment = assignment
+                        //    }
+                        //}
                         //: new InventoryDetail
                         //{
                         //    InventoryAssignment = assignment
                         //};
 
-                        return new OrderLineItem
-                        {
-                            OrderLine = line.LineSequenceNumber,
-                            isReceived = true,
-                            Quantity = line.ScannedQuantity,
-                            InventoryDetail = inventoryDetail
-                        };
+                        //return new OrderLineItem
+                        //{
+                        //    OrderLine = line.LineSequenceNumber,
+                        //    isReceived = true,
+                        //    Quantity = line.ScannedQuantity,
+                        //    InventoryDetail = inventoryDetail
+                        //};
 
                         //var assignment = new InventoryAssignment
                         //{
@@ -107,26 +107,21 @@ public class VendorReturnAuthorizationIFPayloadDTO
                         //    ]
                         //};
 
-                        //var inventoryDetail = line.NetsuiteMaterialPrefferedBinId != 0
-                        //? new InventoryDetail
-                        //{
-                        //    InventoryAssignmentList = new InventoryAssignmentList
-                        //    {
-                        //        InventoryAssignment = assignment
-                        //    }
-                        //}
-                        //: new InventoryDetail
-                        //{
-                        //    InventoryAssignment = assignment
-                        //};
+                        var inventoryDetail = new InventoryDetail
+                        {
+                            InventoryAssignmentList = new InventoryAssignmentList
+                            {
+                                InventoryAssignment = assignment
+                            }
+                        };
 
-                        //return new OrderLineItem
-                        //{
-                        //    OrderLine = line.LineSequenceNumber,
-                        //    isReceived = true,
-                        //    Quantity = line.ScannedQuantity,
-                        //    InventoryDetail = inventoryDetail
-                        //};
+                        return new OrderLineItem
+                        {
+                            OrderLine = line.LineSequenceNumber,
+                            isReceived = true,
+                            Quantity = line.ScannedQuantity,
+                            InventoryDetail = inventoryDetail
+                        };
                     }
                 }).ToList()
             }

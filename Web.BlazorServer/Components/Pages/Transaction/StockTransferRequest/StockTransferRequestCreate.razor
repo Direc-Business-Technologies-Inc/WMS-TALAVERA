@@ -141,12 +141,6 @@
 
     async Task<bool> Create(StockTransferRequestInfoVM model)
     {
-        if (model.Lines.Any(x => x.QuantityAlloted > x.QuantityAvailable))
-        {
-            ToastService.Error("Some alloted quantities exceed the available quantity");
-            return false;
-        }
-
         IsCreating = true;
         await InvokeAsync(StateHasChanged);
         var action = await AppActionFactory.RunAsync(async () =>

@@ -25,7 +25,7 @@
 <AppFormSkeleton TItem="StockTransferRequestInfoVM" Loading="@IsLoadingData" />
 @if (!IsLoadingData)
 {
-    <STRForm OnSubmit="@Update" Model="@FormData" EditContext="@EditContext" ReturnURI="@(STRRoutes.View + $"?ref={Ref}")" IsBusy="@IsUploadingData"/>
+    <STRForm OnSubmit="@Update" Model="@FormData" EditContext="@EditContext" ReturnURI="@(STRRoutes.View + $"?ref={Ref}")" IsBusy="@IsUploadingData" EditMode/>
 }
 </AppContent>
     @code {
@@ -104,12 +104,6 @@
 
     async Task<bool> Update(StockTransferRequestInfoVM model)
     {
-        if (model.Lines.Any(x => x.QuantityAlloted > x.QuantityAvailable))
-        {
-            ToastService.Error("Some alloted quantities exceed the available quantity");
-            return false;
-        }
-
         var action = await AppActionFactory.RunAsync(async () =>
         {
             return await handler.UpdateStockTransferRequest(model);

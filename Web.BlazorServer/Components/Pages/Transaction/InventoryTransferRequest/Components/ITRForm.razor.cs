@@ -12,6 +12,7 @@ using Web.BlazorServer.ViewModels.Others;
 using Web.BlazorServer.ViewModels.Transaction.InventoryTransferRequest;
 using Web.BlazorServer.ViewModels.Transaction.Receiving;
 using Web.BlazorServer.ViewModels.Transaction.SupplierReturn;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace Web.BlazorServer.Components.Pages.Transaction.InventoryTransferRequest.Components;
 
@@ -181,8 +182,32 @@ public partial class ITRForm
 
     async Task Submit()
     {
+        if (Model.Lines.Count == 0)
+        {
+            ToastService.Error("Please add at least one line to the inventory transfer request.");
+            return;
+        }
+        if (LinesNeedAssignment(Model, out var lines))
+        {
+            ToastService.Error("Please assign inventory details to lines: " + string.Join(", ", lines.Select(l => l.ItemCode)));
+            return;
+        }
+
+        if (Model.Lines.Any(x => x.QuantityAlloted > x.QuantityAvailable))
+        {
+            ToastService.Error("Some alloted quantities exceed the available quantity");
+            return;
+        }
+
         if (OnSubmit.HasDelegate) await OnSubmit.InvokeAsync(Model);
     }
+
+    private bool LinesNeedAssignment(InventoryTransferRequestVM data, out List<InventoryTransferRequestLineVM> lines)
+    {
+        lines = [.. data.Lines.Where(x => !x.IsAllAssigned)];
+        return lines.Any();
+    }
+
     async Task SubsidiarySet(SubsidiaryVM? value)
     {
         var oldValue = Model.Subsidiary;
@@ -241,6 +266,7 @@ public partial class ITRForm
         }
 
         if (Model.SourceLocation is null) return;
+        if (Model.Lines == null || Model.Lines.Count == 0) return;
 
         await LocationItemsProvider();
 

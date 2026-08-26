@@ -1,3 +1,4 @@
+@using Web.BlazorServer.Components.Custom
 @using global::Shared.Libraries.ViewModel
 @using global::Shared.Libraries.ViewModel.ItemFulfillment
 @using global::Shared.Libraries.ViewModel.TripTicket
@@ -20,7 +21,12 @@
 
 <AppContent>
     <AppFormSkeleton TItem="TripTicketVM" Loading="@IsLoadingData" />
-
+    <RadzenStack Orientation="Orientation.Horizontal">
+        <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5em" Visible="@IsBusy">
+            <RadzenProgressBarCircular ShowValue="false" Mode="ProgressBarMode.Indeterminate" Size="ProgressBarCircularSize.ExtraSmall" AriaLabel="Loading, extra small" />
+            <RadzenText TextStyle="TextStyle.Caption">Please wait...</RadzenText>
+        </RadzenStack>
+    </RadzenStack>
     <RadzenStack Visible="@(Viewing && !IsLoadingData)"
                  Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
                  JustifyContent="JustifyContent.End" Gap="1rem" class="rz-mb-2">
@@ -36,7 +42,17 @@
                 <ChildContent>
                     <RadzenStack Gap="0.5rem">
                         <RadzenRow Gap="1rem">
-                            <RadzenColumn Size="12" SizeMD="4">
+                            <RadzenColumn Size="12" SizeMD="3">
+                                <RadzenFormField AllowFloatingLabel="false" Text="Parent" class="rz-w-100">
+                                    <ChildContent>
+                                        <RadzenTextBox Value="@FormData.ParentName" Placeholder="-" />
+                                    </ChildContent>
+                                    <End>
+                                        <RadzenButton Visible="@Creating" ButtonType="ButtonType.Button" Text="Select parent from Trip Ticket" Size="ButtonSize.ExtraSmall" Click="OpenParentTripTicketDialog" ButtonStyle="ButtonStyle.Primary" />
+                                    </End>
+                                </RadzenFormField>
+                            </RadzenColumn>
+                            <RadzenColumn Size="12" SizeMD="3">
                                 <RadzenFormField Text="Trip Date" class="rz-w-100" AllowFloatingLabel="false">
                                     <ChildContent>
                                         <RadzenTextBox Visible="@Viewing" ReadOnly
@@ -56,7 +72,7 @@
                                     </Helper>
                                 </RadzenFormField>
                             </RadzenColumn>
-                            <RadzenColumn Size="12" SizeMD="4">
+                            <RadzenColumn Size="12" SizeMD="3">
                                 <RadzenFormField Text="Driver" class="rz-w-100" AllowFloatingLabel="false">
                                     <ChildContent>
                                         <RadzenTextBox Visible="@Viewing" ReadOnly
@@ -81,7 +97,7 @@
                                     </Helper>
                                 </RadzenFormField>
                             </RadzenColumn>
-                            <RadzenColumn Size="12" SizeMD="4">
+                            <RadzenColumn Size="12" SizeMD="3">
                                 <RadzenFormField Text="Helper" class="rz-w-100" AllowFloatingLabel="false">
                                     <ChildContent>
                                         <RadzenTextBox Visible="@Viewing" ReadOnly
@@ -109,59 +125,56 @@
                         </RadzenRow>
 
                         <RadzenRow Gap="1rem">
-                            <RadzenColumn Size="12" SizeMD="3">
-                                <RadzenFormField Text="Destination Location" class="rz-w-100" AllowFloatingLabel="false">
+                            <RadzenColumn Size="12" SizeMD="4">
+                                <RadzenFormField Text="From Subsidiary" class="rz-w-100" AllowFloatingLabel="false">
                                     <ChildContent>
                                         <RadzenTextBox Visible="@Viewing" ReadOnly
-                                                       Value="@GetDestinationsText()"
-                                                       Placeholder="No Destination Selected"
+                                                       Value="@GetFromSubsidiaryText(FormData.FromSubsidiary)"
+                                                       Placeholder="No Subsidiary Selected"
                                                        class="rz-w-100" />
                                         <RadzenDropDown Visible="@Creating"
-                                                        Multiple
-                                                        @bind-Value="@FormData.Destinations"
-                                                        Change="(args) => OnFieldChanged(nameof(FormData.Destinations))"
-                                                        Data="@DestinationLocations"
+                                                        @bind-Value="@FormData.FromSubsidiary"
+                                                        Change="(args) => OnFieldChanged(nameof(FormData.FromSubsidiary))"
+                                                        Data="@FromSubsidiary"
                                                         AllowClear
                                                         AllowFiltering
-                                                        Name="tt_destinations"
-                                                        TextProperty="@nameof(LocationVM.LocationName)"
-                                                        Placeholder="Select Destination"
-                                                        class="rz-w-100" />
-
-                                    </ChildContent>
-                                    <Helper>
-                                        <RadzenCustomValidator Visible="@Creating" Component="tt_destinations" Popup
-                                                               Validator="() => FormData.Destinations.Any(x => x.NetsuiteLocationInternalId > 0)"
-                                                               Text="Destination is required" />
-                                    </Helper>
-                                </RadzenFormField>
-                            </RadzenColumn>
-                            <RadzenColumn Size="12" SizeMD="3">
-                                <RadzenFormField Text="Source Location" class="rz-w-100" AllowFloatingLabel="false">
-                                    <ChildContent>
-                                        <RadzenTextBox Visible="@Viewing" ReadOnly
-                                                       Value="@GetLocationName(FormData.OriginLocation)"
-                                                       Placeholder="No Location Selected"
-                                                       class="rz-w-100" />
-                                        <RadzenDropDown Visible="@Creating"
-                                                        @bind-Value="@FormData.OriginLocation"
-                                                        Change="(args) => OnFieldChanged(nameof(FormData.OriginLocation))"
-                                                        Data="@Locations"
-                                                        AllowClear
-                                                        AllowFiltering
-                                                        Name="tt_origin_location"
-                                                        TextProperty="@nameof(LocationVM.LocationName)"
-                                                        Placeholder="Select Location"
+                                                        Name="tt_from_subsidiary"
+                                                        TextProperty="@nameof(SubsidiaryVM.SubsidiaryName)"
+                                                        Placeholder="Select Subsidiaries"
                                                         class="rz-w-100" />
                                     </ChildContent>
                                     <Helper>
-                                        <RadzenCustomValidator Visible="@Creating" Component="tt_origin_location" Popup
-                                                               Validator="() => FormData.OriginLocation is not null && FormData.OriginLocation.NetsuiteLocationInternalId > 0"
-                                                               Text="Location is required" />
+                                        <RadzenCustomValidator Visible="@Creating" Component="tt_from_subsidiary" Popup
+                                                               Validator="() => FormData.FromSubsidiary is not null && FormData.FromSubsidiary.NetsuiteSubsidiaryInternalId > 0"
+                                                               Text="From Subsidiary is required" />
                                     </Helper>
                                 </RadzenFormField>
                             </RadzenColumn>
-                            <RadzenColumn Size="12" SizeMD="3">
+                            <RadzenColumn Size="12" SizeMD="4">
+                                <RadzenFormField Text="To Subsidiary" class="rz-w-100" AllowFloatingLabel="false">
+                                    <ChildContent>
+                                        <RadzenTextBox Visible="@Viewing" ReadOnly
+                                                       Value="@GetToSubsidiaryText()"
+                                                       Placeholder="No Subsidiary Selected"
+                                                       class="rz-w-100" />
+                                        <QuickVirtualizedMultiDropdown Visible="@Creating"
+                                                                       TItem="SubsidiaryVM"
+                                                                       DataGetter="@SubsidiaryProvider"
+                                                                       @bind-Value:get="FormData.ToSubsidiaries"
+                                                                       @bind-Value:set="@OnSubsidiaryChanged"
+                                                                       TextProperty="@nameof(SubsidiaryVM.SubsidiaryName)"
+                                                                       Name="tt_to_subsidiary"
+                                                                       AllowClear
+                                                                       AllowFiltering />
+                                    </ChildContent>
+                                    <Helper>
+                                        <RadzenCustomValidator Visible="@Creating" Component="tt_to_subsidiary" Popup
+                                                               Validator="() => FormData.ToSubsidiaries?.Any(x => x.NetsuiteSubsidiaryInternalId > 0) == true"
+                                                               Text="To Subsidiary is required" />
+                                    </Helper>
+                                </RadzenFormField>
+                            </RadzenColumn>
+                            <RadzenColumn Size="12" SizeMD="4">
                                 <RadzenFormField Text="Truck Plate No." class="rz-w-100" AllowFloatingLabel="false">
                                     <ChildContent>
                                         <RadzenTextBox Visible="@Viewing" ReadOnly
@@ -186,17 +199,69 @@
                                     </Helper>
                                 </RadzenFormField>
                             </RadzenColumn>
-                            <RadzenColumn Size="12" SizeMD="3">
+                        </RadzenRow>
+
+                        <RadzenRow Gap="1rem">
+                            <RadzenColumn Size="12" SizeMD="4">
+                                <RadzenFormField Text="Destination Location" class="rz-w-100" AllowFloatingLabel="false">
+                                    <ChildContent>
+                                        <RadzenTextBox Visible="@Viewing" ReadOnly
+                                                       Value="@GetDestinationsText()"
+                                                       Placeholder="No Destination Selected"
+                                                       class="rz-w-100" />
+                                        <QuickVirtualizedMultiDropdown Visible="@Creating"
+                                                                       TItem="LocationVM"
+                                                                       DataGetter="@DestinationsProvider"
+                                                                       @bind-Value:get="FormData.Destinations"
+                                                                       @bind-Value:set="@OnDestinationChanged"
+                                                                       TextProperty="@nameof(LocationVM.LocationName)"
+                                                                       Name="tt_destinations"
+                                                                       AllowClear
+                                                                       AllowFiltering />
+                                    </ChildContent>
+                                    <Helper>
+                                        <RadzenCustomValidator Visible="@Creating" Component="tt_destinations" Popup
+                                                               Validator="() => FormData.Destinations?.Any(x => x.NetsuiteLocationInternalId > 0) == true"
+                                                               Text="Destination is required" />
+                                    </Helper>
+                                </RadzenFormField>
+                            </RadzenColumn>
+                            <RadzenColumn Size="12" SizeMD="4">
+                                <RadzenFormField Text="Source Location" class="rz-w-100" AllowFloatingLabel="false">
+                                    <ChildContent>
+                                        <RadzenTextBox Visible="@Viewing" ReadOnly
+                                                       Value="@GetLocationName(FormData.OriginLocation)"
+                                                       Placeholder="No Location Selected"
+                                                       class="rz-w-100" />
+                                        <RadzenDropDown Visible="@Creating"
+                                                        @bind-Value="@FormData.OriginLocation"
+                                                        Change="(args) => OnFieldChanged(nameof(FormData.OriginLocation))"
+                                                        Data="@Locations"
+                                                        AllowClear
+                                                        AllowFiltering
+                                                        Name="tt_origin_location"
+                                                        TextProperty="@nameof(LocationVM.LocationName)"
+                                                        Placeholder="Select Location"
+                                                        class="rz-w-100" />
+                                    </ChildContent>
+                                    <Helper>
+                                        <RadzenCustomValidator Visible="@Creating" Component="tt_origin_location" Popup
+                                                               Validator="() => FormData.OriginLocation is not null && FormData.OriginLocation.NetsuiteLocationInternalId > 0"
+                                                               Text="Location is required" />
+                                    </Helper>
+                                </RadzenFormField>
+                            </RadzenColumn>
+                            <RadzenColumn Size="12" SizeMD="4">
                                 <RadzenFormField Text="Truck Seal" class="rz-w-100" AllowFloatingLabel="false">
                                     <ChildContent>
                                         <RadzenTextBox Visible="@Viewing" ReadOnly
                                                        Value="@FormData.TruckSeal"
                                                        class="rz-w-100" />
                                         <RadzenTextBox Visible="@Creating"
-                                                          @bind-Value="@FormData.TruckSeal"
-                                                          Change="(args) => OnFieldChanged(nameof(FormData.TruckSeal))"
-                                                          Name="tt_truck_seal"
-                                                          class="rz-w-100" />
+                                                       @bind-Value="@FormData.TruckSeal"
+                                                       Change="(args) => OnFieldChanged(nameof(FormData.TruckSeal))"
+                                                       Name="tt_truck_seal"
+                                                       class="rz-w-100" />
                                     </ChildContent>
                                     <Helper>
                                         <RadzenCustomValidator Visible="@Creating" Component="tt_truck_seal" Popup
@@ -305,6 +370,16 @@
 </AppContent>
 
 @code {
+    readonly DialogOptions dialogOptions = new()
+    {
+        CloseDialogOnOverlayClick = true,
+        CloseDialogOnEsc = true,
+        Draggable = true,
+        Resizable = true,
+        ShowClose = true,
+        Width = "75%"
+    };
+
     async Task AddFulfillments()
     {
         await DialogService.OpenAsync(
@@ -328,5 +403,15 @@
                                     @bind-GridSettings=@FulfillmentLinesTableSettings />,
             options: GridSettingsService.GetDialogOptions());
         await FulfillmentLinesTable.DataGrid.Reload();
+    }
+
+    async Task OpenParentTripTicketDialog()
+    {
+        int ttRef = await DialogService.OpenAsync(
+            "Select Trip Ticket",
+            ds => @<ParentTripTicketDialog />,
+    options: dialogOptions);
+
+        if (ttRef != 0) await GetTripTicketItemFulfillments(ttRef);
     }
 }

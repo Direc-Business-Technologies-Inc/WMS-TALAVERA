@@ -22,3 +22,4 @@ WHERE
         OR
         (t.recordtype = 'transferorder' AND t.subsidiary = @subsidiaryid)
     )
+ORDER BY t.lastmodifieddate desc

@@ -1,9 +1,12 @@
 ﻿using Application.DataTransferObjects.Transactions.Commons.NS;
+using Shared.Libraries.ViewModel;
 
 namespace Application.DataTransferObjects.Transactions.TripTicket.NS;
 
 public class PostTripTicketDTO
 {
+    public int Parent { get; set; }
+
     public List<LocationDTO> Destinations { get; set; } = new();
 
     public DriverDTO Driver { get; set; } = new();
@@ -19,4 +22,8 @@ public class PostTripTicketDTO
     public string TruckSeal { get; set; } = string.Empty;
 
     public List<ItemFulfillmentDTO> ItemFulfillments { get; set; } = new();
+
+    public List<SubsidiaryDTO> ToSubsidiaries { get; set; } = [];
+
+    public SubsidiaryDTO? FromSubsidiary { get; set; }
 }

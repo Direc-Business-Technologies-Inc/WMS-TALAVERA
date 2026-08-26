@@ -17,4 +17,5 @@ WHERE
 	AND t.custbody_dbti_transfer_category IN ('3', '4')
     AND t.status IN ('F', 'E') AND
 	t.tosubsidiary = @subsidiaryid
+ORDER BY t.lastmodifieddate desc
 	

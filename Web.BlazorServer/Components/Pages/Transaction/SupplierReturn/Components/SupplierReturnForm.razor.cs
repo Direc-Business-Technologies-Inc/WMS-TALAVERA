@@ -188,6 +188,7 @@ public partial class SupplierReturnForm
         //Model.Lines.Clear();
 
         if (Model.Location is null) return;
+        if (Model.Lines == null || Model.Lines.Count == 0) return;
 
         await LocationItemsProvider();
 
@@ -275,6 +276,12 @@ public partial class SupplierReturnForm
 
     async Task SubmitClicked()
     {
+        if (Model.Lines.Any(x => x.QuantityAlloted > x.QuantityAvailable))
+        {
+            ToastService.Error("Some alloted quantities exceed the available quantity");
+            return;
+        }
+
         if (OnSubmit.HasDelegate)
             await OnSubmit.InvokeAsync(Model);
     }

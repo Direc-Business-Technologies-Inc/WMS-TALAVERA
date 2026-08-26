@@ -6,6 +6,14 @@ namespace Application.DataTransferObjects.Transactions.TripTicket.NS.Payload;
 
 public class TripTicketPayloadDTO
 {
+    [JsonPropertyName("parent")]
+    public ReferenceValue? Parent { get; set; }
+    [JsonPropertyName("custrecord_dbti_trt_from_subsidiary")]
+    public ReferenceValue FromSubsidiary { get; set; }
+
+    [JsonPropertyName("custrecord_dbti_trt_to_subsidiary")]
+    public ReferenceValues ToSubsidiary { get; set; }
+
     [JsonPropertyName("custrecord_dbti_destination")]
     public ReferenceValues Destination { get; set; }
 
@@ -41,6 +49,22 @@ public class TripTicketPayloadDTO
     {
         return new TripTicketPayloadDTO
         {
+            Parent = tripticket.Parent != 0 ? new ReferenceValue
+            {
+                Id = tripticket.Parent.ToString()
+            } : null,
+            FromSubsidiary = new ReferenceValue
+            {
+                Id = tripticket.FromSubsidiary!.NetsuiteSubsidiaryInternalId.ToString()
+            },
+            ToSubsidiary = new ReferenceValues
+            {
+                Ids = tripticket.ToSubsidiaries == null
+                    ? new List<string>()
+                    : tripticket.ToSubsidiaries
+                        .Select(d => d.NetsuiteSubsidiaryInternalId.ToString())
+                        .ToList()
+            },
             Destination = new ReferenceValues
             {
                 Ids = tripticket.Destinations == null
