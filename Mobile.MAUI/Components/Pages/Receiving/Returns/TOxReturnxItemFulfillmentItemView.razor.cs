@@ -207,6 +207,7 @@ public partial class TOxReturnxItemFulfillmentItemView : IAsyncDisposable
 
                 if (result is ManualEntryDialog.ManualEntryResult entry)
                 {
+                    ScanCount = 1;
                     item.ScannedQuantity = entry.GoodQty;
                 }
             }

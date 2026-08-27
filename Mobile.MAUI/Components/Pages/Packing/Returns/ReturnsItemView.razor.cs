@@ -201,6 +201,7 @@ public partial class ReturnsItemView : IAsyncDisposable
 
                 if (result is ManualEntryDialog.ManualEntryResult entry)
                 {
+                    ScanCount = 1;
                     item.ScannedQuantity = entry.GoodQty;
                 }
             }

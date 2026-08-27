@@ -244,6 +244,7 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
 
                 if (result is ManualEntryDialog.ManualEntryResult entry)
                 {
+                    ScanCount = 1;
                     item.ScannedQuantity = entry.GoodQty;
 
                     if (entry.BadQty != 0)
@@ -457,8 +458,8 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
 
                 var badQty = bad?.ScannedQuantity ?? 0;
 
-                return g.ScannedQuantity > 0 ||
-                        (g.ScannedQuantity + badQty) <= g.NSLineQuantityPacked;
+                return badQty == 0 || (g.ScannedQuantity > 0 &&
+                        (g.ScannedQuantity + badQty) <= g.NSLineQuantityReceived);
             })
             .Concat(BadVRAItems.Where(x => x.NSLineQuantityPacked != 0))
             .Select(x => new VendorReturnAuthorizationLineVM

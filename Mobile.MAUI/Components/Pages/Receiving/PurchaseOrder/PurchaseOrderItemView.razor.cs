@@ -248,6 +248,7 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
 
                 if (result is ManualEntryDialog.ManualEntryResult entry)
                 {
+                    ScanCount = 1;
                     item.ScannedQuantity = entry.GoodQty;
 
                     if (entry.BadQty != 0)
@@ -475,8 +476,8 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
 
                 var badQty = bad?.ScannedQuantity ?? 0;
 
-                return g.ScannedQuantity > 0 &&
-                        (g.ScannedQuantity + badQty) <= g.NSLineQuantityReceived;
+                return badQty == 0 || (g.ScannedQuantity > 0 &&
+                        (g.ScannedQuantity + badQty) <= g.NSLineQuantityReceived);
             })
             .Concat(BadPOItems.Where(x => x.NSLineQuantityReceived != 0))
             .Select(x => new PurchaseOrderLineVM
