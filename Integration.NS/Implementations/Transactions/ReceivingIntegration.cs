@@ -779,6 +779,7 @@ public class ReceivingIntegration(
                 ("TO_CHAR(t.lastmodifieddate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(ItemReceiptDataGridDTO.DateLastModified)),
                 ("t.id", nameof(ItemReceiptDataGridDTO.Id)),
                 ("t.tranid", nameof(ItemReceiptDataGridDTO.ReferenceNumber)),
+                ("BUILTIN.DF(t.entity)", nameof(ItemReceiptDataGridDTO.Vendor)),
                 ("categ.name", nameof(ItemReceiptDataGridDTO.TransferCategory)),
                 ("tcf.tranid", nameof(ItemReceiptDataGridDTO.CreatedFrom)),
                 ("BUILTIN.DF(tl.location)", nameof(ItemReceiptDataGridDTO.FromLocation)),
