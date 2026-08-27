@@ -5,6 +5,49 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https:-/keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.2] - 2026-08-27
+### Added
+- Add Vendor and Document Type in ItemReceipt Datagrid
+
+---
+
+## [0.12.1] - 2026-08-27
+### Added
+- Add Search Bar in Item Selection
+
+---
+
+## [0.12.0] - 2026-08-26
+### Added
+- Manual Entry for Packing and Receiving (Mobile)
+
+---
+
+## [0.11.0] - 2026-08-26
+### Added
+- Receiving by Weight Mode (Mobile)
+
+---
+
+## [0.10.2] - 2026-08-26
+### Fixed
+- include missing status in posting (Web)
+
+---
+
+## [0.10.1] - 2026-08-26
+### Fixed
+- Show Purchase Category in STR and InterCompany
+
+---
+
+## [0.10.0] - 2026-08-26
+### Changed
+- Trip Ticket Adjustment
+	- Adding of parent where the user can select again a trip ticket
+
+---
+
 ## [0.9.0] - 2026-08-04
 ### Fixed
 - UAT Adjustments
