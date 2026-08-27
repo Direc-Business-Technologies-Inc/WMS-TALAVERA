@@ -1,5 +1,4 @@
-﻿using Application.DataTransferObjects.Others;
-using Microsoft.AspNetCore.Components;
+﻿using Microsoft.AspNetCore.Components;
 using Radzen;
 using Shared.Entities;
 using Web.BlazorServer.Components.Shared.Abstraction;
@@ -26,7 +25,7 @@ partial class ItemDataGrid
     private DataGridSettings DataGridSettings = new();
     private readonly string ActionGetItems = "Get Items List";
     private List<ItemsVM> SelectedItems { get; set; } = [];
-
+    private string? SearchText { get; set; }
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         await base.OnAfterRenderAsync(firstRender);
@@ -36,27 +35,84 @@ partial class ItemDataGrid
         }
     }
 
-
     async Task<DataGridResultVM<ItemsVM>> LoadDataAsync(DataGridIntent intent)
     {
         var action = await AppActionFactory.RunAsync(async () =>
         {
             AppBusyService.SetBusy(ActionGetItems, true);
 
-            if (Filters.Count > 0) intent.Filters.AddRange(Filters);
-            var response = LocationId is null ?
-                await ItemsHandler.GetItemsDataGridAsync(intent) :
-                await ItemsHandler.GetItemsAtLocationDataGridAsync(intent, (int)LocationId);
+            var filters = new List<AppFilterDescriptor>();
 
+            if (!string.IsNullOrWhiteSpace(SearchText))
+            {
+                var searchFilter = new AppFilterDescriptor
+                {
+                    LogicalOperator = LogicalOperatorEnum.OR,
+                    Filters =
+                    [
+                        new AppFilterDescriptor
+                    {
+                        Property = nameof(ItemsVM.ItemNumber),
+                        Value = SearchText,
+                        FilterValueType = FilterValueTypeEnum.String,
+                        ComparisonOperator = ComparisonOperatorEnum.Contains
+                    },
+                    new AppFilterDescriptor
+                    {
+                        Property = nameof(ItemsVM.Name),
+                        Value = SearchText,
+                        FilterValueType = FilterValueTypeEnum.String,
+                        ComparisonOperator = ComparisonOperatorEnum.Contains
+                    },
+                    new AppFilterDescriptor
+                    {
+                        Property = nameof(ItemsVM.Description),
+                        Value = SearchText,
+                        FilterValueType = FilterValueTypeEnum.String,
+                        ComparisonOperator = ComparisonOperatorEnum.Contains
+                    }
+                    ]
+                };
 
-            if (Filters.Count > 0) intent.Filters.AddRange(Filters);
+                filters.Add(searchFilter);
+            }
+
+            if (Filters.Count > 0)
+            {
+                filters.AddRange(Filters);
+            }
+
+            intent.Filters = filters;
+
+            var response = LocationId is null
+                ? await ItemsHandler.GetItemsDataGridAsync(intent)
+                : await ItemsHandler.GetItemsAtLocationDataGridAsync(
+                    intent,
+                    (int)LocationId);
 
             return response;
 
         }, AppActionOptionPresets.Loading(ActionGetItems));
 
         AppBusyService.SetBusy(ActionGetItems, false);
-        return DataGridResultVM<ItemsVM>.New(action.Result.Data ?? [], action.Result.Count);
+
+        return DataGridResultVM<ItemsVM>.New(
+            action.Result.Data ?? [],
+            action.Result.Count);
+    }
+
+    async Task OnSearchChanged(object? value)
+    {
+        SearchText = value?.ToString();
+
+        await DataGrid.ReloadDataAsync();
+    }
+
+    async Task ClearSearch()
+    {
+        SearchText = null;
+
+        await DataGrid.ReloadDataAsync();
     }
 
     async Task LoadGridSettings()
@@ -76,17 +132,24 @@ partial class ItemDataGrid
 
     async Task SelectItem(ItemsVM item)
     {
-        if (SelectionMode == SelectionModes.Single) { 
-            SelectedItems.Clear(); 
+        var selectedItem = SelectedItems.FirstOrDefault(x => x.ItemNumber == item.ItemNumber);
+
+        if (SelectionMode == SelectionModes.Single)
+        {
+            SelectedItems.Clear();
             SelectedItems.Add(item);
             await Submit();
         }
         else if (SelectionMode == SelectionModes.Multiple)
         {
-            if (!SelectedItems.Remove(item))
+            if (selectedItem is not null)
+            {
+                SelectedItems.Remove(selectedItem);
+            }
+            else
             {
                 SelectedItems.Add(item);
-            } 
+            }
         }
     }
 

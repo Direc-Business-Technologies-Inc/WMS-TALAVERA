@@ -3,9 +3,32 @@
 
 <AppDataGrid TItem="ItemsVM" @ref="@DataGrid" Id="@Id" GridSettings="@DataGridSettings" @bind-GridSettingsLoaded="@GridSettingsLoaded" ActionName="@ActionGetItems" DataGetter="@LoadDataAsync">
     <HeaderTemplate>
-        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" AlignItems="AlignItems.Center" Gap="8px">
-            <RadzenButton Icon="settings" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@OpenTableSettings" />
-            <RadzenButton Icon="sync" Size="ButtonSize.Small" Click="DataGrid.ReloadDataAsync" />
+        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center" Gap="8px">
+            <!-- Search -->
+            <RadzenStack Orientation="Orientation.Horizontal"
+                         AlignItems="AlignItems.Center"
+                         Gap="4px">
+
+                <RadzenTextBox @bind-Value="@SearchText"
+                               Placeholder="Search items..."
+                               Style="width: 250px;"
+                               Change="@OnSearchChanged" />
+
+                @if (!string.IsNullOrWhiteSpace(SearchText))
+                {
+                    <RadzenButton Icon="close"
+                                  Size="ButtonSize.Small"
+                                  ButtonStyle="ButtonStyle.Light"
+                                  Click="@ClearSearch" />
+                }
+
+            </RadzenStack>
+            <RadzenStack Orientation="Orientation.Horizontal"
+                         AlignItems="AlignItems.Center"
+                         Gap="4px">
+                <RadzenButton Icon="settings" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@OpenTableSettings" />
+                <RadzenButton Icon="sync" Size="ButtonSize.Small" Click="DataGrid.ReloadDataAsync" />
+            </RadzenStack>
         </RadzenStack>
     </HeaderTemplate>
     <GridColumns>
@@ -20,7 +43,10 @@
                               Width="35px"
                               Filterable="false" Sortable="false" Pickable="false">
             <Template>
-                <RadzenButton Variant="Variant.Text" Icon="@(SelectedItems.Contains(context) ? "check_box" : "check_box_outline_blank")" Size="ButtonSize.ExtraSmall" Click="() => SelectItem(context)" />
+                <RadzenButton Variant="Variant.Text" 
+                    Icon="@(SelectedItems.Any(x => x.ItemNumber == context.ItemNumber) ? "check_box" : "check_box_outline_blank")" 
+                    Size="ButtonSize.ExtraSmall" 
+                    Click="() => SelectItem(context)" />
             </Template>
         </RadzenDataGridColumn>
     </GridColumns>
