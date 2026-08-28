@@ -160,7 +160,7 @@ public class UserReadRepo(IDbContextFactory<AppDbContext> dbContextFactory) : Ap
                             Id = u.Id,
                             FirstName = u.Name.FirstName,
                             LastName = u.Name.LastName,
-                            FullName = u.Name.FullName,
+                            FullName = u.Name.FirstName + " " + u.Name.LastName,
                             UserName = u.Account.UserName.Value,
                             Email = u.Email.Address,
                             Phone = u.PhoneNumber,
