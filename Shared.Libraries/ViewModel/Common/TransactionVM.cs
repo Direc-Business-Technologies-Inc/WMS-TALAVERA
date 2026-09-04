@@ -57,6 +57,7 @@ public class TransactionVM : InventoryItemVM
 
     // New: classification flag - true = Bad, false = Good (default)
     public bool IsBad { get; set; } = false;
+    public bool IsMissing { get; set; } = false;
 
     public bool AlreadyReceived => ScannedQuantity == NSLineQuantityReceived;
     public bool AlreadyPacked => ScannedQuantity == NSLineQuantityPacked;

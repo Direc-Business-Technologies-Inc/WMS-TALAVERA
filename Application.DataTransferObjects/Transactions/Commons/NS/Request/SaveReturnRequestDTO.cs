@@ -9,5 +9,6 @@ namespace Application.DataTransferObjects.Transactions.Commons.NS.Request;
 public class SaveReturnRequestDTO
 {
     public List<PostReturnsDTO> PostReturn { get; set; }
+    public int TONetsuiteOrderInternalId { get; set; }
     public int UserId { get; set; }
 }

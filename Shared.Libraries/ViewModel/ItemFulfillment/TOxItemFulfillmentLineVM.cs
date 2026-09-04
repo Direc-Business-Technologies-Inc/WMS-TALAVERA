@@ -13,4 +13,6 @@ public class TOxItemFulfillmentLineVM : TransactionVM
 
     public int NetsuiteMaterialPrefferedBinId { get; set; }
     public int NetsuiteMaterialVendorAssignedBin { get; set; }
+
+
 }

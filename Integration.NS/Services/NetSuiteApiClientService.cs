@@ -18,6 +18,7 @@ using System.ComponentModel;
 using System.IdentityModel.Tokens.Jwt;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -244,7 +245,7 @@ namespace Integration.NS.Services
         {
             return await MakeRequest<T>(url, reqBody, HttpMethod.Post);
         }
-        
+
         public async Task<T> MakeRequestOAuth1<T>(string url, string? reqBody)
         {
             string consumerKey = Environment.GetEnvironmentVariable("OAUTH1_CONSUMER_KEY") ?? "";
@@ -528,7 +529,7 @@ namespace Integration.NS.Services
 
             string url = ItemReceiptRestletUrl;
 
-            var badTO = Data.Where(x => x.IsBad).ToList();
+            var badTO = Data.Where(x => x.IsBad && !x.IsMissing).ToList();
 
             if (badTO.Any(x => x.ScannedQuantity > 0))
             {
@@ -546,7 +547,7 @@ namespace Integration.NS.Services
                 }
             }
 
-            var goodTO = Data.Where(x => !x.IsBad).ToList();
+            var goodTO = Data.Where(x => !x.IsBad && !x.IsMissing).ToList();
 
             if (goodTO.Any())
             {
@@ -564,30 +565,68 @@ namespace Integration.NS.Services
                 }
             }
 
+            var missingTO = Data.Where(x => x.IsMissing).ToList();
+            if (missingTO.Any(x => x.ScannedQuantity > 0))
+            {
+                try
+                {
+                    var payloadBad = TransferOrderIRRestletPayloadDTO.CreateForItemReceiptRestlet(missingTO, TONetsuiteOrderInternalId, IFOrderId, userId, 5);
+
+                    var jsonStringBad = JsonSerializer.Serialize(payloadBad, JsonSerializerOption);
+
+                    await MakeRequestOAuth1<object>(url, jsonStringBad);
+                }
+                catch (Exception ex)
+                {
+                    throw new Exception($"Error while posting Missing TO Item Receipt. {ex.Message}", ex);
+                }
+            }
+
             return true;
         }
 
-        public async Task<bool> SaveReturnsItemReceipt(List<PostReturnsDTO> Data, int userId)
+        public async Task<bool> SaveReturnsItemReceipt(List<PostReturnsDTO> Data, int TONetsuiteOrderInternalId, int userId)
         {
             var orderId = Data.Select(x => x.NetsuiteOrderInternalId).FirstOrDefault();
-            //string url = string.Format(ItemReceiptUrl + "?replace=item.inventoryDetail.inventoryAssignment", "transferOrder", orderId);
-            string url = string.Format(ItemReceiptUrl, "transferOrder", orderId);
+            string url = string.Format(ItemReceiptUrl + "?replace=item.inventoryDetail.inventoryAssignment", "transferOrder", TONetsuiteOrderInternalId);
+            //string url = string.Format(ItemReceiptUrl, "transferOrder", TONetsuiteOrderInternalId);
 
-            try
+            var transferCategory = (TransferCategory)Data.Select(x => x.TransferCategory).FirstOrDefault();
+
+            var receivingCategory = transferCategory == TransferCategory.GoodItems ? 1 : 2;
+
+            var returns = Data.Where(x => !x.IsMissing).ToList();
+            if (returns.Any(x => x.ScannedQuantity > 0))
             {
-                var transferCategory = (TransferCategory)Data.Select(x => x.TransferCategory).FirstOrDefault();
+                try
+                {
+                    ReturnsIRPayloadDTO payloadGood = ReturnsIRPayloadDTO.CreateForItemReceipt(returns, receivingCategory, orderId, userId);
 
-                var receivingCategory = transferCategory == TransferCategory.GoodItems ? 1 : 2;
+                    var jsonStringGood = JsonSerializer.Serialize(payloadGood, JsonSerializerOption);
 
-                ReturnsIRPayloadDTO payloadGood = ReturnsIRPayloadDTO.CreateForItemReceipt(Data, receivingCategory, userId);
-
-                var jsonStringGood = JsonSerializer.Serialize(payloadGood, JsonSerializerOption);
-
-                await MakeRequest<object>(url, jsonStringGood, HttpMethod.Post);
+                    await MakeRequest<object>(url, jsonStringGood, HttpMethod.Post);
+                }
+                catch (Exception ex)
+                {
+                    throw new Exception($"Error while posting BAD Returns Item Receipt. {ex.Message}", ex);
+                }
             }
-            catch (Exception ex)
+
+            var missingReturns = Data.Where(x => x.IsMissing).ToList();
+            if (missingReturns.Any(x => x.ScannedQuantity > 0))
             {
-                throw new Exception($"Error while posting Returns Item Receipt. {ex.Message}", ex);
+                try
+                {
+                    ReturnsIRPayloadDTO payloadGood = ReturnsIRPayloadDTO.CreateForItemReceipt(missingReturns, 5, orderId, userId);
+
+                    var jsonStringGood = JsonSerializer.Serialize(payloadGood, JsonSerializerOption);
+
+                    await MakeRequest<object>(url, jsonStringGood, HttpMethod.Post);
+                }
+                catch (Exception ex)
+                {
+                    throw new Exception($"Error while posting Missing TO Item Receipt. {ex.Message}", ex);
+                }
             }
 
             return true;
@@ -814,6 +853,6 @@ namespace Integration.NS.Services
             return true;
         }
         #endregion
-        
+
     }
 }

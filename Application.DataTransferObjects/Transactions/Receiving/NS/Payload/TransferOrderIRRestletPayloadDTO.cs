@@ -47,7 +47,7 @@ public class TransferOrderIRRestletPayloadDTO
                 {
                     new LinesInventoryDetail
                     {
-                        InventoryStatus = line.IsBad ? 3 : 1,
+                        InventoryStatus = line.IsMissing ? 6 : line.IsBad ? 3 : 1,
                         Quantity = line.ScannedQuantity
                     }
                 }

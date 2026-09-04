@@ -10,6 +10,8 @@ public class ReturnsIRPayloadDTO
 
     [JsonPropertyName("custbody_dbti_received_by")]
     public int EmployeeId { get; set; }
+    [JsonPropertyName("itemfulfillment")]
+    public int ItemFulfillmentId { get; set; }
 
     [JsonPropertyName("item")]
     public ItemContainer Item { get; set; } = new();
@@ -17,6 +19,7 @@ public class ReturnsIRPayloadDTO
     public static ReturnsIRPayloadDTO CreateForItemReceipt(
         List<PostReturnsDTO> lines,
         int receivingCategory,
+        int ifOrderId,
         int userId
         )
     {
@@ -25,6 +28,7 @@ public class ReturnsIRPayloadDTO
         {
             ReceivingCategory = receivingCategory,
             EmployeeId = userId,
+            ItemFulfillmentId = ifOrderId,
             Item = new ItemContainer
             {
                 Items = lines.Select(line =>
@@ -47,7 +51,7 @@ public class ReturnsIRPayloadDTO
                                 {
                                     InventoryStatus = new ReferenceValue
                                     {
-                                        Id = line.IsBad ? "3" : "1"
+                                        Id = line.IsMissing ? "6" : line.IsBad ? "3" : "1",
                                     },
                                     Quantity = line.ScannedQuantity,
                                     BinNumber = !line.IsLocationUsedBin ? null :
@@ -68,11 +72,16 @@ public class ReturnsIRPayloadDTO
 
                         var inventoryDetail = new InventoryDetail
                         {
-                            InventoryAssignmentList = new InventoryAssignmentList
-                            {
-                                InventoryAssignment = assignment
-                            }
+                            InventoryAssignment = assignment
                         };
+
+                        //var inventoryDetail = new InventoryDetail
+                        //{
+                        //    InventoryAssignmentList = new InventoryAssignmentList
+                        //    {
+                        //        InventoryAssignment = assignment
+                        //    }
+                        //};
 
                         return new OrderLineItem
                         {

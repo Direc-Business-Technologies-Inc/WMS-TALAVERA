@@ -25,6 +25,8 @@ public partial class TOxItemFulfillmentItemView : IAsyncDisposable
     [Parameter]
     public string OrderNumber { get; set; }
 
+    [Inject] DialogService _dialogService { get; set; }
+
     string BackPath => $"/receiving/transferorder/itemfulfillment/{NetsuiteOrderInternalId}/{TOOrderNumber}";
 
     private IJSObjectReference JsObj { get; set; }
@@ -35,6 +37,7 @@ public partial class TOxItemFulfillmentItemView : IAsyncDisposable
 
     List<TOxItemFulfillmentLineVM> GoodIFItems = [];
     List<TOxItemFulfillmentLineVM> BadIFItems = [];
+    List<TOxItemFulfillmentLineVM> MissingIFItems = [];
     List<ItemBarcodesPerUoMVM> ItemBarcodes = [];
     List<BarcodeRequestVM> ItemRequest = [];
 
@@ -460,59 +463,162 @@ public partial class TOxItemFulfillmentItemView : IAsyncDisposable
 
     async Task SaveScan()
     {
-        IFItems = GoodIFItems
-            .Where(g =>
+        var remainingByLine = GoodIFItems
+            .Select(g =>
             {
-                var bad = BadIFItems.FirstOrDefault(b =>
-                    b.LineSequenceNumber == g.LineSequenceNumber);
+                var lineSequenceNumber = g.LineSequenceNumber;
+                var goodScanned = g.ScannedQuantity;
 
-                var badQty = bad?.ScannedQuantity ?? 0;
+                var badScanned = BadIFItems
+                    .Where(x => x.LineSequenceNumber == lineSequenceNumber)
+                    .Sum(x => x.ScannedQuantity);
 
-                return badQty == 0 || (g.ScannedQuantity > 0 &&
-                        (g.ScannedQuantity + badQty) <= g.NSLineQuantityReceived);
-            })
-            .Concat(BadIFItems.Where(x => x.NSLineQuantityReceived != 0))
-            .Select(x => new TOxItemFulfillmentLineVM
-            {
-                NetsuiteOrderInternalId = x.NetsuiteOrderInternalId,
-                OrderNumber = x.OrderNumber,
-                OrderType = x.OrderType,
-                OrderStatus = x.OrderStatus,
+                var received = g.NSLineQuantityReceived;
 
-                NetsuiteFromLocationInternalId = x.NetsuiteFromLocationInternalId,
-                NetsuiteToLocationInternalId = x.NetsuiteToLocationInternalId,
+                var remaining = received - (goodScanned + badScanned);
 
-                NetsuiteFromSubsidiaryInternalId = x.NetsuiteFromSubsidiaryInternalId,
-                NetsuiteSubsidiaryDefaultBOInternalId = x.NetsuiteSubsidiaryDefaultBOInternalId,
-                NetsuiteToSubsidiaryInternalId = x.NetsuiteToSubsidiaryInternalId,
-
-                LocationName = x.LocationName,
-                LocationUsedBin = x.LocationUsedBin,
-
-                LineSequenceNumber = x.LineSequenceNumber,
-                TransactionLineType = x.TransactionLineType,
-
-                NetsuiteMaterialInternalId = x.NetsuiteMaterialInternalId,
-                MaterialCode = x.MaterialCode,
-                MaterialName = x.MaterialName,
-                MaterialWeight = x.MaterialWeight,
-                LineQuantity = x.LineQuantity,
-                LineQuantityReceived = x.LineQuantityReceived,
-                NetsuiteUoMInternalId = x.NetsuiteUoMInternalId,
-                UoMName = x.UoMName,
-                UoMRate = x.UoMRate,
-
-                ScanCount = x.ScanCount,
-                IsBad = x.IsBad,
-                ScannedQuantity = RoundOfNearestHundredThousands(x.ScannedQuantity),
-                ScannedWeight = x.ScannedWeight
+                return new
+                {
+                    LineSequenceNumber = lineSequenceNumber,
+                    RemainingToScan = Math.Max(0, remaining)
+                };
             })
             .ToList();
 
-        await ActionFactory.ExecuteAppActionAsync(ActionSaveScan, confirm: true, showToast: true);
+        var missingItems = remainingByLine
+            .Where(x => x.RemainingToScan > 0)
+            .ToList();
 
-        await InvokeAsync(StateHasChanged);
+        if (missingItems.Any())
+        {
+            var totalMissing = missingItems.Sum(x => x.RemainingToScan);
+
+            var warning = $"Warning: {totalMissing} item(s) still need to be scanned. " +
+                          "These items will be tagged as missing.";
+
+            var confirm = await _dialogService.Confirm(warning, "Missing Items?");
+
+            if (confirm is true)
+            {
+                // Build the missing items
+                MissingIFItems = missingItems
+                    .Select(m =>
+                    {
+                        var source = GoodIFItems.FirstOrDefault(g =>
+                            g.LineSequenceNumber == m.LineSequenceNumber);
+
+                        if (source == null)
+                            return null;
+
+                        return new TOxItemFulfillmentLineVM
+                        {
+                            NetsuiteOrderInternalId = source.NetsuiteOrderInternalId,
+                            OrderNumber = source.OrderNumber,
+                            OrderType = source.OrderType,
+                            OrderStatus = source.OrderStatus,
+
+                            NetsuiteFromLocationInternalId = source.NetsuiteFromLocationInternalId,
+                            NetsuiteToLocationInternalId = source.NetsuiteToLocationInternalId,
+
+                            NetsuiteFromSubsidiaryInternalId = source.NetsuiteFromSubsidiaryInternalId,
+                            NetsuiteSubsidiaryDefaultBOInternalId = source.NetsuiteSubsidiaryDefaultBOInternalId,
+                            NetsuiteToSubsidiaryInternalId = source.NetsuiteToSubsidiaryInternalId,
+
+                            LocationName = source.LocationName,
+                            LocationUsedBin = source.LocationUsedBin,
+
+                            LineSequenceNumber = source.LineSequenceNumber,
+                            TransactionLineType = source.TransactionLineType,
+
+                            NetsuiteMaterialInternalId = source.NetsuiteMaterialInternalId,
+                            MaterialCode = source.MaterialCode,
+                            MaterialName = source.MaterialName,
+                            MaterialWeight = source.MaterialWeight,
+                            LineQuantity = source.LineQuantity,
+                            LineQuantityReceived = source.LineQuantityReceived,
+                            NetsuiteUoMInternalId = source.NetsuiteUoMInternalId,
+                            UoMName = source.UoMName,
+                            UoMRate = source.UoMRate,
+
+                            ScanCount = 0,
+
+                            // Mark this item as missing
+                            IsBad = false,
+                            IsMissing = true,
+
+                            // The missing quantity is what remains unscanned
+                            ScannedQuantity = RoundOfNearestHundredThousands(
+                                m.RemainingToScan),
+
+                            ScannedWeight = 0
+                        };
+                    })
+                    .Where(x => x != null)
+                    .ToList()!;
+
+                // Build the normal IF items and concatenate the missing items
+                IFItems = GoodIFItems
+                    .Where(g =>
+                    {
+                        var bad = BadIFItems.FirstOrDefault(b =>
+                            b.LineSequenceNumber == g.LineSequenceNumber);
+
+                        var badQty = bad?.ScannedQuantity ?? 0;
+
+                        return badQty == 0 ||
+                               (g.ScannedQuantity > 0 &&
+                                (g.ScannedQuantity + badQty) <= g.NSLineQuantityReceived);
+                    })
+                    .Concat(BadIFItems.Where(x => x.NSLineQuantityReceived != 0))
+                    .Select(x => new TOxItemFulfillmentLineVM
+                    {
+                        NetsuiteOrderInternalId = x.NetsuiteOrderInternalId,
+                        OrderNumber = x.OrderNumber,
+                        OrderType = x.OrderType,
+                        OrderStatus = x.OrderStatus,
+
+                        NetsuiteFromLocationInternalId = x.NetsuiteFromLocationInternalId,
+                        NetsuiteToLocationInternalId = x.NetsuiteToLocationInternalId,
+
+                        NetsuiteFromSubsidiaryInternalId = x.NetsuiteFromSubsidiaryInternalId,
+                        NetsuiteSubsidiaryDefaultBOInternalId = x.NetsuiteSubsidiaryDefaultBOInternalId,
+                        NetsuiteToSubsidiaryInternalId = x.NetsuiteToSubsidiaryInternalId,
+
+                        LocationName = x.LocationName,
+                        LocationUsedBin = x.LocationUsedBin,
+
+                        LineSequenceNumber = x.LineSequenceNumber,
+                        TransactionLineType = x.TransactionLineType,
+
+                        NetsuiteMaterialInternalId = x.NetsuiteMaterialInternalId,
+                        MaterialCode = x.MaterialCode,
+                        MaterialName = x.MaterialName,
+                        MaterialWeight = x.MaterialWeight,
+                        LineQuantity = x.LineQuantity,
+                        LineQuantityReceived = x.LineQuantityReceived,
+                        NetsuiteUoMInternalId = x.NetsuiteUoMInternalId,
+                        UoMName = x.UoMName,
+                        UoMRate = x.UoMRate,
+
+                        ScanCount = x.ScanCount,
+                        IsBad = x.IsBad,
+                        ScannedQuantity = RoundOfNearestHundredThousands(x.ScannedQuantity),
+                        ScannedWeight = x.ScannedWeight
+                    })
+                    // Add the missing items to the final list
+                    .Concat(MissingIFItems)
+                    .ToList();
+
+                await ActionFactory.ExecuteAppActionAsync(
+                    ActionSaveScan,
+                    confirm: true,
+                    showToast: true);
+
+                await InvokeAsync(StateHasChanged);
+            }
+        }
     }
+
 
     void ToggleQuality()
     {

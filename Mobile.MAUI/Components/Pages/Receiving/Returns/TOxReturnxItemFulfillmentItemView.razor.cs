@@ -2,6 +2,7 @@ using Microsoft.JSInterop;
 using Mobile.MAUI.Components.Reusables;
 using Mobile.MAUI.Services;
 using Mobile.MAUI.ViewModel;
+using Radzen;
 using Shared.Libraries.ViewModel;
 using Shared.Libraries.ViewModel.Authentication;
 using Shared.Libraries.ViewModel.ItemFulfillment;
@@ -26,6 +27,8 @@ public partial class TOxReturnxItemFulfillmentItemView : IAsyncDisposable
 
     string BackPath => $"/receiving/returns/itemfulfillment/{NetsuiteOrderInternalId}/{TOOrderNumber}";
 
+    [Inject] DialogService _dialogService { get; set; }
+
     private IJSObjectReference JsObj { get; set; }
     AppAction<List<TOxItemFulfillmentLineVM>> ActionGetReturnsItems { get; set; }
     AppAction<List<ItemBarcodesPerUoMVM>> ActionGetItemBarcodes { get; set; }
@@ -33,6 +36,7 @@ public partial class TOxReturnxItemFulfillmentItemView : IAsyncDisposable
     AppAction<bool> ActionSaveScan { get; set; }
 
     List<TOxItemFulfillmentLineVM> ReturnsItems = [];
+    List<TOxItemFulfillmentLineVM> MissingReturnsItems = [];
     List<ItemBarcodesPerUoMVM> ItemBarcodes = [];
     List<BarcodeRequestVM> ItemRequest = [];
 
@@ -129,7 +133,7 @@ public partial class TOxReturnxItemFulfillmentItemView : IAsyncDisposable
             TaskAsync = async () =>
             {
                 await InvokeAsync(StateHasChanged);
-                var res = await Client.Post<bool>("/Receiving/Returns/SaveScan", new { PostReturn = ReturnsItems, UserId });
+                var res = await Client.Post<bool>("/Receiving/Returns/SaveScan", new { PostReturn = ReturnsItems, TONetsuiteOrderInternalId = NetsuiteOrderInternalId, UserId });
                 return res;
             },
             OnSuccess = async (result) =>
@@ -388,6 +392,91 @@ public partial class TOxReturnxItemFulfillmentItemView : IAsyncDisposable
 
     async Task SaveScan()
     {
+        var remainingByLine = ReturnsItems
+            .Select(g =>
+            {
+                var remaining = g.NSLineQuantityReceived - g.ScannedQuantity;
+
+                return new
+                {
+                    LineSequenceNumber = g.LineSequenceNumber,
+                    RemainingToScan = Math.Max(0, remaining)
+                };
+            })
+            .ToList();
+
+        var missingItems = remainingByLine
+            .Where(x => x.RemainingToScan > 0)
+            .ToList();
+
+        if (missingItems.Any())
+        {
+            var totalMissing = missingItems.Sum(x => x.RemainingToScan);
+
+            var warning = $"Warning: {totalMissing} item(s) still need to be scanned. " +
+                          "These items will be tagged as missing.";
+
+            var confirm = await _dialogService.Confirm(warning, "Missing Items?");
+        
+
+            MissingReturnsItems = missingItems
+                    .Select(m =>
+                    {
+                        var source = ReturnsItems.FirstOrDefault(g =>
+                            g.LineSequenceNumber == m.LineSequenceNumber);
+
+                        if (source == null)
+                            return null;
+
+                        return new TOxItemFulfillmentLineVM
+                        {
+                            NetsuiteOrderInternalId = source.NetsuiteOrderInternalId,
+                            OrderNumber = source.OrderNumber,
+                            OrderType = source.OrderType,
+                            OrderStatus = source.OrderStatus,
+
+                            NetsuiteFromLocationInternalId = source.NetsuiteFromLocationInternalId,
+                            NetsuiteToLocationInternalId = source.NetsuiteToLocationInternalId,
+
+                            NetsuiteFromSubsidiaryInternalId = source.NetsuiteFromSubsidiaryInternalId,
+                            NetsuiteSubsidiaryDefaultBOInternalId = source.NetsuiteSubsidiaryDefaultBOInternalId,
+                            NetsuiteToSubsidiaryInternalId = source.NetsuiteToSubsidiaryInternalId,
+
+                            LocationName = source.LocationName,
+                            LocationUsedBin = source.LocationUsedBin,
+
+                            LineSequenceNumber = source.LineSequenceNumber,
+                            TransactionLineType = source.TransactionLineType,
+
+                            NetsuiteMaterialInternalId = source.NetsuiteMaterialInternalId,
+                            MaterialCode = source.MaterialCode,
+                            MaterialName = source.MaterialName,
+                            MaterialWeight = source.MaterialWeight,
+                            LineQuantity = source.LineQuantity,
+                            LineQuantityReceived = source.LineQuantityReceived,
+                            NetsuiteUoMInternalId = source.NetsuiteUoMInternalId,
+                            UoMName = source.UoMName,
+                            UoMRate = source.UoMRate,
+
+                            ScanCount = 0,
+
+                            // Mark this item as missing
+                            IsBad = false,
+                            IsMissing = true,
+
+                            // The missing quantity is what remains unscanned
+                            ScannedQuantity = RoundOfNearestHundredThousands(
+                                m.RemainingToScan),
+
+                            ScannedWeight = 0
+                        };
+                    })
+                    .Where(x => x != null)
+                    .ToList()!;
+        }
+
+
+
         ReturnsItems = ReturnsItems.Where(x => x.NSLineQuantityReceived != 0)
             .Select(x => new TOxItemFulfillmentLineVM
             {
@@ -425,6 +514,7 @@ public partial class TOxReturnxItemFulfillmentItemView : IAsyncDisposable
                 ScannedQuantity = RoundOfNearestHundredThousands(x.ScannedQuantity),
                 ScannedWeight = x.ScannedWeight
             })
+            .Concat(MissingReturnsItems)
             .ToList();
 
         await ActionFactory.ExecuteAppActionAsync(ActionSaveScan, confirm: true, showToast: true);

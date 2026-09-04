@@ -835,11 +835,12 @@ public class ReceivingIntegration(
     {
         var lines = dto.Lines.Where(x => x.InventoryDetails.Any(y => y.Status?.Id == statusId));
         var isGood = statusId == INVENTORY_STATUS_ID_GOOD;
+        var isMissing = statusId == INVENTORY_STATUS_ID_MISSING;
 
         var obj = new
         {
             transferOrderId = dto.SourceInternalId,
-            transferCategory = isGood ? 1 : 2,
+            transferCategory = isMissing ? 5 : isGood ? 1 : 2,
             custbody_dbti_prepared_by = dto.PreparedById,
             receiverEmployeeId = dto.PreparedById,
             fulfillmentId = dto.ItemFulfillmentId,
@@ -914,13 +915,15 @@ public class ReceivingIntegration(
     {
         var lines = dto.Lines.Where(x => x.InventoryDetails.Any(y => y.Status?.Id == statusId));
         var isGood = statusId == INVENTORY_STATUS_ID_GOOD;
+        var isMissing = statusId == INVENTORY_STATUS_ID_MISSING;
+
         var obj = new
         {
             defaultValues = new
             {
                 itemfulfillment = dto.ItemFulfillmentId
             },
-            custbody_dbti_receiving_category = isGood ? 1 : 2,
+            custbody_dbti_receiving_category = isMissing ? 5 : isGood ? 1 : 2,
             custbody_dbti_prepared_by = dto.PreparedById,
             custbody_dbti_received_by = dto.PreparedById,
             item = new

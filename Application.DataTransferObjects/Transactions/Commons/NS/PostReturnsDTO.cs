@@ -35,6 +35,7 @@ public class PostReturnsDTO : TransactionDTO
     public decimal TotalQuantity { get; set; }
 
     public bool IsBad { get; set; }
+    public bool IsMissing { get; set; }
 
     public bool AlreadyFulfilled { get; set; }
     public bool OverScanned { get; set; }
