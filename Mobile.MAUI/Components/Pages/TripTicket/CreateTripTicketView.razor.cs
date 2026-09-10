@@ -151,7 +151,10 @@ public partial class CreateTripTicketView : IAsyncDisposable
     {
         var result = await Dialog.OpenAsync<TripTicketDetailsView>(
             "TripTicket Details",
-            new Dictionary<string, object>(),
+            new Dictionary<string, object>
+            {
+                { "ScannedItemFulfillments", ScannedItemFulfillments }
+            },
             new DialogOptions());
 
         if (result is not TripTicketVM detail)

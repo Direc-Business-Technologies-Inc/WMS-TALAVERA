@@ -3,7 +3,13 @@
 
 @inherits BaseComponent
 
-<RadzenTemplateForm TItem="TripTicketVM" Data="@Model" Submit="OnConfirm" Style="height:calc(100vh - 120px); overflow-y:auto; overflow-x:hidden;">
+@if (IsLoading)
+{
+    <SavingLoading IsVisible="IsLoading" Text="Loading Trip Ticket Details..." />
+}
+else
+{
+    <RadzenTemplateForm TItem="TripTicketVM" Data="@Model" Submit="OnConfirm" Style="height:calc(100vh - 120px); overflow-y:auto; overflow-x:hidden;">
 
     <RadzenStack Gap="1rem">
 
@@ -129,3 +135,4 @@
     </RadzenStack>
 
 </RadzenTemplateForm>
+}

@@ -1,6 +1,7 @@
 using Mobile.MAUI.Services;
 using Shared.Libraries.ViewModel;
 using Shared.Libraries.ViewModel.Authentication;
+using Shared.Libraries.ViewModel.ItemFulfillment;
 using Shared.Libraries.ViewModel.TripTicket;
 using System.Text.Json;
 
@@ -10,6 +11,9 @@ public partial class TripTicketDetailsView
 {
     [Inject]
     DialogService DialogService { get; set; }
+
+    [Parameter]
+    public IEnumerable<ItemFulfillmentVM> ScannedItemFulfillments { get; set; } = Enumerable.Empty<ItemFulfillmentVM>();
 
     AppAction<List<LocationVM>> ActionGetDestinations;
     AppAction<List<LocationVM>> ActionGetOriginLocations;
@@ -27,6 +31,8 @@ public partial class TripTicketDetailsView
     public TripTicketVM Model { get; set; } = new();
 
     int UserSubsidiaryId { get; set; }
+
+    bool IsLoading = true;
 
     protected override async Task OnInitializedAsync()
     {
@@ -149,22 +155,66 @@ public partial class TripTicketDetailsView
     {
         if (firstRender)
         {
-            string? userAuth = await SecureStorage.GetAsync("UserAuth");
-            if (userAuth is not null)
+            try
             {
-                var auth = JsonSerializer.Deserialize<AuthenticationVM>(userAuth);
+                string? userAuth = await SecureStorage.GetAsync("UserAuth");
 
-                UserSubsidiaryId = auth.NetsuiteSubsidiaryInternalId;
+                if (userAuth is not null)
+                {
+                    var auth = JsonSerializer.Deserialize<AuthenticationVM>(userAuth);
+
+                    UserSubsidiaryId = auth.NetsuiteSubsidiaryInternalId;
+                }
+
+                await ActionFactory.ExecuteAppActionAsync(ActionGetSubsidiaries);
+                await ActionFactory.ExecuteAppActionAsync(ActionGetDestinations);
+                await ActionFactory.ExecuteAppActionAsync(ActionGetDrivers);
+                await ActionFactory.ExecuteAppActionAsync(ActionGetHelpers);
+                await ActionFactory.ExecuteAppActionAsync(ActionGetTruckPlateNumbers);
+                await ActionFactory.ExecuteAppActionAsync(ActionGetOriginLocations);
+
+                UpdateSubsidiariesAndLocation();
             }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex);
+            }
+            finally
+            {
+                IsLoading = false;
 
-            await ActionFactory.ExecuteAppActionAsync(ActionGetSubsidiaries);
-            await ActionFactory.ExecuteAppActionAsync(ActionGetDestinations);
-            await ActionFactory.ExecuteAppActionAsync(ActionGetDrivers);
-            await ActionFactory.ExecuteAppActionAsync(ActionGetHelpers);
-            await ActionFactory.ExecuteAppActionAsync(ActionGetTruckPlateNumbers);
-            await ActionFactory.ExecuteAppActionAsync(ActionGetOriginLocations);
+                await InvokeAsync(StateHasChanged);
+            }
         }
     }
+
+    private void UpdateSubsidiariesAndLocation()
+    {
+        if (ScannedItemFulfillments == null || !ScannedItemFulfillments.Any())
+            return;
+
+        var subsidiaryIds = ScannedItemFulfillments
+            .Select(x => x.NetsuiteToSubsidiaryInternalId)
+            .Where(x => x != 0)
+            .Distinct()
+            .ToHashSet();
+
+        Model.ToSubsidiaries = Subsidiaries
+            .Where(x => subsidiaryIds.Contains(x.NetsuiteSubsidiaryInternalId))
+            .ToList();
+
+        var destinationIds = ScannedItemFulfillments
+            .Select(x => x.NetsuiteToLocationInternalId)
+            .Where(x => x != 0)
+            .Distinct()
+            .ToHashSet();
+
+        Model.Destinations = Destination
+            .Where(x => destinationIds.Contains(x.NetsuiteLocationInternalId))
+            .ToList();
+    }
+
+
 
     private void OnConfirm()
     {
