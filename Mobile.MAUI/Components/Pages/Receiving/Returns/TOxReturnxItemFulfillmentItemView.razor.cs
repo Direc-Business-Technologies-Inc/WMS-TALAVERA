@@ -196,12 +196,14 @@ public partial class TOxReturnxItemFulfillmentItemView : IAsyncDisposable
 
             try
             {
+
                 var result = await Dialog.OpenAsync<ManualEntryDialog>(
                     "Manual Entry",
                     new Dictionary<string, object>
                     {
                         { "ItemName", item.MaterialName },
                         { "PlannedQty", item.NSLineQuantityReceived },
+                        { "GoodQty", item.ScannedQuantity },
                         { "NoBad", 1}
                     },
                     new DialogOptions

@@ -315,12 +315,18 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
 
             try
             {
+                decimal badQty = BadPOItems.FirstOrDefault(y =>
+                    y.LineSequenceNumber == item.LineSequenceNumber &&
+                    y.NetsuiteMaterialInternalId == item.NetsuiteMaterialInternalId)?.ScannedQuantity ?? 0;
+
                 var result = await Dialog.OpenAsync<ManualEntryDialog>(
                     "Manual Entry",
                     new Dictionary<string, object>
                     {
                         { "ItemName", item.MaterialName },
-                        { "PlannedQty", item.NSLineQuantityReceived }
+                        { "PlannedQty", item.NSLineQuantityReceived },
+                        { "GoodQty", item.ScannedQuantity},
+                        { "BadQty", badQty },
                     },
                     new DialogOptions
                     {

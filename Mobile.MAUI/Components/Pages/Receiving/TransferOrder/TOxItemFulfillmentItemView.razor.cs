@@ -242,16 +242,22 @@ public partial class TOxItemFulfillmentItemView : IAsyncDisposable
 
             try
             {
+                decimal badQty = BadIFItems.FirstOrDefault(y =>
+                    y.LineSequenceNumber == item.LineSequenceNumber &&
+                    y.NetsuiteMaterialInternalId == item.NetsuiteMaterialInternalId)?.ScannedQuantity ?? 0;
+
                 var result = await Dialog.OpenAsync<ManualEntryDialog>(
                     "Manual Entry",
                     new Dictionary<string, object>
                     {
                         { "ItemName", item.MaterialName },
-                        { "PlannedQty", item.NSLineQuantityReceived }
+                        { "PlannedQty", item.NSLineQuantityReceived },
+                        { "GoodQty", item.ScannedQuantity},
+                        { "BadQty", badQty },
                     },
                     new DialogOptions
                     {
-                        ShowClose = true,
+                        ShowClose = true
                     });
 
                 if (result is ManualEntryDialog.ManualEntryResult entry)

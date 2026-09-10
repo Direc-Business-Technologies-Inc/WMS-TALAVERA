@@ -8,13 +8,13 @@ public partial class ManualEntryDialog
     [Parameter] public decimal PlannedQty { get; set; }
     [Parameter] public int ShowBad { get; set; } = 0; // if zero then show.
     [Parameter] public int ShowMissing { get; set; } = 0; // if zero then show.
-
+    [Parameter] public decimal GoodQty { get; set; } = 0;
+    [Parameter] public decimal BadQty { get; set; } = 0;
 
     private bool ShowBadIfZero => ShowBad != 1;
     private bool ShowMissingIfZero => ShowMissing != 1;
     private decimal RemainingQty => PlannedQty - (GoodQty + BadQty);
-    private decimal GoodQty { get; set; } = 0;
-    private decimal BadQty { get; set; } = 0;
+    
     private decimal MissingQty { get; set; } = 0;
     private string? ValidationMessage { get; set; }
 

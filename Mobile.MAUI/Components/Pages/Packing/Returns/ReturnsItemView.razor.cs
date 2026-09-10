@@ -192,6 +192,7 @@ public partial class ReturnsItemView : IAsyncDisposable
                     {
                         { "ItemName", item.MaterialName },
                         { "PlannedQty", item.NSLineQuantityReceived },
+                        { "GoodQty", item.ScannedQuantity },
                         { "ShowBad", 1},
                         { "ShowMissing", 0}
                     },

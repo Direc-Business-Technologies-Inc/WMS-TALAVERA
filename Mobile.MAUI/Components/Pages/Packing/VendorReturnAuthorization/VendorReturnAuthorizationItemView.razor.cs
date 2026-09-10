@@ -230,12 +230,18 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
         {
             try
             {
+                decimal badQty = BadVRAItems.FirstOrDefault(y =>
+                            y.LineSequenceNumber == item.LineSequenceNumber &&
+                            y.NetsuiteMaterialInternalId == item.NetsuiteMaterialInternalId)?.ScannedQuantity ?? 0;
+
                 var result = await Dialog.OpenAsync<ManualEntryDialog>(
                     "Manual Entry",
                     new Dictionary<string, object>
                     {
                         { "ItemName", item.MaterialName },
                         { "PlannedQty", item.NSLineQuantityReceived },
+                        { "GoodQty", item.ScannedQuantity},
+                        { "BadQty", badQty },
                         { "ShowMissing", 1}
                     },
                     new DialogOptions
