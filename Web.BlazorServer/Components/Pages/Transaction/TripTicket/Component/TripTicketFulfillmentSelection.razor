@@ -7,25 +7,52 @@
     <AppDataGrid @ref="@FulfillmentsDataGrid"
                  Id="trip_ticket_fulfillment_selection_grid"
                  TItem="ItemFulfillmentVM"
-                 GridSettingsLoaded="@GridSettingsLoaded"
+                 GridSettings="@FulfillmentsDataGridSettings"
+                 @bind-GridSettingsLoaded="@GridSettingsLoaded"
                  DataGetter="@LoadDataAsync"
                  ActionName="@ActionGetFulfillments"
                  SelectedItems="@SelectedFulfillments"
-                 DataGridSelectionMode="DataGridSelectionMode.Multiple"
-                 OnRowSelect="@OnRowSelect"
-                 OnRowDeselect="@OnRowDeselect">
+                 DataGridSelectionMode="DataGridSelectionMode.Multiple">
         <HeaderTemplate>
-            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" AlignItems="AlignItems.Center" Gap="8px">
-                <RadzenButton Icon="settings" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@OpenTableSettings" />
+            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center" Gap="8px">
+                <!-- Search -->
+                <RadzenStack Orientation="Orientation.Horizontal"
+                             AlignItems="AlignItems.Center"
+                             Gap="4px">
+
+                    <RadzenTextBox @bind-Value="@SearchText"
+                                   Placeholder="Search items..."
+                                   Style="width: 250px;"
+                                   Change="@OnSearchChanged" />
+
+                    @if (!string.IsNullOrWhiteSpace(SearchText))
+                    {
+                        <RadzenButton Icon="close"
+                                      Size="ButtonSize.Small"
+                                      ButtonStyle="ButtonStyle.Light"
+                                      Click="@ClearSearch" />
+                    }
+
+                </RadzenStack>
+                <RadzenStack Orientation="Orientation.Horizontal"
+                             AlignItems="AlignItems.Center"
+                             Gap="4px">
+                    <RadzenButton Icon="settings" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@OpenTableSettings" />
+                    <RadzenButton Icon="sync" Size="ButtonSize.Small" Click="FulfillmentsDataGrid.ReloadDataAsync" />
+                </RadzenStack>
             </RadzenStack>
         </HeaderTemplate>
         <GridColumns>
             <RadzenDataGridColumn TItem="ItemFulfillmentVM"
-                                  Width="45px" TextAlign="TextAlign.Center"
-                                  Frozen FrozenPosition="FrozenColumnPosition.Left"
+                                  Frozen
+                                  FrozenPosition="FrozenColumnPosition.Right"
+                                  Width="35px"
                                   Filterable="false" Sortable="false" Pickable="false">
-                <Template Context="data">
-                    <RadzenCheckBox Value="@(SelectedFulfillments.Any(si => si.NetsuiteOrderInternalId == data.NetsuiteOrderInternalId))" />
+                <Template>
+                    <RadzenButton Variant="Variant.Text"
+                                  Icon="@(SelectedFulfillments.Any(x => x.OrderNumber == context.OrderNumber) ? "check_box" : "check_box_outline_blank")"
+                                  Size="ButtonSize.ExtraSmall"
+                                  Click="() => SelectItem(context)" />
                 </Template>
             </RadzenDataGridColumn>
             <RadzenDataGridColumn TItem="ItemFulfillmentVM"

@@ -1,6 +1,10 @@
+using Application.DataTransferObjects.Transactions.ItemFulfillment;
+using Application.DataTransferObjects.Transactions.StockTransferRequest;
+using Application.DataTransferObjects.Transactions.SupplierReturn;
 using Application.DataTransferObjects.Transactions.TripTicket;
 using Application.UseCases.Repositories.Integration.Others;
 using Application.UseCases.Repositories.Integration.Transaction.TripTicket;
+using Integration.NS.DataTransferObjects.StockTransferRequest;
 using Integration.NS.Helpers;
 using Integration.NS.Services;
 using Microsoft.AspNetCore.Http;
@@ -65,6 +69,41 @@ public class TripTicketIntegration(
 
         return (response.items, response.totalResults);
     }
+
+    public async Task<(IEnumerable<ItemFulfillmentDTO>, int)> GetItemfulfillments(DataGridIntent intent)
+    {
+        if (intent.Sorts.Count == 0)
+        {
+            intent.Sorts.Add(DataGridSortUtilities.Descending(nameof(ItemFulfillmentDTO.OrderNumber)));
+            intent.Sorts.Add(DataGridSortUtilities.Descending(nameof(ItemFulfillmentDTO.NetsuiteOrderCreatedDate)));
+        }
+
+        var query = builderFactory.Create()
+            .Select(
+                ("t.id", nameof(ItemFulfillmentDTO.NetsuiteOrderInternalId)),
+                ("t.tranid", nameof(ItemFulfillmentDTO.OrderNumber)),
+                ("t.recordtype", nameof(ItemFulfillmentDTO.OrderType)),
+                ("t.status", nameof(ItemFulfillmentDTO.OrderStatus)),
+                ("lsm.subsidiary", nameof(ItemFulfillmentDTO.NetsuiteToSubsidiaryInternalId)),
+                ("t.transferlocation", nameof(ItemFulfillmentDTO.NetsuiteToLocationInternalId)),
+                ("TO_CHAR(t.createdDate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(ItemFulfillmentDTO.NetsuiteOrderCreatedDate))
+            )
+            .From("transaction t")
+            .Join("locationSubsidiaryMap lsm", on: "t.transferlocation = lsm.location")
+            .WithFilters(
+                Equal("t.type", "ItemShip"),
+                Equal("t.status", "B"),
+                Any(
+                    Equal("t.custbody_dbti_fully_received", "F"),
+                    IsNull("t.custbody_dbti_fully_received"))
+            ).WithDatagridIntent(intent).Build();
+
+        var response = await query.ExecuteWithPaging<ItemFulfillmentDTO>(netsuiteService);
+
+        return (response.items, response.totalResults);
+    }
+
+
 
     public async Task<IEnumerable<TripTicketFulfillmentDTO>> GetTripTicketFulfillmentsAsync(int id)
     {

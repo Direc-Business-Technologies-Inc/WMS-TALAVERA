@@ -56,7 +56,6 @@ partial class TripTicketCVU
     AppTable<ItemFulfillmentVM> FulfillmentLinesTable { get; set; } = default!;
     DataGridSettings FulfillmentLinesTableSettings { get; set; } = new();
     List<TripTicketVM> ParentTripTickets { get; set; } = new();
-    List<ItemFulfillmentVM> PackedFulfillments { get; set; } = new();
     List<DriverVM> Drivers { get; set; } = new();
     List<HelperVM> Helpers { get; set; } = new();
     List<LocationVM> Locations { get; set; } = new();
@@ -192,7 +191,6 @@ partial class TripTicketCVU
 
         if (Creating)
         {
-            await LoadPackedFulfillmentsAsync();
             await LoadSubsidiariesAsync();
             await LoadDriversAsync();
             await LoadHelpersAsync();
@@ -208,22 +206,6 @@ partial class TripTicketCVU
 
         AppBusyService.SetBusy(ActionView, false);
         await InvokeAsync(StateHasChanged);
-    }
-
-    async Task LoadPackedFulfillmentsAsync()
-    {
-        var action = await AppActionFactory.RunAsync(async () =>
-        {
-            AppBusyService.SetBusy(ActionGetFulfillments, true);
-            return await TripTicketHandler.GetPackedItemFulfillmentsAsync();
-        }, AppActionOptionPresets.Loading(ActionGetFulfillments));
-
-        AppBusyService.SetBusy(ActionGetFulfillments, false);
-        action.OnSuccess(result =>
-        {
-            PackedFulfillments = result is null ? [] : [.. result];
-            return Task.CompletedTask;
-        });
     }
 
     async Task LoadDriversAsync()

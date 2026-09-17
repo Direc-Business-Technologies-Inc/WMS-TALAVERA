@@ -384,8 +384,7 @@
     {
         await DialogService.OpenAsync(
             "Fulfillment Selection",
-            ds => @<TripTicketFulfillmentSelection @bind-Document="@FormData"
-                                                   Fulfillments="@PackedFulfillments" />,
+            ds => @<TripTicketFulfillmentSelection @bind-Document="@FormData"/>,
             options: GridSettingsService.GetDialogOptions().MaximizedMode());
 
         OnFieldChanged(nameof(FormData.ItemFulfillments));

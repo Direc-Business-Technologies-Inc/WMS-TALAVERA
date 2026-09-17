@@ -1,3 +1,4 @@
+using Application.DataTransferObjects.Transactions.ItemFulfillment;
 using Application.DataTransferObjects.Transactions.TripTicket;
 using Shared.Entities;
 
@@ -9,6 +10,7 @@ public interface ITripTicketIntegration
     Task<TripTicketDataGridDTO?> GetTripTicketAsync(int id);
     Task<TripTicketDataGridDTO?> GetParentTripTicketAsync(int id);
     Task<(IEnumerable<TripTicketDataGridDTO> Data, int Count)> GetParentTripTicketsAsync(DataGridIntent intent);
+    Task<(IEnumerable<ItemFulfillmentDTO>, int)> GetItemfulfillments(DataGridIntent intent);
     Task<IEnumerable<TripTicketFulfillmentDTO>> GetTripTicketFulfillmentsAsync(int id);
     Task<IEnumerable<TripTicketFulfillmentDTO>> GetTripTicketFulfillmentsBaseParentAsync(int id);
 }

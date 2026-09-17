@@ -4,6 +4,8 @@
 @using Web.BlazorServer.Components.Pages.Transaction.Others.BarcodeScanning
 @using Web.BlazorServer.ViewModels.Others
 @using Web.BlazorServer.ViewModels.Transaction.InventoryAdjustment
+@using Web.BlazorServer.Extensions
+
 @inherits BaseComponent
 
 
@@ -199,7 +201,7 @@
         List<ItemsVM> items = await DialogService.OpenAsync(
             "Select Items",
             ds => @<ItemSelection Location="@(Model.Location?.Id ?? null)" IsReceipt="@(!Issue)" />,
-    options: GridSettingsService.GetDialogOptions());
+    options: GridSettingsService.GetDialogOptions().MaximizedMode());
 
         if (items is not null) await AddItems(items);
     }

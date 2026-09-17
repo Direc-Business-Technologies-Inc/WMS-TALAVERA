@@ -186,10 +186,8 @@ public partial class STRForm
     async Task<(IEnumerable<LocationVM>, int)> DestinationLocationProvider(DataGridIntent intent)
     {
         if (Model.ToSubsidiary is null) return ([], 0);
-        if (Model.Subsidiary is null) return ([], 0);
 
         await _concurrencySemaphore.WaitAsync();
-
 
         try
         {

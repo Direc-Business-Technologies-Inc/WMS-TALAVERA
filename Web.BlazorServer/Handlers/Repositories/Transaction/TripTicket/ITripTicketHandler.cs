@@ -13,7 +13,7 @@ public interface ITripTicketHandler
     Task<TripTicketVM?> GetTripTicketAsync(int id);
     Task<TripTicketVM?> GetTripTicketBaseParentAsync(int id);
     Task<IEnumerable<ItemFulfillmentVM>> GetTripTicketFulfillmentsAsync(int id);
-    Task<IEnumerable<ItemFulfillmentVM>> GetPackedItemFulfillmentsAsync();
+    Task<(IEnumerable<ItemFulfillmentVM> Data, int Count)> GetPackedItemFulfillmentsAsync(DataGridIntent intent);
     Task<IEnumerable<DriverVM>> GetDriversAsync();
     Task<IEnumerable<HelperVM>> GetHelpersAsync();
     Task<IEnumerable<LocationVM>> GetLocationsAsync();

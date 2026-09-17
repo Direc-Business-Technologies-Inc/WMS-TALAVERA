@@ -3,7 +3,6 @@ using Application.DataTransferObjects.Transactions.TripTicket.NS;
 using Application.UseCases.Commands.Transaction.TripTicket.NS;
 using Application.UseCases.Queries.Others.NS;
 using Application.UseCases.Queries.Transaction.TripTicket;
-using Application.UseCases.Queries.Transaction.TripTicket.NS;
 using Mapster;
 using MediatR;
 using Shared.Entities;
@@ -12,6 +11,7 @@ using Shared.Libraries.ViewModel.ItemFulfillment;
 using Shared.Libraries.ViewModel.TripTicket;
 using Web.BlazorServer.Handlers.Repositories.Transaction.TripTicket;
 using Web.BlazorServer.ViewModels.Transaction.TripTicket;
+using ItemFulfillmentDTO = Application.DataTransferObjects.Transactions.ItemFulfillment.ItemFulfillmentDTO;
 
 namespace Web.BlazorServer.Handlers.Implementations.Transaction.TripTicket;
 
@@ -136,10 +136,10 @@ public class TripTicketHandler(ISender Sender) : ITripTicketHandler
         return response.Adapt<IEnumerable<ItemFulfillmentVM>>();
     }
 
-    public async Task<IEnumerable<ItemFulfillmentVM>> GetPackedItemFulfillmentsAsync()
+    public async Task<(IEnumerable<ItemFulfillmentVM> Data, int Count)> GetPackedItemFulfillmentsAsync(DataGridIntent intent)
     {
-        var response = await Sender.Send(new GetPackedItemFulfillmentsQry());
-        return response.Adapt<IEnumerable<ItemFulfillmentVM>>();
+        (IEnumerable<ItemFulfillmentDTO> Data, int Count) = await Sender.Send(new GetItemFulfillmentsPackedQry(intent));
+        return (Data.Adapt<IEnumerable<ItemFulfillmentVM>>(), Count);
     }
 
     public async Task<IEnumerable<DriverVM>> GetDriversAsync()
