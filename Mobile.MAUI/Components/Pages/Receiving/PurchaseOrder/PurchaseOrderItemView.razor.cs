@@ -28,7 +28,6 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
 
     List<PurchaseOrderLineVM> GoodPOItems = [];
     List<PurchaseOrderLineVM> BadPOItems = [];
-    List<PurchaseOrderLineVM> MissingItems = [];
     List<ItemBarcodesPerUoMVM> ItemBarcodes = [];
     List<BarcodeRequestVM> ItemRequest = [];
 
@@ -157,48 +156,6 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
 
                     IsBad = true,
                     IsMissing = false
-                }).ToList();
-
-                MissingItems = source.Select(line => new PurchaseOrderLineVM
-                {
-                    NetsuiteOrderInternalId = line.NetsuiteOrderInternalId,
-                    OrderNumber = line.OrderNumber,
-                    OrderType = line.OrderType,
-                    OrderStatus = line.OrderStatus,
-
-                    NetsuiteSubsidiaryInternalId = line.NetsuiteSubsidiaryInternalId,
-                    NetsuiteSubsidiaryDefaultBOInternalId = line.NetsuiteSubsidiaryDefaultBOInternalId,
-
-                    NetsuiteLocationInternalId = line.NetsuiteLocationInternalId,
-                    LocationName = line.LocationName,
-                    LocationUsedBin = line.LocationUsedBin,
-
-                    LineSequenceNumber = line.LineSequenceNumber,
-                    TransactionLineType = line.TransactionLineType,
-
-                    NetsuiteVendorInternalId = line.NetsuiteVendorInternalId,
-                    VendorName = line.VendorName,
-                    VendorBinAssignmentId = line.VendorBinAssignmentId,
-
-                    NetsuiteMaterialInternalId = line.NetsuiteMaterialInternalId,
-                    MaterialCode = line.MaterialCode,
-                    MaterialName = line.MaterialName,
-                    MaterialWeight = line.MaterialWeight,
-                    NetsuiteMaterialPrefferedBinId = line.NetsuiteMaterialPrefferedBinId,
-
-                    LineQuantity = line.LineQuantity,
-                    LineQuantityReceived = line.LineQuantityReceived,
-
-                    NetsuiteUoMInternalId = line.NetsuiteUoMInternalId,
-                    UoMName = line.UoMName,
-                    UoMRate = line.UoMRate,
-
-                    ScanCount = 0,
-                    ScannedQuantity = 0,
-                    ScannedWeight = 0,
-
-                    IsBad = false,
-                    IsMissing = true
                 }).ToList();
 
                 await InvokeAsync(StateHasChanged);
@@ -347,17 +304,6 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
                     {
                         badItem.ScannedQuantity = entry.BadQty;
                     }
-
-                    // Manual entry is Good/Bad only.
-                    // Reset Missing for this manual-entry operation.
-                    var missingItem = MissingItems.FirstOrDefault(y =>
-                        y.LineSequenceNumber == item.LineSequenceNumber &&
-                        y.NetsuiteMaterialInternalId == item.NetsuiteMaterialInternalId);
-
-                    if (missingItem != null)
-                    {
-                        missingItem.ScannedQuantity = entry.MissingQty;
-                    }
                 }
             }
             finally
@@ -448,12 +394,6 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
             if (NegateQuantity)
             {
                 await NegateScannedItem(scanned);
-                return;
-            }
-
-            if (ScanState == ToggleState.Missing)
-            {
-                await ScanMissingItem(scanned);
                 return;
             }
 
@@ -615,336 +555,66 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
         }
     }
 
-    private async Task ScanMissingItem(string scanned)
-    {
-        try
-        {
-            var barcode = ItemBarcodes.FirstOrDefault(x =>
-                !string.IsNullOrWhiteSpace(x.MaterialBarcode) &&
-                x.MaterialBarcode.Equals(
-                    scanned,
-                    StringComparison.OrdinalIgnoreCase));
-
-            if (barcode is null)
-            {
-                await Toast.Warning($"Unknown barcode: {scanned}");
-                return;
-            }
-
-            var missingLine = MissingItems.FirstOrDefault(x =>
-                x.NetsuiteMaterialInternalId ==
-                    barcode.NetsuiteMaterialInternalId &&
-                (GoodSelectedLine == null ||
-                 x.LineSequenceNumber ==
-                    GoodSelectedLine.LineSequenceNumber));
-
-            if (missingLine is null)
-            {
-                await Toast.Warning("Item not found in this PO.");
-                return;
-            }
-
-            if (IsWeightDialogOpen)
-            {
-                return;
-            }
-
-            var goodLine = GoodPOItems.FirstOrDefault(x =>
-                x.LineSequenceNumber ==
-                    missingLine.LineSequenceNumber &&
-                x.NetsuiteMaterialInternalId ==
-                    missingLine.NetsuiteMaterialInternalId);
-
-            var badLine = BadPOItems.FirstOrDefault(x =>
-                x.LineSequenceNumber ==
-                    missingLine.LineSequenceNumber &&
-                x.NetsuiteMaterialInternalId ==
-                    missingLine.NetsuiteMaterialInternalId);
-
-            var goodQty = goodLine?.ScannedQuantity ?? 0;
-            var badQty = badLine?.ScannedQuantity ?? 0;
-            var missingQty = missingLine.ScannedQuantity;
-
-            var totalQty = goodQty + badQty + missingQty;
-
-            if (totalQty >= missingLine.NSLineQuantityReceived)
-            {
-                await Toast.Warning(
-                    $"Over-scanning item: {missingLine.MaterialCode}.");
-
-                return;
-            }
-
-            var scanQty =
-                barcode.UoMRate / missingLine.UoMRate;
-
-            var remainingQty =
-                missingLine.NSLineQuantityReceived - totalQty;
-
-            if (scanQty > remainingQty)
-            {
-                await Toast.Warning(
-                    $"Missing quantity exceeds remaining quantity for item: {missingLine.MaterialCode}.");
-
-                return;
-            }
-
-            // Missing does not represent physical received weight.
-            // Therefore we only increment quantity.
-            missingLine.ScannedQuantity += scanQty;
-            missingLine.ScanCount++;
-
-            ScanCount++;
-
-            await InvokeAsync(StateHasChanged);
-        }
-        catch (Exception e)
-        {
-            await Toast.Error(e.Message);
-        }
-    }
-
     async Task SaveScan()
     {
-        POItems = [];
-
-        foreach (var good in GoodPOItems)
-        {
-            var bad = BadPOItems.FirstOrDefault(b =>
-                b.LineSequenceNumber == good.LineSequenceNumber &&
-                b.NetsuiteMaterialInternalId ==
-                    good.NetsuiteMaterialInternalId);
-
-            var missing = MissingItems.FirstOrDefault(m =>
-                m.LineSequenceNumber == good.LineSequenceNumber &&
-                m.NetsuiteMaterialInternalId ==
-                    good.NetsuiteMaterialInternalId);
-
-            var badQty = bad?.ScannedQuantity ?? 0;
-            var missingQty = missing?.ScannedQuantity ?? 0;
-
-            var totalQty =
-                good.ScannedQuantity +
-                badQty +
-                missingQty;
-
-            // Nothing scanned for this line.
-            if (totalQty == 0)
+        // Build the normal IF items and concatenate the missing items
+        // A GoodIFItem is included when:
+        // 1. There is no bad quantity for the line AND should have not fully received, OR
+        // 2. There is a good quantity and the combined
+        //    good + bad quantity does not exceed the received quantity.
+        POItems = GoodPOItems
+            .Where(g =>
             {
-                continue;
-            }
+                var bad = BadPOItems.FirstOrDefault(b =>
+                    b.LineSequenceNumber == g.LineSequenceNumber);
 
-            // Prevent total classification from exceeding PO quantity.
-            if (totalQty > good.NSLineQuantityReceived)
+                var badQty = bad?.ScannedQuantity ?? 0;
+
+                return (badQty == 0 && g.LineQuantity != g.LineQuantityReceived + g.LineQuantityBackOrdered) ||
+                        (g.ScannedQuantity > 0 &&
+                        (g.ScannedQuantity + badQty) <= g.NSLineQuantityReceived);
+            })
+            .Concat(BadPOItems.Where(x => x.NSLineQuantityReceived != 0))
+            .Select(x => new PurchaseOrderLineVM
             {
-                await Toast.Warning(
-                    $"Scanned quantity exceeds PO quantity for item: {good.MaterialCode}");
+                NetsuiteOrderInternalId = x.NetsuiteOrderInternalId,
+                OrderNumber = x.OrderNumber,
+                OrderType = x.OrderType,
+                OrderStatus = x.OrderStatus,
 
-                return;
-            }
+                NetsuiteSubsidiaryInternalId = x.NetsuiteSubsidiaryInternalId,
+                NetsuiteSubsidiaryDefaultBOInternalId = x.NetsuiteSubsidiaryDefaultBOInternalId,
 
-            // GOOD
-            if (good.ScannedQuantity > 0)
-            {
-                POItems.Add(new PurchaseOrderLineVM
-                {
-                    NetsuiteOrderInternalId = good.NetsuiteOrderInternalId,
-                    OrderNumber = good.OrderNumber,
-                    OrderType = good.OrderType,
-                    OrderStatus = good.OrderStatus,
+                NetsuiteLocationInternalId = x.NetsuiteLocationInternalId,
+                LocationName = x.LocationName,
+                LocationUsedBin = x.LocationUsedBin,
 
-                    NetsuiteSubsidiaryInternalId =
-                        good.NetsuiteSubsidiaryInternalId,
+                LineSequenceNumber = x.LineSequenceNumber,
+                TransactionLineType = x.TransactionLineType,
 
-                    NetsuiteSubsidiaryDefaultBOInternalId =
-                        good.NetsuiteSubsidiaryDefaultBOInternalId,
+                NetsuiteVendorInternalId = x.NetsuiteVendorInternalId,
+                VendorName = x.VendorName,
+                VendorBinAssignmentId = x.VendorBinAssignmentId,
 
-                    NetsuiteLocationInternalId =
-                        good.NetsuiteLocationInternalId,
+                NetsuiteMaterialInternalId = x.NetsuiteMaterialInternalId,
+                MaterialCode = x.MaterialCode,
+                MaterialName = x.MaterialName,
+                MaterialWeight = x.MaterialWeight,
+                NetsuiteMaterialPrefferedBinId = x.NetsuiteMaterialPrefferedBinId,
 
-                    LocationName = good.LocationName,
-                    LocationUsedBin = good.LocationUsedBin,
+                LineQuantity = x.LineQuantity,
+                LineQuantityReceived = x.LineQuantityReceived,
 
-                    LineSequenceNumber = good.LineSequenceNumber,
-                    TransactionLineType = good.TransactionLineType,
+                NetsuiteUoMInternalId = x.NetsuiteUoMInternalId,
+                UoMName = x.UoMName,
+                UoMRate = x.UoMRate,
 
-                    NetsuiteVendorInternalId =
-                        good.NetsuiteVendorInternalId,
-
-                    VendorName = good.VendorName,
-                    VendorBinAssignmentId = good.VendorBinAssignmentId,
-
-                    NetsuiteMaterialInternalId =
-                        good.NetsuiteMaterialInternalId,
-
-                    MaterialCode = good.MaterialCode,
-                    MaterialName = good.MaterialName,
-                    MaterialWeight = good.MaterialWeight,
-
-                    NetsuiteMaterialPrefferedBinId =
-                        good.NetsuiteMaterialPrefferedBinId,
-
-                    LineQuantity = good.LineQuantity,
-                    LineQuantityReceived = good.LineQuantityReceived,
-
-                    NetsuiteUoMInternalId =
-                        good.NetsuiteUoMInternalId,
-
-                    UoMName = good.UoMName,
-                    UoMRate = good.UoMRate,
-
-                    ScanCount = good.ScanCount,
-                    IsBad = false,
-                    IsMissing = false,
-
-                    ScannedQuantity =
-                        RoundOfNearestHundredThousands(
-                            good.ScannedQuantity),
-
-                    ScannedWeight =
-                        good.ScannedWeight
-                });
-            }
-
-            // BAD
-            if (badQty > 0 && bad is not null)
-            {
-                POItems.Add(new PurchaseOrderLineVM
-                {
-                    NetsuiteOrderInternalId =
-                        bad.NetsuiteOrderInternalId,
-
-                    OrderNumber = bad.OrderNumber,
-                    OrderType = bad.OrderType,
-                    OrderStatus = bad.OrderStatus,
-
-                    NetsuiteSubsidiaryInternalId =
-                        bad.NetsuiteSubsidiaryInternalId,
-
-                    NetsuiteSubsidiaryDefaultBOInternalId =
-                        bad.NetsuiteSubsidiaryDefaultBOInternalId,
-
-                    NetsuiteLocationInternalId =
-                        bad.NetsuiteLocationInternalId,
-
-                    LocationName = bad.LocationName,
-                    LocationUsedBin = bad.LocationUsedBin,
-
-                    LineSequenceNumber =
-                        bad.LineSequenceNumber,
-
-                    TransactionLineType =
-                        bad.TransactionLineType,
-
-                    NetsuiteVendorInternalId =
-                        bad.NetsuiteVendorInternalId,
-
-                    VendorName = bad.VendorName,
-                    VendorBinAssignmentId =
-                        bad.VendorBinAssignmentId,
-
-                    NetsuiteMaterialInternalId =
-                        bad.NetsuiteMaterialInternalId,
-
-                    MaterialCode = bad.MaterialCode,
-                    MaterialName = bad.MaterialName,
-                    MaterialWeight = bad.MaterialWeight,
-
-                    NetsuiteMaterialPrefferedBinId =
-                        bad.NetsuiteMaterialPrefferedBinId,
-
-                    LineQuantity = bad.LineQuantity,
-                    LineQuantityReceived =
-                        bad.LineQuantityReceived,
-
-                    NetsuiteUoMInternalId =
-                        bad.NetsuiteUoMInternalId,
-
-                    UoMName = bad.UoMName,
-                    UoMRate = bad.UoMRate,
-
-                    ScanCount = bad.ScanCount,
-                    IsBad = true,
-                    IsMissing = false,
-
-                    ScannedQuantity =
-                        RoundOfNearestHundredThousands(
-                            bad.ScannedQuantity),
-
-                    ScannedWeight =
-                        bad.ScannedWeight
-                });
-            }
-
-            // MISSING
-            if (missingQty > 0 && missing is not null)
-            {
-                POItems.Add(new PurchaseOrderLineVM
-                {
-                    NetsuiteOrderInternalId =
-                        missing.NetsuiteOrderInternalId,
-
-                    OrderNumber = missing.OrderNumber,
-                    OrderType = missing.OrderType,
-                    OrderStatus = missing.OrderStatus,
-
-                    NetsuiteSubsidiaryInternalId =
-                        missing.NetsuiteSubsidiaryInternalId,
-
-                    NetsuiteSubsidiaryDefaultBOInternalId =
-                        missing.NetsuiteSubsidiaryDefaultBOInternalId,
-
-                    NetsuiteLocationInternalId =
-                        missing.NetsuiteLocationInternalId,
-
-                    LocationName = missing.LocationName,
-                    LocationUsedBin = missing.LocationUsedBin,
-
-                    LineSequenceNumber =
-                        missing.LineSequenceNumber,
-
-                    TransactionLineType =
-                        missing.TransactionLineType,
-
-                    NetsuiteVendorInternalId =
-                        missing.NetsuiteVendorInternalId,
-
-                    VendorName = missing.VendorName,
-                    VendorBinAssignmentId =
-                        missing.VendorBinAssignmentId,
-
-                    NetsuiteMaterialInternalId =
-                        missing.NetsuiteMaterialInternalId,
-
-                    MaterialCode = missing.MaterialCode,
-                    MaterialName = missing.MaterialName,
-                    MaterialWeight = missing.MaterialWeight,
-
-                    NetsuiteMaterialPrefferedBinId =
-                        missing.NetsuiteMaterialPrefferedBinId,
-
-                    LineQuantity = missing.LineQuantity,
-                    LineQuantityReceived =
-                        missing.LineQuantityReceived,
-
-                    NetsuiteUoMInternalId =
-                        missing.NetsuiteUoMInternalId,
-
-                    UoMName = missing.UoMName,
-                    UoMRate = missing.UoMRate,
-
-                    ScanCount = missing.ScanCount,
-                    IsBad = false,
-                    IsMissing = true,
-
-                    ScannedQuantity =
-                        RoundOfNearestHundredThousands(
-                            missing.ScannedQuantity),
-
-                    ScannedWeight = 0
-                });
-            }
-        }
+                ScanCount = x.ScanCount,
+                IsBad = x.IsBad,
+                ScannedQuantity = RoundOfNearestHundredThousands(x.ScannedQuantity),
+                ScannedWeight = x.ScannedWeight
+            })
+            .ToList();
 
         if (POItems.Count == 0)
         {
@@ -1462,7 +1132,6 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
         ToggleState.Base => "check",
         ToggleState.Good => "check",
         ToggleState.Bad => "block",
-        ToggleState.Missing => "remove_circle",
         _ => "check"
     };
 
@@ -1471,7 +1140,6 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
         ToggleState.Base => "Good",
         ToggleState.Good => "Good",
         ToggleState.Bad => "Bad",
-        ToggleState.Missing => "Missing",
         _ => "Good"
     };
 
@@ -1480,7 +1148,6 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
         ToggleState.Base => ButtonStyle.Base,
         ToggleState.Good => ButtonStyle.Success,
         ToggleState.Bad => ButtonStyle.Danger,
-        ToggleState.Missing => ButtonStyle.Warning,
         _ => ButtonStyle.Base
     };
 
@@ -1490,21 +1157,11 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
         {
             ToggleState.Base => ToggleState.Good,
             ToggleState.Good => ToggleState.Bad,
-            ToggleState.Bad => ToggleState.Missing,
-            ToggleState.Missing => ToggleState.Good,
+            ToggleState.Bad => ToggleState.Good,
             _ => ToggleState.Good
         };
 
         NextScanIsBad = ScanState == ToggleState.Bad;
-
-        // Missing is a scanning state, but Move/Remove/Manual
-        // should not remain active when switching to it.
-        if (ScanState == ToggleState.Missing)
-        {
-            MoveOn = false;
-            NegateQuantity = false;
-            ManualEntry = false;
-        }
 
         InvokeAsync(StateHasChanged);
     }

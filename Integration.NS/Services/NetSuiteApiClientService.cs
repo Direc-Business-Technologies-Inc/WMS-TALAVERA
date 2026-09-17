@@ -16,6 +16,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.IdentityModel.Tokens;
 using System.ComponentModel;
 using System.IdentityModel.Tokens.Jwt;
+using System.Linq;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Reflection;
@@ -203,43 +204,154 @@ namespace Integration.NS.Services
             return Regex.Replace(query, @"\s+", " ").Trim();
         }
 
-        public async Task<T> MakeRequest<T>(string url, string? reqBody, HttpMethod method)
+        private static readonly SemaphoreSlim _tokenSemaphore = new(1, 1);
+        private static readonly SemaphoreSlim _requestSemaphore = new(4, 4);
+
+        //public async Task<T> MakeRequest<T>(string url, string? reqBody, HttpMethod method)
+        //{
+        //    if (_accessToken == null || DateTime.Now >= _tokenExpiryTime)
+        //        _accessToken = await GetAccessToken();
+
+        //    using var httpRequest = new HttpRequestMessage(method, url);
+
+        //    httpRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _accessToken);
+
+        //    // Add other custom headers
+        //    httpRequest.Headers.Add("Prefer", "transient");
+
+        //    if (!string.IsNullOrEmpty(reqBody))
+        //    {
+        //        //_logger.LogDebug("SuiteQLQuery Request: {@Request}", reqBody);
+        //        httpRequest.Content = new StringContent(reqBody, Encoding.UTF8, "application/json");
+        //    }
+
+        //    var httpResponse = await _httpClient.SendAsync(httpRequest);
+
+        //    var responseJson = await httpResponse.Content.ReadAsStringAsync();
+
+        //    if (httpResponse.IsSuccessStatusCode)
+        //    {
+        //        //_logger.LogDebug("SuiteQLQuery Result: {@Result}", responseJson);
+        //        if (string.IsNullOrEmpty(responseJson))
+        //        {
+        //            return default(T);
+        //        }
+
+        //        var response = JsonSerializer.Deserialize<T>(responseJson, JsonSerializerRequestOption);
+        //        if (response == null) throw new Exception("Bad response from NetSuite API");
+        //        return response;
+        //    }
+        //    var errorBody = await httpResponse.Content.ReadFromJsonAsync<NetSuiteErrorResponse>();
+        //    throw new Exception(errorBody?.DisplayString ?? $"Request failed with status code: {httpResponse.StatusCode}");
+        //}
+
+        public async Task<T> MakeRequest<T>(
+        string url,
+        string? reqBody,
+        HttpMethod method)
         {
-            if (_accessToken == null || DateTime.Now >= _tokenExpiryTime)
-                _accessToken = await GetAccessToken();
+            var accessToken = await GetValidAccessToken();
 
-            using var httpRequest = new HttpRequestMessage(method, url);
+            // Limit concurrent calls to NetSuite.
+            await _requestSemaphore.WaitAsync();
 
-            httpRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _accessToken);
-
-            // Add other custom headers
-            httpRequest.Headers.Add("Prefer", "transient");
-
-            if (!string.IsNullOrEmpty(reqBody))
+            try
             {
-                //_logger.LogDebug("SuiteQLQuery Request: {@Request}", reqBody);
-                httpRequest.Content = new StringContent(reqBody, Encoding.UTF8, "application/json");
-            }
+                using var httpRequest =
+                    new HttpRequestMessage(method, url);
 
-            var httpResponse = await _httpClient.SendAsync(httpRequest);
+                httpRequest.Headers.Authorization =
+                    new AuthenticationHeaderValue(
+                        "Bearer",
+                        accessToken);
 
-            var responseJson = await httpResponse.Content.ReadAsStringAsync();
+                httpRequest.Headers.Add(
+                    "Prefer",
+                    "transient");
 
-            if (httpResponse.IsSuccessStatusCode)
-            {
-                //_logger.LogDebug("SuiteQLQuery Result: {@Result}", responseJson);
-                if (string.IsNullOrEmpty(responseJson))
+                if (!string.IsNullOrEmpty(reqBody))
                 {
-                    return default(T);
+                    httpRequest.Content = new StringContent(
+                        reqBody,
+                        Encoding.UTF8,
+                        "application/json");
                 }
 
-                var response = JsonSerializer.Deserialize<T>(responseJson, JsonSerializerRequestOption);
-                if (response == null) throw new Exception("Bad response from NetSuite API");
-                return response;
+                using var httpResponse =
+                    await _httpClient.SendAsync(httpRequest);
+
+                var responseJson =
+                    await httpResponse.Content.ReadAsStringAsync();
+
+                if (httpResponse.IsSuccessStatusCode)
+                {
+                    if (string.IsNullOrEmpty(responseJson))
+                        return default!;
+
+                    var response =
+                        JsonSerializer.Deserialize<T>(
+                            responseJson,
+                            JsonSerializerRequestOption);
+
+                    return response
+                        ?? throw new Exception(
+                            "Bad response from NetSuite API");
+                }
+
+                var errorBody = await httpResponse.Content.ReadFromJsonAsync<NetSuiteErrorResponse>();
+
+                throw new Exception(
+                    errorBody?.DisplayString ??
+                    $"Request failed with status code: " +
+                    $"{httpResponse.StatusCode}");
             }
-            var errorBody = await httpResponse.Content.ReadFromJsonAsync<NetSuiteErrorResponse>();
-            throw new Exception(errorBody?.DisplayString ?? $"Request failed with status code: {httpResponse.StatusCode}");
+            finally
+            {
+                _requestSemaphore.Release();
+            }
         }
+
+        private async Task<string> GetValidAccessToken()
+        {
+            // Fast path — most requests should come through here.
+            if (_accessToken != null &&
+                DateTime.UtcNow < _tokenExpiryTime)
+            {
+                return _accessToken;
+            }
+
+            // Only one request can refresh the token at a time.
+            await _tokenSemaphore.WaitAsync();
+
+            try
+            {
+                // Double-check!
+                //
+                // Another request may have refreshed the token
+                // while this request was waiting for the semaphore.
+                if (_accessToken != null &&
+                    DateTime.UtcNow < _tokenExpiryTime)
+                {
+                    return _accessToken;
+                }
+
+                var newToken = await GetAccessToken();
+
+                _accessToken = newToken;
+
+                // NetSuite token is valid for 10 minutes.
+                // Refresh 1 minute early.
+                _tokenExpiryTime =
+                    DateTime.UtcNow.AddMinutes(10);
+
+                return _accessToken;
+            }
+            finally
+            {
+                _tokenSemaphore.Release();
+            }
+        }
+
 
         async Task<T> MakeRequest<T>(string url, string? reqBody = null)
         {

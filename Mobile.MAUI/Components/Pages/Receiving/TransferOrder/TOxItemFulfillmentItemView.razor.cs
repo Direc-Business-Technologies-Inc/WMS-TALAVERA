@@ -491,6 +491,8 @@ public partial class TOxItemFulfillmentItemView : IAsyncDisposable
             })
             .ToList();
 
+        MissingIFItems = new List<TOxItemFulfillmentLineVM>();
+
         var missingItems = remainingByLine
             .Where(x => x.RemainingToScan > 0)
             .ToList();
@@ -506,15 +508,15 @@ public partial class TOxItemFulfillmentItemView : IAsyncDisposable
 
             if (confirm is true)
             {
-                // Build the missing items
+                var goodItemsByLine = GoodIFItems
+                    .GroupBy(x => x.LineSequenceNumber)
+                    .ToDictionary(g => g.Key, g => g.First());
+
                 MissingIFItems = missingItems
+                    .Where(m => goodItemsByLine.ContainsKey(m.LineSequenceNumber))
                     .Select(m =>
                     {
-                        var source = GoodIFItems.FirstOrDefault(g =>
-                            g.LineSequenceNumber == m.LineSequenceNumber);
-
-                        if (source == null)
-                            return null;
+                        var source = goodItemsByLine[m.LineSequenceNumber];
 
                         return new TOxItemFulfillmentLineVM
                         {
@@ -561,70 +563,73 @@ public partial class TOxItemFulfillmentItemView : IAsyncDisposable
                     })
                     .Where(x => x != null)
                     .ToList()!;
-
-                // Build the normal IF items and concatenate the missing items
-                IFItems = GoodIFItems
-                    .Where(g =>
-                    {
-                        var bad = BadIFItems.FirstOrDefault(b =>
-                            b.LineSequenceNumber == g.LineSequenceNumber);
-
-                        var badQty = bad?.ScannedQuantity ?? 0;
-
-                        return badQty == 0 ||
-                               (g.ScannedQuantity > 0 &&
-                                (g.ScannedQuantity + badQty) <= g.NSLineQuantityReceived);
-                    })
-                    .Concat(BadIFItems.Where(x => x.NSLineQuantityReceived != 0))
-                    .Select(x => new TOxItemFulfillmentLineVM
-                    {
-                        NetsuiteOrderInternalId = x.NetsuiteOrderInternalId,
-                        OrderNumber = x.OrderNumber,
-                        OrderType = x.OrderType,
-                        OrderStatus = x.OrderStatus,
-
-                        NetsuiteFromLocationInternalId = x.NetsuiteFromLocationInternalId,
-                        NetsuiteToLocationInternalId = x.NetsuiteToLocationInternalId,
-
-                        NetsuiteFromSubsidiaryInternalId = x.NetsuiteFromSubsidiaryInternalId,
-                        NetsuiteSubsidiaryDefaultBOInternalId = x.NetsuiteSubsidiaryDefaultBOInternalId,
-                        NetsuiteToSubsidiaryInternalId = x.NetsuiteToSubsidiaryInternalId,
-
-                        LocationName = x.LocationName,
-                        LocationUsedBin = x.LocationUsedBin,
-
-                        LineSequenceNumber = x.LineSequenceNumber,
-                        TransactionLineType = x.TransactionLineType,
-
-                        NetsuiteMaterialInternalId = x.NetsuiteMaterialInternalId,
-                        MaterialCode = x.MaterialCode,
-                        MaterialName = x.MaterialName,
-                        MaterialWeight = x.MaterialWeight,
-                        LineQuantity = x.LineQuantity,
-                        LineQuantityReceived = x.LineQuantityReceived,
-                        NetsuiteUoMInternalId = x.NetsuiteUoMInternalId,
-                        UoMName = x.UoMName,
-                        UoMRate = x.UoMRate,
-
-                        ScanCount = x.ScanCount,
-                        IsBad = x.IsBad,
-                        ScannedQuantity = RoundOfNearestHundredThousands(x.ScannedQuantity),
-                        ScannedWeight = x.ScannedWeight
-                    })
-                    // Add the missing items to the final list
-                    .Concat(MissingIFItems)
-                    .ToList();
-
-                await ActionFactory.ExecuteAppActionAsync(
-                    ActionSaveScan,
-                    confirm: true,
-                    showToast: true);
-
-                await InvokeAsync(StateHasChanged);
             }
         }
-    }
 
+        // Build the normal IF items and concatenate the missing items
+        // A GoodIFItem is included when:
+        // 1. There is no bad quantity for the line, OR
+        // 2. There is a good quantity and the combined
+        //    good + bad quantity does not exceed the received quantity.
+        IFItems = GoodIFItems
+            .Where(g =>
+            {
+                var bad = BadIFItems.FirstOrDefault(b =>
+                    b.LineSequenceNumber == g.LineSequenceNumber);
+
+                var badQty = bad?.ScannedQuantity ?? 0;
+
+                return badQty == 0 ||
+                        (g.ScannedQuantity > 0 &&
+                        (g.ScannedQuantity + badQty) <= g.NSLineQuantityReceived);
+            })
+            .Concat(BadIFItems.Where(x => x.NSLineQuantityReceived != 0))
+            .Select(x => new TOxItemFulfillmentLineVM
+            {
+                NetsuiteOrderInternalId = x.NetsuiteOrderInternalId,
+                OrderNumber = x.OrderNumber,
+                OrderType = x.OrderType,
+                OrderStatus = x.OrderStatus,
+
+                NetsuiteFromLocationInternalId = x.NetsuiteFromLocationInternalId,
+                NetsuiteToLocationInternalId = x.NetsuiteToLocationInternalId,
+
+                NetsuiteFromSubsidiaryInternalId = x.NetsuiteFromSubsidiaryInternalId,
+                NetsuiteSubsidiaryDefaultBOInternalId = x.NetsuiteSubsidiaryDefaultBOInternalId,
+                NetsuiteToSubsidiaryInternalId = x.NetsuiteToSubsidiaryInternalId,
+
+                LocationName = x.LocationName,
+                LocationUsedBin = x.LocationUsedBin,
+
+                LineSequenceNumber = x.LineSequenceNumber,
+                TransactionLineType = x.TransactionLineType,
+
+                NetsuiteMaterialInternalId = x.NetsuiteMaterialInternalId,
+                MaterialCode = x.MaterialCode,
+                MaterialName = x.MaterialName,
+                MaterialWeight = x.MaterialWeight,
+                LineQuantity = x.LineQuantity,
+                LineQuantityReceived = x.LineQuantityReceived,
+                NetsuiteUoMInternalId = x.NetsuiteUoMInternalId,
+                UoMName = x.UoMName,
+                UoMRate = x.UoMRate,
+
+                ScanCount = x.ScanCount,
+                IsBad = x.IsBad,
+                ScannedQuantity = RoundOfNearestHundredThousands(x.ScannedQuantity),
+                ScannedWeight = x.ScannedWeight
+            })
+            // Add the missing items to the final list
+            .Concat(MissingIFItems)
+            .ToList();
+
+        await ActionFactory.ExecuteAppActionAsync(
+            ActionSaveScan,
+            confirm: true,
+            showToast: true);
+
+        await InvokeAsync(StateHasChanged);
+    }
 
     void ToggleQuality()
     {

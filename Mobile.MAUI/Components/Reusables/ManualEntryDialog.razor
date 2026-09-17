@@ -37,14 +37,6 @@
                         Min="0"
                         class="rz-w-100 bad-field" />
 
-    <!-- Missing Qty -->
-    <RadzenStack Gap="4px" Visible="@ShowMissingIfZero">
-        <RadzenText Text="Bad Qty" TextStyle="TextStyle.Caption" class="rz-m-0 bad-label" />
-        <RadzenNumeric @bind-Value="@BadQty"
-                        Min="0"
-                        class="rz-w-100 bad-field" />
-    </RadzenStack>
-
     @if (!string.IsNullOrEmpty(ValidationMessage))
     {
         <RadzenText Text="@ValidationMessage" TextStyle="TextStyle.Caption" class="rz-m-0" Style="color:#e53935;" />
