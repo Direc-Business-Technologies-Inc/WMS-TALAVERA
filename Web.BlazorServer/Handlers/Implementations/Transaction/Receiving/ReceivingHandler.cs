@@ -207,9 +207,9 @@ public class ReceivingHandler(
 
     }
 
-    public async Task<BarcodeVM?> GetBarcodeData(string barcode)
+    public async Task<BarcodeVM?> GetBarcodeData(string barcode, int? location)
     {
-        GetBarcodeDataQry query = new(barcode);
+        GetBarcodeDataQry query = new(barcode, location);
         var code = await Sender.Send(query);
         if (code is null) return null;
 

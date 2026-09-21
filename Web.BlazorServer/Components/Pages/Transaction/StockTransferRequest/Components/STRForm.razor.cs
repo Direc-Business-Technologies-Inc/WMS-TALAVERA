@@ -455,17 +455,14 @@ public partial class STRForm
         line.QuantityAlloted = diff - itemCount;
     }
 
-    void ApplyBarcodes()
+    async void ApplyBarcodes()
     {
         if (!BarcodeStore.Any()) return;
 
-        foreach (var item in BarcodeStore.Items)
+        foreach (var barcode in BarcodeStore.Barcodes)
         {
-            var itemCount = BarcodeStore.CountItemQuantity(item);
-
-            //var itemLine = Model.Lines.First(x => x.ItemId == item.Id);
-
-            //if (itemLine != null) itemLine.QuantityAlloted += itemCount / (itemLine.UoM?.ConversionRate ?? 1);
+            decimal baseItemCount = BarcodeStore.CountItemQuantityPerBarcode(barcode);
+            if (baseItemCount == 0) continue;
 
             StockTransferRequestLineVM? itemLine;
 
@@ -476,16 +473,46 @@ public partial class STRForm
             }
             else
             {
-                itemLine = Model.Lines.FirstOrDefault(x => x.ItemId == item.Id);
+                itemLine = Model.Lines.FirstOrDefault(x => x.ItemId == barcode.Item.Id);
             }
 
             if (itemLine != null)
             {
-                itemLine.QuantityAlloted += itemCount / (itemLine.UoM?.ConversionRate ?? 1);
+                // Convert base count to the line's specific UOM rate
+                var lineConversionRate = itemLine.UoM?.ConversionRate ?? 1;
+                itemLine.QuantityAlloted += baseItemCount / lineConversionRate;
+            }
+            else
+            {
+                var item = barcode.Item;
+
+                // Default new lines to the item's StockUnit (Base UOM)
+                var targetUom = barcode.UoM;
+                var lineConversionRate = targetUom?.ConversionRate ?? 1;
+
+                Model.Lines.Add(new StockTransferRequestLineVM
+                {
+                    ItemId = item.Id,
+                    ItemCode = item.ItemNumber,
+                    ItemDescription = item.Name,
+                    Warehouse = Model.SourceLocation?.Name ?? string.Empty,
+                    UoM = targetUom,
+                    QuantityOnHand = item.QuantityOnHand,
+                    QuantityAvailable = item.QuantityAvailable,
+                    QuantityAlloted = baseItemCount / lineConversionRate
+                });
             }
         }
 
         BarcodeStore.Clear();
+
+        await InvokeAsync(StateHasChanged);
+
+        // Reload the table to display new items
+        if (LinesTable?.DataGrid != null)
+        {
+            await LinesTable.DataGrid.Reload();
+        }
     }
 
     public async Task OnToSubsidiaryChanged(SubsidiaryVM? value)
@@ -538,6 +565,11 @@ public partial class STRForm
     async Task DeleteLine(StockTransferRequestLineVM line)
     {
         Model.Lines.Remove(line);
+        if (selectedItems.Any(x => x.ItemId == line.ItemId))
+        {
+            selectedItemIndex = -1;
+            selectedItems.Clear();
+        }
         await LinesTable.DataGrid.Reload();
     }
 

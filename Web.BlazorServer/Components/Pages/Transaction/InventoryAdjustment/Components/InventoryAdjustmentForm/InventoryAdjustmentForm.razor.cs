@@ -7,12 +7,14 @@ using Shared.Libraries.Utilities;
 using Web.BlazorServer.Components.Custom;
 using Web.BlazorServer.Components.Pages.Transaction.Others.BarcodeScanning;
 using Web.BlazorServer.Components.Shared.Abstraction;
+using Web.BlazorServer.Handlers.Implementations.Others;
 using Web.BlazorServer.Handlers.Repositories.Others;
 using Web.BlazorServer.Handlers.Repositories.Transaction.InventoryAdjustment;
 using Web.BlazorServer.Services.Repositories;
 using Web.BlazorServer.ViewModels.Others;
 using Web.BlazorServer.ViewModels.Transaction.InventoryAdjustment;
 using Web.BlazorServer.ViewModels.Transaction.Receiving;
+using Web.BlazorServer.ViewModels.Transaction.StockTransferRequest;
 using Web.BlazorServer.ViewModels.Transaction.SupplierReturn;
 
 namespace Web.BlazorServer.Components.Pages.Transaction.InventoryAdjustment.Components.InventoryAdjustmentForm;
@@ -51,6 +53,7 @@ public partial class InventoryAdjustmentForm
     public QuickVirtualizedDropdown<LocationVM> LocationDropdown { get; set; } = default!;
 
     private BarcodeStore BarcodeStore = new();
+    private List<ItemsVM> Items = new();
 
     async Task<(IEnumerable<SubsidiaryVM>, int)> SubsidiaryProvider(DataGridIntent intent)
     {
@@ -142,6 +145,15 @@ public partial class InventoryAdjustmentForm
 
     Task DeleteLine(InventoryAdjustmentLineVM line) {
         Model.Lines.Remove(line);
+
+        if (selectedItems.Any(x => x.ItemId == line.ItemId))
+        {
+            selectedItemIndex = -1;
+            selectedItems.Clear();
+        }
+
+        LinesTable.DataGrid.Reload();
+
         return Task.CompletedTask;
     }
 
@@ -166,6 +178,69 @@ public partial class InventoryAdjustmentForm
         await InvokeAsync(StateHasChanged);
     }
 
+    async Task OnLocationChanged(LocationVM? value)
+    {
+        var originalValue = Model.Location;
+        Model.Location = value;
+
+        if (Model.Lines.Any())
+        {
+            var confirm = await DialogService.Confirm(message: "Changing the source warehouse may remove items that are no longer available") ?? false;
+            if (!confirm)
+            {
+                await Task.Yield();
+                Model.Location = originalValue;
+                return;
+            }
+        }
+
+        if (Model.Location is null) return;
+        if (Model.Lines == null || Model.Lines.Count == 0) return;
+
+        await SourceLocationItems();
+
+        var itemsById = Items.ToDictionary(x => x.Id);
+
+        Model.Lines.RemoveAll(line => !itemsById.ContainsKey(line.ItemId));
+
+        foreach (var line in Model.Lines)
+        {
+            var item = itemsById[line.ItemId];
+
+            line.Location = Model.Location;
+            line.QuantityOnHand = item.QuantityOnHand;
+        }
+
+        //Model.Lines.Clear();
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    async Task<(IEnumerable<ItemsVM>, int)> SourceLocationItems()
+    {
+        var itemIds = Model.Lines.Select(x => x.ItemId).Distinct().ToList();
+
+        DataGridIntent intent = new DataGridIntent
+        {
+            Filters = [
+                DataGridFilterUtilities.GreaterThan(nameof(ItemsVM.QuantityAvailable), 0),
+                DataGridFilterUtilities.In(nameof(ItemsVM.Id), itemIds)
+                ],
+
+            Take = 1000
+        };
+
+        int location = Model.Location.Id;
+
+        var result = location == 0 ?
+        await itemsHandler.GetItemsDataGridAsync(intent) :
+        await itemsHandler.GetItemsAtLocationDataGridAsync(intent, location);
+
+        Items = result.Data.ToList();
+
+        return result;
+    }
+
     async Task OnValidSubmit()
     {
         if (Model.Lines.Sum(x => x.QuantityAlloted) <= 0)
@@ -186,13 +261,14 @@ public partial class InventoryAdjustmentForm
         }
     }
 
-    void ApplyBarcodes()
+    async void ApplyBarcodes()
     {
         if (!BarcodeStore.Any()) return;
 
-        foreach (var item in BarcodeStore.Items)
+        foreach (var barcode in BarcodeStore.Barcodes)
         {
-            var itemCount = BarcodeStore.CountItemQuantity(item);
+            decimal baseItemCount = BarcodeStore.CountItemQuantityPerBarcode(barcode);
+            if (baseItemCount == 0) continue;
 
             InventoryAdjustmentLineVM? itemLine;
 
@@ -203,16 +279,47 @@ public partial class InventoryAdjustmentForm
             }
             else
             {
-                itemLine = Model.Lines.FirstOrDefault(x => x.ItemId == item.Id);
+                itemLine = Model.Lines.FirstOrDefault(x => x.ItemId == barcode.Item.Id);
             }
 
             if (itemLine != null)
             {
-                itemLine.QuantityAlloted += itemCount / (itemLine.UoM?.ConversionRate ?? 1);
+                // Convert base count to the line's specific UOM rate
+                var lineConversionRate = itemLine.UoM?.ConversionRate ?? 1;
+                itemLine.QuantityAlloted += baseItemCount / lineConversionRate;
+            }
+            else
+            {
+                var item = barcode.Item;
+
+                // Default new lines to the item's StockUnit (Base UOM)
+                var targetUom = barcode.UoM;
+                var lineConversionRate = targetUom?.ConversionRate ?? 1;
+
+                Model.Lines.Add(new InventoryAdjustmentLineVM
+                {
+                    ItemId = item.Id,
+                    Type = Issue ? InventoryAdjustmentLineVM.Types.Issue : InventoryAdjustmentLineVM.Types.Receipt,
+                    ItemCode = item.ItemNumber,
+                    UsesBins = item.UsesBins,
+                    ItemDescription = item.Name,
+                    UoM = targetUom,
+                    Location = Model.Location,
+                    QuantityOnHand = item.QuantityOnHand,
+                    QuantityAlloted = baseItemCount / lineConversionRate
+                });
             }
         }
 
         BarcodeStore.Clear();
+
+        await InvokeAsync(StateHasChanged);
+
+        // Reload the table to display new items
+        if (LinesTable?.DataGrid != null)
+        {
+            await LinesTable.DataGrid.Reload();
+        }
     }
 
     private IList<InventoryAdjustmentLineVM> selectedItems = new List<InventoryAdjustmentLineVM>();

@@ -25,6 +25,26 @@ public class BarcodeStore
         .Where(x => x.Item?.Id == itemId)
         .Sum(x => x.Count * (x.UoM?.ConversionRate ?? 0));
     public decimal CountItemQuantity(ItemsVM item) => CountItemQuantity(item.Id);
+
+    public decimal CountItemQuantityPerBarcode(string barcode) => _items.Values
+        .Where(x => x.Barcode.Barcode == barcode)
+        .Sum(x => x.Count * (x.UoM?.ConversionRate ?? 0));
+    public decimal CountItemQuantityPerBarcode(BarcodeVM barcode) => CountItemQuantityPerBarcode(barcode.Barcode);
+
+    // StockUnit acts as the Base UoM
+    public ItemUnitVM? GetBaseUoM(int itemId)
+    {
+        var storeItem = _items.Values.FirstOrDefault(x => x.Item?.Id == itemId);
+        return storeItem?.UoM;
+    }
+
+    public ItemUnitVM? GetBaseUoM(string barcode)
+    {
+        return _items.TryGetValue(barcode, out var storeItem)
+            ? storeItem.UoM
+            : null;
+    }
+
     public int GetBarcodeCount(BarcodeVM barcode) => GetBarcodeCount(barcode.Barcode);
     public int GetBarcodeCount(string barcode) => _items[barcode]?.Count ?? 0;
     public bool Contains(BarcodeVM barcode) => _items.ContainsKey(barcode.Barcode);
@@ -45,5 +65,8 @@ public class BarcodeStore
         public int Count { get; set; } = 0;
         public ItemsVM? Item => Barcode.Item;
         public ItemUnitVM? UoM => Barcode.UoM;
+
+        // Returns StockUnit as the base inventory unit, or falls back to scanned UoM
+        public ItemUnitVM? BaseUoM => Item?.StockUnit ?? UoM;
     }
 }

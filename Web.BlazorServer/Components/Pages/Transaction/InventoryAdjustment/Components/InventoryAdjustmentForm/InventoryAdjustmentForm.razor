@@ -31,7 +31,16 @@
             <RadzenColumn SizeMD="@(Issue ? 3 : 6)">
                 <RadzenFormField Text="Location" class="rz-w-100">
                     <RadzenTextBox Disabled="Disabled" Visible="@ReadOnly" ReadOnly Value="@Model.Location?.Name" Placeholder="Enter location" />
-                    <QuickVirtualizedDropdown @ref="@LocationDropdown" Visible="@(!ReadOnly)" Disabled="@(Model.Subsidiary is null || Disabled)" ActionName="@ActionGetLocations" TItem="LocationVM" @bind-Value="@Model.Location" DataGetter="@LocationProvider" TextProperty="@nameof(LocationVM.Name)" AllowFiltering AllowClear />
+                    <QuickVirtualizedDropdown @ref="@LocationDropdown" 
+                        Visible="@(!ReadOnly)"
+                        Disabled="@(Model.Subsidiary is null || Disabled)" 
+                        ActionName="@ActionGetLocations" TItem="LocationVM"
+                        @bind-Value:get="Model.Location"
+                        @bind-Value:set="@OnLocationChanged"
+                        DataGetter="@LocationProvider" 
+                        TextProperty="@nameof(LocationVM.Name)" 
+                        AllowFiltering 
+                        AllowClear />
                 </RadzenFormField>
             </RadzenColumn>
             <RadzenColumn SizeMD="6" Visible="@Issue">
@@ -266,7 +275,7 @@
     {
         bool? save = await DialogService.OpenAsync(
             "Scan Barcodes",
-            ds => @<BarcodeScannerDialog BarcodeStore="BarcodeStore" Verifier="IsValidBarcode" />,
+            ds => @<BarcodeScannerDialog BarcodeStore="BarcodeStore" Verifier="IsValidBarcode" Location="@(Model.Location?.Id ?? null)" />,
     options: GridSettingsService.GetDialogOptions());
 
         if (save == false)

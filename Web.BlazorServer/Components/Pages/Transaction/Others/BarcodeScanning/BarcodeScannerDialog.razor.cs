@@ -9,6 +9,7 @@ public partial class BarcodeScannerDialog
     [Inject] IReceivingHandler receivingHandler { get; set; } = default!;
     [Parameter][EditorRequired] public BarcodeStore BarcodeStore { get; set; }
     [Parameter] public BarcodeVerifier? Verifier { get; set; }
+    [Parameter] public int? Location { get; set; } = null;
 
     private BarcodeVM barcode = new();
     private HashSet<string> FailedBarcodesCache = new();
@@ -26,7 +27,7 @@ public partial class BarcodeScannerDialog
             if (FailedBarcodesCache.Contains(barcode.Barcode))
                 throw new Exception(string.Format(ALERT_BARCODE_NOT_FOUND, barcode.Barcode));
 
-            BarcodeVM? barcodeData = BarcodeStore[barcode.Barcode] ?? await receivingHandler.GetBarcodeData(barcode.Barcode);
+            BarcodeVM? barcodeData = BarcodeStore[barcode.Barcode] ?? await receivingHandler.GetBarcodeData(barcode.Barcode, Location);
 
             if (barcodeData is null)
                 throw new Exception(string.Format(ALERT_BARCODE_NOT_FOUND, barcode.Barcode));
@@ -43,8 +44,7 @@ public partial class BarcodeScannerDialog
 
     void TryAddBarcode(BarcodeVM barcode)
     {
-        if (Verifier is not null && !Verifier(barcode, out string reason)) throw new Exception(reason);
-
+        //if (Verifier is not null && !Verifier(barcode, out string reason)) throw new Exception(reason);
         BarcodeStore.AddBarcode(barcode);
     }
 
@@ -53,7 +53,7 @@ public partial class BarcodeScannerDialog
         DialogService.Close(keepChanges);
     }
 
-    Task<BarcodeVM?> GetBarcodeData(BarcodeVM barcode) => receivingHandler.GetBarcodeData(barcode.Barcode);
+    Task<BarcodeVM?> GetBarcodeData(BarcodeVM barcode) => receivingHandler.GetBarcodeData(barcode.Barcode, Location);
 
     /// <summary>
     ///     BarcodeVerifier gives the enclosing components a chance to verify the barcode

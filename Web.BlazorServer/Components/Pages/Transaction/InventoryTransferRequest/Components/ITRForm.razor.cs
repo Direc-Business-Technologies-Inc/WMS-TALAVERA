@@ -11,6 +11,7 @@ using Web.BlazorServer.Services.Repositories;
 using Web.BlazorServer.ViewModels.Others;
 using Web.BlazorServer.ViewModels.Transaction.InventoryTransferRequest;
 using Web.BlazorServer.ViewModels.Transaction.Receiving;
+using Web.BlazorServer.ViewModels.Transaction.StockTransferRequest;
 using Web.BlazorServer.ViewModels.Transaction.SupplierReturn;
 using static System.Runtime.InteropServices.JavaScript.JSType;
 
@@ -237,8 +238,13 @@ public partial class ITRForm
     async Task RemoveLine(InventoryTransferRequestLineVM line)
     {
         Model.Lines.Remove(line);
+        if (selectedItems.Any(x => x.ItemID == line.ItemID))
+        {
+            selectedItemIndex = -1;
+            selectedItems.Clear();
+        }
 
-        await InvokeAsync(StateHasChanged);
+        await LinesTable.DataGrid.Reload();
     }
 
     async Task LocationSet(LocationVM? value)
@@ -352,13 +358,15 @@ public partial class ITRForm
         await MarkLineDirty(line);
     }
 
-    void ApplyBarcodes()
+    async void ApplyBarcodes()
     {
         if (!BarcodeStore.Any()) return;
 
-        foreach (var item in BarcodeStore.Items)
+        foreach (var barcode in BarcodeStore.Barcodes)
         {
-            var itemCount = BarcodeStore.CountItemQuantity(item);
+            decimal baseItemCount = BarcodeStore.CountItemQuantityPerBarcode(barcode);
+            if (baseItemCount == 0) continue;
+
             InventoryTransferRequestLineVM? itemLine;
 
             if (selectedItems.Any())
@@ -368,16 +376,47 @@ public partial class ITRForm
             }
             else
             {
-                itemLine = Model.Lines.FirstOrDefault(x => x.ItemID == item.Id);
+                itemLine = Model.Lines.FirstOrDefault(x => x.ItemID == barcode.Item.Id);
             }
 
             if (itemLine != null)
             {
-                itemLine.QuantityAlloted += itemCount / (itemLine.UoM?.ConversionRate ?? 1);
+                // Convert base count to the line's specific UOM rate
+                var lineConversionRate = itemLine.UoM?.ConversionRate ?? 1;
+                itemLine.QuantityAlloted += baseItemCount / lineConversionRate;
+            }
+            else
+            {
+                var item = barcode.Item;
+
+                // Default new lines to the item's StockUnit (Base UOM)
+                var targetUom = barcode.UoM;
+                var lineConversionRate = targetUom?.ConversionRate ?? 1;
+
+                Model.Lines.Add(new InventoryTransferRequestLineVM
+                {
+                    ItemID = item.Id,
+                    ItemCode = item.ItemNumber,
+                    ItemDescription = item.Name,
+                    UsesBins = item.UsesBins,
+                    UoM = targetUom,
+                    QuantityAvailable = item.QuantityAvailable,
+                    QuantityOnHand = item.QuantityOnHand,
+                    Location = Model.SourceLocation,
+                    QuantityAlloted = baseItemCount / lineConversionRate
+                });
             }
         }
 
         BarcodeStore.Clear();
+
+        await InvokeAsync(StateHasChanged);
+
+        // Reload the table to display new items
+        if (LinesTable?.DataGrid != null)
+        {
+            await LinesTable.DataGrid.Reload();
+        }
     }
 
     private IList<InventoryTransferRequestLineVM> selectedItems = new List<InventoryTransferRequestLineVM>();

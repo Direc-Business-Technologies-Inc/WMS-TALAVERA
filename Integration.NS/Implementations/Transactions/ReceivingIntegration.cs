@@ -1,4 +1,5 @@
-﻿using Application.DataTransferObjects.Others.NS;
+﻿using Application.DataTransferObjects.Others;
+using Application.DataTransferObjects.Others.NS;
 using Application.DataTransferObjects.Transactions.InventoryTransferRequest;
 using Application.DataTransferObjects.Transactions.Receiving;
 using Application.DataTransferObjects.Transactions.Receiving.NS.Payload;
@@ -6,6 +7,7 @@ using Application.DataTransferObjects.Transactions.Receiving.SAP;
 using Application.UseCases.Repositories.Integration.Others;
 using Application.UseCases.Repositories.Integration.Transaction.Receiving;
 using Integration.NS.DataTransferObjects.ItemReceipt;
+using Integration.NS.DataTransferObjects.Others;
 using Integration.NS.DataTransferObjects.Receiving;
 using Integration.NS.Helpers;
 using Integration.NS.Services;
@@ -669,24 +671,29 @@ public class ReceivingIntegration(
         //return true;
     }
 
-    public async Task<BarcodeDTO?> GetBarcodeData(string barcode)
+    public async Task<BarcodeDTO?> GetBarcodeData(string barcode, int? location)
     {
         var builder = builderFactory.Create()
             .Select(
                 ("b.name", nameof(BarcodeNSDTO.Barcode)),
                 ("b.custrecord_bpu_item", nameof(BarcodeNSDTO.ItemId)),
-                ("item.fullName", nameof(BarcodeNSDTO.ItemName)),
+                ("item.description", nameof(BarcodeNSDTO.ItemName)),
                 ("item.itemId", nameof(BarcodeNSDTO.ItemCode)),
                 ("item.weight", nameof(BarcodeNSDTO.ItemWeight)),
                 ("uom.internalid", nameof(BarcodeNSDTO.UoMId)),
                 ("uom.unitName", nameof(BarcodeNSDTO.UoMName)),
-                ("uom.conversionRate", nameof(BarcodeNSDTO.UoMRate))
+                ("uom.conversionRate", nameof(BarcodeNSDTO.UoMRate)),
+                ("ail.quantityonhand", nameof(BarcodeNSDTO.QuantityOnHand)),
+                ("ail.quantityavailable", nameof(BarcodeNSDTO.QuantityAvailable))
             )
             .From("CUSTOMRECORD_BARCODE_PER_UOM b")
             .Join("unitstypeuom uom", on: "b.custrecord_bpu_uom = uom.internalid")
             .Join("item", "item.id = b.custrecord_bpu_item")
-            .WithFilter(
-                DataGridFilterUtilities.Equal("b.name", barcode)
+            .LeftJoin("aggregateitemlocation ail", on: "ail.item = item.id")
+            .LeftJoin("location loc", on: "ail.location = loc.id")
+            .WithFilters(
+                Equal("b.name", barcode),
+                Equal("loc.id", location)
             );
 
         var response = await netsuiteService.ExecuteSuiteQLQuery<BarcodeNSDTO>(builder.Build().Query);
@@ -700,7 +707,9 @@ public class ReceivingIntegration(
                 Id = barcodeData.ItemId,
                 Name = barcodeData.ItemName,
                 ItemNumber = barcodeData.ItemCode,
-                Weight = barcodeData.ItemWeight
+                Weight = barcodeData.ItemWeight,
+                QuantityAvailable = barcodeData.QuantityAvailable,
+                QuantityOnHand = barcodeData.QuantityOnHand,
             },
             UoM = new()
             {
