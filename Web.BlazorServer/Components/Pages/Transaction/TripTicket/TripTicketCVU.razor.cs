@@ -67,17 +67,28 @@ partial class TripTicketCVU
     QuickVirtualizedDropdown<LocationVM> LocationDropdown { get; set; } = default!;
 
     bool IsBusy = false;
+    public bool IsEditable { get; set; } = false;
+    public bool CanEdit => Viewing && (FormData.Parent == 0 || FormData.Parent == null) && !IsEditable;
+
+    // --- New: tracking lists for fulfillments diffing ---
+    List<ItemFulfillmentVM> OriginalFulfillments { get; set; } = new();
+    List<ItemFulfillmentVM> AddedFulfillments { get; set; } = new();
+    List<ItemFulfillmentVM> RemovedFulfillments { get; set; } = new();
+
+    public IReadOnlyList<ItemFulfillmentVM> FulfillmentsAdded => AddedFulfillments.AsReadOnly();
+    public IReadOnlyList<ItemFulfillmentVM> FulfillmentsRemoved => RemovedFulfillments.AsReadOnly();
+    // ----------------------------------------------------
 
     const string PRINTABLE_URL = "https://11608969.extforms.netsuite.com/app/site/hosting/scriptlet.nl?script=1671&deploy=1&compid=11608969&ns-at=AAEJ7tMQ9evIwFEEUifIBokQgQ0jhowAItpfjv5Smu7B76K41lU&recordType=customrecord_dbti_trip_ticket&transactionDefault=false";
     List<NavigationRouteVM> AdditionalRoutes { get; set; } =
     [
         new()
-        {
-            Name = "Trip Ticket",
-            Position = 0,
-            Icon = "transit_ticket",
-            Uri = TripTicketRoutes.Root
-        }
+            {
+                Name = "Trip Ticket",
+                Position = 0,
+                Icon = "transit_ticket",
+                Uri = TripTicketRoutes.Root
+            }
     ];
 
     protected override void OnParametersSet()
@@ -132,6 +143,12 @@ partial class TripTicketCVU
             }
 
             result.Adapt(FormData);
+
+            // Store an original snapshot of fulfillments for diffing
+            OriginalFulfillments = (FormData.ItemFulfillments ?? []).Select(x => x.Adapt<ItemFulfillmentVM>()).ToList();
+            AddedFulfillments.Clear();
+            RemovedFulfillments.Clear();
+
             AdaptToClone();
             await ResetFormContext();
             UnsavedChangesService.MarkClean();
@@ -146,9 +163,17 @@ partial class TripTicketCVU
 
     protected override async Task CancelEditing()
     {
+        // Revert changes and reset diff lists
+        IsEditable = false;
+        PageAction = PageActionTypeEnum.View;
         AdaptToForm();
+        OriginalFulfillments = (FormData.ItemFulfillments ?? []).Select(x => x.Adapt<ItemFulfillmentVM>()).ToList();
+        AddedFulfillments.Clear();
+        RemovedFulfillments.Clear();
+
         await ResetFormContext();
-        await GoBack();
+        UnsavedChangesService.MarkClean();
+        await InvokeAsync(StateHasChanged);
     }
 
     protected override async Task HandleSubmit()
@@ -162,8 +187,10 @@ partial class TripTicketCVU
         var action = await AppActionFactory.RunAsync(async () =>
         {
             AppBusyService.SetBusy(ActionCreate, true);
-            var result = await TripTicketHandler.PostTripTicketAsync(FormData);
-            if (!result) throw new Exception("Failed to create Trip Ticket.");
+            var result = Creating
+                ? await TripTicketHandler.PostTripTicketAsync(FormData)
+                : await TripTicketHandler.UpdateTripTicketAsync(FormData, RemovedFulfillments, AddedFulfillments);
+            if (!result) throw new Exception($"Failed to {(Creating ? "create" : "update")} Trip Ticket.");
             return result;
         }, AppActionOptionPresets.Confirmed(ActionCreate));
 
@@ -174,11 +201,17 @@ partial class TripTicketCVU
             IsBusy = false;
             if (!result)
             {
-                ToastService.Error("Failed to create Trip Ticket.");
+                ToastService.Error($"Failed to {(Creating ? "create" : "update")} Trip Ticket.");
                 return Task.CompletedTask;
             }
 
+            // After successful save, reset original snapshot and clear diffs
+            OriginalFulfillments = (FormData.ItemFulfillments ?? []).Select(x => x.Adapt<ItemFulfillmentVM>()).ToList();
+            AddedFulfillments.Clear();
+            RemovedFulfillments.Clear();
+
             UnsavedChangesService.MarkClean();
+            IsEditable = false;
             NavManager.NavigateTo(TripTicketRoutes.Root, true);
             return Task.CompletedTask;
         });
@@ -202,7 +235,15 @@ partial class TripTicketCVU
         }
 
         if (Viewing)
+        {
+            await LoadSubsidiariesAsync();
+            await LoadDriversAsync();
+            await LoadHelpersAsync();
+            await LoadLocationsAsync();
+            await LoadDestLocationsAsync();
+            await LoadTruckPlateNumbersAsync();
             await InitializeEditing();
+        }
 
         AppBusyService.SetBusy(ActionView, false);
         await InvokeAsync(StateHasChanged);
@@ -254,14 +295,14 @@ partial class TripTicketCVU
         action.OnSuccess(result =>
         {
             FromSubsidiary = result.Count == 0 ? [] : [.. result.Data.Select(x => new SubsidiaryVM {
-                NetsuiteSubsidiaryInternalId = x.Id,
-                SubsidiaryName = x.Name,
-            })];
+                    NetsuiteSubsidiaryInternalId = x.Id,
+                    SubsidiaryName = x.Name,
+                })];
 
             ToSubsidiaries = result.Count == 0 ? [] : [.. result.Data.Select(x => new SubsidiaryVM {
-                NetsuiteSubsidiaryInternalId = x.Id,
-                SubsidiaryName = x.Name,
-            })];
+                    NetsuiteSubsidiaryInternalId = x.Id,
+                    SubsidiaryName = x.Name,
+                })];
 
             var userSubsidiary = CurrentUserService.NsSubsidiaryId;
 
@@ -297,7 +338,7 @@ partial class TripTicketCVU
     {
         var originalValue = FormData.ToSubsidiaries;
         FormData.ToSubsidiaries = value ?? [];
-
+        OnFieldChanged(nameof(FormData.ToSubsidiaries));
         await InvokeAsync(StateHasChanged);
     }
 
@@ -317,9 +358,9 @@ partial class TripTicketCVU
         action.OnSuccess(result =>
         {
             Locations = result.Count == 0 ? [] : [.. result.Data.Select(x => new LocationVM {
-                NetsuiteLocationInternalId = x.Id,
-                LocationName = x.Name,
-            })];
+                    NetsuiteLocationInternalId = x.Id,
+                    LocationName = x.Name,
+                })];
             return Task.CompletedTask;
         });
     }
@@ -338,9 +379,9 @@ partial class TripTicketCVU
         action.OnSuccess(result =>
         {
             DestinationLocations = result.Count == 0 ? [] : [.. result.Data.Select(x => new LocationVM {
-                NetsuiteLocationInternalId = x.Id,
-                LocationName = x.Name,
-            })];
+                    NetsuiteLocationInternalId = x.Id,
+                    LocationName = x.Name,
+                })];
             return Task.CompletedTask;
         });
     }
@@ -372,10 +413,9 @@ partial class TripTicketCVU
     {
         var originalValue = FormData.Destinations;
         FormData.Destinations = value ?? [];
-
+        OnFieldChanged(nameof(FormData.Destinations));
         await InvokeAsync(StateHasChanged);
     }
-
 
     async Task LoadTruckPlateNumbersAsync()
     {
@@ -393,9 +433,9 @@ partial class TripTicketCVU
         });
     }
 
-    async Task GetTripTicketItemFulfillments(int ttref)
+    async Task GetTripTicketItemFulfillments(int? ttref)
     {
-        if (ttref <= 0)
+        if (ttref <= 0 || ttref == null)
         {
             NavError("Please select a trip ticket from the list.");
             return;
@@ -404,7 +444,7 @@ partial class TripTicketCVU
         var action = await AppActionFactory.RunAsync(async () =>
         {
             AppBusyService.SetBusy(ActionView, true);
-            return await TripTicketHandler.GetTripTicketBaseParentAsync(ttref);
+            return await TripTicketHandler.GetTripTicketBaseParentAsync(ttref ?? 0);
         }, AppActionOptionPresets.Loading(ActionView));
 
         AppBusyService.SetBusy(ActionView, false);
@@ -461,10 +501,10 @@ partial class TripTicketCVU
             : null;
 
             FormData.ItemFulfillments = result.ItemFulfillments;
-            //result.Adapt(FormData);
-            //AdaptToClone();
-            //await ResetFormContext();
-            //UnsavedChangesService.MarkClean();
+
+            // Update original snapshot and diffs when fulfillments are loaded via this helper
+            OriginalFulfillments = (FormData.ItemFulfillments ?? []).Select(x => x.Adapt<ItemFulfillmentVM>()).ToList();
+            RecomputeFulfillmentDiffs();
         });
 
         action.OnFailure(ex =>
@@ -545,19 +585,83 @@ partial class TripTicketCVU
             .. FormData.ItemFulfillments.Where(x => x.NetsuiteOrderInternalId != line.NetsuiteOrderInternalId)
         ];
 
+        bool hasOtherItemsWithSameLocation = FormData.ItemFulfillments
+            .Any(x => x.NetsuiteToLocationInternalId == line.NetsuiteToLocationInternalId);
+
+        bool hasOtherItemsWithSameSubsidiary = FormData.ItemFulfillments
+            .Any(x => x.NetsuiteToSubsidiaryInternalId == line.NetsuiteToSubsidiaryInternalId);
+
+        if (!hasOtherItemsWithSameLocation && FormData.Destinations is not null)
+        {
+            FormData.Destinations =
+            [
+                .. FormData.Destinations.Where(d => d.NetsuiteLocationInternalId != line.NetsuiteToLocationInternalId)
+            ];
+            OnFieldChanged(nameof(FormData.Destinations));
+        }
+
+        if (!hasOtherItemsWithSameSubsidiary && FormData.ToSubsidiaries is not null)
+        {
+            FormData.ToSubsidiaries =
+            [
+                .. FormData.ToSubsidiaries.Where(s => s.NetsuiteSubsidiaryInternalId != line.NetsuiteToSubsidiaryInternalId)
+            ];
+            OnFieldChanged(nameof(FormData.ToSubsidiaries));
+        }
+
         OnFieldChanged(nameof(FormData.ItemFulfillments));
+
+        // Recompute added/removed lists after removal
+        RecomputeFulfillmentDiffs();
 
         if (FulfillmentLinesTable is not null)
             await FulfillmentLinesTable.DataGrid.Reload();
     }
 
+    // Recompute differences between OriginalFulfillments and current FormData.ItemFulfillments
+    void RecomputeFulfillmentDiffs()
+    {
+        var original = OriginalFulfillments ?? new List<ItemFulfillmentVM>();
+        var current = FormData.ItemFulfillments ?? new List<ItemFulfillmentVM>();
+
+        var originalIds = new HashSet<int>(original.Select(x => x.NetsuiteOrderInternalId));
+        var currentIds = new HashSet<int>(current.Select(x => x.NetsuiteOrderInternalId));
+
+        AddedFulfillments = current
+            .Where(x => !originalIds.Contains(x.NetsuiteOrderInternalId))
+            .Select(x => x.Adapt<ItemFulfillmentVM>())
+            .ToList();
+
+        RemovedFulfillments = original
+            .Where(x => !currentIds.Contains(x.NetsuiteOrderInternalId))
+            .Select(x => x.Adapt<ItemFulfillmentVM>())
+            .ToList();
+    }
+
     async Task GoBack()
     {
-        if (UnsavedChangesService.HasChanges && Creating)
-            if (!await AlertService.HasUnsavedChangesAsync(header: "Cancel Trip Ticket Creation"))
+        if (UnsavedChangesService.HasChanges)
+        {
+            var message = IsEditable ? "Cancel editing Trip Ticket" : "Cancel Trip Ticket Creation";
+            if (!await AlertService.HasUnsavedChangesAsync(header: message))
                 return;
+        }
 
         NavManager.NavigateTo(TripTicketRoutes.Root, true);
+    }
+
+    private void EnableEditing()
+    {
+        IsEditable = true;
+        PageAction = PageActionTypeEnum.Update;
+        UnsavedChangesService.MarkDirty();
+
+        // ensure we have an original snapshot for diffing
+        OriginalFulfillments = (FormData.ItemFulfillments ?? []).Select(x => x.Adapt<ItemFulfillmentVM>()).ToList();
+        AddedFulfillments.Clear();
+        RemovedFulfillments.Clear();
+
+        StateHasChanged();
     }
 
     string GetParent(int parent) =>

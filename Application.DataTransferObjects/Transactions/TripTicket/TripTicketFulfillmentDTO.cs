@@ -8,5 +8,9 @@ public class TripTicketFulfillmentDTO
     public string DestinationLocation { get; set; } = string.Empty;
     public string OrderStatus { get; set; } = string.Empty;
     public string OrderType { get; set; } = string.Empty;
+    public int NetsuiteToLocationInternalId { get; set; }
+    public int NetsuiteToSubsidiaryInternalId { get; set; }
     public DateTime NetsuiteOrderCreatedDate { get; set; }
+
+    public int NetsuiteTripTicketLineInternalId { get; set; }
 }

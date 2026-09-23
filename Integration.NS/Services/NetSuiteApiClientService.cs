@@ -358,7 +358,7 @@ namespace Integration.NS.Services
             return await MakeRequest<T>(url, reqBody, HttpMethod.Post);
         }
 
-        public async Task<T> MakeRequestOAuth1<T>(string url, string? reqBody)
+        public async Task<T> MakeRequestOAuth1<T>(string url, string? reqBody, HttpMethod method)
         {
             string consumerKey = Environment.GetEnvironmentVariable("OAUTH1_CONSUMER_KEY") ?? "";
             string consumerSecret = Environment.GetEnvironmentVariable("OAUTH1_CONSUMER_SECRET") ?? "";
@@ -435,7 +435,7 @@ namespace Integration.NS.Services
                 $"oauth_version=\"1.0\", " +
                 $"oauth_signature=\"{Uri.EscapeDataString(signature)}\"";
 
-            using var request = new HttpRequestMessage(HttpMethod.Post, url);
+            using var request = new HttpRequestMessage(method, url);
 
             request.Headers.TryAddWithoutValidation(
                 "Authorization",
@@ -651,7 +651,7 @@ namespace Integration.NS.Services
 
                     var jsonStringBad = JsonSerializer.Serialize(payloadBad, JsonSerializerOption);
 
-                    await MakeRequestOAuth1<object>(url, jsonStringBad);
+                    await MakeRequestOAuth1<object>(url, jsonStringBad, HttpMethod.Post);
                 }
                 catch (Exception ex)
                 {
@@ -669,7 +669,7 @@ namespace Integration.NS.Services
 
                     var jsonStringGood = JsonSerializer.Serialize(payloadGood, JsonSerializerOption);
 
-                    await MakeRequestOAuth1<object>(url, jsonStringGood);
+                    await MakeRequestOAuth1<object>(url, jsonStringGood, HttpMethod.Post);
                 }
                 catch (Exception ex)
                 {
@@ -686,7 +686,7 @@ namespace Integration.NS.Services
 
                     var jsonStringBad = JsonSerializer.Serialize(payloadBad, JsonSerializerOption);
 
-                    await MakeRequestOAuth1<object>(url, jsonStringBad);
+                    await MakeRequestOAuth1<object>(url, jsonStringBad, HttpMethod.Post);
                 }
                 catch (Exception ex)
                 {
@@ -862,6 +862,35 @@ namespace Integration.NS.Services
         #endregion
 
         #region TripTicket
+        public async Task<bool> UpdateTripTicket(PostTripTicketDTO Data, List<ItemFulfillmentDTO> RemovedIF, List<ItemFulfillmentDTO> AddedIF)
+        {
+            try
+            {
+                await ChangeShipStatus(Data);
+
+                string url = TripTicketRestletUrl;
+
+                try
+                {
+                    UpdateTripTicketPayloadDTO payload = UpdateTripTicketPayloadDTO.UpdateTripTicket(Data, RemovedIF, AddedIF);
+
+                    var jsonStringGood = JsonSerializer.Serialize(payload, JsonSerializerOption);
+
+                    await MakeRequestOAuth1<object>(url, jsonStringGood, HttpMethod.Put);
+                }
+                catch (Exception ex)
+                {
+                    throw new Exception($"Error while posting Trip Ticket. {ex.Message}", ex);
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                throw;
+            }
+        }
+
         public async Task<bool> SaveTripTicket(PostTripTicketDTO Data)
         {
             try
@@ -876,7 +905,7 @@ namespace Integration.NS.Services
 
                     var jsonStringGood = JsonSerializer.Serialize(payload, JsonSerializerOption);
 
-                    await MakeRequestOAuth1<object>(url, jsonStringGood);
+                    await MakeRequestOAuth1<object>(url, jsonStringGood, HttpMethod.Post);
                 }
                 catch (Exception ex)
                 {
@@ -955,7 +984,7 @@ namespace Integration.NS.Services
 
                 var jsonStringGood = JsonSerializer.Serialize(payloadGood, JsonSerializerOption);
 
-                await MakeRequestOAuth1<object>(url, jsonStringGood);
+                await MakeRequestOAuth1<object>(url, jsonStringGood, HttpMethod.Post);
             }
             catch (Exception ex)
             {

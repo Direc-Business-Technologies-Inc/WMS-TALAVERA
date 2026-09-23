@@ -2,18 +2,14 @@ using Microsoft.AspNetCore.Components;
 using Radzen;
 using Shared.Entities;
 using Shared.Kernel;
+using Shared.Libraries.ViewModel;
 using Shared.Libraries.ViewModel.ItemFulfillment;
 using Shared.Libraries.ViewModel.TripTicket;
-using Web.BlazorServer.Components.Pages.Transaction.InventoryTransfer.Components;
 using Web.BlazorServer.Components.Shared.Abstraction;
 using Web.BlazorServer.Defaults;
-using Web.BlazorServer.Handlers.Implementations.Others;
-using Web.BlazorServer.Handlers.Implementations.Transaction.TripTicket;
 using Web.BlazorServer.Handlers.Repositories.Transaction.TripTicket;
 using Web.BlazorServer.Services.Repositories;
 using Web.BlazorServer.ViewModels.Abstraction;
-using Web.BlazorServer.ViewModels.Others;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace Web.BlazorServer.Components.Pages.Transaction.TripTicket.Component;
 
@@ -24,6 +20,9 @@ public partial class TripTicketFulfillmentSelection
 
     [Parameter] public required TripTicketVM Document { get; set; }
     [Parameter] public EventCallback<TripTicketVM> DocumentChanged { get; set; }
+
+    [Parameter] public List<LocationVM> DestinationLocations { get; set; } = new();
+    [Parameter] public List<SubsidiaryVM> ToSubsidiaries { get; set; } = new();
     //[Parameter] public IEnumerable<ItemFulfillmentVM> Fulfillments { get; set; } = [];
 
     List<AppFilterDescriptor> Filters { get; set; } = [];
@@ -127,6 +126,28 @@ public partial class TripTicketFulfillmentSelection
 
             if (Document.ItemFulfillments.Any(x => x.NetsuiteOrderInternalId == item.NetsuiteOrderInternalId))
                 Document.ItemFulfillments = [.. Document.ItemFulfillments.Where(x => x.NetsuiteOrderInternalId != item.NetsuiteOrderInternalId)];
+
+
+            bool hasOtherItemsWithSameLocation = SelectedFulfillments
+            .Any(x => x.NetsuiteToLocationInternalId == item.NetsuiteToLocationInternalId);
+
+            bool hasOtherItemsWithSameSubsidiary = SelectedFulfillments
+            .Any(x => x.NetsuiteToSubsidiaryInternalId == item.NetsuiteToSubsidiaryInternalId);
+
+            if (!hasOtherItemsWithSameLocation && Document.Destinations is not null)
+            {
+                Document.Destinations = [.. Document.Destinations
+                .Where(d => d.NetsuiteLocationInternalId != item.NetsuiteToLocationInternalId)];
+            }
+
+            if (!hasOtherItemsWithSameSubsidiary && Document.ToSubsidiaries is not null)
+            {
+                Document.ToSubsidiaries = [.. Document.ToSubsidiaries
+                .Where(d => d.NetsuiteSubsidiaryInternalId != item.NetsuiteToSubsidiaryInternalId)];
+            }
+
+            // Option B (Alternative): If unselecting should clear ALL selected destinations completely, use this instead:
+            // Document.Destinations = [];
         }
         else
         {
@@ -134,6 +155,24 @@ public partial class TripTicketFulfillmentSelection
 
             if (!Document.ItemFulfillments.Any(x => x.NetsuiteOrderInternalId == item.NetsuiteOrderInternalId))
                 Document.ItemFulfillments = [.. Document.ItemFulfillments, item];
+
+            var matchingDestination = DestinationLocations
+                ?.FirstOrDefault(d => d.NetsuiteLocationInternalId == item.NetsuiteToLocationInternalId);
+
+            var currentDestinations = Document.Destinations ?? [];
+            if (!currentDestinations.Any(d => d.NetsuiteLocationInternalId == item.NetsuiteToLocationInternalId))
+            {
+                Document.Destinations = [.. currentDestinations, matchingDestination];
+            }
+
+            var matchingSubsidiary = ToSubsidiaries 
+                ?.FirstOrDefault(s => s.NetsuiteSubsidiaryInternalId == item.NetsuiteToSubsidiaryInternalId);
+
+            var currentSubsidiaries = Document.ToSubsidiaries ?? [];
+            if (!currentSubsidiaries.Any(s => s.NetsuiteSubsidiaryInternalId == item.NetsuiteToSubsidiaryInternalId))
+            {
+                Document.ToSubsidiaries = [.. currentSubsidiaries, matchingSubsidiary];
+            }
         }
 
         await DocumentChanged.InvokeAsync(Document);

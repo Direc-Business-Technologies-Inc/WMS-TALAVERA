@@ -12,7 +12,7 @@ public interface INetSuiteApiClientService : INotifyPropertyChanged
     Task<NetSuiteResponse<T>> ExecuteSuiteQLQuery<T>(string query, int? limit = null, int? offset = null);
     Task<IEnumerable<T>?> NetsuiteQuery<T>(string queryName, Dictionary<string, string>? parameters = null, int limit = 0, int offset = 0);
     Task<T> MakeRequest<T>(string url, string? reqBody, HttpMethod method);
-    Task<T> MakeRequestOAuth1<T>(string url, string? reqBody);
+    Task<T> MakeRequestOAuth1<T>(string url, string? reqBody, HttpMethod method);
 
     string GetRestAPIURI { get; }
     string GetRestletURI { get; }
@@ -22,6 +22,7 @@ public interface INetSuiteApiClientService : INotifyPropertyChanged
     Task<bool> SaveReturnsItemFulfillment(List<PostReturnsDTO> Data);
     Task<bool> SaveVRAItemFulfillment(List<PostVendorReturnAuthorizationDTO> Data);
 
+    Task<bool> UpdateTripTicket(PostTripTicketDTO Data, List<ItemFulfillmentDTO> RemovedIF, List<ItemFulfillmentDTO> AddedIF);
     Task<bool> SaveTripTicket(PostTripTicketDTO Data);
 
     Task<bool> SavePOItemReceipt(List<PostPurchaseOrderDTO> Data, int userId);

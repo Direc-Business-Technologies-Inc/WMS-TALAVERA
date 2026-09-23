@@ -2,6 +2,7 @@
 
 public class ItemFulfillmentVM
 {
+    public int NetsuiteTripTicketInternalId { get; set; }
     public int NetsuiteOrderInternalId { get; set; }
     public string OrderNumber { get; set; }
     public string DestinationLocation { get; set; } = string.Empty;
@@ -11,6 +12,7 @@ public class ItemFulfillmentVM
     public string OrderType { get; set; }
     public DateTime NetsuiteOrderCreatedDate { get; set; }
 
+    public int NetsuiteTripTicketLineInternalId { get; set; }
 
     public bool isScanned { get; set; }
 

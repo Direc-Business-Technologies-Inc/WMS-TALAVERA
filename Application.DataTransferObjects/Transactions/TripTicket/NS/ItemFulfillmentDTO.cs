@@ -3,6 +3,7 @@
 public class ItemFulfillmentDTO
 {
     public int NetsuiteOrderInternalId { get; set; }
+    public int NetsuiteTripTicketLineInternalId { get; set; }
     public string OrderNumber { get; set; }
     public string OrderStatus { get; set; }
     public string OrderType { get; set; }

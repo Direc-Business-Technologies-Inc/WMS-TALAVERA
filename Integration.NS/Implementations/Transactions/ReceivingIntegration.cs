@@ -587,7 +587,8 @@ public class ReceivingIntegration(
                     tasks.Add(
                         netsuiteService.MakeRequestOAuth1<object>(
                             uri,
-                            payload));
+                            payload,
+                            HttpMethod.Post));
                 }
             }
 

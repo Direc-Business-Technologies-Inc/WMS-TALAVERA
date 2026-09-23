@@ -110,14 +110,21 @@ public class TripTicketIntegration(
         var query = builderFactory.Create()
             .Select(
                 ("tt.id", nameof(TripTicketFulfillmentDTO.NetsuiteTripTicketInternalId)),
+                ("ttif.id", nameof(TripTicketFulfillmentDTO.NetsuiteTripTicketLineInternalId)),
                 ("t.id", nameof(TripTicketFulfillmentDTO.NetsuiteOrderInternalId)),
-                ("t.tranid", nameof(TripTicketFulfillmentDTO.OrderNumber)),
-                ("BUILTIN.DF(t.transferlocation)", nameof(TripTicketFulfillmentDTO.DestinationLocation)))
+                 ("t.tranid", nameof(TripTicketFulfillmentDTO.OrderNumber)),
+                ("t.status", nameof(TripTicketFulfillmentDTO.OrderStatus)),
+                ("BUILTIN.DF(t.transferlocation)", nameof(TripTicketFulfillmentDTO.DestinationLocation)),
+                ("lsm.subsidiary", nameof(TripTicketFulfillmentDTO.NetsuiteToSubsidiaryInternalId)),
+                ("t.transferlocation", nameof(TripTicketFulfillmentDTO.NetsuiteToLocationInternalId)),
+                ("TO_CHAR(t.createdDate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(TripTicketFulfillmentDTO.NetsuiteOrderCreatedDate)))
             .From("customrecord_dbti_trip_ticket tt")
             .Join("customrecord_dbti_trip_ticket_if ttif", on: "tt.id = ttif.custrecord_dbti_ttf_trip_ticket_num")
             .Join("transaction t", on: "ttif.custrecord_dbti_ttf_item_fulfillment_num = t.id")
+            .Join("locationSubsidiaryMap lsm", on: "t.transferlocation = lsm.location")
             .WithFilters(
                 Equal("t.type", "ItemShip"),
+                Equal("ttif.custrecord_dbti_ttf_cancelled_trip", "F"),
                 Equal("tt.id", id))
             .Build();
 
@@ -152,6 +159,8 @@ public class TripTicketIntegration(
                         IsNull("t.custbody_dbti_fully_received")
                     )
                 ),
+                Equal("t.custbody_dbti_fully_received", "F"),
+                Equal("ttif.custrecord_dbti_ttf_cancelled_trip", "F"),
                 Equal("tt.id", id))
             .Build();
 
@@ -179,17 +188,31 @@ public class TripTicketIntegration(
         return builderFactory.Create()
             .Select(
                 ("tt.parent", nameof(TripTicketDataGridDTO.Parent)),
+                ("BUILTIN.DF(tt.parent)", nameof(TripTicketDataGridDTO.ParentName)),
                 ("tt.id", nameof(TripTicketDataGridDTO.NetsuiteTripTicketInternalId)),
                 ("tt.name", nameof(TripTicketDataGridDTO.Name)),
-                ("tp.name", nameof(TripTicketDataGridDTO.TruckPlateNumber)),
+
                 ("tp.id", nameof(TripTicketDataGridDTO.TruckPlateNumberId)),
+                ("tp.name", nameof(TripTicketDataGridDTO.TruckPlateNumber)),
+
+                ("tt.custrecord_dbti_destination", nameof(TripTicketDataGridDTO.DestinationIds)),
                 ("BUILTIN.DF(tt.custrecord_dbti_destination)", nameof(TripTicketDataGridDTO.Destination)),
+
+                ("tt.custrecord_dbti_trt_to_subsidiary", nameof(TripTicketDataGridDTO.ToSubsidiaryIds)),
                 ("BUILTIN.DF(tt.custrecord_dbti_trt_to_subsidiary)", nameof(TripTicketDataGridDTO.ToSubsidiary)),
+
+                ("tt.custrecord_dbti_trt_from_subsidiary", nameof(TripTicketDataGridDTO.FromSubsidiaryId)),
                 ("BUILTIN.DF(tt.custrecord_dbti_trt_from_subsidiary)", nameof(TripTicketDataGridDTO.FromSubsidiary)),
+
+                ("e.id", nameof(TripTicketDataGridDTO.DriverId)),
                 ("CONCAT(e.firstname, CONCAT(' ', e.lastname))", nameof(TripTicketDataGridDTO.Driver)),
-                ("CONCAT(eh.firstname, CONCAT(' ', eh.lastname))", nameof(TripTicketDataGridDTO.HelperName)),
+
                 ("eh.id", nameof(TripTicketDataGridDTO.HelperId)),
+                ("CONCAT(eh.firstname, CONCAT(' ', eh.lastname))", nameof(TripTicketDataGridDTO.HelperName)),
+
+                ("tt.custrecord_dbti_trt_origin_location", nameof(TripTicketDataGridDTO.LocationId)),
                 ("BUILTIN.DF(tt.custrecord_dbti_trt_origin_location)", nameof(TripTicketDataGridDTO.Location)),
+
                 ("TO_CHAR(tt.custrecord_dbti_trt_date, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(TripTicketDataGridDTO.TripDate)),
                 ("tt.custrecord_dbti_trt_truck_seal", nameof(TripTicketDataGridDTO.TruckSeal))
             )

@@ -12,6 +12,7 @@ using Shared.Libraries.ViewModel.TripTicket;
 using Web.BlazorServer.Handlers.Repositories.Transaction.TripTicket;
 using Web.BlazorServer.ViewModels.Transaction.TripTicket;
 using ItemFulfillmentDTO = Application.DataTransferObjects.Transactions.ItemFulfillment.ItemFulfillmentDTO;
+using ItemFulfillmentDTO2 = Application.DataTransferObjects.Transactions.TripTicket.NS.ItemFulfillmentDTO;
 
 namespace Web.BlazorServer.Handlers.Implementations.Transaction.TripTicket;
 
@@ -35,25 +36,45 @@ public class TripTicketHandler(ISender Sender) : ITripTicketHandler
         return new TripTicketVM
         {
             Parent = response.Parent,
-            ParentName = response.Name,
+            ParentName = response.ParentName,
             Id = response.NetsuiteTripTicketInternalId,
             TripDate = response.TripDate,
             TruckSeal = response.TruckSeal,
-            ToSubsidiaries = string.IsNullOrWhiteSpace(response.ToSubsidiary)
-                ? []
-                : [new SubsidiaryVM { SubsidiaryName = response.ToSubsidiary }],
+            ToSubsidiaries = string.IsNullOrWhiteSpace(response.ToSubsidiaryIds)
+            ? []
+            : response.ToSubsidiaryIds
+                .Split(',', StringSplitOptions.RemoveEmptyEntries)
+                .Select((id, index) => new SubsidiaryVM
+                {
+                    NetsuiteSubsidiaryInternalId = int.Parse(id.Trim()),
+                    SubsidiaryName = response.ToSubsidiary?
+                        .Split(',', StringSplitOptions.RemoveEmptyEntries)
+                        .ElementAtOrDefault(index)?
+                        .Trim()
+                })
+                .ToList(),
             FromSubsidiary = string.IsNullOrWhiteSpace(response.FromSubsidiary)
                 ? null
-                : new SubsidiaryVM { SubsidiaryName = response.FromSubsidiary },
-            Destinations = string.IsNullOrWhiteSpace(response.Destination)
-                ? []
-                : [new LocationVM { LocationName = response.Destination }],
+                : new SubsidiaryVM { NetsuiteSubsidiaryInternalId = response.FromSubsidiaryId, SubsidiaryName = response.FromSubsidiary },
+            Destinations = string.IsNullOrWhiteSpace(response.DestinationIds)
+            ? []
+            : response.DestinationIds
+                .Split(',', StringSplitOptions.RemoveEmptyEntries)
+                .Select((id, index) => new LocationVM
+                {
+                    NetsuiteLocationInternalId = int.Parse(id.Trim()),
+                    LocationName = response.Destination?
+                        .Split(',', StringSplitOptions.RemoveEmptyEntries)
+                        .ElementAtOrDefault(index)?
+                        .Trim()
+                })
+                .ToList(),
             Driver = string.IsNullOrWhiteSpace(response.Driver)
                 ? null
-                : new DriverVM { FirstName = response.Driver },
+                : new DriverVM { NetsuiteEmployeeInternalId = response.DriverId, FirstName = response.Driver },
             OriginLocation = string.IsNullOrWhiteSpace(response.Location)
                 ? null
-                : new LocationVM { LocationName = response.Location },
+                : new LocationVM { NetsuiteLocationInternalId = response.LocationId, LocationName = response.Location },
             Helper = string.IsNullOrWhiteSpace(response.HelperName) ?
                 null :
                 new HelperVM { NetsuiteEmployeeInternalId = response.HelperId, FirstName = response.HelperName },
@@ -170,6 +191,22 @@ public class TripTicketHandler(ISender Sender) : ITripTicketHandler
     {
         PostTripTicketCmd cmd = new(data.Adapt<PostTripTicketDTO>());
         var result = await Sender.Send(cmd);
+        return result.Success && result.Data == true;
+    }
+
+    public async Task<bool> UpdateTripTicketAsync(
+    TripTicketVM data,
+    List<ItemFulfillmentVM> removedIF,
+    List<ItemFulfillmentVM> addedIF)
+    {
+        UpdateTripTicketCmd cmd = new(
+            data.Adapt<PostTripTicketDTO>(),
+            removedIF.Adapt<List<ItemFulfillmentDTO2>>(),
+            addedIF.Adapt<List<ItemFulfillmentDTO2>>()
+        );
+
+        var result = await Sender.Send(cmd);
+
         return result.Success && result.Data == true;
     }
 }

@@ -210,7 +210,7 @@ public class InventoryAdjustmentIntegration(
         var url = $"{netsuiteService.GetRestletURI}?script=1938&deploy=1";
         try
         {
-            _ = await netsuiteService.MakeRequestOAuth1<object>(url, payloadString);
+            _ = await netsuiteService.MakeRequestOAuth1<object>(url, payloadString, HttpMethod.Post);
         }
         catch (Exception ex) when (ex.Message.Equals("Empty response from NetSuite API", StringComparison.OrdinalIgnoreCase))
         {

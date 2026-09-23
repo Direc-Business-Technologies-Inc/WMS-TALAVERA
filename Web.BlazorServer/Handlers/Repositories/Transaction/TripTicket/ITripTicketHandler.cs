@@ -19,4 +19,5 @@ public interface ITripTicketHandler
     Task<IEnumerable<LocationVM>> GetLocationsAsync();
     Task<IEnumerable<TruckPlateNumberVM>> GetTruckPlateNumbersAsync();
     Task<bool> PostTripTicketAsync(TripTicketVM data);
+    Task<bool> UpdateTripTicketAsync(TripTicketVM data, List<ItemFulfillmentVM> removedIF, List<ItemFulfillmentVM> addedIF);
 }

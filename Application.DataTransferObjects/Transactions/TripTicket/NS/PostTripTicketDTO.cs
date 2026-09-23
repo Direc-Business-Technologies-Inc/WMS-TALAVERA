@@ -5,6 +5,7 @@ namespace Application.DataTransferObjects.Transactions.TripTicket.NS;
 
 public class PostTripTicketDTO
 {
+    public int? Id { get; set; }
     public int Parent { get; set; }
 
     public List<LocationDTO> Destinations { get; set; } = new();
