@@ -138,10 +138,15 @@
             </AppTable>
         </RadzenFieldset>
         <RadzenFieldset Text="Additional Details">
-            <RadzenRow>
-                <RadzenColumn SizeMD="4" OffsetMD="8">
-                    <RadzenFormField Text="Received by" class="rz-w-100">
-                        <RadzenTextBox Value="@Data.ReceivedBy" ReadOnly />
+            <RadzenRow Gap="0.5em">
+                <RadzenColumn SizeMD="4">
+                    <RadzenFormField AllowFloatingLabel="false" Text="Remarks" class="rz-w-100">
+                        <RadzenTextArea Disabled="@Disabled" @bind-Value="@Data.Remarks" />
+                    </RadzenFormField>
+                </RadzenColumn>
+                <RadzenColumn SizeMD="4" OffsetMD="4">
+                    <RadzenFormField AllowFloatingLabel="false" Text="Received by" class="rz-w-100">
+                        <RadzenTextBox Disabled="@Disabled" Value="@Data.ReceivedBy" ReadOnly />
                     </RadzenFormField>
                 </RadzenColumn>
             </RadzenRow>

@@ -53,6 +53,12 @@ partial class ItemReceiptForm
 
     public async Task Submit()
     {
+        if (string.IsNullOrWhiteSpace(Data.Remarks))
+        {
+            ToastService.Error("Please add remarks before submitting");
+            return;
+        }
+
         if (Data.Lines.Any(x => (!x.IsAllAssigned && x.IsReceived)))
         {
             ToastService.Error("Please assign inventory details to all lines");
@@ -91,16 +97,6 @@ partial class ItemReceiptForm
                 break;
         }
     }
-    //decimal GetLineQuantity(ItemReceiptLineVM line) => line.QuantityAlloted + BarcodeStore.CountItemQuantity(line.ItemId) / line.UoMRate;
-
-    //void SetLineQuantity(ItemReceiptLineVM line, decimal amount)
-    //{
-    //    var barcodeCount = BarcodeStore.CountItemQuantity(line.ItemId) / line.UoMRate;
-    //    amount = Math.Max(Math.Min(line.QuantityOpen, amount), barcodeCount);
-
-    //    decimal rawAmount = amount - barcodeCount;
-    //    line.QuantityAlloted = rawAmount;
-    //}
 
     protected void OnFieldChanged(string propertyName)
     {
@@ -115,10 +111,6 @@ partial class ItemReceiptForm
         foreach (var item in BarcodeStore.Items)
         {
             var itemCount = BarcodeStore.CountItemQuantity(item);
-
-            //var itemLine = Data.Lines.FirstOrDefault(x => x.ItemId == item.Id);
-
-            //if (itemLine != null) itemLine.QuantityAlloted += itemCount / itemLine.UoMRate;
 
             ItemReceiptLineVM? itemLine;
 
@@ -139,6 +131,7 @@ partial class ItemReceiptForm
 
         BarcodeStore.Clear();
     }
+
     async Task SetLineInventoryDetails(ItemReceiptLineVM line, List<InventoryDetailVM> details)
     {
         line.InventoryDetails = [.. details];

@@ -26,6 +26,7 @@ public class ItemReceiptDTO
     public string Subsidiary { get; set; } = string.Empty;
     public string ToSubsidiary { get; set; } = string.Empty;
     public string PreparedBy { get; set; } = string.Empty;
+    public string Remarks { get; set; } = string.Empty;
 
     public DateTime Date { get; set; } = DateTime.Now;
 
