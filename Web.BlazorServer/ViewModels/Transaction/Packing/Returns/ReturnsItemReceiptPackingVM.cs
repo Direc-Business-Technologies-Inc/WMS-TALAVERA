@@ -15,6 +15,7 @@ public class ReturnsItemReceiptPackingVM
     public string Department { get; set; } = string.Empty;
     public string TransferCategory { get; set; } = string.Empty;
     public string ReceivedBy { get; set; } = string.Empty;
+    public int LocationId { get; set; }
     public string Location { get; set; } = string.Empty;
     public string TransferLocation { get; set; } = string.Empty;
     public string Subsidiary { get; set; } = string.Empty;

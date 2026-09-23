@@ -970,7 +970,7 @@ public class ReceivingIntegration(
                     };
                 })
             },
-            memo = "Created via WMS"
+            //memo = "Created via WMS"
         };
 
         return JsonSerializer.Serialize(obj, JSON_OPTS);

@@ -144,7 +144,7 @@
 
         bool? save = await DialogService.OpenAsync(
                     "Table Settings",
-                    ds => @<BarcodeScannerDialog BarcodeStore="BarcodeStore" Verifier="IsValidBarcode" />,
+                    ds => @<BarcodeScannerDialog BarcodeStore="BarcodeStore" Verifier="IsValidBarcode" Location="@(Data.LocationId)" Verify="true"/>,
     options: dialogOptions);
 
 

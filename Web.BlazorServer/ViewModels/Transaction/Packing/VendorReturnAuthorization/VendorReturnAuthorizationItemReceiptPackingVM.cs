@@ -16,6 +16,7 @@ public class VendorReturnAuthorizationItemReceiptPackingVM
     public string Department { get; set; } = string.Empty;
     public string Vendor { get; set; } = string.Empty;
     public string ReceivedBy { get; set; } = string.Empty;
+    public int LocationId { get; set; }
     public string Location { get; set; } = string.Empty;
     public string Subsidiary { get; set; } = string.Empty;
     public DateTime Date { get; set; }

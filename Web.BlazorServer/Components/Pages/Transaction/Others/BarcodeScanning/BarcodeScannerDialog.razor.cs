@@ -10,6 +10,7 @@ public partial class BarcodeScannerDialog
     [Parameter][EditorRequired] public BarcodeStore BarcodeStore { get; set; }
     [Parameter] public BarcodeVerifier? Verifier { get; set; }
     [Parameter] public int? Location { get; set; } = null;
+    [Parameter] public bool Verify { get; set; } = false;
 
     private BarcodeVM barcode = new();
     private HashSet<string> FailedBarcodesCache = new();
@@ -44,7 +45,9 @@ public partial class BarcodeScannerDialog
 
     void TryAddBarcode(BarcodeVM barcode)
     {
-        //if (Verifier is not null && !Verifier(barcode, out string reason)) throw new Exception(reason);
+        if (Verify)
+            if (Verifier is not null && !Verifier(barcode, out string reason)) throw new Exception(reason);
+
         BarcodeStore.AddBarcode(barcode);
     }
 

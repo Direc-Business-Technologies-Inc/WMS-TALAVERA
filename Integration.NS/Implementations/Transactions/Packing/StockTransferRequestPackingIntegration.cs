@@ -69,6 +69,7 @@ internal class StockTransferRequestPackingIntegration(
                 ("t.tranid", nameof(StrPackingHeaderNSDTO.ReferenceNumber)),
                 ("BUILTIN.DF(t.subsidiary)", nameof(StrPackingHeaderNSDTO.FromSubsidiary)),
                 ("BUILTIN.DF(t.tosubsidiary)", nameof(StrPackingHeaderNSDTO.ToSubsidiary)),
+                ("tl.location", nameof(StrPackingHeaderNSDTO.LocationId)),
                 ("BUILTIN.DF(tl.location)", nameof(StrPackingHeaderNSDTO.Location)),
                 ("BUILTIN.DF(t.transferlocation)", nameof(StrPackingHeaderNSDTO.TransferLocation)), 
                 ("CONCAT(e.firstname,CONCAT(' ',e.lastname))", nameof(StrPackingHeaderNSDTO.PreparedBy))
@@ -153,6 +154,7 @@ internal class StockTransferRequestPackingIntegration(
             ReferenceNumber = nsdto.ReferenceNumber,
             FromSubsidiary = nsdto.FromSubsidiary,
             ToSubsidiary = nsdto.ToSubsidiary,
+            LocationId = nsdto.LocationId,
             Location = nsdto.Location,
             TransferLocation = nsdto.TransferLocation,
             PreparedBy = nsdto.PreparedBy,

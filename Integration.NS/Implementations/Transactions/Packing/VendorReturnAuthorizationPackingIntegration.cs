@@ -61,6 +61,7 @@ internal class VendorReturnAuthorizationPackingIntegration(
                 ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(VendorReturnAuthorizationPackingHeaderNSDTO.Date)),
                 ("t.tranid", nameof(VendorReturnAuthorizationPackingHeaderNSDTO.ReferenceNumber)),
                 ("BUILTIN.DF(t.subsidiary)", nameof(VendorReturnAuthorizationPackingHeaderNSDTO.FromSubsidiary)),
+                ("tl.location", nameof(VendorReturnAuthorizationPackingHeaderNSDTO.LocationId)),
                 ("BUILTIN.DF(tl.location)", nameof(VendorReturnAuthorizationPackingHeaderNSDTO.Location)),
                 ("BUILTIN.DF(t.transferlocation)", nameof(VendorReturnAuthorizationPackingHeaderNSDTO.TransferLocation)),
                 ("CONCAT(em.firstname,CONCAT(' ',em.lastname))", nameof(VendorReturnAuthorizationPackingHeaderNSDTO.PreparedBy))
@@ -142,6 +143,7 @@ internal class VendorReturnAuthorizationPackingIntegration(
             Date = nsdto.Date,
             ReferenceNumber = nsdto.ReferenceNumber,
             FromSubsidiary = nsdto.FromSubsidiary,
+            LocationId = nsdto.LocationId,
             Location = nsdto.Location,
             TransferLocation = nsdto.TransferLocation,
             PreparedBy = nsdto.PreparedBy,
