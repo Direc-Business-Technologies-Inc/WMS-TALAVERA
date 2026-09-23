@@ -17,6 +17,7 @@ using Microsoft.IdentityModel.Tokens;
 using System.ComponentModel;
 using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
+using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Reflection;
@@ -406,9 +407,11 @@ namespace Integration.NS.Services
                 parameters.Select(p =>
                     $"{Uri.EscapeDataString(p.Key)}={Uri.EscapeDataString(p.Value)}"));
 
+            string httpMethod = method.Method.ToUpperInvariant();
+
             // Signature base string
             string signatureBaseString =
-                $"POST&{Uri.EscapeDataString(baseUrl)}&{Uri.EscapeDataString(normalizedParameters)}";
+                $"{httpMethod}&{Uri.EscapeDataString(baseUrl)}&{Uri.EscapeDataString(normalizedParameters)}";
 
             // Signing key
             string signingKey =
