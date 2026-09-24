@@ -76,7 +76,7 @@ public class VendorReturnAuthorizationItemReceiptPackingHandler(ISender sender) 
     {
         var quantityPlanned = ConvertQuantity(dto.LineQuantity, dto.UoMRate);
         var quantityOpen = GetRemainingQuantity(dto.LineQuantity, dto.LineQuantityBackOrdered, dto.LineQuantityPacked, dto.UoMRate);
-        var quantityReceived = ConvertQuantity(dto.LineQuantityReceived, dto.UoMRate);
+        var quantityReceived = ConvertQuantity(dto.LineQuantityPacked, dto.UoMRate);
 
         return new()
         {

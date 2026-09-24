@@ -354,8 +354,10 @@
                         <RadzenButton Text="Back" ButtonStyle="ButtonStyle.Base" Click="@GoBack" />
                         <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5em">
                             <RadzenButton Text="Edit"
-                                          Icon="edit"
                                           ButtonStyle="ButtonStyle.Primary"
+                                          Variant="Variant.Outlined" 
+                                          Shade="Shade.Dark" 
+                                          ButtonType="ButtonType.Button"
                                           Disabled="@(!CanEdit)"
                                           Visible="@(!IsEditable)"
                                           Click="@EnableEditing" />

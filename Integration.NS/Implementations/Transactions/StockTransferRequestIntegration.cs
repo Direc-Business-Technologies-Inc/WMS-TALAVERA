@@ -94,6 +94,7 @@ internal class StockTransferRequestIntegration(
                     DataGridFilterUtilities.In("t.recordtype", new string[] { "intercompanytransferorder", "transferorder" }),
                     DataGridFilterUtilities.In("t.custbody_dbti_transfer_category", new string[] { "3", "4" })
                 )
+                .WithSubsidiaries(httpContextAccessor, "t", true)
                 .WithDatagridIntent(intent)
                 .Build();
         var response = await netsuiteService.ExecuteSuiteQLQuery<StockTransferRequestDataGridNSDTO>(query.Query, query.Limit, query.Offset);
