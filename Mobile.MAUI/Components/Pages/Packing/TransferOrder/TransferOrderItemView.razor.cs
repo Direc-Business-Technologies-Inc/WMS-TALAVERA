@@ -475,8 +475,9 @@ public partial class TransferOrderItemView : IAsyncDisposable
 
                 var badQty = bad?.ScannedQuantity ?? 0;
 
-                return badQty == 0 || (g.ScannedQuantity > 0 &&
-                        (g.ScannedQuantity + badQty) <= g.NSLineQuantityReceived);
+                return (badQty == 0 && g.LineQuantity != g.LineQuantityPacked + g.LineQuantityBackOrdered) ||
+                        (g.ScannedQuantity > 0 &&
+                        (g.ScannedQuantity + badQty) <= g.NSLineQuantityPacked);
             })
             .Concat(BadTOItems.Where(x => x.NSLineQuantityPacked != 0))
             .Select(x => new TransferOrderLineVM
