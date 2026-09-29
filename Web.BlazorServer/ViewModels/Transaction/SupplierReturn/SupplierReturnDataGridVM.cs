@@ -4,6 +4,7 @@ namespace Web.BlazorServer.ViewModels.Transaction.SupplierReturn;
 
 public class SupplierReturnDataGridVM
 {
+    [QuickDataGridIgnore]
     [QuickDataGridTitle("Vendor")]
     public string VendorName { get; set; } = string.Empty;
     [QuickDataGridTitle("Document Number")]

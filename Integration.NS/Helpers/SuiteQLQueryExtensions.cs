@@ -80,4 +80,20 @@ public static class SuiteQLQueryExtensions
         return destination ? builder.WithFilter(DataGridFilterUtilities.In($"{transactionTablename}.tosubsidiary", allowedSubsidiaries))
             : builder.WithFilter(DataGridFilterUtilities.In($"{transactionTablename}.subsidiary", allowedSubsidiaries));
     }
+    public static SuiteQLQueryBuilder WithFromOrToSubsidiaries(this SuiteQLQueryBuilder builder, IHttpContextAccessor context, string transactionTablename)
+    {
+        if (string.IsNullOrWhiteSpace(transactionTablename)) return builder;
+        string? claimValue = context.HttpContext?.User?.FindFirst("com.direcbusiness.wms.nsAllowedSubsidiaries")?.Value;
+        if (claimValue == null) return builder;
+
+        List<int> allowedSubsidiaries = JsonSerializer.Deserialize<List<int>>(claimValue) ?? [];
+
+        if (allowedSubsidiaries.Count == 0) return builder;
+        return builder.WithFilter(DataGridFilterUtilities.Any(
+            DataGridFilterUtilities.In(
+                $"{transactionTablename}.subsidiary", allowedSubsidiaries),
+            DataGridFilterUtilities.In(
+                $"{transactionTablename}.tosubsidiary", allowedSubsidiaries)
+            ));
+    }
 }
