@@ -75,9 +75,9 @@
                                 <RadzenRequiredValidator Component="str_vendor_dropdown" />
                             </Helper>
                         </RadzenFormField> 
-                    </RadzenColumn>
+                    </RadzenColumn> *@
 
-                    <RadzenColumn SizeLG="6" SizeMD="12" Visible="@(!Model.IsReturn)">
+                    <RadzenColumn SizeLG="6" SizeMD="12">
                         <RadzenFormField Text="Purchase Category" class="rz-w-100">
                             <ChildContent>
                                 <RadzenTextBox Disabled="Disabled" Visible="@ReadOnly" Value="@Model.PurchaseCategory?.Name" Placeholder="No purchase category given" />
@@ -88,14 +88,14 @@
                             </Helper>
                         </RadzenFormField>
                     </RadzenColumn>
-                    <RadzenColumn SizeLG="6" SizeMD="12" Visible="@(!Model.IsReturn)">
+                    <RadzenColumn SizeLG="6" SizeMD="12">
                         <RadzenFormField Text="Purchase Subcategory" class="rz-w-100">
                             <ChildContent>
                                 <RadzenTextBox Disabled="Disabled" Visible="@ReadOnly" Value="@Model.PurchaseSubcategory?.Name" Placeholder="No purchase subcategory given" />
                                 <QuickVirtualizedDropdown @ref="@PurchaseSubcategoryDropdown" @bind-Value="@Model.PurchaseSubcategory" Visible="@(!ReadOnly)" TItem="PurchaseSubcategoryVM" DataGetter="@PurchaseSubcategoryProvider" TextProperty="@nameof(PurchaseSubcategoryVM.Name)" Disabled="@(Model.PurchaseCategory is null || Disabled)" />
                             </ChildContent>
                         </RadzenFormField>
-                    </RadzenColumn> *@
+                    </RadzenColumn> 
 
                     <RadzenColumn SizeLG="@(Model.IsIntercompany ? 3 : 6)" SizeMD="@(Model.IsIntercompany ? 6 : 12)">
                         <RadzenFormField AllowFloatingLabel="@(!ReadOnly)" Text="Subsidiary" class="rz-w-100">
