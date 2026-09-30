@@ -14,7 +14,7 @@ public class PostPurchaseOrderIRCmdHandler(INetSuiteApiClientService netSuiteApi
     {
         try
         {
-            bool result = await netSuiteApiClientService.SavePOItemReceipt(request.Data.PostPurchaseOrders, request.Data.UserId);
+            bool result = await netSuiteApiClientService.SavePOItemReceipt(request.Data.PostPurchaseOrders, request.Data.UserId, request.Data.Remarks);
 
             if (!result)
             {

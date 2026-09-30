@@ -34,6 +34,7 @@ public class PostPurchaseOrderDTO
     public int NetsuiteMaterialPrefferedBinId { get; set; }
     public decimal MaterialWeight { get; set; }
     public decimal LineQuantity { get; set; }
+    public decimal PhysicalQuantity { get; set; }
     public decimal LineQuantityReceived { get; set; }
     public int NetsuiteUoMInternalId { get; set; }
     public string UoMName { get; set; } = string.Empty;

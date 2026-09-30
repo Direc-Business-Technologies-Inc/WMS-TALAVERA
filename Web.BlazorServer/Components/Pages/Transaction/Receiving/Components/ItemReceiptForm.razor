@@ -108,6 +108,11 @@
                             <RadzenNumeric Min="0" @bind-Value="data.WeightActual" ShowUpDown="false" Disabled="@(!data.IsReceived || Disabled)" />
                         </Template>
                     </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="ItemReceiptLineVM" Visible="@(Doc == "PO")" Property="@nameof(ItemReceiptLineVM.TotalConfiscated)" Title="Physical Quantity">
+                        <Template Context="data">
+                            <RadzenNumeric Min="0" @bind-Value="data.TotalConfiscated" ShowUpDown="false" Disabled="@(!data.IsReceived || Disabled)" />
+                        </Template>
+                    </RadzenDataGridColumn>
                     <RadzenDataGridColumn TItem="ItemReceiptLineVM" Property="@nameof(ItemReceiptLineVM.WeightRecord)" Title="Record Weight" />
                     <RadzenDataGridColumn TItem="ItemReceiptLineVM" Property="@nameof(ItemReceiptLineVM.QuantityPlanned)" Title="Planned Quantity" />
                     <RadzenDataGridColumn TItem="ItemReceiptLineVM" Property="@nameof(ItemReceiptLineVM.QuantityReceived)" Title="Received Quantity" />

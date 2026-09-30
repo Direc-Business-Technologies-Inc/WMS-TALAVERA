@@ -67,6 +67,7 @@
                                 ActionName="@ActionGetVendors"
                                 DataGetter="@VendorProvider"
                                 @bind-Value="@Model.Vendor"
+                                FilterTarget="@nameof(VendorVM.Name)"
                                 TextProperty="@nameof(VendorVM.Name)"
                                 AllowClear
                                 AllowFiltering />
@@ -221,6 +222,27 @@
                                 <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center">
                                     <RadzenText Visible="@ReadOnly" TextStyle="TextStyle.Body2">@(data.UoM?.Name ?? "No UoM given")</RadzenText>
                                     <QuickVirtualizedDropdown Disabled="@Disabled" Visible="@(!ReadOnly)" TItem="ItemUnitVM" DataGetter="@(x => ItemUnitProvider(data.ItemId, x))" ActionName="@ActionGetItemUnits" @bind-Value:get="@data.UoM" @bind-Value:set="@(val => SetLineUoM(data, val))" TextProperty="@nameof(ItemUnitVM.Name)" />
+                                </RadzenStack>
+                            </Template>
+                        </RadzenDataGridColumn>
+
+                        <RadzenDataGridColumn TItem="StockTransferRequestLineVM"
+                                              Property="@nameof(StockTransferRequestLineVM.Vendor)"
+                                              Title="Preferred Vendor">
+                            <Template Context="data">
+                                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center">
+                                    <RadzenText Disabled="@Disabled" Visible="@ReadOnly" ReadOnly Value="@(data.Vendor?.Name ?? null)" />
+                                    <QuickVirtualizedDropdown Visible="@(!ReadOnly)"
+                                    TItem="VendorVM"
+                                    Name="str_vendorline_dropdown"
+                                    ActionName="@ActionGetVendors"
+                                    DataGetter="@VendorProvider"
+                                    @bind-Value:get="@data.Vendor" 
+                                    FilterTarget="@nameof(VendorVM.Name)"
+                                    TextProperty="@nameof(VendorVM.Name)"
+                                    AllowClear
+                                    AllowFiltering />
+                                    <RadzenRequiredValidator Component="str_vendorline_dropdown" />
                                 </RadzenStack>
                             </Template>
                         </RadzenDataGridColumn>

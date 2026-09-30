@@ -6,13 +6,16 @@ public partial class ManualEntryDialog
 
     [Parameter] public string ItemName { get; set; } = string.Empty;
     [Parameter] public decimal PlannedQty { get; set; }
-    [Parameter] public int ShowBad { get; set; } = 0; // if zero then show.
-    [Parameter] public int ShowMissing { get; set; } = 0; // if zero then show.
+    [Parameter] public int ShowBad { get; set; } = 1; // if one then show.
+    [Parameter] public int ShowMissing { get; set; } = 1; // if one then show.
+    [Parameter] public int ShowPhysical { get; set; } = 1; // if one then show.
     [Parameter] public decimal GoodQty { get; set; } = 0;
     [Parameter] public decimal BadQty { get; set; } = 0;
+    [Parameter] public decimal PhysicalQty { get; set; } = 0;
 
-    private bool ShowBadIfZero => ShowBad != 1;
-    private bool ShowMissingIfZero => ShowMissing != 1;
+    private bool ShowBadIfOne => ShowBad == 1;
+    private bool ShowPhysicalIfOne => ShowPhysical == 1;
+    private bool ShowMissingIfOne => ShowMissing == 1;
     private decimal RemainingQty => PlannedQty - (GoodQty + BadQty);
     
     private decimal MissingQty { get; set; } = 0;
@@ -36,6 +39,7 @@ public partial class ManualEntryDialog
         {
             GoodQty = GoodQty,
             BadQty = BadQty,
+            PhysicalQty = PhysicalQty,
             MissingQty = MissingQty
         });
     }
@@ -49,6 +53,7 @@ public partial class ManualEntryDialog
     {
         public decimal GoodQty { get; set; }
         public decimal BadQty { get; set; }
+        public decimal PhysicalQty { get; set; }
         public decimal MissingQty { get; set; }
     }
 }

@@ -1,0 +1,44 @@
+﻿<RadzenStack Gap="16px" Style="padding: 20px; max-width: 420px;">
+    <RadzenText Text="Add Remarks"
+                TextStyle="TextStyle.H6"
+                class="rz-m-0" />
+
+    <!-- Remarks TextArea -->
+    <RadzenStack Gap="4px">
+        <RadzenText Text="Remarks"
+                    TextStyle="TextStyle.Caption"
+                    class="rz-m-0 field-label" />
+
+        <RadzenTextArea @bind-Value="Remarks"
+                        Placeholder="Enter any remarks or notes..."
+                        Rows="4"
+                        class="rz-w-100" />
+    </RadzenStack>
+
+    <!-- Validation -->
+    @if (!string.IsNullOrWhiteSpace(ValidationMessage))
+    {
+        <RadzenText Text="@ValidationMessage"
+                    TextStyle="TextStyle.Caption"
+                    class="rz-m-0"
+                    Style="color: #e53935;" />
+    }
+
+    <!-- Actions -->
+    <RadzenStack Orientation="Orientation.Horizontal"
+                 JustifyContent="JustifyContent.SpaceBetween"
+                 Gap="8px">
+
+        @* <RadzenButton Text="Skip"
+                      Click="@OnSkip"
+                      ButtonStyle="ButtonStyle.Light"
+                      class="rz-flex-1" /> *@
+
+        <RadzenButton Text="Save with Remarks"
+                      Click="@OnConfirm"
+                      ButtonStyle="ButtonStyle.Success"
+                      class="rz-flex-1" />
+
+    </RadzenStack>
+
+</RadzenStack>

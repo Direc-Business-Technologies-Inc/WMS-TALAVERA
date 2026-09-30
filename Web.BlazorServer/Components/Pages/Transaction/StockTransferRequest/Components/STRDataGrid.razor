@@ -22,6 +22,10 @@
                               Property="@nameof(StockTransferRequestDataGridVM.ReferenceNumber)"
                               Title="Reference Number" />
         <RadzenDataGridColumn TItem="StockTransferRequestDataGridVM"
+                              Visible="@ShowTransferCategory"
+                              Property="@nameof(StockTransferRequestDataGridVM.TransferCategory)"
+                              Title="Transfer Category" />
+        <RadzenDataGridColumn TItem="StockTransferRequestDataGridVM"
                               Visible="@ShowSubPurchaseCategory"
                               Property="@nameof(StockTransferRequestDataGridVM.PurchaseSubcategory)"
                               Title="Purchase Subcategory" />

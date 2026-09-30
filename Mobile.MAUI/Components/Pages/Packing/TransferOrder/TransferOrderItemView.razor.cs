@@ -24,6 +24,12 @@ public partial class TransferOrderItemView : IAsyncDisposable
 
     List<TransferOrderLineVM> GoodTOItems = [];
     List<TransferOrderLineVM> BadTOItems = [];
+
+
+    List<TransferOrderLineVM> FilteredGoodTOItems = [];
+    List<TransferOrderLineVM> FilteredBadTOItems = [];
+
+    TransferOrderLineVM? LastScanned;
     List<ItemBarcodesPerUoMVM> ItemBarcodes = [];
     List<BarcodeRequestVM> ItemRequest = [];
 
@@ -41,6 +47,8 @@ public partial class TransferOrderItemView : IAsyncDisposable
     bool IsWeightDialogOpen = false;
     decimal? DefaultWeight = null;
     decimal? ChangeWeight = null;
+
+    private string SearchText { get; set; } = string.Empty;
 
     // Backorder notification
     bool HasBackorderItems
@@ -162,6 +170,7 @@ public partial class TransferOrderItemView : IAsyncDisposable
                     IsBad = true,
                 }).ToList() ?? [];
 
+                ApplySearch();
                 await InvokeAsync(StateHasChanged);
             },
         };
@@ -225,7 +234,7 @@ public partial class TransferOrderItemView : IAsyncDisposable
         if (TOItems.Count > 0 && JsObj is null)
         {
             JsObj = await Js.InvokeAsync<IJSObjectReference>("import", "./js/IntersectionObserver.js");
-            await JsObj.InvokeVoidAsync("Observe");
+            await JsObj.InvokeVoidAsync("ObserveRecentScanned");
         }
     }
 
@@ -233,6 +242,65 @@ public partial class TransferOrderItemView : IAsyncDisposable
     {
         await ActionFactory.ExecuteAppActionAsync(ActionGetTOItems);
     }
+
+    #region Search
+    private async Task OnSearchInput(ChangeEventArgs args)
+    {
+        SearchText = args.Value?.ToString() ?? string.Empty;
+        ApplySearch();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task ClearSearch()
+    {
+        SearchText = string.Empty;
+        ApplySearch();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void ApplySearch()
+    {
+        if (string.IsNullOrWhiteSpace(SearchText))
+        {
+            FilteredGoodTOItems = GoodTOItems.ToList();
+            FilteredBadTOItems = BadTOItems.ToList();
+            return;
+        }
+
+        var search = SearchText.Trim();
+
+        FilteredGoodTOItems = GoodTOItems
+            .Where(row => MatchesSearch(row, search))
+            .ToList();
+
+        FilteredBadTOItems = BadTOItems
+            .Where(row => MatchesSearch(row, search))
+            .ToList();
+    }
+
+    private static bool MatchesSearch(TransferOrderLineVM row, string search)
+    {
+        if (ContainsIgnoreCase(row.MaterialCode, search))
+            return true;
+
+        if (ContainsIgnoreCase(row.MaterialName, search))
+            return true;
+
+        if (ContainsIgnoreCase(row.LocationName, search))
+            return true;
+
+        if (ContainsIgnoreCase(row.UoMName, search))
+            return true;
+
+        return false;
+    }
+
+    private static bool ContainsIgnoreCase(string? source, string search)
+    {
+        return !string.IsNullOrWhiteSpace(source) &&
+               source.Contains(search, StringComparison.OrdinalIgnoreCase);
+    }
+    #endregion
 
     private void SelectGoodLine(TransferOrderLineVM item)
     {
@@ -423,6 +491,8 @@ public partial class TransferOrderItemView : IAsyncDisposable
                 badLine.ScannedQuantity += barcode.UoMRate / badLine.UoMRate;
                 //badLine.ScannedWeight += ChangeWeight ?? 0m;
                 badLine.ScanCount++;
+
+                LastScanned = badLine;
             }
             else
             {
@@ -452,6 +522,8 @@ public partial class TransferOrderItemView : IAsyncDisposable
                 goodLine.ScannedQuantity += barcode.UoMRate / goodLine.UoMRate;
                 //goodLine.ScannedWeight += weight ?? 0m;
                 goodLine.ScanCount++;
+
+                LastScanned = goodLine;
             }
 
             ScanCount++;
@@ -849,6 +921,60 @@ public partial class TransferOrderItemView : IAsyncDisposable
     //    }
     //}
 
+    private async Task Refresh()
+    {
+        // Snapshot current scanned state before refreshing
+        var scannedState = GoodTOItems
+            .Concat(BadTOItems)
+            .GroupBy(x => new
+            {
+                x.LineSequenceNumber,
+                x.NetsuiteMaterialInternalId,
+                x.IsBad
+            })
+            .ToDictionary(
+                g => g.Key,
+                g => new
+                {
+                    ScannedQuantity = g.First().ScannedQuantity,
+                    ScannedWeight = g.First().ScannedWeight,
+                    ScanCount = g.First().ScanCount
+                });
+
+        // Reload PO items
+        await ActionFactory.ExecuteAppActionAsync(ActionGetTOItems);
+
+        // Restore scanned state
+        foreach (var item in GoodTOItems.Concat(BadTOItems))
+        {
+            var key = new
+            {
+                item.LineSequenceNumber,
+                item.NetsuiteMaterialInternalId,
+                item.IsBad
+            };
+
+            if (scannedState.TryGetValue(key, out var scanned))
+            {
+                item.ScannedQuantity = scanned.ScannedQuantity;
+                item.ScannedWeight = scanned.ScannedWeight;
+                item.ScanCount = scanned.ScanCount;
+            }
+        }
+
+        // Refresh barcode requests from the refreshed TO
+        ItemRequest = GoodTOItems
+            .Select(i => new BarcodeRequestVM
+            {
+                NetsuiteMaterialInternalId = i.NetsuiteMaterialInternalId
+            })
+            .ToList();
+
+        await ActionFactory.ExecuteAppActionAsync(ActionGetItemBarcodes);
+
+        await InvokeAsync(StateHasChanged);
+    }
+
     public async ValueTask DisposeAsync()
     {
         BroadcastService.BroadcastReceived -= HandleItemScan;
@@ -857,6 +983,7 @@ public partial class TransferOrderItemView : IAsyncDisposable
         {
             try
             {
+                JsObj.InvokeVoidAsync("UnObserveRecentScanned");
                 await JsObj.InvokeVoidAsync("Dispose");
             }
             catch

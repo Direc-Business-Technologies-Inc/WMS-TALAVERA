@@ -20,4 +20,5 @@ public interface ITripTicketHandler
     Task<IEnumerable<TruckPlateNumberVM>> GetTruckPlateNumbersAsync();
     Task<bool> PostTripTicketAsync(TripTicketVM data);
     Task<bool> UpdateTripTicketAsync(TripTicketVM data, List<ItemFulfillmentVM> removedIF, List<ItemFulfillmentVM> addedIF);
+    Task<bool> CancelTripTicketAsync(TripTicketVM data);
 }

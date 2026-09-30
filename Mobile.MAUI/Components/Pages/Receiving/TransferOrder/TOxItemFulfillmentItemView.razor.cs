@@ -37,7 +37,12 @@ public partial class TOxItemFulfillmentItemView : IAsyncDisposable
 
     List<TOxItemFulfillmentLineVM> GoodIFItems = [];
     List<TOxItemFulfillmentLineVM> BadIFItems = [];
+
+    List<TOxItemFulfillmentLineVM> FilteredGoodIFItems = [];
+    List<TOxItemFulfillmentLineVM> FilteredBadIFItems = [];
+
     List<TOxItemFulfillmentLineVM> MissingIFItems = [];
+    TOxItemFulfillmentLineVM? LastScanned;
     List<ItemBarcodesPerUoMVM> ItemBarcodes = [];
     List<BarcodeRequestVM> ItemRequest = [];
 
@@ -57,6 +62,9 @@ public partial class TOxItemFulfillmentItemView : IAsyncDisposable
     decimal? DefaultWeight = null;
     decimal? ChangeWeight = null;
     int UserId = 0;
+    string Remarks = string.Empty;
+
+    private string SearchText { get; set; } = string.Empty;
 
     ReceiveMode ReceiveByWeightMode = ReceiveMode.WithoutWeight;
 
@@ -152,6 +160,7 @@ public partial class TOxItemFulfillmentItemView : IAsyncDisposable
                     IsBad = true,
                 }).ToList() ?? [];
 
+                ApplySearch();
                 await InvokeAsync(StateHasChanged);
             },
         };
@@ -179,7 +188,12 @@ public partial class TOxItemFulfillmentItemView : IAsyncDisposable
             TaskAsync = async () =>
             {
                 await InvokeAsync(StateHasChanged);
-                var res = await Client.Post<bool>("/Receiving/TransferOrder/SaveScan", new { PostTransferOrder = IFItems, TONetsuiteOrderInternalId = NetsuiteOrderInternalId, UserId });
+                var res = await Client.Post<bool>("/Receiving/TransferOrder/SaveScan", new { 
+                    PostTransferOrder = IFItems, 
+                    TONetsuiteOrderInternalId = NetsuiteOrderInternalId, 
+                    UserId,
+                    Remarks
+                });
                 return res;
             },
             OnSuccess = async (result) =>
@@ -225,7 +239,7 @@ public partial class TOxItemFulfillmentItemView : IAsyncDisposable
         if (IFItems.Count > 0 && JsObj is null)
         {
             JsObj = await Js.InvokeAsync<IJSObjectReference>("import", "./js/IntersectionObserver.js");
-            await JsObj.InvokeVoidAsync("Observe");
+            await JsObj.InvokeVoidAsync("ObserveRecentScanned");
         }
     }
 
@@ -233,6 +247,65 @@ public partial class TOxItemFulfillmentItemView : IAsyncDisposable
     {
         await ActionFactory.ExecuteAppActionAsync(ActionGetTOxItemfulfillmentItems);
     }
+
+    #region Search
+    private async Task OnSearchInput(ChangeEventArgs args)
+    {
+        SearchText = args.Value?.ToString() ?? string.Empty;
+        ApplySearch();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task ClearSearch()
+    {
+        SearchText = string.Empty;
+        ApplySearch();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void ApplySearch()
+    {
+        if (string.IsNullOrWhiteSpace(SearchText))
+        {
+            FilteredGoodIFItems = GoodIFItems.ToList();
+            FilteredBadIFItems = BadIFItems.ToList();
+            return;
+        }
+
+        var search = SearchText.Trim();
+
+        FilteredGoodIFItems = GoodIFItems
+            .Where(row => MatchesSearch(row, search))
+            .ToList();
+
+        FilteredBadIFItems = BadIFItems
+            .Where(row => MatchesSearch(row, search))
+            .ToList();
+    }
+
+    private static bool MatchesSearch(TOxItemFulfillmentLineVM row, string search)
+    {
+        if (ContainsIgnoreCase(row.MaterialCode, search))
+            return true;
+
+        if (ContainsIgnoreCase(row.MaterialName, search))
+            return true;
+
+        if (ContainsIgnoreCase(row.LocationName, search))
+            return true;
+
+        if (ContainsIgnoreCase(row.UoMName, search))
+            return true;
+
+        return false;
+    }
+
+    private static bool ContainsIgnoreCase(string? source, string search)
+    {
+        return !string.IsNullOrWhiteSpace(source) &&
+               source.Contains(search, StringComparison.OrdinalIgnoreCase);
+    }
+    #endregion
 
     private async void SelectGoodLine(TOxItemFulfillmentLineVM item)
     {
@@ -254,6 +327,7 @@ public partial class TOxItemFulfillmentItemView : IAsyncDisposable
                         { "PlannedQty", item.NSLineQuantityReceived },
                         { "GoodQty", item.ScannedQuantity},
                         { "BadQty", badQty },
+                        { "ShowPhysical", 0 },
                     },
                     new DialogOptions
                     {
@@ -420,6 +494,8 @@ public partial class TOxItemFulfillmentItemView : IAsyncDisposable
                 badLine.ScannedQuantity += barcode.UoMRate / badLine.UoMRate;
                 badLine.ScannedWeight += ChangeWeight ?? 0m;
                 badLine.ScanCount++;
+
+                LastScanned = badLine;
             }
             else
             {
@@ -454,6 +530,8 @@ public partial class TOxItemFulfillmentItemView : IAsyncDisposable
                 goodLine.ScannedQuantity += barcode.UoMRate / goodLine.UoMRate;
                 goodLine.ScannedWeight += weight ?? 0m;
                 goodLine.ScanCount++;
+
+                LastScanned = goodLine;
             }
 
             ScanCount++;
@@ -623,10 +701,42 @@ public partial class TOxItemFulfillmentItemView : IAsyncDisposable
             .Concat(MissingIFItems)
             .ToList();
 
-        await ActionFactory.ExecuteAppActionAsync(
-            ActionSaveScan,
-            confirm: true,
-            showToast: true);
+        if (IFItems.Count == 0)
+        {
+            await Toast.Warning("There are no scanned items to save.");
+            return;
+        }
+
+        try
+        {
+            var result = await Dialog.OpenAsync<RemarksDialog>(
+                "Add Remarks",
+                new Dictionary<string, object> { },
+                new DialogOptions
+                {
+                    ShowClose = true
+                });
+
+            if (result is RemarksDialog.RemarksResult remarksResult)
+            {
+                if (string.IsNullOrWhiteSpace(remarksResult.Remarks))
+                {
+                    await Toast.Warning($"Please add remarks.");
+                    return;
+                }
+
+                Remarks = remarksResult.Remarks;
+
+                await ActionFactory.ExecuteAppActionAsync(
+                    ActionSaveScan,
+                    confirm: true,
+                    showToast: true);
+            }
+        }
+        catch (Exception e)
+        {
+            await Toast.Error($"Error: {e.Message}");
+        }
 
         await InvokeAsync(StateHasChanged);
     }
@@ -957,6 +1067,60 @@ public partial class TOxItemFulfillmentItemView : IAsyncDisposable
         }
     }
 
+    private async Task Refresh()
+    {
+        // Snapshot current scanned state before refreshing
+        var scannedState = GoodIFItems
+            .Concat(BadIFItems)
+            .GroupBy(x => new
+            {
+                x.LineSequenceNumber,
+                x.NetsuiteMaterialInternalId,
+                x.IsBad
+            })
+            .ToDictionary(
+                g => g.Key,
+                g => new
+                {
+                    ScannedQuantity = g.First().ScannedQuantity,
+                    ScannedWeight = g.First().ScannedWeight,
+                    ScanCount = g.First().ScanCount
+                });
+
+        // Reload PO items
+        await ActionFactory.ExecuteAppActionAsync(ActionGetTOxItemfulfillmentItems);
+
+        // Restore scanned state
+        foreach (var item in GoodIFItems.Concat(BadIFItems))
+        {
+            var key = new
+            {
+                item.LineSequenceNumber,
+                item.NetsuiteMaterialInternalId,
+                item.IsBad
+            };
+
+            if (scannedState.TryGetValue(key, out var scanned))
+            {
+                item.ScannedQuantity = scanned.ScannedQuantity;
+                item.ScannedWeight = scanned.ScannedWeight;
+                item.ScanCount = scanned.ScanCount;
+            }
+        }
+
+        // Refresh barcode requests from the refreshed IF
+        ItemRequest = GoodIFItems
+            .Select(i => new BarcodeRequestVM
+            {
+                NetsuiteMaterialInternalId = i.NetsuiteMaterialInternalId
+            })
+            .ToList();
+
+        await ActionFactory.ExecuteAppActionAsync(ActionGetItemBarcodes);
+
+        await InvokeAsync(StateHasChanged);
+    }
+
     private async Task<decimal?> GetWeightAsync(string itemName, string uomName)
     {
         IsWeightDialogOpen = true;
@@ -1009,6 +1173,7 @@ public partial class TOxItemFulfillmentItemView : IAsyncDisposable
         {
             try
             {
+                JsObj.InvokeVoidAsync("UnObserveRecentScanned");
                 await JsObj.InvokeVoidAsync("Dispose");
             }
             catch

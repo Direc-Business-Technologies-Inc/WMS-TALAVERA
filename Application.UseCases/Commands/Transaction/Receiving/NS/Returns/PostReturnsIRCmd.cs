@@ -15,7 +15,7 @@ public class PostReturnsIRCmdHandler(INetSuiteApiClientService netSuiteApiClient
     {
         try
         {
-            bool result = await netSuiteApiClientService.SaveReturnsItemReceipt(request.Data.PostReturn, request.Data.TONetsuiteOrderInternalId, request.Data.UserId);
+            bool result = await netSuiteApiClientService.SaveReturnsItemReceipt(request.Data.PostReturn, request.Data.TONetsuiteOrderInternalId, request.Data.UserId, request.Data.Remarks);
 
             if (!result)
             {

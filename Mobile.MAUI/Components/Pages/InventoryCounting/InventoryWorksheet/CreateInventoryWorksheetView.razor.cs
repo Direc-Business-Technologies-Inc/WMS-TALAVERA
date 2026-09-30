@@ -22,13 +22,14 @@ public partial class CreateInventoryWorksheetView : IAsyncDisposable
     private AppAction<List<InventoryItemVM>>? ActionGetInventoryItems { get; set; }
     private AppAction<List<LocationVM>>? ActionGetLocations { get; set; }
     private AppAction<List<BinVM>>? ActionGetBins { get; set; }
-    private AppAction<List<ItemBarcodesPerUoMVM>>? ActionGetItemBarcodes { get; set; }
+    private AppAction<InventoryItemVM>? ActionGetItemPerBarcodes { get; set; }
     private AppAction<bool>? ActionSaveScan { get; set; }
 
     private List<InventoryWorksheetLineVM> ICItems { get; set; } = [];
 
-    private List<ItemBarcodesPerUoMVM> ItemBarcodes { get; set; } = [];
-    private List<BarcodeRequestVM> ItemRequest { get; set; } = [];
+    private InventoryItemVM ItemScanned { get; set; }
+    //private List<BarcodeRequestVM> ItemRequest { get; set; } = [];
+    private string BarcodeRequest { get; set; }
 
     private int ScanCount { get; set; }
     private int ActiveTabIndex { get; set; } = 0;
@@ -120,41 +121,49 @@ public partial class CreateInventoryWorksheetView : IAsyncDisposable
             }
         };
 
-        ActionGetInventoryItems = new AppAction<List<InventoryItemVM>>
-        {
-            Name = "GetInventoryWorksheetItems",
-            TaskAsync = async () =>
-            {
-                await InvokeAsync(StateHasChanged);
+        //ActionGetInventoryItems = new AppAction<List<InventoryItemVM>>
+        //{
+        //    Name = "GetInventoryWorksheetItems",
+        //    TaskAsync = async () =>
+        //    {
+        //        await InvokeAsync(StateHasChanged);
 
-                var res = await Client.Get<List<InventoryItemVM>>("/InventoryCounting/Worksheet/Items");
+        //        var res = await Client.Get<List<InventoryItemVM>>("/InventoryCounting/Worksheet/Items");
 
-                return res;
-            },
-            OnSuccess = async (result) =>
-            {
-                Data = result.Data ?? [];
-                await InvokeAsync(StateHasChanged);
-            }
-        };
+        //        return res;
+        //    },
+        //    OnSuccess = async (result) =>
+        //    {
+        //        Data = result.Data ?? [];
+        //        await InvokeAsync(StateHasChanged);
+        //    }
+        //};
 
-        ActionGetItemBarcodes = new AppAction<List<ItemBarcodesPerUoMVM>>
+        ActionGetItemPerBarcodes = new AppAction<InventoryItemVM>
         {
             Name = "GetItemBarcodes",
+
             TaskAsync = async () =>
             {
-                await InvokeAsync(StateHasChanged);
+                var result = await Client.Post<InventoryItemVM>(
+                    "/Item/PerBarcode",
+                    new { Barcode = BarcodeRequest }
+                );
 
-                var res = await Client.Post<List<ItemBarcodesPerUoMVM>>("/Item/Barcodes", ItemRequest);
-
-                return res;
+                return result;
             },
-            OnSuccess = async (result) =>
+
+            OnSuccess = async result =>
             {
-                ItemBarcodes = result.Data ?? [];
+                if (result?.Data is not null)
+                {
+                    ItemScanned = result.Data;
+                }
+
                 await InvokeAsync(StateHasChanged);
             }
         };
+
 
         ActionSaveScan = new AppAction<bool>
         {
@@ -208,22 +217,22 @@ public partial class CreateInventoryWorksheetView : IAsyncDisposable
                 await ActionFactory.ExecuteAppActionAsync(ActionGetLocations);
             }
 
-            if (ActionGetInventoryItems is not null)
-            {
-                await ActionFactory.ExecuteAppActionAsync(ActionGetInventoryItems);
-            }
+            //if (ActionGetInventoryItems is not null)
+            //{
+            //    await ActionFactory.ExecuteAppActionAsync(ActionGetInventoryItems);
+            //}
 
-            ItemRequest = Data
-                .Select(i => new BarcodeRequestVM
-                {
-                    NetsuiteMaterialInternalId = i.NetsuiteMaterialInternalId
-                })
-                .ToList();
+            //ItemRequest = Data
+            //    .Select(i => new BarcodeRequestVM
+            //    {
+            //        NetsuiteMaterialInternalId = i.NetsuiteMaterialInternalId
+            //    })
+            //    .ToList();
 
-            if (ActionGetItemBarcodes is not null)
-            {
-                await ActionFactory.ExecuteAppActionAsync(ActionGetItemBarcodes);
-            }
+            //if (ActionGetItemBarcodes is not null)
+            //{
+            //    await ActionFactory.ExecuteAppActionAsync(ActionGetItemBarcodes);
+            //}
         }
 
         if (Data.Count > 0 && JsObj is null)
@@ -236,33 +245,139 @@ public partial class CreateInventoryWorksheetView : IAsyncDisposable
         }
     }
 
+    private readonly SemaphoreSlim _scanLock = new(1, 1);
+
+    //private async void HandleScan(object sender, string message)
+    //{
+    //    await _scanLock.WaitAsync();
+    //    try
+    //    {
+    //        if (SelectedLocationInternalId == 0)
+    //        {
+    //            await Toast.Warning("Please select a location first.");
+    //            return;
+    //        }
+
+    //        if (RequiresBinSelection && SelectedBinInternalId == 0)
+    //        {
+    //            await Toast.Warning("Please select a bin first.");
+    //            return;
+    //        }
+
+    //        if (ScanState == ToggleState.Base && !MoveOn && !NegateQuantity)
+    //            return;
+
+    //        var scanned = message?.Trim();
+
+    //        if (string.IsNullOrWhiteSpace(scanned))
+    //            return;
+
+    //        var result = await Client.Post<InventoryItemVM>(
+    //                "/Item/PerBarcode",
+    //                new { Barcode = scanned }
+    //            );
+
+    //        var barcode = result.Data;
+
+    //        if (barcode is null)
+    //        {
+    //            await Toast.Warning($"Unknown barcode: {scanned}");
+    //            return;
+    //        }
+
+    //        var binInternalId = CurrentBinInternalId;
+
+    //        var isScanned = ICItems.Exists(x =>
+    //            x.NetsuiteMaterialInternalId == barcode.NetsuiteMaterialInternalId &&
+    //            x.NetsuiteBinInternalId == binInternalId);
+
+    //        if (isScanned)
+    //        {
+    //            if (MoveOn)
+    //            {
+    //                await MoveScan(barcode);
+    //                return;
+    //            }
+
+    //            if (NegateQuantity)
+    //            {
+    //                await NegateScannedItem(barcode);
+    //                return;
+    //            }
+    //        }
+    //        else if (!MoveOn && !NegateQuantity)
+    //        {
+    //            ICItems.Add(new InventoryWorksheetLineVM
+    //            {
+    //                NetsuiteMaterialInternalId = barcode.NetsuiteMaterialInternalId,
+    //                MaterialCode = barcode.MaterialCode,
+    //                MaterialName = barcode.MaterialName,
+    //                MaterialWeight = barcode.MaterialWeight,
+    //                NetsuiteBinInternalId = binInternalId
+    //            });
+    //        }
+    //        else
+    //        {
+    //            await Toast.Warning("No scanned quantity to move or remove for this item.");
+    //            return;
+    //        }
+
+    //        var line = ICItems.FirstOrDefault(x =>
+    //            x.NetsuiteMaterialInternalId == barcode.NetsuiteMaterialInternalId &&
+    //            x.NetsuiteBinInternalId == binInternalId);
+
+    //        if (line is null)
+    //        {
+    //            await Toast.Warning("Item not found in this Inventory Count.");
+    //            return;
+    //        }
+
+    //        var scannedQuantity = barcode.UoMRate;
+
+    //        if (NextScanIsBad)
+    //        {
+    //            line.BadScannedQuantity += scannedQuantity;
+    //        }
+    //        else
+    //        {
+    //            line.GoodScannedQuantity += scannedQuantity;
+    //        }
+
+    //        line.ScanCount++;
+    //        ScanCount++;
+
+    //        await InvokeAsync(StateHasChanged);
+    //    }
+    //    catch (Exception e)
+    //    {
+    //        await Toast.Error(e.Message);
+    //    }
+    //    finally
+    //    {
+    //        _scanLock.Release();
+    //    }
+    //}
+
     private async void HandleScan(object sender, string message)
     {
+        await _scanLock.WaitAsync();
+
         try
         {
-            if (SelectedLocationInternalId == 0)
-            {
-                await Toast.Warning("Please select a location first.");
-                return;
-            }
-
-            if (RequiresBinSelection && SelectedBinInternalId == 0)
-            {
-                await Toast.Warning("Please select a bin first.");
-                return;
-            }
-
-            if (ScanState == ToggleState.Base && !MoveOn && !NegateQuantity)
-                return;
+            // Validation
 
             var scanned = message?.Trim();
 
             if (string.IsNullOrWhiteSpace(scanned))
                 return;
 
-            var barcode = ItemBarcodes.FirstOrDefault(x =>
-                !string.IsNullOrWhiteSpace(x.MaterialBarcode) &&
-                x.MaterialBarcode.Equals(scanned, StringComparison.OrdinalIgnoreCase));
+            // API - doesn't modify UI state
+            var result = await Client.Post<InventoryItemVM>(
+                "/Item/PerBarcode",
+                new { Barcode = scanned }
+            );
+
+            var barcode = result.Data;
 
             if (barcode is null)
             {
@@ -270,74 +385,59 @@ public partial class CreateInventoryWorksheetView : IAsyncDisposable
                 return;
             }
 
-            var binInternalId = CurrentBinInternalId;
-
-            var isScanned = ICItems.Exists(x =>
-                x.NetsuiteMaterialInternalId == barcode.NetsuiteMaterialInternalId &&
-                x.NetsuiteBinInternalId == binInternalId);
-
-            if (isScanned)
+            // UI/state modification
+            await InvokeAsync(async () =>
             {
-                if (MoveOn)
-                {
-                    await MoveScan(barcode);
-                    return;
-                }
-
-                if (NegateQuantity)
-                {
-                    await NegateScannedItem(barcode);
-                    return;
-                }
-            }
-            else if (!MoveOn && !NegateQuantity)
-            {
-                ICItems.Add(new InventoryWorksheetLineVM
-                {
-                    NetsuiteMaterialInternalId = barcode.NetsuiteMaterialInternalId,
-                    MaterialCode = barcode.MaterialCode,
-                    MaterialName = barcode.MaterialName,
-                    MaterialWeight = barcode.MaterialWeight,
-                    NetsuiteBinInternalId = binInternalId
-                });
-            }
-            else
-            {
-                await Toast.Warning("No scanned quantity to move or remove for this item.");
-                return;
-            }
-
-            var line = ICItems.FirstOrDefault(x =>
-                x.NetsuiteMaterialInternalId == barcode.NetsuiteMaterialInternalId &&
-                x.NetsuiteBinInternalId == binInternalId);
-
-            if (line is null)
-            {
-                await Toast.Warning("Item not found in this Inventory Count.");
-                return;
-            }
-
-            var scannedQuantity = barcode.UoMRate;
-
-            if (NextScanIsBad)
-            {
-                line.BadScannedQuantity += scannedQuantity;
-            }
-            else
-            {
-                line.GoodScannedQuantity += scannedQuantity;
-            }
-
-            line.ScanCount++;
-            ScanCount++;
-
-            await InvokeAsync(StateHasChanged);
+                ProcessScannedItem(barcode);
+                await InvokeAsync(StateHasChanged);
+            });
         }
         catch (Exception e)
         {
             await Toast.Error(e.Message);
         }
+        finally
+        {
+            _scanLock.Release();
+        }
     }
+
+    private void ProcessScannedItem(InventoryItemVM barcode)
+    {
+        var binInternalId = CurrentBinInternalId;
+
+        var line = ICItems.FirstOrDefault(x =>
+            x.NetsuiteMaterialInternalId == barcode.NetsuiteMaterialInternalId &&
+            x.NetsuiteBinInternalId == binInternalId);
+
+        if (line is null)
+        {
+            if (MoveOn || NegateQuantity)
+                return;
+
+            line = new InventoryWorksheetLineVM
+            {
+                NetsuiteMaterialInternalId = barcode.NetsuiteMaterialInternalId,
+                MaterialCode = barcode.MaterialCode,
+                MaterialName = barcode.MaterialName,
+                MaterialWeight = barcode.MaterialWeight,
+                NetsuiteBinInternalId = binInternalId
+            };
+
+            ICItems.Add(line);
+        }
+
+        var quantity = barcode.UoMRate;
+
+        if (NextScanIsBad)
+            line.BadScannedQuantity += quantity;
+        else
+            line.GoodScannedQuantity += quantity;
+
+        line.ScanCount++;
+        ScanCount++;
+    }
+
 
     private async Task SaveScan()
     {
@@ -370,7 +470,7 @@ public partial class CreateInventoryWorksheetView : IAsyncDisposable
         await InvokeAsync(StateHasChanged);
     }
 
-    private async Task NegateScannedItem(ItemBarcodesPerUoMVM barcode)
+    private async Task NegateScannedItem(InventoryItemVM barcode)
     {
         try
         {
@@ -437,7 +537,7 @@ public partial class CreateInventoryWorksheetView : IAsyncDisposable
         }
     }
 
-    private async Task MoveScan(ItemBarcodesPerUoMVM barcode)
+    private async Task MoveScan(InventoryItemVM barcode)
     {
         try
         {

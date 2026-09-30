@@ -28,6 +28,11 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
 
     List<PurchaseOrderLineVM> GoodPOItems = [];
     List<PurchaseOrderLineVM> BadPOItems = [];
+
+    List<PurchaseOrderLineVM> FilteredGoodPOItems = [];
+    List<PurchaseOrderLineVM> FilteredBadPOItems = [];
+
+    PurchaseOrderLineVM? LastScanned;
     List<ItemBarcodesPerUoMVM> ItemBarcodes = [];
     List<BarcodeRequestVM> ItemRequest = [];
 
@@ -52,6 +57,10 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
     decimal? ChangeWeight = null;
 
     int UserId = 0;
+
+    string Remarks = string.Empty;
+
+    private string SearchText { get; set; } = string.Empty;
 
     protected override async Task OnInitializedAsync()
     {
@@ -158,6 +167,7 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
                     IsMissing = false
                 }).ToList();
 
+                ApplySearch();
                 await InvokeAsync(StateHasChanged);
             }
         };
@@ -198,7 +208,8 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
                     new
                     {
                         PostPurchaseOrders = POItems,
-                        UserId
+                        UserId,
+                        Remarks
                     });
 
                 return res;
@@ -255,7 +266,7 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
                 "import",
                 "./js/IntersectionObserver.js");
 
-            await JsObj.InvokeVoidAsync("Observe");
+            await JsObj.InvokeVoidAsync("ObserveRecentScanned");
         }
     }
 
@@ -263,6 +274,65 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
     {
         await ActionFactory.ExecuteAppActionAsync(ActionGetPOItems);
     }
+
+    #region Search
+    private async Task OnSearchInput(ChangeEventArgs args)
+    {
+        SearchText = args.Value?.ToString() ?? string.Empty;
+        ApplySearch();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task ClearSearch()
+    {
+        SearchText = string.Empty;
+        ApplySearch();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void ApplySearch()
+    {
+        if (string.IsNullOrWhiteSpace(SearchText))
+        {
+            FilteredGoodPOItems = GoodPOItems.ToList();
+            FilteredBadPOItems = BadPOItems.ToList();
+            return;
+        }
+
+        var search = SearchText.Trim();
+
+        FilteredGoodPOItems = GoodPOItems
+            .Where(row => MatchesSearch(row, search))
+            .ToList();
+
+        FilteredBadPOItems = BadPOItems
+            .Where(row => MatchesSearch(row, search))
+            .ToList();
+    }
+
+    private static bool MatchesSearch(PurchaseOrderLineVM row, string search)
+    {
+        if (ContainsIgnoreCase(row.MaterialCode, search))
+            return true;
+
+        if (ContainsIgnoreCase(row.MaterialName, search))
+            return true;
+
+        if (ContainsIgnoreCase(row.LocationName, search))
+            return true;
+
+        if (ContainsIgnoreCase(row.UoMName, search))
+            return true;
+
+        return false;
+    }
+
+    private static bool ContainsIgnoreCase(string? source, string search)
+    {
+        return !string.IsNullOrWhiteSpace(source) &&
+               source.Contains(search, StringComparison.OrdinalIgnoreCase);
+    }
+    #endregion
 
     private async void SelectGoodLine(PurchaseOrderLineVM item)
     {
@@ -283,6 +353,7 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
                         { "ItemName", item.MaterialName },
                         { "PlannedQty", item.NSLineQuantityReceived },
                         { "GoodQty", item.ScannedQuantity},
+                        { "PhysicalQty", item.PhysicalQuantity},
                         { "BadQty", badQty },
                     },
                     new DialogOptions
@@ -295,6 +366,7 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
                     ScanCount = 1;
 
                     item.ScannedQuantity = entry.GoodQty;
+                    item.PhysicalQuantity = entry.PhysicalQty;
 
                     var badItem = BadPOItems.FirstOrDefault(y =>
                         y.LineSequenceNumber == item.LineSequenceNumber &&
@@ -496,6 +568,8 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
                     ChangeWeight ?? 0m;
 
                 badLine.ScanCount++;
+
+                LastScanned = badLine;
             }
             else
             {
@@ -541,6 +615,8 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
                     weight ?? 0m;
 
                 goodLine.ScanCount++;
+
+                LastScanned = goodLine;
             }
 
             ScanCount++;
@@ -622,10 +698,36 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
             return;
         }
 
-        await ActionFactory.ExecuteAppActionAsync(
-            ActionSaveScan,
-            confirm: true,
-            showToast: true);
+        try
+        {
+            var result = await Dialog.OpenAsync<RemarksDialog>(
+                "Add Remarks",
+                new Dictionary<string, object> { },
+                new DialogOptions
+                {
+                    ShowClose = true
+                });
+
+            if (result is RemarksDialog.RemarksResult remarksResult)
+            {
+                if (string.IsNullOrWhiteSpace(remarksResult.Remarks))
+                {
+                   await Toast.Warning($"Please add remarks.");
+                   return;
+                }
+
+                Remarks = remarksResult.Remarks;
+
+                await ActionFactory.ExecuteAppActionAsync(
+                    ActionSaveScan,
+                    confirm: true,
+                    showToast: true);
+            }
+        }
+        catch (Exception e)
+        {
+            await Toast.Error($"Error: {e.Message}");
+        }
 
         await InvokeAsync(StateHasChanged);
     }
@@ -1105,6 +1207,7 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
         {
             try
             {
+                JsObj.InvokeVoidAsync("UnObserveRecentScanned");
                 await JsObj.InvokeVoidAsync("Dispose");
             }
             catch
@@ -1122,6 +1225,63 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
             }
         }
     }
+
+    private async Task Refresh()
+    {
+        // Snapshot current scanned state before refreshing
+        var scannedState = GoodPOItems
+            .Concat(BadPOItems)
+            .GroupBy(x => new
+            {
+                x.LineSequenceNumber,
+                x.NetsuiteMaterialInternalId,
+                x.IsBad
+            })
+            .ToDictionary(
+                g => g.Key,
+                g => new
+                {
+                    ScannedQuantity = g.First().ScannedQuantity,
+                    ScannedWeight = g.First().ScannedWeight,
+                    ScanCount = g.First().ScanCount,
+                    PhysicalQuantity = g.First().PhysicalQuantity
+                });
+
+        // Reload PO items
+        await ActionFactory.ExecuteAppActionAsync(ActionGetPOItems);
+
+        // Restore scanned state
+        foreach (var item in GoodPOItems.Concat(BadPOItems))
+        {
+            var key = new
+            {
+                item.LineSequenceNumber,
+                item.NetsuiteMaterialInternalId,
+                item.IsBad
+            };
+
+            if (scannedState.TryGetValue(key, out var scanned))
+            {
+                item.ScannedQuantity = scanned.ScannedQuantity;
+                item.ScannedWeight = scanned.ScannedWeight;
+                item.ScanCount = scanned.ScanCount;
+                item.PhysicalQuantity = scanned.PhysicalQuantity;
+            }
+        }
+
+        // Refresh barcode requests from the refreshed PO
+        ItemRequest = GoodPOItems
+            .Select(i => new BarcodeRequestVM
+            {
+                NetsuiteMaterialInternalId = i.NetsuiteMaterialInternalId
+            })
+            .ToList();
+
+        await ActionFactory.ExecuteAppActionAsync(ActionGetItemBarcodes);
+
+        await InvokeAsync(StateHasChanged);
+    }
+
 
     #region Button States
 

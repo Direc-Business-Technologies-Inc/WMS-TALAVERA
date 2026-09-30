@@ -7,6 +7,8 @@ public class TripTicketVM
     public int Id { get; set; }
     public int Parent { get; set; }
     public string ParentName { get; set; }
+    
+    public StatusVM? Status { get; set; } = new();
 
     public List<LocationVM>? Destinations { get; set; } = new();
 

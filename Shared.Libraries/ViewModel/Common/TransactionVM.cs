@@ -38,6 +38,7 @@ public class TransactionVM : InventoryItemVM
     public DateTime NetsuiteOrderDocumentDate { get; set; }
     public DateTime NetsuiteOrderUpdatedDate { get; set; }
 
+    public string Remarks { get; set; } = string.Empty;
 
     public decimal? DefaultWeight;
 

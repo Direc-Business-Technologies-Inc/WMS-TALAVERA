@@ -9,6 +9,7 @@ public class StockTransferRequestLineVM
     public string ItemCode { get; set; } = string.Empty;
     public string ItemDescription { get; set; } = string.Empty;
     public ItemUnitVM? UoM { get; set; }
+    public VendorVM Vendor { get; set; } = new();
     public string Warehouse { get; set; } = string.Empty;
     public string? PreferredBin { get; set; }
     public decimal QuantityOnHand { get; set; }

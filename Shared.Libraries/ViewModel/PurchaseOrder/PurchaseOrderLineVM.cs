@@ -9,4 +9,5 @@ public class PurchaseOrderLineVM : TransactionVM
     public int VendorBinAssignmentId { get; set; }
 
     public int NetsuiteMaterialPrefferedBinId { get; set; }
+    public decimal PhysicalQuantity { get; set; }
 }

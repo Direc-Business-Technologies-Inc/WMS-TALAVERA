@@ -26,7 +26,8 @@ public class TransferOrderIRRestletPayloadDTO
     int transferOrderId,
     int ifOrderId,
     int userId,
-    int receivingCategory)
+    int receivingCategory,
+    string remarks)
     {
         return new TransferOrderIRRestletPayloadDTO
         {

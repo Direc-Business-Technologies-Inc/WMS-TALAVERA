@@ -36,7 +36,9 @@ public partial class TOxReturnxItemFulfillmentItemView : IAsyncDisposable
     AppAction<bool> ActionSaveScan { get; set; }
 
     List<TOxItemFulfillmentLineVM> ReturnsItems = [];
+    List<TOxItemFulfillmentLineVM> FilteredReturnsItems = [];
     List<TOxItemFulfillmentLineVM> MissingReturnsItems = [];
+    TOxItemFulfillmentLineVM? LastScanned;
     List<ItemBarcodesPerUoMVM> ItemBarcodes = [];
     List<BarcodeRequestVM> ItemRequest = [];
 
@@ -51,6 +53,9 @@ public partial class TOxReturnxItemFulfillmentItemView : IAsyncDisposable
     ReceiveMode ReceiveByWeightMode = ReceiveMode.WithoutWeight;
 
     int UserId = 0;
+    string Remarks = string.Empty;
+
+    private string SearchText { get; set; } = string.Empty;
 
     protected override async Task OnInitializedAsync()
     {
@@ -106,6 +111,7 @@ public partial class TOxReturnxItemFulfillmentItemView : IAsyncDisposable
                     IsBad = false,
                 }).ToList() ?? [];
 
+                ApplySearch();
                 await InvokeAsync(StateHasChanged);
             },
         };
@@ -133,7 +139,12 @@ public partial class TOxReturnxItemFulfillmentItemView : IAsyncDisposable
             TaskAsync = async () =>
             {
                 await InvokeAsync(StateHasChanged);
-                var res = await Client.Post<bool>("/Receiving/Returns/SaveScan", new { PostReturn = ReturnsItems, TONetsuiteOrderInternalId = NetsuiteOrderInternalId, UserId });
+                var res = await Client.Post<bool>("/Receiving/Returns/SaveScan", new { 
+                    PostReturn = ReturnsItems, 
+                    TONetsuiteOrderInternalId = NetsuiteOrderInternalId, 
+                    UserId,
+                    Remarks
+                });
                 return res;
             },
             OnSuccess = async (result) =>
@@ -179,7 +190,7 @@ public partial class TOxReturnxItemFulfillmentItemView : IAsyncDisposable
         if (ReturnsItems.Count > 0 && JsObj is null)
         {
             JsObj = await Js.InvokeAsync<IJSObjectReference>("import", "./js/IntersectionObserver.js");
-            await JsObj.InvokeVoidAsync("Observe");
+            await JsObj.InvokeVoidAsync("ObserveRecentScanned");
         }
     }
 
@@ -187,6 +198,60 @@ public partial class TOxReturnxItemFulfillmentItemView : IAsyncDisposable
     {
         await ActionFactory.ExecuteAppActionAsync(ActionGetReturnsItems);
     }
+
+    #region Search
+    private async Task OnSearchInput(ChangeEventArgs args)
+    {
+        SearchText = args.Value?.ToString() ?? string.Empty;
+        ApplySearch();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task ClearSearch()
+    {
+        SearchText = string.Empty;
+        ApplySearch();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void ApplySearch()
+    {
+        if (string.IsNullOrWhiteSpace(SearchText))
+        {
+            FilteredReturnsItems = ReturnsItems.ToList();
+            return;
+        }
+
+        var search = SearchText.Trim();
+
+        FilteredReturnsItems = ReturnsItems
+            .Where(row => MatchesSearch(row, search))
+            .ToList();
+    }
+
+    private static bool MatchesSearch(TOxItemFulfillmentLineVM row, string search)
+    {
+        if (ContainsIgnoreCase(row.MaterialCode, search))
+            return true;
+
+        if (ContainsIgnoreCase(row.MaterialName, search))
+            return true;
+
+        if (ContainsIgnoreCase(row.LocationName, search))
+            return true;
+
+        if (ContainsIgnoreCase(row.UoMName, search))
+            return true;
+
+        return false;
+    }
+
+    private static bool ContainsIgnoreCase(string? source, string search)
+    {
+        return !string.IsNullOrWhiteSpace(source) &&
+               source.Contains(search, StringComparison.OrdinalIgnoreCase);
+    }
+    #endregion
 
     private async void SelectLine(TOxItemFulfillmentLineVM item)
     {
@@ -204,7 +269,8 @@ public partial class TOxReturnxItemFulfillmentItemView : IAsyncDisposable
                         { "ItemName", item.MaterialName },
                         { "PlannedQty", item.NSLineQuantityReceived },
                         { "GoodQty", item.ScannedQuantity },
-                        { "NoBad", 1}
+                        { "ShowBad", 0},
+                        { "ShowPhysical", 0}
                     },
                     new DialogOptions
                     {
@@ -319,6 +385,8 @@ public partial class TOxReturnxItemFulfillmentItemView : IAsyncDisposable
             line.ScannedQuantity += barcode.UoMRate / line.UoMRate;
             line.ScannedWeight += weight ?? 0m;
             line.ScanCount++;
+
+            LastScanned = line;
 
             ScanCount++;
             ChangeWeight = null; // reset the ChangeWeight after each scan
@@ -519,7 +587,40 @@ public partial class TOxReturnxItemFulfillmentItemView : IAsyncDisposable
             .Concat(MissingReturnsItems)
             .ToList();
 
-        await ActionFactory.ExecuteAppActionAsync(ActionSaveScan, confirm: true, showToast: true);
+        if (ReturnsItems.Count == 0)
+        {
+            await Toast.Warning("There are no scanned items to save.");
+            return;
+        }
+
+        try
+        {
+            var result = await Dialog.OpenAsync<RemarksDialog>(
+                "Add Remarks",
+                new Dictionary<string, object> { },
+                new DialogOptions
+                {
+                    ShowClose = true
+                });
+
+            if (result is RemarksDialog.RemarksResult remarksResult)
+            {
+                if (string.IsNullOrWhiteSpace(remarksResult.Remarks))
+                {
+                    await Toast.Warning($"Please add remarks.");
+                    return;
+                }
+
+                Remarks = remarksResult.Remarks;
+
+                await ActionFactory.ExecuteAppActionAsync(ActionSaveScan, confirm: true, showToast: true);
+            }
+        }
+        catch (Exception e)
+        {
+            await Toast.Error($"Error: {e.Message}");
+        }
+
 
         await InvokeAsync(StateHasChanged);
     }
@@ -594,6 +695,59 @@ public partial class TOxReturnxItemFulfillmentItemView : IAsyncDisposable
         NegateQuantity = false;
     }
 
+    private async Task Refresh()
+    {
+        // Snapshot current scanned state before refreshing
+        var scannedState = ReturnsItems
+            .GroupBy(x => new
+            {
+                x.LineSequenceNumber,
+                x.NetsuiteMaterialInternalId,
+                x.IsBad
+            })
+            .ToDictionary(
+                g => g.Key,
+                g => new
+                {
+                    ScannedQuantity = g.First().ScannedQuantity,
+                    ScannedWeight = g.First().ScannedWeight,
+                    ScanCount = g.First().ScanCount,
+                });
+
+        // Reload PO items
+        await ActionFactory.ExecuteAppActionAsync(ActionGetReturnsItems);
+
+        // Restore scanned state
+        foreach (var item in ReturnsItems)
+        {
+            var key = new
+            {
+                item.LineSequenceNumber,
+                item.NetsuiteMaterialInternalId,
+                item.IsBad
+            };
+
+            if (scannedState.TryGetValue(key, out var scanned))
+            {
+                item.ScannedQuantity = scanned.ScannedQuantity;
+                item.ScannedWeight = scanned.ScannedWeight;
+                item.ScanCount = scanned.ScanCount;
+            }
+        }
+
+        // Refresh barcode requests from the refreshed PO
+        ItemRequest = ReturnsItems
+            .Select(i => new BarcodeRequestVM
+            {
+                NetsuiteMaterialInternalId = i.NetsuiteMaterialInternalId
+            })
+            .ToList();
+
+        await ActionFactory.ExecuteAppActionAsync(ActionGetItemBarcodes);
+
+        await InvokeAsync(StateHasChanged);
+    }
+
     public async ValueTask DisposeAsync()
     {
         BroadcastService.BroadcastReceived -= HandleItemScan;
@@ -602,6 +756,7 @@ public partial class TOxReturnxItemFulfillmentItemView : IAsyncDisposable
         {
             try
             {
+                JsObj.InvokeVoidAsync("UnObserveRecentScanned");
                 await JsObj.InvokeVoidAsync("Dispose");
             }
             catch

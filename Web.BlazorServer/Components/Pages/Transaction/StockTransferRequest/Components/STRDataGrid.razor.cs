@@ -27,6 +27,8 @@ partial class STRDataGrid
     public bool ShowToSubsidiary { get; set; } = true; // lmaoooooo idc
     [Parameter]
     public bool ShowSubPurchaseCategory { get; set; } = true;
+    [Parameter]
+    public bool ShowTransferCategory { get; set; } = false;
 
     AppDataGrid<StockTransferRequestDataGridVM> DataGrid { get; set; }
     DataGridSettings DataGridSettings { get; set; }

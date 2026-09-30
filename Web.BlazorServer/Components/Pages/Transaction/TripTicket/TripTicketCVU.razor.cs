@@ -12,6 +12,7 @@ using Web.BlazorServer.Components.Custom;
 using Web.BlazorServer.Components.Shared.Abstraction;
 using Web.BlazorServer.Defaults;
 using Web.BlazorServer.Handlers.Implementations.Others;
+using Web.BlazorServer.Handlers.Implementations.Transaction.StockTransferRequest;
 using Web.BlazorServer.Handlers.Repositories.Others;
 using Web.BlazorServer.Handlers.Repositories.Transaction.TripTicket;
 using Web.BlazorServer.Helpers;
@@ -69,6 +70,7 @@ partial class TripTicketCVU
     bool IsBusy = false;
     public bool IsEditable { get; set; } = false;
     public bool CanEdit => Viewing && (FormData.Parent == 0 || FormData.Parent == null) && !IsEditable;
+    public bool CanCancel => FormData.Status == null;
 
     // --- New: tracking lists for fulfillments diffing ---
     List<ItemFulfillmentVM> OriginalFulfillments { get; set; } = new();
@@ -217,17 +219,46 @@ partial class TripTicketCVU
         });
     }
 
+    async Task CancelTripTicket()
+    {
+        IsBusy = true;
+        await InvokeAsync(StateHasChanged);
+
+        var action = await AppActionFactory.RunConfirmedAsync(async () =>
+        {
+            await TripTicketHandler.CancelTripTicketAsync(FormData);
+        }, "Submit Trip Ticket for Cancellation");
+
+        action.OnSuccess(() =>
+        {
+            NavManager.NavigateTo(NavManager.Uri, true);
+            return Task.CompletedTask;
+        });
+
+        action.OnFailure((ex) =>
+        {
+            if (ex is null) return Task.CompletedTask;
+
+            ToastService.Error(ex.Message);
+            return Task.CompletedTask;
+        });
+
+        IsBusy = false;
+        await InvokeAsync(StateHasChanged);
+    }
+
     #region Custom Functions
     async Task LoadDataAsync()
     {
         GridSettingsLoaded = true;
+        var userSubsidiary = CurrentUserService.NsSubsidiaryId;
 
         if (Creating)
         {
             await LoadSubsidiariesAsync();
             await LoadDriversAsync();
             await LoadHelpersAsync();
-            await LoadLocationsAsync();
+            await LoadLocationsAsync(userSubsidiary);
             await LoadDestLocationsAsync();
             await LoadTruckPlateNumbersAsync();
             AdaptToClone();
@@ -239,11 +270,14 @@ partial class TripTicketCVU
             await LoadSubsidiariesAsync();
             await LoadDriversAsync();
             await LoadHelpersAsync();
-            await LoadLocationsAsync();
+            await LoadLocationsAsync(userSubsidiary);
             await LoadDestLocationsAsync();
             await LoadTruckPlateNumbersAsync();
             await InitializeEditing();
         }
+
+
+        FormData.FromSubsidiary = FromSubsidiary.FirstOrDefault(x => x.NetsuiteSubsidiaryInternalId == userSubsidiary);
 
         AppBusyService.SetBusy(ActionView, false);
         await InvokeAsync(StateHasChanged);
@@ -304,9 +338,6 @@ partial class TripTicketCVU
                     SubsidiaryName = x.Name,
                 })];
 
-            var userSubsidiary = CurrentUserService.NsSubsidiaryId;
-
-            FormData.FromSubsidiary = FromSubsidiary.FirstOrDefault(x => x.NetsuiteSubsidiaryInternalId == userSubsidiary);
             return Task.CompletedTask;
         });
     }
@@ -334,7 +365,7 @@ partial class TripTicketCVU
         }
     }
 
-    public async Task OnSubsidiaryChanged(List<SubsidiaryVM>? value)
+    public async Task OnToSubsidiaryChanged(List<SubsidiaryVM>? value)
     {
         var originalValue = FormData.ToSubsidiaries;
         FormData.ToSubsidiaries = value ?? [];
@@ -342,15 +373,20 @@ partial class TripTicketCVU
         await InvokeAsync(StateHasChanged);
     }
 
-    async Task LoadLocationsAsync()
+    public async Task OnFromSubsidiaryChanged(SubsidiaryVM? value)
+    {
+        await LoadLocationsAsync(value?.NetsuiteSubsidiaryInternalId ?? 0);
+        OnFieldChanged(nameof(FormData.ToSubsidiaries));
+        await InvokeAsync(StateHasChanged);
+    }
+
+    async Task LoadLocationsAsync(int subsidiary)
     {
         var action = await AppActionFactory.RunAsync(async () =>
         {
             AppBusyService.SetBusy(ActionGetLocations, true);
 
-            var userSubsidiary = CurrentUserService.NsSubsidiaryId;
-
-            return await locationHandler.GetLocationsBySubsidiaryAsync(new() { Take = -1 }, userSubsidiary);
+            return await locationHandler.GetLocationsBySubsidiaryAsync(new() { Take = -1 }, subsidiary);
 
         }, AppActionOptionPresets.Loading(ActionGetLocations));
 

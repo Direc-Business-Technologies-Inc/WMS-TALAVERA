@@ -195,6 +195,9 @@ public class TripTicketIntegration(
                 ("tp.id", nameof(TripTicketDataGridDTO.TruckPlateNumberId)),
                 ("tp.name", nameof(TripTicketDataGridDTO.TruckPlateNumber)),
 
+                ("tt.custrecord_dbti_trt_status", nameof(TripTicketDataGridDTO.StatusId)),
+                ("BUILTIN.DF(tt.custrecord_dbti_trt_status)", nameof(TripTicketDataGridDTO.Status)),
+
                 ("tt.custrecord_dbti_destination", nameof(TripTicketDataGridDTO.DestinationIds)),
                 ("BUILTIN.DF(tt.custrecord_dbti_destination)", nameof(TripTicketDataGridDTO.Destination)),
 

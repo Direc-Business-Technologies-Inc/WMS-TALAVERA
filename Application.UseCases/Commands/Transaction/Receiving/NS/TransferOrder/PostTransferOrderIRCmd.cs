@@ -14,7 +14,7 @@ public class PostTransferOrderIRCmdHandler(INetSuiteApiClientService netSuiteApi
     {
         try
         {
-            bool result = await netSuiteApiClientService.SaveTOItemReceipt(request.Data.PostTransferOrder, request.Data.TONetsuiteOrderInternalId, request.Data.UserId);
+            bool result = await netSuiteApiClientService.SaveTOItemReceipt(request.Data.PostTransferOrder, request.Data.TONetsuiteOrderInternalId, request.Data.UserId, request.Data.Remarks);
 
             if (!result)
             {

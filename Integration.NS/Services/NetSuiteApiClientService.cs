@@ -593,7 +593,7 @@ namespace Integration.NS.Services
         }
 
         #region Receiving
-        public async Task<bool> SavePOItemReceipt(List<PostPurchaseOrderDTO> Data, int userId)
+        public async Task<bool> SavePOItemReceipt(List<PostPurchaseOrderDTO> Data, int userId, string remarks)
         {
 
             var orderId = Data.Select(x => x.NetsuiteOrderInternalId).FirstOrDefault();
@@ -605,7 +605,7 @@ namespace Integration.NS.Services
             {
                 try
                 {
-                    var payloadBad = PurchaseOrderIRPayloadDTO.CreateForItemReceipt(badPO, userId, 2);
+                    var payloadBad = PurchaseOrderIRPayloadDTO.CreateForItemReceipt(badPO, userId, 2, remarks);
 
                     var jsonStringBad = JsonSerializer.Serialize(payloadBad, JsonSerializerOption);
 
@@ -623,7 +623,7 @@ namespace Integration.NS.Services
             {
                 try
                 {
-                    var payloadGood = PurchaseOrderIRPayloadDTO.CreateForItemReceipt(goodPO, userId, 1);
+                    var payloadGood = PurchaseOrderIRPayloadDTO.CreateForItemReceipt(goodPO, userId, 1, remarks);
 
                     var jsonStringGood = JsonSerializer.Serialize(payloadGood, JsonSerializerOption);
 
@@ -638,7 +638,7 @@ namespace Integration.NS.Services
             return true;
         }
 
-        public async Task<bool> SaveTOItemReceipt(List<PostTransferOrderDTO> Data, int TONetsuiteOrderInternalId, int userId)
+        public async Task<bool> SaveTOItemReceipt(List<PostTransferOrderDTO> Data, int TONetsuiteOrderInternalId, int userId, string remarks)
         {
             var IFOrderId = Data.Select(x => x.NetsuiteOrderInternalId).FirstOrDefault();
 
@@ -650,11 +650,11 @@ namespace Integration.NS.Services
             {
                 try
                 {
-                    var payloadBad = TransferOrderIRRestletPayloadDTO.CreateForItemReceiptRestlet(badTO, TONetsuiteOrderInternalId, IFOrderId, userId, 3);
+                    var payloadBad = TransferOrderIRRestletPayloadDTO.CreateForItemReceiptRestlet(badTO, TONetsuiteOrderInternalId, IFOrderId, userId, 3, remarks);
 
                     var jsonStringBad = JsonSerializer.Serialize(payloadBad, JsonSerializerOption);
 
-                    await MakeRequestOAuth1<object>(url, jsonStringBad, HttpMethod.Post);
+                    await MakeRequest<object>(url, jsonStringBad, HttpMethod.Post);
                 }
                 catch (Exception ex)
                 {
@@ -668,11 +668,11 @@ namespace Integration.NS.Services
             {
                 try
                 {
-                    var payloadGood = TransferOrderIRRestletPayloadDTO.CreateForItemReceiptRestlet(goodTO, TONetsuiteOrderInternalId, IFOrderId, userId, 1);
+                    var payloadGood = TransferOrderIRRestletPayloadDTO.CreateForItemReceiptRestlet(goodTO, TONetsuiteOrderInternalId, IFOrderId, userId, 1, remarks);
 
                     var jsonStringGood = JsonSerializer.Serialize(payloadGood, JsonSerializerOption);
 
-                    await MakeRequestOAuth1<object>(url, jsonStringGood, HttpMethod.Post);
+                    await MakeRequest<object>(url, jsonStringGood, HttpMethod.Post);
                 }
                 catch (Exception ex)
                 {
@@ -685,11 +685,11 @@ namespace Integration.NS.Services
             {
                 try
                 {
-                    var payloadBad = TransferOrderIRRestletPayloadDTO.CreateForItemReceiptRestlet(missingTO, TONetsuiteOrderInternalId, IFOrderId, userId, 5);
+                    var payloadBad = TransferOrderIRRestletPayloadDTO.CreateForItemReceiptRestlet(missingTO, TONetsuiteOrderInternalId, IFOrderId, userId, 5, remarks);
 
                     var jsonStringBad = JsonSerializer.Serialize(payloadBad, JsonSerializerOption);
 
-                    await MakeRequestOAuth1<object>(url, jsonStringBad, HttpMethod.Post);
+                    await MakeRequest<object>(url, jsonStringBad, HttpMethod.Post);
                 }
                 catch (Exception ex)
                 {
@@ -700,7 +700,7 @@ namespace Integration.NS.Services
             return true;
         }
 
-        public async Task<bool> SaveReturnsItemReceipt(List<PostReturnsDTO> Data, int TONetsuiteOrderInternalId, int userId)
+        public async Task<bool> SaveReturnsItemReceipt(List<PostReturnsDTO> Data, int TONetsuiteOrderInternalId, int userId, string remarks)
         {
             var orderId = Data.Select(x => x.NetsuiteOrderInternalId).FirstOrDefault();
             string url = string.Format(ItemReceiptUrl + "?replace=item.inventoryDetail.inventoryAssignment", "transferOrder", TONetsuiteOrderInternalId);
@@ -715,7 +715,7 @@ namespace Integration.NS.Services
             {
                 try
                 {
-                    ReturnsIRPayloadDTO payloadGood = ReturnsIRPayloadDTO.CreateForItemReceipt(returns, receivingCategory, orderId, userId);
+                    ReturnsIRPayloadDTO payloadGood = ReturnsIRPayloadDTO.CreateForItemReceipt(returns, receivingCategory, orderId, userId, remarks);
 
                     var jsonStringGood = JsonSerializer.Serialize(payloadGood, JsonSerializerOption);
 
@@ -732,7 +732,7 @@ namespace Integration.NS.Services
             {
                 try
                 {
-                    ReturnsIRPayloadDTO payloadGood = ReturnsIRPayloadDTO.CreateForItemReceipt(missingReturns, 5, orderId, userId);
+                    ReturnsIRPayloadDTO payloadGood = ReturnsIRPayloadDTO.CreateForItemReceipt(missingReturns, 5, orderId, userId, remarks);
 
                     var jsonStringGood = JsonSerializer.Serialize(payloadGood, JsonSerializerOption);
 
@@ -865,6 +865,33 @@ namespace Integration.NS.Services
         #endregion
 
         #region TripTicket
+        public async Task<bool> CancelTripTicket(PostTripTicketDTO Data)
+        {
+            try
+            {
+                string url = TripTicketRestletUrl;
+
+                try
+                {
+                    UpdateTripTicketPayloadDTO payload = UpdateTripTicketPayloadDTO.CancelTripTicket(Data);
+
+                    var jsonStringGood = JsonSerializer.Serialize(payload, JsonSerializerOption);
+
+                    await MakeRequest<object>(url, jsonStringGood, HttpMethod.Put);
+                }
+                catch (Exception ex)
+                {
+                    throw new Exception($"Error while cancelling Trip Ticket. {ex.Message}", ex);
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                throw;
+            }
+        }
+
         public async Task<bool> UpdateTripTicket(PostTripTicketDTO Data, List<ItemFulfillmentDTO> RemovedIF, List<ItemFulfillmentDTO> AddedIF)
         {
             try
@@ -879,11 +906,11 @@ namespace Integration.NS.Services
 
                     var jsonStringGood = JsonSerializer.Serialize(payload, JsonSerializerOption);
 
-                    await MakeRequestOAuth1<object>(url, jsonStringGood, HttpMethod.Put);
+                    await MakeRequest<object>(url, jsonStringGood, HttpMethod.Put);
                 }
                 catch (Exception ex)
                 {
-                    throw new Exception($"Error while posting Trip Ticket. {ex.Message}", ex);
+                    throw new Exception($"Error while updating Trip Ticket. {ex.Message}", ex);
                 }
 
                 return true;
@@ -908,7 +935,7 @@ namespace Integration.NS.Services
 
                     var jsonStringGood = JsonSerializer.Serialize(payload, JsonSerializerOption);
 
-                    await MakeRequestOAuth1<object>(url, jsonStringGood, HttpMethod.Post);
+                    await MakeRequest<object>(url, jsonStringGood, HttpMethod.Post);
                 }
                 catch (Exception ex)
                 {
@@ -987,7 +1014,7 @@ namespace Integration.NS.Services
 
                 var jsonStringGood = JsonSerializer.Serialize(payloadGood, JsonSerializerOption);
 
-                await MakeRequestOAuth1<object>(url, jsonStringGood, HttpMethod.Post);
+                await MakeRequest<object>(url, jsonStringGood, HttpMethod.Post);
             }
             catch (Exception ex)
             {

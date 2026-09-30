@@ -7,45 +7,69 @@
 @inherits BaseComponent
 
 <RadzenStack Gap="12px" Style="">
-    <PageHeading Title="Returns" BackPath="/receiving" Click="LoadReturns" Id="@OrderNumber" />
+    <PageHeading Title="Returns" BackPath="/receiving" Click="Refresh" Id="@OrderNumber" />
     <RadzenStack id="recent-scanned" class="box-toolbar-page">
 
     </RadzenStack>
 
-    @* <RadzenStack id="recent-scanned-floating" class="recent-scanned-floating">
+    <RadzenStack id="recent-scanned-floating" class="recent-scanned-floating">
 
         <RadzenStack Visible="@(LastScanned is not null)" Style="position:relative;" class="rz-p-4" Orientation="Orientation.Horizontal">
-            <RadzenStack Gap="2px" Style="flex-grow:1;padding-right:45px !important;">
+            <RadzenStack Gap="4px">
                 <RadzenText Text="@LastScanned.MaterialName" TextStyle="TextStyle.Subtitle2" Style="font-size:.75rem" />
-                <RadzenText Text="@LastScanned.MaterialCode" TextStyle="TextStyle.Body2" Style="font-size:.65rem;color:var(--rz-text-tertiary-color);" />
-                <RadzenText Text="@LastScanned.VendorName" TextStyle="TextStyle.Subtitle2" Style="font-size:.6rem" />
+                <RadzenText Text="@LastScanned.LocationName" TextStyle="TextStyle.Subtitle2" Style="font-size:.6rem" />
+                <RadzenText Text="@($"{LastScanned.ScannedWeight}kg")" TextStyle="TextStyle.Subtitle2" Style="font-size:.6rem" />
             </RadzenStack>
 
             <RadzenStack Gap="0" Style="position:absolute;right:0;top:0;width:max-content;height:100%;overflow:clip" AlignItems="AlignItems.End">
-                @{
-                    bool isFulfilled = LastScanned.ScannedQuantity > 0 && LastScanned.LineQuantity == LastScanned.ScannedQuantity;
-                }
-                <RadzenStack Style="flex-grow:1;width:45px;position:relative"
-                             class="@($"{(isFulfilled ? "rz-background-color-success" : "rz-background-color-warning")}")">
-                    <RadzenText Text="@(LastScanned.ScannedQuantity.ToString())" Style="font-size:1.25rem;font-weight:500;" class="@($"absolute-center {(isFulfilled ? "rz-color-white" : "")}")" />
+
+                <RadzenStack Style="flex-grow:1"
+                             class="@($"dynamic-qty-box {(LastScanned.AlreadyReceived ? "rz-background-color-success" : "rz-background-color-warning")}")">
+                    <RadzenText Text="@FormatQuantity(LastScanned.ScannedQuantity)"
+                                Style="font-size:1.25rem;font-weight:500;"
+                                class="@($"dynamic-qty-text {(LastScanned.AlreadyReceived ? "rz-color-white" : "")}")" />
                 </RadzenStack>
-                <RadzenStack Style="flex-grow:1;width:45px;position:relative;"
-                             class="rz-background-color-base-200">
-                    <RadzenText Text="@(LastScanned.LineQuantity.ToString())" Style="font-size:1.25rem;font-weight:500;" class="absolute-center" />
+                <RadzenStack Style="flex-grow:1;"
+                             class="dynamic-qty-box rz-background-color-base-200">
+                    <RadzenText Text="@FormatQuantity(LastScanned.NSLineQuantityReceived)"
+                                Style="font-size:1.25rem;font-weight:500;"
+                                class="dynamic-qty-text" />
                 </RadzenStack>
+            </RadzenStack>
+            <RadzenStack Orientation="Orientation.Horizontal"
+                         Gap="6px"
+                         Style="position:absolute;left:16px;bottom:8px;align-items:center;">
+
+                <RadzenBadge BadgeStyle="@(LastScanned.IsBad? BadgeStyle.Danger: BadgeStyle.Success)"
+                             Text="@(LastScanned.IsBad ? "Bad" : "Good")" />
+
+                <RadzenBadge BadgeStyle="BadgeStyle.Info"
+                             Text="Last Scanned" />
 
             </RadzenStack>
-            <RadzenBadge Style="position:absolute;right:16px;bottom:16px;right:55px;" BadgeStyle="BadgeStyle.Info" Text="Last Scanned"></RadzenBadge>
-
-            <RadzenBadge Style="position:absolute;left:16px;bottom:8px;" BadgeStyle="@(LastScanned.IsBad? BadgeStyle.Danger: BadgeStyle.Success)" Text="@(LastScanned.IsBad ? "Bad" : "Good")" />
         </RadzenStack>
+    </RadzenStack>
 
-    </RadzenStack> *@
+    <RadzenStack Gap="8px" class="rz-px-2 rz-mb-2">
+        <RadzenTextBox Value="@SearchText"
+                       Placeholder="Search by material code, name, location or UoM.."
+                       Style="width:100%;"
+                       @oninput="@OnSearchInput" />
+
+        @if (!string.IsNullOrWhiteSpace(SearchText))
+        {
+            <RadzenButton Text="Clear Search"
+                          Icon="close"
+                          ButtonStyle="ButtonStyle.Base"
+                          Size="ButtonSize.Small"
+                          Click="@ClearSearch" />
+        }
+    </RadzenStack>
 
     <Loading IsLoading="ActionGetReturnsItems.Busy" Text="Loading RTS Items...">
         <ChildContent>
             <RadzenStack>
-                <RadzenDataList TItem="TOxItemFulfillmentLineVM" Data="ReturnsItems.Where(x => x.NSLineQuantityReceived != 0)" Style="margin-bottom:200px">
+                <RadzenDataList TItem="TOxItemFulfillmentLineVM" Data="FilteredReturnsItems.Where(x => x.NSLineQuantityReceived != 0)" Style="margin-bottom:200px">
                     <Template Context="row">
                         <RadzenStack Style="position:relative;overflow:clip !important;" class="@(IsSelected(row) ? "rz-p-2 selected-row" : "rz-p-2")" Orientation="Orientation.Horizontal"
                                      @onclick="@(() => SelectLine(row))">
