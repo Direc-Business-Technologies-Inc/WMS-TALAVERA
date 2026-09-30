@@ -15,6 +15,7 @@ public class StockTransferRequestLineDTO
     public string ItemDescription { get; set; } = string.Empty;
     public ItemUnitDTO? UoM { get; set; } = null;
     public string Warehouse { get; set; } = string.Empty;
+    public string? PreferredBin { get; set; }
     public decimal QuantityOnHand { get; set; }
     public decimal QuantityAlloted { get; set; }
 }

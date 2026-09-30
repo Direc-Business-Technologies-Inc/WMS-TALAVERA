@@ -11,6 +11,7 @@ public class ItemsVM
     public decimal Weight { get; set; } 
     public decimal QuantityOnHand { get; set; }
     public decimal QuantityAvailable { get; set; }
+    public string? PreferredBin { get; set; }
     public ItemUnitVM PurchaseUnit { get; set; } = new();
     public ItemUnitVM StockUnit { get; set; } = new(); 
     public ItemUnitVM SaleUnit { get; set; } = new();

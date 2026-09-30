@@ -230,6 +230,14 @@
                         Type="@typeof(string)"
                         Title="Warehouse"/>
 
+                        <RadzenDataGridColumn TItem="StockTransferRequestLineVM"
+                        Property="@nameof(StockTransferRequestLineVM.PreferredBin)"
+                        Title="Preferred Bin">
+                            <Template Context="data">
+                                @(string.IsNullOrWhiteSpace(data.PreferredBin) ? "Not set" : data.PreferredBin)
+                            </Template>
+                        </RadzenDataGridColumn>
+
                         @* Show Onhand Rather than Available for Stock Transfer *@
                         <RadzenDataGridColumn TItem="StockTransferRequestLineVM"
                         Property="@nameof(StockTransferRequestLineVM.QuantityOnHandByUoM)"

@@ -685,13 +685,15 @@ public class ReceivingIntegration(
                 ("uom.unitName", nameof(BarcodeNSDTO.UoMName)),
                 ("uom.conversionRate", nameof(BarcodeNSDTO.UoMRate)),
                 ("ail.quantityonhand", nameof(BarcodeNSDTO.QuantityOnHand)),
-                ("ail.quantityavailable", nameof(BarcodeNSDTO.QuantityAvailable))
+                ("ail.quantityavailable", nameof(BarcodeNSDTO.QuantityAvailable)),
+                ("pb.binnumber", nameof(BarcodeNSDTO.PreferredBin))
             )
             .From("CUSTOMRECORD_BARCODE_PER_UOM b")
             .Join("unitstypeuom uom", on: "b.custrecord_bpu_uom = uom.internalid")
             .Join("item", "item.id = b.custrecord_bpu_item")
             .LeftJoin("aggregateitemlocation ail", on: "ail.item = item.id")
             .LeftJoin("location loc", on: "ail.location = loc.id")
+            .LeftJoin($"{SuiteQLFragments.PreferredBin(location)} pb", on: "pb.item = item.id AND pb.location = loc.id")
             .WithFilters(
                 Equal("b.name", barcode),
                 Equal("loc.id", location)
@@ -711,6 +713,7 @@ public class ReceivingIntegration(
                 Weight = barcodeData.ItemWeight,
                 QuantityAvailable = barcodeData.QuantityAvailable,
                 QuantityOnHand = barcodeData.QuantityOnHand,
+                PreferredBin = barcodeData.PreferredBin,
             },
             UoM = new()
             {

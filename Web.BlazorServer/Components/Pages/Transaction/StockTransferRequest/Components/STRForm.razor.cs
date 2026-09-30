@@ -128,7 +128,8 @@ public partial class STRForm
                 ItemCode = item.ItemNumber,
                 ItemDescription = item.Name,
                 Warehouse = Model.SourceLocation?.Name ?? string.Empty,
-                UoM = item.StockUnit,
+                PreferredBin = item.PreferredBin,
+                UoM = item.PurchaseUnit,
                 QuantityOnHand = item.QuantityOnHand,
                 QuantityAvailable = item.QuantityAvailable,
                 QuantityAlloted = 0
@@ -356,6 +357,7 @@ public partial class STRForm
             var item = itemsById[line.ItemId];
 
             line.Warehouse = Model.SourceLocation?.Name ?? string.Empty;
+            line.PreferredBin = item.PreferredBin;
             line.QuantityOnHand = item.QuantityOnHand;
             line.QuantityAvailable = item.QuantityAvailable;
         }
@@ -496,6 +498,7 @@ public partial class STRForm
                     ItemCode = item.ItemNumber,
                     ItemDescription = item.Name,
                     Warehouse = Model.SourceLocation?.Name ?? string.Empty,
+                    PreferredBin = item.PreferredBin,
                     UoM = targetUom,
                     QuantityOnHand = item.QuantityOnHand,
                     QuantityAvailable = item.QuantityAvailable,

@@ -224,6 +224,7 @@ internal class StockTransferRequestIntegration(
                 ("uom.internalid", nameof(StockTransferRequestLineNSDTO.UoMId)),
                 ("uom.conversionrate", nameof(StockTransferRequestLineNSDTO.UoMRate)),
                 ("BUILTIN.DF(ml.location)", nameof(StockTransferRequestLineNSDTO.Warehouse)),
+                ("pb.binnumber", nameof(StockTransferRequestLineNSDTO.PreferredBin)),
                 ("item.displayname", nameof(StockTransferRequestLineNSDTO.ItemDescription)),
                 ("tl.linesequencenumber", nameof(StockTransferRequestLineNSDTO.LineNumber)),
                 ("(iil.quantityavailable / uom.conversionrate)", nameof(StockTransferRequestLineNSDTO.QuantityOnHand)),
@@ -235,6 +236,7 @@ internal class StockTransferRequestIntegration(
             .Join("unitsTypeUom uom", on: "tl.units = uom.internalid")
             .Join("transactionline ml", on: "ml.transaction = t.id AND ml.mainline = 'T'")
             .Join("inventoryitemlocations iil", on: "tl.item = iil.item AND ml.location = iil.location")
+            .LeftJoin($"{SuiteQLFragments.PreferredBin()} pb", on: "pb.item = item.id AND pb.location = ml.location")
             .WithFilters(
                 DataGridFilterUtilities.Equal("tl.transactionlinetype", "ITEM"),
                 DataGridFilterUtilities.In("t.recordtype", new string[] { "intercompanytransferorder", "transferorder" }),
