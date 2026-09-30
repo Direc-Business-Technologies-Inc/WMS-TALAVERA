@@ -17,6 +17,7 @@ public class BarcodeNSDTO
     public string UoMName { get; set; } = string.Empty;
     public decimal QuantityOnHand { get; set; }
     public decimal QuantityAvailable { get; set; }
+    public string? PreferredBin { get; set; }
     public decimal UoMRate { get; set; }
     public int UoMId { get; set; }
 }

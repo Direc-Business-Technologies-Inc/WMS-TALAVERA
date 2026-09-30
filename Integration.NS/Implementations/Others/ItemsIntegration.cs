@@ -1,6 +1,7 @@
 ﻿using Application.DataTransferObjects.Others;
 using Application.UseCases.Repositories.Integration.Others;
 using Integration.NS.DataTransferObjects.Others;
+using Integration.NS.Helpers;
 using Integration.NS.Services;
 using Mapster;
 using Shared.Entities;
@@ -72,8 +73,9 @@ public class ItemsIntegration(
                 ("u1.conversionrate", nameof(ItemsNSDTO.SaleUnitRate)),
                 ("u2.conversionrate", nameof(ItemsNSDTO.StockUnitRate)),
                 ("u3.conversionrate", nameof(ItemsNSDTO.PurchaseUnitRate)),
-                ("ail.quantityonhand", nameof(ItemsDTO.QuantityOnHand)),
-                ("ail.quantityavailable", nameof(ItemsDTO.QuantityAvailable))
+                ("ail.quantityonhand", nameof(ItemsNSDTO.QuantityOnHand)),
+                ("ail.quantityavailable", nameof(ItemsNSDTO.QuantityAvailable)),
+                ("pb.binnumber", nameof(ItemsNSDTO.PreferredBin))
             )
             .From("item i")
             .LeftJoin("aggregateitemlocation ail", on:"ail.item = i.id")
@@ -81,11 +83,13 @@ public class ItemsIntegration(
             .LeftJoin("unitsTypeUom u1", on: "u1.internalid = i.saleunit")
             .LeftJoin("unitsTypeUom u2", on: "u2.internalid = i.stockunit")
             .LeftJoin("unitsTypeUom u3", on: "u3.internalid = i.purchaseunit")
+            .LeftJoin($"{SuiteQLFragments.PreferredBin(location)} pb", on: "pb.item = i.id")
             .WithFilter(DataGridFilterUtilities.Equal("loc.id", location))
             .WithDatagridIntent(intent)
             .Build();
 
         var result = await netsuiteService.ExecuteSuiteQLQuery<ItemsNSDTO>(query.Query, query.Limit, query.Offset);
+
         return (result.items.Select(ConvertItemNSDTO), result.totalResults);
     }
 
@@ -118,6 +122,7 @@ public class ItemsIntegration(
             .Build();
 
         var result = await netsuiteService.ExecuteSuiteQLQuery<ItemsNSDTO>(query.Query, query.Limit, query.Offset);
+
         return (result.items.Select(ConvertItemNSDTO), result.totalResults);
     }
 

@@ -17,6 +17,7 @@ public class StockTransferRequestLineNSDTO
     public int UoMId { get; set; }
     public decimal UoMRate { get; set; }
     public string Warehouse { get; set; } = string.Empty;
+    public string? PreferredBin { get; set; }
     public decimal QuantityOnHand { get; set; }
     public decimal QuantityAlloted { get; set; }
 }

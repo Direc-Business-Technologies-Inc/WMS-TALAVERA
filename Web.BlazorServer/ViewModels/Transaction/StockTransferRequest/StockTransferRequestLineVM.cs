@@ -11,6 +11,7 @@ public class StockTransferRequestLineVM
     public ItemUnitVM? UoM { get; set; }
     public VendorVM Vendor { get; set; } = new();
     public string Warehouse { get; set; } = string.Empty;
+    public string? PreferredBin { get; set; }
     public decimal QuantityOnHand { get; set; }
     public decimal QuantityAvailable { get; set; }
     public decimal QuantityOnHandByUoM => QuantityOnHand / (UoM?.ConversionRate ?? 1);
