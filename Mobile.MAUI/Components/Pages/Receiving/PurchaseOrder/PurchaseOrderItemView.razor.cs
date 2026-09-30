@@ -266,7 +266,7 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
                 "import",
                 "./js/IntersectionObserver.js");
 
-            await JsObj.InvokeVoidAsync("Observe");
+            await JsObj.InvokeVoidAsync("ObserveRecentScanned");
         }
     }
 
@@ -1207,6 +1207,7 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
         {
             try
             {
+                JsObj.InvokeVoidAsync("UnObserveRecentScanned");
                 await JsObj.InvokeVoidAsync("Dispose");
             }
             catch

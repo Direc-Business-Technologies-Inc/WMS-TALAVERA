@@ -176,7 +176,7 @@ public partial class ReturnsItemView : IAsyncDisposable
         if (ReturnsItems.Count > 0 && JsObj is null)
         {
             JsObj = await Js.InvokeAsync<IJSObjectReference>("import", "./js/IntersectionObserver.js");
-            await JsObj.InvokeVoidAsync("Observe");
+            await JsObj.InvokeVoidAsync("ObserveRecentScanned");
         }
     }
 
@@ -607,6 +607,7 @@ public partial class ReturnsItemView : IAsyncDisposable
         {
             try
             {
+                JsObj.InvokeVoidAsync("UnObserveRecentScanned");
                 await JsObj.InvokeVoidAsync("Dispose");
             }
             catch

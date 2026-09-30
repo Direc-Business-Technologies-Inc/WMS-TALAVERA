@@ -36,7 +36,17 @@
                                 class="dynamic-qty-text" />
                 </RadzenStack>
             </RadzenStack>
-            <RadzenBadge Style="position:absolute;right:16px;bottom:16px;right:55px;" BadgeStyle="BadgeStyle.Info" Text="Last Scanned"></RadzenBadge>
+            <RadzenStack Orientation="Orientation.Horizontal"
+                         Gap="6px"
+                         Style="position:absolute;left:16px;bottom:8px;align-items:center;">
+
+                <RadzenBadge BadgeStyle="@(LastScanned.IsBad? BadgeStyle.Danger: BadgeStyle.Success)"
+                             Text="@(LastScanned.IsBad ? "Bad" : "Good")" />
+
+                <RadzenBadge BadgeStyle="BadgeStyle.Info"
+                             Text="Last Scanned" />
+
+            </RadzenStack>
         </RadzenStack>
     </RadzenStack>
 

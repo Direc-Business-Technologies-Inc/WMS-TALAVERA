@@ -29,7 +29,7 @@ public partial class TransferOrderItemView : IAsyncDisposable
     List<TransferOrderLineVM> FilteredGoodTOItems = [];
     List<TransferOrderLineVM> FilteredBadTOItems = [];
 
-    TransferOrderLineVM LastScanned = new();
+    TransferOrderLineVM? LastScanned;
     List<ItemBarcodesPerUoMVM> ItemBarcodes = [];
     List<BarcodeRequestVM> ItemRequest = [];
 
@@ -234,7 +234,7 @@ public partial class TransferOrderItemView : IAsyncDisposable
         if (TOItems.Count > 0 && JsObj is null)
         {
             JsObj = await Js.InvokeAsync<IJSObjectReference>("import", "./js/IntersectionObserver.js");
-            await JsObj.InvokeVoidAsync("Observe");
+            await JsObj.InvokeVoidAsync("ObserveRecentScanned");
         }
     }
 
@@ -983,6 +983,7 @@ public partial class TransferOrderItemView : IAsyncDisposable
         {
             try
             {
+                JsObj.InvokeVoidAsync("UnObserveRecentScanned");
                 await JsObj.InvokeVoidAsync("Dispose");
             }
             catch

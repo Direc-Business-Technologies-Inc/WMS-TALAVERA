@@ -24,8 +24,8 @@
         <RadzenStack Visible="@(LastScanned is not null)" Style="position:relative;" class="rz-p-4" Orientation="Orientation.Horizontal">
             <RadzenStack Gap="4px">
                 <RadzenText Text="@LastScanned.MaterialName" TextStyle="TextStyle.Subtitle2" Style="font-size:.75rem" />
-                <RadzenText Text="@LastScanned.LocationName" TextStyle="TextStyle.Subtitle2" Style="font-size:.6rem" />
-                <RadzenText Text="@LastScanned.UoMName" TextStyle="TextStyle.Subtitle2" Style="font-size:.6rem" />
+                <RadzenText Text="@LastScanned.VendorName" TextStyle="TextStyle.Subtitle2" Style="font-size:.6rem" />
+                <RadzenText Text="@($"{LastScanned.ScannedWeight}kg")" TextStyle="TextStyle.Subtitle2" Style="font-size:.6rem" />
             </RadzenStack>
 
             <RadzenStack Gap="0" Style="position:absolute;right:0;top:0;width:max-content;height:100%;overflow:clip" AlignItems="AlignItems.End">
@@ -43,8 +43,17 @@
                                 class="dynamic-qty-text" />
                 </RadzenStack>
             </RadzenStack>
-            <RadzenBadge Style="position:absolute;right:16px;bottom:16px;right:55px;" BadgeStyle="BadgeStyle.Info" Text="Last Scanned"></RadzenBadge>
-            <RadzenBadge Style="position:absolute;left:16px;bottom:8px;" BadgeStyle="@(LastScanned.IsBad? BadgeStyle.Danger: BadgeStyle.Success)" Text="@(LastScanned.IsBad ? "Bad" : "Good")" />
+            <RadzenStack Orientation="Orientation.Horizontal"
+                         Gap="6px"
+                         Style="position:absolute;left:16px;bottom:8px;align-items:center;">
+
+                <RadzenBadge BadgeStyle="@(LastScanned.IsBad? BadgeStyle.Danger: BadgeStyle.Success)"
+                             Text="@(LastScanned.IsBad ? "Bad" : "Good")" />
+
+                <RadzenBadge BadgeStyle="BadgeStyle.Info"
+                             Text="Last Scanned" />
+
+            </RadzenStack>
         </RadzenStack>
 
     </RadzenStack>

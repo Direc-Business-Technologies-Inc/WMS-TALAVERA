@@ -223,7 +223,7 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
         if (GoodVRAItems.Count > 0 && JsObj is null)
         {
             JsObj = await Js.InvokeAsync<IJSObjectReference>("import", "./js/IntersectionObserver.js");
-            await JsObj.InvokeVoidAsync("Observe");
+            await JsObj.InvokeVoidAsync("ObserveRecentScanned");
         }
     }
 
@@ -971,6 +971,7 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
         {
             try
             {
+                JsObj.InvokeVoidAsync("UnObserveRecentScanned");
                 await JsObj.InvokeVoidAsync("Dispose");
             }
             catch
