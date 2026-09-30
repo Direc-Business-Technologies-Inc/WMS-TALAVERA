@@ -40,6 +40,11 @@ public class TripTicketHandler(ISender Sender) : ITripTicketHandler
             Id = response.NetsuiteTripTicketInternalId,
             TripDate = response.TripDate,
             TruckSeal = response.TruckSeal,
+
+            Status = string.IsNullOrWhiteSpace(response.Status)
+                ? null
+                : new StatusVM { NetsuiteStatusInternalId = response.StatusId, Name = response.Status },
+
             ToSubsidiaries = string.IsNullOrWhiteSpace(response.ToSubsidiaryIds)
             ? []
             : response.ToSubsidiaryIds
@@ -206,7 +211,13 @@ public class TripTicketHandler(ISender Sender) : ITripTicketHandler
         );
 
         var result = await Sender.Send(cmd);
+        return result.Success && result.Data == true;
+    }
 
+    public async Task<bool> CancelTripTicketAsync(TripTicketVM data)
+    {
+        CancelTripTciketCmd cmd = new(data.Adapt<PostTripTicketDTO>());
+        var result = await Sender.Send(cmd);
         return result.Success && result.Data == true;
     }
 }

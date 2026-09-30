@@ -585,7 +585,7 @@ public class ReceivingIntegration(
                 else
                 {
                     tasks.Add(
-                        netsuiteService.MakeRequestOAuth1<object>(
+                        netsuiteService.MakeRequest<object>(
                             uri,
                             payload,
                             HttpMethod.Post));
@@ -951,6 +951,7 @@ public class ReceivingIntegration(
                         itemreceive = isItemReceived,
                         orderLine = line.LineNumber,
                         quantity = isItemReceived ? lineQuantity : (decimal?)null,
+                        custcol_dbti_actual_qty = line.TotalConfiscated,
                         custcol_dbti_actual_weight = isItemReceived ? line.WeightActual : (decimal?)null,
                         rate = isItemReceived && isGood ? (decimal?)null : 0,
                         inventoryDetail = isItemReceived ? new

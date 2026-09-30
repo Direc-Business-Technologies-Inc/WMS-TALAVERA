@@ -24,8 +24,8 @@
         <Loading IsLoading="@ActionGetReturns.Busy" Text="Loading Returns..">
             <ChildContent>
                 <RadzenStack>
-                    <EmptyListTemplate ReloadCallback="LoadData" Visible="@(Data.Count == 0)" />
-                    <RadzenDataList Data="@(Data ?? Enumerable.Empty<ReturnsVM>())"
+                    <EmptyListTemplate ReloadCallback="LoadData" Visible="@(FilteredData.Count == 0)" />
+                    <RadzenDataList Data="@(FilteredData ?? Enumerable.Empty<ReturnsVM>())"
                                     TItem="ReturnsVM"
                                     class="trans-list">
                         <Template Context="row">

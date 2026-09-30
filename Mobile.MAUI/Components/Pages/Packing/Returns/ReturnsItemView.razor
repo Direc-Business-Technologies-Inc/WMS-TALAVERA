@@ -6,18 +6,64 @@
 @inherits BaseComponent
 
 <RadzenStack Gap="12px" Style="">
-    <PageHeading Title="Returns" BackPath="/packing" Click="LoadReturns" Id="@OrderNumber" />
+    <PageHeading Title="Returns" BackPath="/packing" Click="Refresh" Id="@OrderNumber" />
     <RadzenStack id="recent-scanned" class="box-toolbar-page">
 
+    </RadzenStack>
+
+    <RadzenStack id="recent-scanned-floating" class="recent-scanned-floating">
+
+        <RadzenStack Visible="@(LastScanned is not null)" Style="position:relative;" class="rz-p-4" Orientation="Orientation.Horizontal">
+            <RadzenStack Gap="4px">
+                <RadzenText Text="@LastScanned.MaterialName" TextStyle="TextStyle.Subtitle2" Style="font-size:.75rem" />
+                <RadzenText Text="@LastScanned.LocationName" TextStyle="TextStyle.Subtitle2" Style="font-size:.6rem" />
+                <RadzenText Text="@LastScanned.UoMName" TextStyle="TextStyle.Subtitle2" Style="font-size:.6rem" />
+                <RadzenText Text="@($"Available Qty: {(LastScanned.TransferCategory == 3 ? LastScanned.GoodPerUomRate : LastScanned.BadPerUomRate)}")" TextStyle="TextStyle.Subtitle2" Style="font-size:.6rem" />
+            </RadzenStack>
+
+            <RadzenStack Gap="0" Style="position:absolute;right:0;top:0;width:max-content;height:100%;overflow:clip" AlignItems="AlignItems.End">
+
+                <RadzenStack Style="flex-grow:1"
+                             class="@($"dynamic-qty-box {(LastScanned.AlreadyPacked ? "rz-background-color-success" : "rz-background-color-warning")}")">
+                    <RadzenText Text="@FormatQuantity(LastScanned.ScannedQuantity)"
+                                Style="font-size:1.25rem;font-weight:500;"
+                                class="@($"dynamic-qty-text {(LastScanned.AlreadyPacked ? "rz-color-white" : "")}")" />
+                </RadzenStack>
+                <RadzenStack Style="flex-grow:1;"
+                             class="dynamic-qty-box rz-background-color-base-200">
+                    <RadzenText Text="@FormatQuantity(LastScanned.NSLineQuantityPacked)"
+                                Style="font-size:1.25rem;font-weight:500;"
+                                class="dynamic-qty-text" />
+                </RadzenStack>
+            </RadzenStack>
+            <RadzenBadge Style="position:absolute;right:16px;bottom:16px;right:55px;" BadgeStyle="BadgeStyle.Info" Text="Last Scanned"></RadzenBadge>
+        </RadzenStack>
     </RadzenStack>
 
     <Loading IsLoading="ActionGetReturnsItems.Busy" Text="Loading TO Items...">
         <ChildContent>
             <RadzenStack>
+
+                <RadzenStack Gap="8px" class="rz-px-2 rz-mb-2">
+                    <RadzenTextBox Value="@SearchText"
+                                   Placeholder="Search by material code or name.."
+                                   Style="width:100%;"
+                                   @oninput="@OnSearchInput" />
+
+                    @if (!string.IsNullOrWhiteSpace(SearchText))
+                    {
+                        <RadzenButton Text="Clear Search"
+                                      Icon="close"
+                                      ButtonStyle="ButtonStyle.Base"
+                                      Size="ButtonSize.Small"
+                                      Click="@ClearSearch" />
+                    }
+                </RadzenStack>
+
                 <RadzenTabs @bind-SelectedIndex="ActiveTabIndex">
                     <Tabs>
                         <RadzenTabsItem Text="Returns">
-                            <RadzenDataList TItem="ReturnsLineVM" Data="ReturnsItems.Where(x => x.NSLineQuantityPacked != 0)" Style="margin-bottom:200px">
+                            <RadzenDataList TItem="ReturnsLineVM" Data="FilteredReturnsItems.Where(x => x.NSLineQuantityPacked != 0)" Style="margin-bottom:200px">
                                 <Template Context="row">
                                     <RadzenStack Style="position:relative;overflow:clip !important;" class="@(IsSelected(row) ? "rz-p-2 selected-row" : "rz-p-2")" Orientation="Orientation.Horizontal"
                                                  @onclick="@(() => SelectLine(row))">
@@ -51,7 +97,7 @@
                         @if (HasBackorderItems)
                         {
                             <RadzenTabsItem Text="BackOrdered">
-                                <RadzenDataList TItem="ReturnsLineVM" Data="ReturnsItems.Where(x => x.LineQuantityBackOrdered > 0)" Style="margin-bottom:200px">
+                                <RadzenDataList TItem="ReturnsLineVM" Data="FilteredReturnsItems.Where(x => x.LineQuantityBackOrdered > 0)" Style="margin-bottom:200px">
                                     <Template Context="row">
                                         <RadzenStack Style="position:relative;overflow:clip !important;" class="rz-p-2" ) Orientation="Orientation.Horizontal">
 

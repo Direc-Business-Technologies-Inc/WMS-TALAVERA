@@ -23,11 +23,12 @@ public interface INetSuiteApiClientService : INotifyPropertyChanged
     Task<bool> SaveVRAItemFulfillment(List<PostVendorReturnAuthorizationDTO> Data);
 
     Task<bool> UpdateTripTicket(PostTripTicketDTO Data, List<ItemFulfillmentDTO> RemovedIF, List<ItemFulfillmentDTO> AddedIF);
+    Task<bool> CancelTripTicket(PostTripTicketDTO Data);
     Task<bool> SaveTripTicket(PostTripTicketDTO Data);
 
-    Task<bool> SavePOItemReceipt(List<PostPurchaseOrderDTO> Data, int userId);
-    Task<bool> SaveTOItemReceipt(List<PostTransferOrderDTO> Data, int TONetsuiteOrderInternalId, int userId);
-    Task<bool> SaveReturnsItemReceipt(List<PostReturnsDTO> Data, int TONetsuiteOrderInternalId, int userId);
+    Task<bool> SavePOItemReceipt(List<PostPurchaseOrderDTO> Data, int userId, string remarks);
+    Task<bool> SaveTOItemReceipt(List<PostTransferOrderDTO> Data, int TONetsuiteOrderInternalId, int userId, string remarks);
+    Task<bool> SaveReturnsItemReceipt(List<PostReturnsDTO> Data, int TONetsuiteOrderInternalId, int userId, string remarks);
 
     Task<bool> PatchInventoryCounting(List<PatchInventoryCountingDTO> Data);
     Task<bool> PostInventoryWorksheet(List<InventoryWorksheetLineDTO> Data, int Location, int Subsidiary);

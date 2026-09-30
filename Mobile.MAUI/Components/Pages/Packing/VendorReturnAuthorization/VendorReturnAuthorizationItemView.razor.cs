@@ -25,6 +25,11 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
 
     List<VendorReturnAuthorizationLineVM> GoodVRAItems = [];
     List<VendorReturnAuthorizationLineVM> BadVRAItems = [];
+
+    List<VendorReturnAuthorizationLineVM> FilteredGoodVRAItems = [];
+    List<VendorReturnAuthorizationLineVM> FilteredBadVRAItems = [];
+
+    VendorReturnAuthorizationLineVM? LastScanned;
     List<ItemBarcodesPerUoMVM> ItemBarcodes = [];
     List<BarcodeRequestVM> ItemRequest = [];
 
@@ -42,6 +47,8 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
     //bool IsWeightDialogOpen = false; // Commented out: Weighing feature
 
     //decimal? ChangeWeight = null; // Commented out: Weighing feature
+
+    private string SearchText { get; set; } = string.Empty;
 
     protected override async Task OnInitializedAsync()
     {
@@ -152,6 +159,7 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
                     IsBad = true,
                 }).ToList() ?? [];
 
+                ApplySearch();
                 await InvokeAsync(StateHasChanged);
             },
         };
@@ -223,6 +231,65 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
     {
         await ActionFactory.ExecuteAppActionAsync(ActionGetVRAItems);
     }
+
+    #region Search
+    private async Task OnSearchInput(ChangeEventArgs args)
+    {
+        SearchText = args.Value?.ToString() ?? string.Empty;
+        ApplySearch();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task ClearSearch()
+    {
+        SearchText = string.Empty;
+        ApplySearch();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void ApplySearch()
+    {
+        if (string.IsNullOrWhiteSpace(SearchText))
+        {
+            FilteredGoodVRAItems = GoodVRAItems.ToList();
+            FilteredBadVRAItems = BadVRAItems.ToList();
+            return;
+        }
+
+        var search = SearchText.Trim();
+
+        FilteredGoodVRAItems = GoodVRAItems
+            .Where(row => MatchesSearch(row, search))
+            .ToList();
+
+        FilteredBadVRAItems = BadVRAItems
+            .Where(row => MatchesSearch(row, search))
+            .ToList();
+    }
+
+    private static bool MatchesSearch(VendorReturnAuthorizationLineVM row, string search)
+    {
+        if (ContainsIgnoreCase(row.MaterialCode, search))
+            return true;
+
+        if (ContainsIgnoreCase(row.MaterialName, search))
+            return true;
+
+        if (ContainsIgnoreCase(row.LocationName, search))
+            return true;
+
+        if (ContainsIgnoreCase(row.UoMName, search))
+            return true;
+
+        return false;
+    }
+
+    private static bool ContainsIgnoreCase(string? source, string search)
+    {
+        return !string.IsNullOrWhiteSpace(source) &&
+               source.Contains(search, StringComparison.OrdinalIgnoreCase);
+    }
+    #endregion
 
     private async void SelectGoodLine(VendorReturnAuthorizationLineVM item)
     {
@@ -413,6 +480,8 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
                 badLine.ScannedQuantity += barcode.UoMRate / badLine.UoMRate;
                 //badLine.ScannedWeight += ChangeWeight ?? 0m;
                 badLine.ScanCount++;
+
+                LastScanned = badLine;
             }
             else
             {
@@ -442,6 +511,8 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
                 goodLine.ScannedQuantity += barcode.UoMRate / goodLine.UoMRate;
                 //goodLine.ScannedWeight += weight ?? 0m;
                 goodLine.ScanCount++;
+
+                LastScanned = goodLine;
             }
 
             ScanCount++;
@@ -837,6 +908,60 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
     //        IsWeightDialogOpen = false;
     //    }
     //}
+
+    private async Task Refresh()
+    {
+        // Snapshot current scanned state before refreshing
+        var scannedState = GoodVRAItems
+            .Concat(BadVRAItems)
+            .GroupBy(x => new
+            {
+                x.LineSequenceNumber,
+                x.NetsuiteMaterialInternalId,
+                x.IsBad
+            })
+            .ToDictionary(
+                g => g.Key,
+                g => new
+                {
+                    ScannedQuantity = g.First().ScannedQuantity,
+                    ScannedWeight = g.First().ScannedWeight,
+                    ScanCount = g.First().ScanCount
+                });
+
+        // Reload PO items
+        await ActionFactory.ExecuteAppActionAsync(ActionGetVRAItems);
+
+        // Restore scanned state
+        foreach (var item in GoodVRAItems.Concat(BadVRAItems))
+        {
+            var key = new
+            {
+                item.LineSequenceNumber,
+                item.NetsuiteMaterialInternalId,
+                item.IsBad
+            };
+
+            if (scannedState.TryGetValue(key, out var scanned))
+            {
+                item.ScannedQuantity = scanned.ScannedQuantity;
+                item.ScannedWeight = scanned.ScannedWeight;
+                item.ScanCount = scanned.ScanCount;
+            }
+        }
+
+        // Refresh barcode requests from the refreshed VRA
+        ItemRequest = GoodVRAItems
+            .Select(i => new BarcodeRequestVM
+            {
+                NetsuiteMaterialInternalId = i.NetsuiteMaterialInternalId
+            })
+            .ToList();
+
+        await ActionFactory.ExecuteAppActionAsync(ActionGetItemBarcodes);
+
+        await InvokeAsync(StateHasChanged);
+    }
 
     public async ValueTask DisposeAsync()
     {

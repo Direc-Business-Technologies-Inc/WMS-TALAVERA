@@ -33,6 +33,7 @@ public class ItemReceiptLineVM
     public int LocationId { get; set; }
     public decimal UoMRate { get; set; } = 1;
     public decimal WeightActual { get; set; }
+    public decimal TotalConfiscated { get; set; }
     public decimal WeightPerItem { get; set; }
     public decimal WeightRecord => WeightPerItem * QuantityAlloted;
     public decimal QuantityPlanned { get; set; }

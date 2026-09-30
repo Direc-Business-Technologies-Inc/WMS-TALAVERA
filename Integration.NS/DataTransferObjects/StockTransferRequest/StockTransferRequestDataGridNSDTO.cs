@@ -11,6 +11,7 @@ public class StockTransferRequestDataGridNSDTO
 {
     public int Id { get; set; }
     public string ReferenceNumber { get; set; } = string.Empty;
+    public string TransferCategory { get; set; } = string.Empty;
     public string PurchaseCategory { get; set; } = string.Empty;
     public string PurchaseSubcategory { get; set; } = string.Empty;
     public string SourceLocation { get; set; } = string.Empty;

@@ -21,15 +21,32 @@
 
 <AppContent>
     <AppFormSkeleton TItem="TripTicketVM" Loading="@IsLoadingData" />
-    <RadzenStack Orientation="Orientation.Horizontal">
+    @* <RadzenStack Orientation="Orientation.Horizontal">
         <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5em" Visible="@IsBusy">
             <RadzenProgressBarCircular ShowValue="false" Mode="ProgressBarMode.Indeterminate" Size="ProgressBarCircularSize.ExtraSmall" AriaLabel="Loading, extra small" />
             <RadzenText TextStyle="TextStyle.Caption">Please wait...</RadzenText>
         </RadzenStack>
+    </RadzenStack> *@
+
+    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" class="rz-mb-4">
+        <RadzenStack Orientation="Orientation.Horizontal">
+            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5em" Visible="@IsBusy">
+                <RadzenProgressBarCircular ShowValue="false" Mode="ProgressBarMode.Indeterminate" Size="ProgressBarCircularSize.ExtraSmall" AriaLabel="Loading, extra small" />
+                <RadzenText TextStyle="TextStyle.Caption">Please wait...</RadzenText>
+            </RadzenStack>
+        </RadzenStack>
+        <RadzenStack Orientation="Orientation.Horizontal"
+                     AlignItems="AlignItems.Center"
+                     JustifyContent="JustifyContent.End"
+                     Gap="32px"
+                     class="rz-mb-0 rz-mt-2">
+        </RadzenStack>
     </RadzenStack>
+
     <RadzenStack Visible="@(Viewing && !IsLoadingData)"
                  Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
                  JustifyContent="JustifyContent.End" Gap="1rem" class="rz-mb-2">
+        <AppContentBadge Title="Status" Content="@FormData.Status?.Name" Visible="@(FormData.Status != null)" />
         <AppContentBadge Title="TTX No." Content="@FormData.Id.ToString()" />
         <AppContentBadge Title="Trip Date." Content="@FormData.TripDate?.ToString("MM-dd-yy")" />
     </RadzenStack>
@@ -135,8 +152,8 @@
                                                        Placeholder="No Subsidiary Selected"
                                                        class="rz-w-100" />
                                         <RadzenDropDown Visible="@(Creating || IsEditable)"
-                                                        @bind-Value="@FormData.FromSubsidiary"
-                                                        Change="(args) => OnFieldChanged(nameof(FormData.FromSubsidiary))"
+                                                        @bind-Value:get="FormData.FromSubsidiary"
+                                                        @bind-Value:set="@OnFromSubsidiaryChanged"
                                                         Data="@FromSubsidiary"
                                                         AllowClear
                                                         AllowFiltering
@@ -163,7 +180,7 @@
                                                                        TItem="SubsidiaryVM"
                                                                        DataGetter="@SubsidiaryProvider"
                                                                        @bind-Value:get="FormData.ToSubsidiaries"
-                                                                       @bind-Value:set="@OnSubsidiaryChanged"
+                                                                       @bind-Value:set="@OnToSubsidiaryChanged"
                                                                        TextProperty="@nameof(SubsidiaryVM.SubsidiaryName)"
                                                                        Name="tt_to_subsidiary"
                                                                        AllowClear
@@ -359,8 +376,16 @@
                                           Shade="Shade.Dark" 
                                           ButtonType="ButtonType.Button"
                                           Disabled="@(!CanEdit)"
-                                          Visible="@(!IsEditable)"
+                                          Visible="@(!IsEditable && CanCancel)"
                                           Click="@EnableEditing" />
+                            
+                            <RadzenButton Text="Cancel Trip Ticket"
+                                          ButtonStyle="ButtonStyle.Danger"
+                                          Variant="Variant.Outlined"
+                                          Shade="Shade.Dark"
+                                          ButtonType="ButtonType.Button"
+                                          Visible="@(CanCancel)"
+                                          Click="@CancelTripTicket" />
 
                             <RadzenButton Text="Cancel"
                                           Icon="close"

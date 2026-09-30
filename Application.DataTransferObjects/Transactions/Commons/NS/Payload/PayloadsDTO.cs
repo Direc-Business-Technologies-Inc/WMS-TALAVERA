@@ -24,6 +24,9 @@ public class OrderLineItem
     [JsonPropertyName("quantity")]
     public decimal? Quantity { get; set; }
 
+    [JsonPropertyName("custcol_dbti_actual_qty")]
+    public decimal? PhysicaQuantity { get; set; }
+
     [JsonPropertyName("location")]
     public int? Location { get; set; }
 

@@ -10,6 +10,10 @@ public class ReturnsIRPayloadDTO
 
     [JsonPropertyName("custbody_dbti_received_by")]
     public int EmployeeId { get; set; }
+
+    [JsonPropertyName("memo")]
+    public string Memo { get; set; } = string.Empty;
+
     [JsonPropertyName("itemfulfillment")]
     public int ItemFulfillmentId { get; set; }
 
@@ -20,7 +24,8 @@ public class ReturnsIRPayloadDTO
         List<PostReturnsDTO> lines,
         int receivingCategory,
         int ifOrderId,
-        int userId
+        int userId,
+        string remarks
         )
     {
         // Make it nullable if its not included in json
@@ -29,6 +34,7 @@ public class ReturnsIRPayloadDTO
             ReceivingCategory = receivingCategory,
             EmployeeId = userId,
             ItemFulfillmentId = ifOrderId,
+            Memo = remarks,
             Item = new ItemContainer
             {
                 Items = lines.Select(line =>

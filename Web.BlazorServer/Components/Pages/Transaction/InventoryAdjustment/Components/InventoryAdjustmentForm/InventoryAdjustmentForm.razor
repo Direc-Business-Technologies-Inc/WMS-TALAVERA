@@ -63,8 +63,11 @@
                 <RadzenFormField Text="Adjustment Reason" class="rz-w-100">
                     <ChildContent>
                         <RadzenTextBox Disabled="Disabled" Visible="@ReadOnly" ReadOnly Value="@Model.Reason?.Name" Placeholder="Enter adjustment reason" />
-                        <QuickVirtualizedDropdown Disabled="Disabled" Visible="@(!ReadOnly)" ActionName="@ActionGetReasons" TItem="InventoryAdjustmentReasonVM" @bind-Value:get="@Model.Reason" @bind-Value:set="@SetReason" DataGetter="@ReasonProvider" TextProperty="@nameof(InventoryAdjustmentReasonVM.Name)" AllowFiltering AllowClear />
+                        <QuickVirtualizedDropdown Name="ia_adjustment_reason" Disabled="Disabled" Visible="@(!ReadOnly)" ActionName="@ActionGetReasons" TItem="InventoryAdjustmentReasonVM" @bind-Value:get="@Model.Reason" @bind-Value:set="@SetReason" DataGetter="@ReasonProvider" TextProperty="@nameof(InventoryAdjustmentReasonVM.Name)" AllowFiltering AllowClear />
                     </ChildContent>
+                    <Helper>
+                        <RadzenRequiredValidator Component="ia_adjustment_reason" Text="Adjustment Reason is required" />
+                    </Helper>
                 </RadzenFormField>
             </RadzenColumn>
             <RadzenColumn SizeMD="3">
@@ -74,7 +77,7 @@
                         <QuickVirtualizedDropdown @ref="@AccountDropdown" Name="ia_account_dropdown" Visible="@(!ReadOnly)" Disabled="@(Model.Subsidiary is null || Disabled)" ActionName="@ActionGetAccounts" TItem="BusinessAccountVM" @bind-Value="@Model.Account" DataGetter="@AccountProvider" TextProperty="@nameof(BusinessAccountVM.Name)" AllowFiltering AllowClear />
                     </ChildContent>
                     <Helper>
-                        <RadzenRequiredValidator Component="ia_account_dropdown" />
+                        <RadzenRequiredValidator Component="ia_account_dropdown" Text="Account is required" />
                     </Helper>
                 </RadzenFormField>
             </RadzenColumn>

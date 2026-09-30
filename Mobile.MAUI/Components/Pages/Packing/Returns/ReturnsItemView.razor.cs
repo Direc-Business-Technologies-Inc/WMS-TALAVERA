@@ -21,6 +21,8 @@ public partial class ReturnsItemView : IAsyncDisposable
     AppAction<bool> ActionSaveScan { get; set; }
 
     List<ReturnsLineVM> ReturnsItems = [];
+    List<ReturnsLineVM> FilteredReturnsItems = [];
+    ReturnsLineVM? LastScanned;
     List<ItemBarcodesPerUoMVM> ItemBarcodes = [];
     List<BarcodeRequestVM> ItemRequest = [];
 
@@ -32,6 +34,8 @@ public partial class ReturnsItemView : IAsyncDisposable
     bool SaveBtnDisabled => ScanCount == 0;
     //bool IsWeightDialogOpen = false;
     //decimal? ChangeWeight = null;
+
+    private string SearchText { get; set; } = string.Empty;
 
     // Backorder notification
     bool HasBackorderItems
@@ -108,6 +112,7 @@ public partial class ReturnsItemView : IAsyncDisposable
                     IsBad = false,
                 }).ToList() ?? [];
 
+                ApplySearch();
                 await InvokeAsync(StateHasChanged);
             },
         };
@@ -179,6 +184,65 @@ public partial class ReturnsItemView : IAsyncDisposable
     {
         await ActionFactory.ExecuteAppActionAsync(ActionGetReturnsItems);
     }
+
+    #region Search
+    private async Task OnSearchInput(ChangeEventArgs args)
+    {
+        SearchText = args.Value?.ToString() ?? string.Empty;
+
+        ApplySearch();
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task ClearSearch()
+    {
+        SearchText = string.Empty;
+
+        ApplySearch();
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void ApplySearch()
+    {
+        if (string.IsNullOrWhiteSpace(SearchText))
+        {
+            FilteredReturnsItems = ReturnsItems.ToList();
+            return;
+        }
+
+        var search = SearchText.Trim();
+
+        FilteredReturnsItems = ReturnsItems
+            .Where(row => MatchesSearch(row, search))
+            .ToList();
+    }
+
+    private static bool MatchesSearch(ReturnsLineVM row, string search)
+    {
+        if (ContainsIgnoreCase(row.MaterialCode, search))
+            return true;
+
+        if (ContainsIgnoreCase(row.MaterialName, search))
+            return true;
+
+        if (ContainsIgnoreCase(row.LocationName, search))
+            return true;
+
+        if (ContainsIgnoreCase(row.UoMName, search))
+            return true;
+
+        return false;
+    }
+
+    private static bool ContainsIgnoreCase(string? source, string search)
+    {
+        return !string.IsNullOrWhiteSpace(source) &&
+               source.Contains(search, StringComparison.OrdinalIgnoreCase);
+    }
+
+    #endregion
 
     private async void SelectLine(ReturnsLineVM item)
     {
@@ -316,6 +380,8 @@ public partial class ReturnsItemView : IAsyncDisposable
             line.ScannedQuantity += barcode.UoMRate / line.UoMRate;
             //line.ScannedWeight += weight ?? 0m;
             line.ScanCount++;
+
+            LastScanned = line;
 
             ScanCount++;
             //ChangeWeight = null; // reset the ChangeWeight after each scan
@@ -479,6 +545,59 @@ public partial class ReturnsItemView : IAsyncDisposable
     //        IsWeightDialogOpen = false;
     //    }
     //}
+
+    private async Task Refresh()
+    {
+        // Snapshot current scanned state before refreshing
+        var scannedState = ReturnsItems
+            .GroupBy(x => new
+            {
+                x.LineSequenceNumber,
+                x.NetsuiteMaterialInternalId,
+                x.IsBad
+            })
+            .ToDictionary(
+                g => g.Key,
+                g => new
+                {
+                    ScannedQuantity = g.First().ScannedQuantity,
+                    ScannedWeight = g.First().ScannedWeight,
+                    ScanCount = g.First().ScanCount,
+                });
+
+        // Reload PO items
+        await ActionFactory.ExecuteAppActionAsync(ActionGetReturnsItems);
+
+        // Restore scanned state
+        foreach (var item in ReturnsItems)
+        {
+            var key = new
+            {
+                item.LineSequenceNumber,
+                item.NetsuiteMaterialInternalId,
+                item.IsBad
+            };
+
+            if (scannedState.TryGetValue(key, out var scanned))
+            {
+                item.ScannedQuantity = scanned.ScannedQuantity;
+                item.ScannedWeight = scanned.ScannedWeight;
+                item.ScanCount = scanned.ScanCount;
+            }
+        }
+
+        // Refresh barcode requests from the refreshed PO
+        ItemRequest = ReturnsItems
+            .Select(i => new BarcodeRequestVM
+            {
+                NetsuiteMaterialInternalId = i.NetsuiteMaterialInternalId
+            })
+            .ToList();
+
+        await ActionFactory.ExecuteAppActionAsync(ActionGetItemBarcodes);
+
+        await InvokeAsync(StateHasChanged);
+    }
 
     public async ValueTask DisposeAsync()
     {

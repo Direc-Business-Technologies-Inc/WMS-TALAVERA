@@ -7,4 +7,5 @@ public class SaveTransferOrderRequestDTO
     public List<PostTransferOrderDTO> PostTransferOrder { get; set; }
     public int TONetsuiteOrderInternalId { get; set; }
     public int UserId { get; set; }
+    public string Remarks { get; set; } = string.Empty;
 }

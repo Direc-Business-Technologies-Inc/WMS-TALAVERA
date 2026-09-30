@@ -128,7 +128,7 @@ public partial class STRForm
                 ItemCode = item.ItemNumber,
                 ItemDescription = item.Name,
                 Warehouse = Model.SourceLocation?.Name ?? string.Empty,
-                UoM = item.StockUnit,
+                UoM = item.PurchaseUnit,
                 QuantityOnHand = item.QuantityOnHand,
                 QuantityAvailable = item.QuantityAvailable,
                 QuantityAlloted = 0

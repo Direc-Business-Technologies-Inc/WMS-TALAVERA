@@ -7,8 +7,13 @@ public class UpdateTripTicketPayloadDTO
 {
     [JsonPropertyName("id")]
     public int? Id { get; set; }
+
     [JsonPropertyName("parent")]
     public int? Parent { get; set; }
+
+    [JsonPropertyName("custrecord_dbti_trt_status")]
+    public int Status { get; set; }
+
     [JsonPropertyName("custrecord_dbti_trt_from_subsidiary")]
     public int FromSubsidiary { get; set; }
 
@@ -76,6 +81,18 @@ public class UpdateTripTicketPayloadDTO
             }).ToList() ?? new(),
 
             CancelledLines = removedIF?.Select(x => x.NetsuiteTripTicketLineInternalId).ToList() ?? new()
+        };
+    }
+
+    public static UpdateTripTicketPayloadDTO CancelTripTicket(
+        PostTripTicketDTO tripticket)
+    {
+        return new UpdateTripTicketPayloadDTO
+        {
+            Id = tripticket.Id,
+            Status = 8, // Assuming 8 represents the cancelled status
+            Lines = new(),
+            CancelledLines = new()
         };
     }
 }

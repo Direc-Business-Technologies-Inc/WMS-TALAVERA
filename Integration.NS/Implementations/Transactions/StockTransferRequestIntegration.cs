@@ -53,7 +53,10 @@ internal class StockTransferRequestIntegration(
                 .WithFilters(
                     DataGridFilterUtilities.Equal("tl.mainline", "T"),
                     DataGridFilterUtilities.Equal("t.recordtype", "intercompanytransferorder"),
-                    DataGridFilterUtilities.Equal("t.custbody_dbti_transfer_category", 2)
+                    DataGridFilterUtilities.Equal("t.custbody_dbti_transfer_category", 2),
+                    DataGridFilterUtilities.Any(
+                    DataGridFilterUtilities.NotEqual("t.custbody_dbti_purchase_category", 3),
+                    DataGridFilterUtilities.Equal("t.custbody_dbti_purchase_subcategory ", 5))
                 )
                 .WithFromOrToSubsidiaries(httpContextAccessor, "t")
                 .WithDatagridIntent(intent)
@@ -74,6 +77,7 @@ internal class StockTransferRequestIntegration(
                     ("TO_CHAR(t.lastmodifieddate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(StockTransferRequestDataGridNSDTO.DateLastModified)),
                     ("t.tranid", nameof(StockTransferRequestDataGridNSDTO.ReferenceNumber)),
                     ("BUILTIN.DF(t.custbody_dbti_purchase_category)", nameof(StockTransferRequestDataGridNSDTO.PurchaseCategory)),
+                    ("BUILTIN.DF(t.custbody_dbti_transfer_category)", nameof(StockTransferRequestDataGridNSDTO.TransferCategory)),
                     ("BUILTIN.DF(t.custbody_dbti_purchase_subcategory)", nameof(StockTransferRequestDataGridNSDTO.PurchaseSubcategory)),
                     ("CONCAT(e.firstname,CONCAT(' ',e.lastname))", nameof(StockTransferRequestDataGridNSDTO.PreparedBy)),
                     ("BUILTIN.DF(t.subsidiary)", nameof(StockTransferRequestDataGridNSDTO.Subsidiary)),
@@ -88,7 +92,6 @@ internal class StockTransferRequestIntegration(
                 .Join("transactionline tl", on: "tl.transaction = t.id")
                 .LeftJoin("CUSTOMLIST_DBTI_CR_APPROVAL_STATUSES s", on: "s.id = t.custbody_dbti_custom_approval_status")
                 .LeftJoin("employee e", on: "e.id = t.custbody_dbti_prepared_by")
-                .WithFromOrToSubsidiaries(httpContextAccessor, "t")
                 .WithFilters(
                     DataGridFilterUtilities.Equal("tl.mainline", "T"),
                     DataGridFilterUtilities.In("t.recordtype", new string[] { "intercompanytransferorder", "transferorder" }),
@@ -130,7 +133,10 @@ internal class StockTransferRequestIntegration(
                 .WithFilters(
                     DataGridFilterUtilities.Equal("tl.mainline", "T"),
                     DataGridFilterUtilities.Equal("t.recordtype", "transferorder"),
-                    DataGridFilterUtilities.Equal("t.custbody_dbti_transfer_category", 1)
+                    DataGridFilterUtilities.Equal("t.custbody_dbti_transfer_category", 1),
+                    DataGridFilterUtilities.Any(
+                    DataGridFilterUtilities.NotEqual("t.custbody_dbti_purchase_category", 3),
+                    DataGridFilterUtilities.Equal("t.custbody_dbti_purchase_subcategory ", 5))
                 )
                 .WithFromOrToSubsidiaries(httpContextAccessor, "t")
                 .WithDatagridIntent(intent)
@@ -366,8 +372,8 @@ internal class StockTransferRequestIntegration(
             custbody_dbti_transfer_category = new { id = dto.TransferCategory.Id },
             custbody_dbti_prepared_by = dto.PreparedById,
             // custbody_dbti_return_to_vendor = dto.TransferCategory.IsReturn && dto.Vendor != null ? new { id = dto.Vendor.Id.ToString() } : null,
-            //custbody_dbti_purchase_category = dto.PurchaseCategory?.Id ?? null,
-            //custbody_dbti_purchase_subcategory = dto.PurchaseSubcategory?.Id ?? null,
+            custbody_dbti_purchase_category = dto.PurchaseCategory?.Id ?? null,
+            custbody_dbti_purchase_subcategory = dto.PurchaseSubcategory?.Id ?? null,
             Department = new { id = "4" },
             Class = new { id = "1" },
             Memo = dto.Remarks,
