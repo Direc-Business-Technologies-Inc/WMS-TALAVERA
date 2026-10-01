@@ -366,6 +366,7 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
                     ScanCount = 1;
 
                     item.ScannedQuantity = entry.GoodQty;
+                    item.ScannedWeight = item.MaterialWeight * entry.GoodQty;
                     item.PhysicalQuantity = entry.PhysicalQty;
 
                     var badItem = BadPOItems.FirstOrDefault(y =>
@@ -375,7 +376,10 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
                     if (badItem != null)
                     {
                         badItem.ScannedQuantity = entry.BadQty;
+                        badItem.ScannedWeight = badItem.MaterialWeight * entry.BadQty;
                     }
+
+                    LastScanned = item;
                 }
             }
             finally
@@ -633,24 +637,16 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
 
     async Task SaveScan()
     {
-        // Build the normal IF items and concatenate the missing items
-        // A GoodIFItem is included when:
-        // 1. There is no bad quantity for the line AND should have not fully received, OR
-        // 2. There is a good quantity and the combined
-        //    good + bad quantity does not exceed the received quantity.
         POItems = GoodPOItems
             .Where(g =>
             {
-                var bad = BadPOItems.FirstOrDefault(b =>
-                    b.LineSequenceNumber == g.LineSequenceNumber);
+                var badQty = BadPOItems.FirstOrDefault(b =>
+                    b.LineSequenceNumber == g.LineSequenceNumber)?.ScannedQuantity ?? 0;
 
-                var badQty = bad?.ScannedQuantity ?? 0;
-
-                return (badQty == 0 && g.LineQuantity != g.LineQuantityReceived + g.LineQuantityBackOrdered) ||
-                        (g.ScannedQuantity > 0 &&
-                        (g.ScannedQuantity + badQty) <= g.NSLineQuantityReceived);
+                return g.ScannedQuantity > 0 &&
+                       g.ScannedQuantity + badQty <= g.NSLineQuantityReceived;
             })
-            .Concat(BadPOItems.Where(x => x.NSLineQuantityReceived != 0))
+            .Concat(BadPOItems.Where(x => x.ScannedQuantity > 0))
             .Select(x => new PurchaseOrderLineVM
             {
                 NetsuiteOrderInternalId = x.NetsuiteOrderInternalId,
