@@ -32,7 +32,7 @@ public class VendorIntegration(
             )
             .From("vendor v")
             .LeftJoin("VendorCategory categ", "v.category = categ.id")
-            .WithDatagridIntent(intent)
+            .WithDatagridIntent(EscapeSearchLiterals(intent))
             .Build();
 
         var result = await query.ExecuteWithPaging<VendorNSDTO>(netsuiteService);
@@ -98,6 +98,59 @@ public class VendorIntegration(
         return GetVendorsBySubsidiaryListAsync(newIntent, subsidiary);
     }
 
+
+    private static DataGridIntent EscapeSearchLiterals(DataGridIntent intent)
+    {
+        if (intent.Filters.Count == 0)
+        {
+            return intent;
+        }
+
+        var cloned = new DataGridIntent
+        {
+            Skip = intent.Skip,
+            Take = intent.Take,
+            Sorts = intent.Sorts.ToList(),
+            Filters = intent.Filters.Select(EscapeFilter).ToList()
+        };
+
+        return cloned;
+    }
+
+    private static AppFilterDescriptor EscapeFilter(AppFilterDescriptor filter)
+    {
+        if (filter.Filters.Count > 0)
+        {
+            return new AppFilterDescriptor
+            {
+                LogicalOperator = filter.LogicalOperator,
+                Property = filter.Property,
+                Value = filter.Value,
+                FilterValueType = filter.FilterValueType,
+                ComparisonOperator = filter.ComparisonOperator,
+                Filters = filter.Filters.Select(EscapeFilter).ToList()
+            };
+        }
+
+        if (filter.Value is string s && !string.IsNullOrEmpty(s))
+        {
+            var escaped = s.Replace("'", "''");
+            if (escaped != s)
+            {
+                return new AppFilterDescriptor
+                {
+                    LogicalOperator = filter.LogicalOperator,
+                    Property = filter.Property,
+                    Value = escaped,
+                    FilterValueType = filter.FilterValueType,
+                    ComparisonOperator = filter.ComparisonOperator,
+                    Filters = filter.Filters.ToList()
+                };
+            }
+        }
+
+        return filter;
+    }
 
     public VendorDTO ConvertNSDTO(VendorNSDTO nsdto)
     {
