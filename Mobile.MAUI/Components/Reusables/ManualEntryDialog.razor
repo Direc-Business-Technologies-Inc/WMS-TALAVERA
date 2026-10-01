@@ -47,6 +47,7 @@
         <RadzenNumeric TValue="decimal"
                        @bind-Value="GoodQty"
                        Min="0"
+                       Step="0.5"
                        class="rz-w-100 good-field" />
     </RadzenStack>
 
@@ -61,6 +62,7 @@
             <RadzenNumeric TValue="decimal"
                            @bind-Value="BadQty"
                            Min="0"
+                           Step="0.5"
                            class="rz-w-100 bad-field" />
         </RadzenStack>
     }
@@ -76,6 +78,7 @@
             <RadzenNumeric TValue="decimal"
                            @bind-Value="PhysicalQty"
                            Min="0"
+                           Step="0.5"
                            class="rz-w-100 good-field" />
         </RadzenStack>
     }
