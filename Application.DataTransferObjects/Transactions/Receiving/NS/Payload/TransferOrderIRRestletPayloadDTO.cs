@@ -5,6 +5,9 @@ namespace Application.DataTransferObjects.Transactions.Receiving.NS.Payload;
 
 public class TransferOrderIRRestletPayloadDTO
 {
+    [JsonPropertyName("custbody_dbti_created_in_wms")]
+    public bool CreatedInWms { get; set; } = true;
+
     [JsonPropertyName("transferOrderId")]
     public int TransferOrderId { get; set; }
     [JsonPropertyName("transferCategory")]
