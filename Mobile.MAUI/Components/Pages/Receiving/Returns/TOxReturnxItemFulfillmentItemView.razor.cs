@@ -257,6 +257,12 @@ public partial class TOxReturnxItemFulfillmentItemView : IAsyncDisposable
     {
         if (ManualEntry)
         {
+            if (!IsValidForManualEntry(item))
+            {
+                await Toast.Warning("Scan the same SKU 11 times before using Manual Entry.");
+                return;
+            }
+
             IsWeightDialogOpen = true;
 
             try
@@ -689,6 +695,17 @@ public partial class TOxReturnxItemFulfillmentItemView : IAsyncDisposable
     }
 
     private bool ManualEntry = false;
+    private bool ValidManual => IsValidForManualEntry(LastScanned);
+
+    private bool IsValidForManualEntry(TOxItemFulfillmentLineVM? row)
+    {
+        return row is not null
+            && (row.NSLineQuantityPacked >= GlobalState.ManualEntryThreshold
+                || row.NSLineQuantityReceived >= GlobalState.ManualEntryThreshold
+                || row.ScannedQuantity >= GlobalState.ManualEntryThreshold)
+            && row.ScanCount >= GlobalState.ManualEntryThreshold;
+    }
+
     private void ToggleManualEntry()
     {
         ManualEntry = !ManualEntry;

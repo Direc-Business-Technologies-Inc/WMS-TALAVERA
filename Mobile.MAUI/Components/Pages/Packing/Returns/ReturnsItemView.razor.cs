@@ -248,6 +248,12 @@ public partial class ReturnsItemView : IAsyncDisposable
     {
         if (ManualEntry)
         {
+            if (!IsValidForManualEntry(item))
+            {
+                await Toast.Warning("Scan the same SKU 11 times before using Manual Entry.");
+                return;
+            }
+
             try
             {
                 var result = await Dialog.OpenAsync<ManualEntryDialog>(
@@ -519,6 +525,17 @@ public partial class ReturnsItemView : IAsyncDisposable
     }
 
     private bool ManualEntry = false;
+    private bool ValidManual => IsValidForManualEntry(LastScanned);
+
+    private bool IsValidForManualEntry(ReturnsLineVM? row)
+    {
+        return row is not null
+            && (row.NSLineQuantityPacked >= GlobalState.ManualEntryThreshold
+                || row.NSLineQuantityReceived >= GlobalState.ManualEntryThreshold
+                || row.ScannedQuantity >= GlobalState.ManualEntryThreshold)
+            && row.ScanCount >= GlobalState.ManualEntryThreshold;
+    }
+
     private void ToggleManualEntry()
     {
         ManualEntry = !ManualEntry;

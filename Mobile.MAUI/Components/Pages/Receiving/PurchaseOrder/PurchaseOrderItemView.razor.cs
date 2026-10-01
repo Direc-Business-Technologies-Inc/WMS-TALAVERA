@@ -336,8 +336,16 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
 
     private async void SelectGoodLine(PurchaseOrderLineVM item)
     {
+        ValidManual = IsValidForManualEntry(item);
+
         if (ManualEntry)
         {
+            if (!IsValidForManualEntry(item))
+            {
+                await Toast.Warning("Scan the same SKU 11 times before using Manual Entry.");
+                return;
+            }
+
             IsWeightDialogOpen = true;
 
             try
@@ -398,6 +406,16 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
         }
 
         await InvokeAsync(StateHasChanged);
+    }
+
+    private bool ValidManual { get; set; } = false;
+    private bool IsValidForManualEntry(PurchaseOrderLineVM? row)
+    {
+        return row is not null
+            && (row.NSLineQuantityPacked >= GlobalState.ManualEntryThreshold
+                || row.NSLineQuantityReceived >= GlobalState.ManualEntryThreshold
+                || row.ScannedQuantity >= GlobalState.ManualEntryThreshold)
+            && row.ScanCount >= GlobalState.ManualEntryThreshold;
     }
 
     private bool IsSelectedGood(PurchaseOrderLineVM row)
@@ -627,6 +645,7 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
 
             ChangeWeight = null;
 
+            ValidManual = IsValidForManualEntry(LastScanned);
             await InvokeAsync(StateHasChanged);
         }
         catch (Exception e)

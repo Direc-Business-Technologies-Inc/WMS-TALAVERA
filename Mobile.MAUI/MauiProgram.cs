@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Logging;
 using Mobile.MAUI.Repositories;
 using Mobile.MAUI.Services;
+using Mobile.MAUI.States;
 using Radzen;
 
 namespace Mobile.MAUI
@@ -31,6 +32,7 @@ namespace Mobile.MAUI
             builder.Services.AddAuthorizationCore();
             builder.Services.AddScoped<AuthenticationStateProvider, JWTAuthStateProvider>();
             builder.Services.AddScoped<JWTAuthStateProvider>();
+            builder.Services.AddSingleton<GlobalStates>();
             builder.Services.AddAuthorizationCore();
             #region Radzen related
             builder.Services.AddRadzenComponents();

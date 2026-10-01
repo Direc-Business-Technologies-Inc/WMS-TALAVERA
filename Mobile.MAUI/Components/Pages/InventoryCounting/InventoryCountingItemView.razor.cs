@@ -31,7 +31,7 @@ public partial class InventoryCountingItemView : IAsyncDisposable
 
     InventoryCountingLineVM? GoodSelectedLine;
     InventoryCountingLineVM? BadSelectedLine;
-    //InventoryCountingLineVM? LastScanned => ICItems.OrderByDescending(x => x.ScanCount).FirstOrDefault();
+    InventoryCountingLineVM? LastScanned;
 
     int ScanCount { get; set; }
     int ActiveTabIndex { get; set; } = 0;
@@ -179,6 +179,12 @@ public partial class InventoryCountingItemView : IAsyncDisposable
     {
         if (ManualEntry)
         {
+            if (!IsValidForManualEntry(item))
+            {
+                await Toast.Warning("Scan the same SKU 11 times before using Manual Entry.");
+                return;
+            }
+
             await OpenManualEntry(item);
             GoodSelectedLine = item;
             await InvokeAsync(StateHasChanged);
@@ -206,6 +212,12 @@ public partial class InventoryCountingItemView : IAsyncDisposable
     {
         if (ManualEntry)
         {
+            if (!IsValidForManualEntry(item))
+            {
+                await Toast.Warning("Scan the same SKU 11 times before using Manual Entry.");
+                return;
+            }
+
             await OpenManualEntry(item);
             BadSelectedLine = item;
             await InvokeAsync(StateHasChanged);
@@ -295,11 +307,13 @@ public partial class InventoryCountingItemView : IAsyncDisposable
             {
                 badLine.ScannedQuantity += barcode.UoMRate / badLine.UoMRate;
                 badLine.ScanCount++;
+                LastScanned = badLine;
             }
             else
             {
                 goodLine.ScannedQuantity += barcode.UoMRate / goodLine.UoMRate;
                 goodLine.ScanCount++;
+                LastScanned = goodLine;
             }
 
             ScanCount++;
@@ -380,6 +394,16 @@ public partial class InventoryCountingItemView : IAsyncDisposable
     }
 
     private bool ManualEntry = false;
+    private bool ValidManual => IsValidForManualEntry(LastScanned);
+
+    private bool IsValidForManualEntry(InventoryCountingLineVM? row)
+    {
+        return row is not null
+            && (row.LineQuantity >= GlobalState.ManualEntryThreshold
+                || row.ScannedQuantity >= GlobalState.ManualEntryThreshold)
+            && row.ScanCount >= GlobalState.ManualEntryThreshold;
+    }
+
     private void ToggleManualEntry()
     {
         ManualEntry = !ManualEntry;

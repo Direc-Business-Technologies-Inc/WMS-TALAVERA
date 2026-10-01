@@ -306,6 +306,12 @@ public partial class TransferOrderItemView : IAsyncDisposable
     {
         if (ManualEntry)
         {
+            if (!IsValidForManualEntry(item))
+            {
+                await Toast.Warning("Scan the same SKU 11 times before using Manual Entry.");
+                return;
+            }
+
             await OpenManualEntry(item);
             GoodSelectedLine = item;
             await InvokeAsync(StateHasChanged);
@@ -334,6 +340,12 @@ public partial class TransferOrderItemView : IAsyncDisposable
     {
         if (ManualEntry)
         {
+            if (!IsValidForManualEntry(item))
+            {
+                await Toast.Warning("Scan the same SKU 11 times before using Manual Entry.");
+                return;
+            }
+
             await OpenManualEntry(item);
             BadSelectedLine = item;
             await InvokeAsync(StateHasChanged);
@@ -643,6 +655,17 @@ public partial class TransferOrderItemView : IAsyncDisposable
     }
 
     private bool ManualEntry = false;
+    private bool ValidManual => IsValidForManualEntry(LastScanned);
+
+    private bool IsValidForManualEntry(TransferOrderLineVM? row)
+    {
+        return row is not null
+            && (row.NSLineQuantityPacked >= GlobalState.ManualEntryThreshold
+                || row.NSLineQuantityReceived >= GlobalState.ManualEntryThreshold
+                || row.ScannedQuantity >= GlobalState.ManualEntryThreshold)
+            && row.ScanCount >= GlobalState.ManualEntryThreshold;
+    }
+
     private void ToggleManualEntry()
     {
         ManualEntry = !ManualEntry;

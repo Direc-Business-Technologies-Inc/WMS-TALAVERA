@@ -8,6 +8,8 @@ namespace Mobile.MAUI.States;
 
 public class GlobalStates
 {
+    public int ManualEntryThreshold { get; set; } = 11;
+
     private bool _isConnected;
     private bool _isBusy;
 

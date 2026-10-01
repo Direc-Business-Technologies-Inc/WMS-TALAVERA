@@ -231,7 +231,7 @@
                                                   ButtonStyle="@(ManualEntry ? ButtonStyle.Success : ButtonStyle.Base)"
                                                   Size="ButtonSize.Small"
                                                   Click="@(args => ToggleManualEntry())"
-                                                  Disabled="@ActionSaveScan.Busy" />
+                                                  Disabled="@(ActionSaveScan.Busy || !ValidManual)" />
 
                                     <RadzenText TextStyle="TextStyle.Caption" class="scan-action-label rz-m-0">
                                         Manual
