@@ -58,6 +58,7 @@ internal class VendorReturnAuthorizationPackingIntegration(
         var query = builderFactory.Create()
             .Select(
                 ("t.id", nameof(VendorReturnAuthorizationPackingHeaderNSDTO.Id)),
+                ("NVL(tte.id, 0)", nameof(VendorReturnAuthorizationPackingHeaderNSDTO.TripTicketExemptionId)),
                 ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(VendorReturnAuthorizationPackingHeaderNSDTO.Date)),
                 ("t.tranid", nameof(VendorReturnAuthorizationPackingHeaderNSDTO.ReferenceNumber)),
                 ("BUILTIN.DF(t.subsidiary)", nameof(VendorReturnAuthorizationPackingHeaderNSDTO.FromSubsidiary)),
@@ -70,6 +71,7 @@ internal class VendorReturnAuthorizationPackingIntegration(
             .Join("transactionline tl", on: "tl.transaction = t.id")
             .Join("entity e", on: "t.entity = e.id")
             .LeftJoin("employee em", "t.custbody_dbti_prepared_by = em.id")
+            .LeftJoin("customrecord_dbti_trip_ticket_exemption tte", "tte.custrecord_dbti_tte_from_location = tl.location AND tte.custrecord_dbti_tte_to_location = t.transferlocation AND tte.isinactive = 'F'")
             .WithFilters(
                 Equal("t.tranid", id),
                 Equal("tl.mainline", "T"))
@@ -146,6 +148,7 @@ internal class VendorReturnAuthorizationPackingIntegration(
             LocationId = nsdto.LocationId,
             Location = nsdto.Location,
             TransferLocation = nsdto.TransferLocation,
+            IsTripTicketExempt = nsdto.TripTicketExemptionId != 0,
             PreparedBy = nsdto.PreparedBy,
         };
     }

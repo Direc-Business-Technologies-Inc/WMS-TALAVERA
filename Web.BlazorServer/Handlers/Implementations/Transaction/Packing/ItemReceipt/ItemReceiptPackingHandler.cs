@@ -29,6 +29,7 @@ public class ItemReceiptPackingHandler(ISender sender) : IItemReceiptPackingHand
             LocationId = header.LocationId,
             Location = header.Location,
             TransferLocation = header.TransferLocation,
+            IsTripTicketExempt = header.IsTripTicketExempt,
             Subsidiary = header.FromSubsidiary,
             ToSubsidiary = header.ToSubsidiary,
             Date = header.Date,
@@ -58,12 +59,12 @@ public class ItemReceiptPackingHandler(ISender sender) : IItemReceiptPackingHand
 
                 var entries = new List<PostTransferOrderDTO>
                 {
-                    MapToDto(line, submittedLine, isBad: true)
+                    MapToDto(line, submittedLine, data.IsTripTicketExempt, isBad: true)
                 };
 
                 if (goodQty > 0 || badQty < quantityOpen)
                 {
-                    entries.Add(MapToDto(line, submittedLine, isBad: false));
+                    entries.Add(MapToDto(line, submittedLine, data.IsTripTicketExempt, isBad: false));
                 }
 
                 return entries;
@@ -105,7 +106,7 @@ public class ItemReceiptPackingHandler(ISender sender) : IItemReceiptPackingHand
         };
     }
 
-    private static PostTransferOrderDTO MapToDto(TransferOrderLineDTO dto, ItemReceiptLinePackingVM? submittedLine, bool isBad)
+    private static PostTransferOrderDTO MapToDto(TransferOrderLineDTO dto, ItemReceiptLinePackingVM? submittedLine, bool isTripTicketExempt, bool isBad)
     {
         var scannedQuantity = submittedLine is not null && submittedLine.IsReceived
             ? isBad ? submittedLine.QuantityBad : submittedLine.QuantityGood
@@ -121,6 +122,7 @@ public class ItemReceiptPackingHandler(ISender sender) : IItemReceiptPackingHand
             OrderNumber = dto.OrderNumber,
             OrderType = dto.OrderType,
             OrderStatus = dto.OrderStatus,
+            IsTripTicketExempt = isTripTicketExempt,
             TransferCategory = dto.TransferCategory,
             NetsuiteFromLocationInternalId = dto.NetsuiteFromLocationInternalId,
             NetsuiteToLocationInternalId = dto.NetsuiteToLocationInternalId,

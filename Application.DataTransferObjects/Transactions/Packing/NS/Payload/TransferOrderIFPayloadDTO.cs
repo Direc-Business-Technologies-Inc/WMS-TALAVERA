@@ -18,6 +18,7 @@ public class TransferOrderIFPayloadDTO
         return new TransferOrderIFPayloadDTO
         {
             ShipStatus = shipStatus,
+
             Item = new ItemContainer
             {
                 Items = lines.Select(line =>

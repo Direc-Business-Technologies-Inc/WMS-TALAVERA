@@ -30,6 +30,7 @@ public class ReturnsItemReceiptPackingHandler(ISender sender) : IReturnsItemRece
             LocationId = header.LocationId,
             Location = header.Location,
             TransferLocation = header.TransferLocation,
+            IsTripTicketExempt = header.IsTripTicketExempt,
             Subsidiary = header.FromSubsidiary,
             ToSubsidiary = header.ToSubsidiary,
             Date = header.Date,
@@ -51,7 +52,7 @@ public class ReturnsItemReceiptPackingHandler(ISender sender) : IReturnsItemRece
             .Select(line =>
             {
                 submittedLines.TryGetValue(line.LineSequenceNumber, out var submittedLine);
-                return MapToDto(line, submittedLine);
+                return MapToDto(line, submittedLine, data.IsTripTicketExempt);
             })
             .ToList();
 
@@ -96,7 +97,7 @@ public class ReturnsItemReceiptPackingHandler(ISender sender) : IReturnsItemRece
         };
     }
 
-    private static PostReturnsDTO MapToDto(ReturnsLineDTO dto, ReturnsItemReceiptLinePackingVM? submittedLine)
+    private static PostReturnsDTO MapToDto(ReturnsLineDTO dto, ReturnsItemReceiptLinePackingVM? submittedLine, bool isTripTicketExempt)
     {
         var scannedQuantity = submittedLine is not null && submittedLine.IsReceived
             ? submittedLine.QuantityGood + submittedLine.QuantityBad
@@ -112,6 +113,7 @@ public class ReturnsItemReceiptPackingHandler(ISender sender) : IReturnsItemRece
             OrderNumber = dto.OrderNumber,
             OrderType = dto.OrderType,
             OrderStatus = dto.OrderStatus,
+            IsTripTicketExempt = isTripTicketExempt,
             TransferCategory = dto.TransferCategory,
             NetsuiteFromLocationInternalId = dto.NetsuiteFromLocationInternalId,
             NetsuiteToLocationInternalId = dto.NetsuiteToLocationInternalId,

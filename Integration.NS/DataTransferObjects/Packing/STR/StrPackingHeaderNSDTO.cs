@@ -10,5 +10,6 @@ public class StrPackingHeaderNSDTO
     public int LocationId { get; set; }
     public string Location { get; set; } = string.Empty;
     public string TransferLocation { get; set; } = string.Empty;
+    public int TripTicketExemptionId { get; set; }
     public string PreparedBy { get; set; } = string.Empty;
 }

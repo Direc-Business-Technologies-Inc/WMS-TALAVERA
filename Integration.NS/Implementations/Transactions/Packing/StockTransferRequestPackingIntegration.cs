@@ -65,6 +65,7 @@ internal class StockTransferRequestPackingIntegration(
         var query = builderFactory.Create()
             .Select(
                 ("t.id", nameof(StrPackingHeaderNSDTO.Id)),
+                ("NVL(tte.id, 0)", nameof(StrPackingHeaderNSDTO.TripTicketExemptionId)),
                 ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(StrPackingHeaderNSDTO.Date)),
                 ("t.tranid", nameof(StrPackingHeaderNSDTO.ReferenceNumber)),
                 ("BUILTIN.DF(t.subsidiary)", nameof(StrPackingHeaderNSDTO.FromSubsidiary)),
@@ -77,6 +78,7 @@ internal class StockTransferRequestPackingIntegration(
             .From("transaction t")
             .Join("transactionline tl", on: "tl.transaction = t.id")
             .LeftJoin("employee e", "t.custbody_dbti_prepared_by = e.id")
+            .LeftJoin("customrecord_dbti_trip_ticket_exemption tte", "tte.custrecord_dbti_tte_from_location = tl.location AND tte.custrecord_dbti_tte_to_location = t.transferlocation AND tte.isinactive = 'F'")
             .WithFilters(
                 Equal("t.tranid", id),
                 Equal("tl.mainline", "T"))
@@ -157,6 +159,7 @@ internal class StockTransferRequestPackingIntegration(
             LocationId = nsdto.LocationId,
             Location = nsdto.Location,
             TransferLocation = nsdto.TransferLocation,
+            IsTripTicketExempt = nsdto.TripTicketExemptionId != 0,
             PreparedBy = nsdto.PreparedBy,
         };
     }

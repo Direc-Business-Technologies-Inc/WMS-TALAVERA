@@ -9,5 +9,6 @@ public class VendorReturnAuthorizationInfoDTO
     public int LocationId { get; set; }
     public string Location { get; set; } = string.Empty;
     public string TransferLocation { get; set; } = string.Empty;
+    public bool IsTripTicketExempt { get; set; }
     public string PreparedBy { get; set; } = string.Empty;
 }
