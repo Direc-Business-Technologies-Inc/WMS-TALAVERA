@@ -3,6 +3,7 @@ using Mobile.MAUI.Services;
 using Mobile.MAUI.ViewModel;
 using Shared.Libraries.ViewModel;
 using Shared.Libraries.ViewModel.InventoryCounting;
+using Mobile.MAUI.Components.Reusables;
 using static Mobile.MAUI.Enums.CustomEnum;
 using static Mobile.MAUI.MauiProgram;
 using AppAction = Mobile.MAUI.Services.AppAction;
@@ -174,8 +175,16 @@ public partial class InventoryCountingItemView : IAsyncDisposable
         await ActionFactory.ExecuteAppActionAsync(ActionGetICItems);
     }
 
-    private void SelectGoodLine(InventoryCountingLineVM item)
+    private async void SelectGoodLine(InventoryCountingLineVM item)
     {
+        if (ManualEntry)
+        {
+            await OpenManualEntry(item);
+            GoodSelectedLine = item;
+            await InvokeAsync(StateHasChanged);
+            return;
+        }
+
         if (GoodSelectedLine?.LineSequenceNumber == item.LineSequenceNumber)
         {
             GoodSelectedLine = null;
@@ -193,8 +202,16 @@ public partial class InventoryCountingItemView : IAsyncDisposable
         return GoodSelectedLine?.LineSequenceNumber == row.LineSequenceNumber;
     }
 
-    private void SelectBadLine(InventoryCountingLineVM item)
+    private async void SelectBadLine(InventoryCountingLineVM item)
     {
+        if (ManualEntry)
+        {
+            await OpenManualEntry(item);
+            BadSelectedLine = item;
+            await InvokeAsync(StateHasChanged);
+            return;
+        }
+
         if (BadSelectedLine?.LineSequenceNumber == item.LineSequenceNumber)
         {
             BadSelectedLine = null;
@@ -337,6 +354,11 @@ public partial class InventoryCountingItemView : IAsyncDisposable
     void ToggleMove()
     {
         MoveOn = !MoveOn;
+        if (MoveOn)
+        {
+            ManualEntry = false;
+            NegateQuantity = false;
+        }
         InvokeAsync(StateHasChanged);
     }
 
@@ -351,6 +373,58 @@ public partial class InventoryCountingItemView : IAsyncDisposable
     {
         NegateQuantity = !NegateQuantity;
         MoveOn = false;
+        if (NegateQuantity)
+        {
+            ManualEntry = false;
+        }
+    }
+
+    private bool ManualEntry = false;
+    private void ToggleManualEntry()
+    {
+        ManualEntry = !ManualEntry;
+        if (ManualEntry)
+        {
+            MoveOn = false;
+        }
+        NegateQuantity = false;
+    }
+
+    private async Task OpenManualEntry(InventoryCountingLineVM item)
+    {
+        var goodLine = GoodICItems.FirstOrDefault(x =>
+            x.LineSequenceNumber == item.LineSequenceNumber &&
+            x.NetsuiteMaterialInternalId == item.NetsuiteMaterialInternalId);
+        var badLine = BadICItems.FirstOrDefault(x =>
+            x.LineSequenceNumber == item.LineSequenceNumber &&
+            x.NetsuiteMaterialInternalId == item.NetsuiteMaterialInternalId);
+
+        if (goodLine is null || badLine is null)
+        {
+            await Toast.Warning("Item not found in this IC.");
+            return;
+        }
+
+        var result = await Dialog.OpenAsync<ManualEntryDialog>(
+            "Manual Entry",
+            new Dictionary<string, object>
+            {
+                { "ItemName", item.MaterialName },
+                { "PlannedQty", item.LineQuantity },
+                { "GoodQty", goodLine.ScannedQuantity },
+                { "BadQty", badLine.ScannedQuantity },
+                { "ShowBad", 1 },
+                { "ShowMissing", 0 },
+                { "ShowPhysical", 0 }
+            },
+            new DialogOptions { ShowClose = true });
+
+        if (result is ManualEntryDialog.ManualEntryResult entry)
+        {
+            goodLine.ScannedQuantity = entry.GoodQty;
+            badLine.ScannedQuantity = entry.BadQty;
+            ScanCount = Math.Max(ScanCount, 1);
+        }
     }
 
     async Task MoveScan(string scanned)

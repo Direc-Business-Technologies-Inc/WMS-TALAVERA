@@ -598,6 +598,11 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
     void ToggleMove()
     {
         MoveOn = !MoveOn;
+        if (MoveOn)
+        {
+            ManualEntry = false;
+            NegateQuantity = false;
+        }
         InvokeAsync(StateHasChanged);
     }
 
@@ -606,6 +611,10 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
     {
         NegateQuantity = !NegateQuantity;
         MoveOn = false;
+        if (NegateQuantity)
+        {
+            ManualEntry = false;
+        }
     }
 
     private bool ManualEntry = false;

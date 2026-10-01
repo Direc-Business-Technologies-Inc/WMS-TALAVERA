@@ -302,8 +302,16 @@ public partial class TransferOrderItemView : IAsyncDisposable
     }
     #endregion
 
-    private void SelectGoodLine(TransferOrderLineVM item)
+    private async void SelectGoodLine(TransferOrderLineVM item)
     {
+        if (ManualEntry)
+        {
+            await OpenManualEntry(item);
+            GoodSelectedLine = item;
+            await InvokeAsync(StateHasChanged);
+            return;
+        }
+
         if (GoodSelectedLine?.LineSequenceNumber == item.LineSequenceNumber)
         {
             GoodSelectedLine = null;
@@ -326,49 +334,10 @@ public partial class TransferOrderItemView : IAsyncDisposable
     {
         if (ManualEntry)
         {
-            try
-            {
-                decimal badQty = BadTOItems.FirstOrDefault(y =>
-                    y.LineSequenceNumber == item.LineSequenceNumber &&
-                    y.NetsuiteMaterialInternalId == item.NetsuiteMaterialInternalId)?.ScannedQuantity ?? 0;
-
-                var result = await Dialog.OpenAsync<ManualEntryDialog>(
-                    "Manual Entry",
-                    new Dictionary<string, object>
-                    {
-                        { "ItemName", item.MaterialName },
-                        { "PlannedQty", item.NSLineQuantityReceived },
-                        { "GoodQty", item.ScannedQuantity},
-                        { "BadQty", badQty },
-                        { "ShowMissing", 1}
-                    },
-                    new DialogOptions
-                    {
-                        ShowClose = true,
-                    });
-
-                if (result is ManualEntryDialog.ManualEntryResult entry)
-                {
-                    ScanCount = 1;
-                    item.ScannedQuantity = entry.GoodQty;
-
-                    if (entry.BadQty != 0)
-                    {
-                        var badItem = BadTOItems.FirstOrDefault(
-                            y =>
-                            y.LineSequenceNumber == item.LineSequenceNumber &&
-                            y.NetsuiteMaterialInternalId == item.NetsuiteMaterialInternalId);
-
-                        if (badItem != null)
-                        {
-                            badItem.ScannedQuantity = entry.BadQty;
-                        }
-                    }
-                }
-            }
-            finally
-            {
-            }
+            await OpenManualEntry(item);
+            BadSelectedLine = item;
+            await InvokeAsync(StateHasChanged);
+            return;
         }
 
         if (BadSelectedLine?.LineSequenceNumber == item.LineSequenceNumber)
@@ -381,6 +350,41 @@ public partial class TransferOrderItemView : IAsyncDisposable
         }
 
         await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task OpenManualEntry(TransferOrderLineVM item)
+    {
+        var goodLine = GoodTOItems.FirstOrDefault(x =>
+            x.LineSequenceNumber == item.LineSequenceNumber &&
+            x.NetsuiteMaterialInternalId == item.NetsuiteMaterialInternalId);
+        var badLine = BadTOItems.FirstOrDefault(x =>
+            x.LineSequenceNumber == item.LineSequenceNumber &&
+            x.NetsuiteMaterialInternalId == item.NetsuiteMaterialInternalId);
+
+        if (goodLine is null || badLine is null)
+        {
+            await Toast.Warning("Item not found in this TO.");
+            return;
+        }
+
+        var result = await Dialog.OpenAsync<ManualEntryDialog>(
+            "Manual Entry",
+            new Dictionary<string, object>
+            {
+                { "ItemName", item.MaterialName },
+                { "PlannedQty", item.NSLineQuantityReceived },
+                { "GoodQty", goodLine.ScannedQuantity },
+                { "BadQty", badLine.ScannedQuantity },
+                { "ShowMissing", 1 }
+            },
+            new DialogOptions { ShowClose = true });
+
+        if (result is ManualEntryDialog.ManualEntryResult entry)
+        {
+            goodLine.ScannedQuantity = entry.GoodQty;
+            badLine.ScannedQuantity = entry.BadQty;
+            ScanCount = Math.Max(ScanCount, 1);
+        }
     }
 
     private bool IsSelectedBad(TransferOrderLineVM row)
@@ -608,6 +612,11 @@ public partial class TransferOrderItemView : IAsyncDisposable
     void ToggleMove()
     {
         MoveOn = !MoveOn;
+        if (MoveOn)
+        {
+            ManualEntry = false;
+            NegateQuantity = false;
+        }
         InvokeAsync(StateHasChanged);
     }
 
@@ -627,6 +636,10 @@ public partial class TransferOrderItemView : IAsyncDisposable
     {
         NegateQuantity = !NegateQuantity;
         MoveOn = false;
+        if (NegateQuantity)
+        {
+            ManualEntry = false;
+        }
     }
 
     private bool ManualEntry = false;
