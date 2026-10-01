@@ -57,10 +57,17 @@
             <RadzenStack>
 
                 <RadzenStack Gap="8px" class="rz-px-2 rz-mb-2">
-                    <RadzenTextBox Value="@SearchText"
-                                   Placeholder="Search by material code, name, location or UoM.."
-                                   Style="width:100%;"
-                                   @oninput="@OnSearchInput" />
+                    <RadzenRow class="rz-w-100">
+                        <RadzenColumn Size="11">
+                            <RadzenTextBox Value="@SearchText"
+                                           Placeholder="Search by material code or name.."
+                                           Style="width:100%;"
+                                           @oninput="@OnSearchInput" />
+                        </RadzenColumn>
+                        <RadzenColumn Size="1">
+                            <RadzenButton Icon="refresh" Click="Refresh" />
+                        </RadzenColumn>
+                    </RadzenRow>
 
                     @if (!string.IsNullOrWhiteSpace(SearchText))
                     {
