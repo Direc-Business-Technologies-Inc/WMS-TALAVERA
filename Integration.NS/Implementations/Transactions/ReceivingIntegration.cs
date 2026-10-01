@@ -585,7 +585,7 @@ public class ReceivingIntegration(
                 else
                 {
                     tasks.Add(
-                        netsuiteService.MakeRequest<object>(
+                        netsuiteService.MakeRequestOAuth1<object>(
                             uri,
                             payload,
                             HttpMethod.Post));
@@ -848,13 +848,17 @@ public class ReceivingIntegration(
     private string CreateTOJson(ItemReceiptDTO dto, int statusId)
     {
         var lines = dto.Lines.Where(x => x.InventoryDetails.Any(y => y.Status?.Id == statusId));
-        var isGood = statusId == INVENTORY_STATUS_ID_GOOD;
-        var isMissing = statusId == INVENTORY_STATUS_ID_MISSING;
 
         var obj = new
         {
             transferOrderId = dto.SourceInternalId,
-            transferCategory = isMissing ? 5 : isGood ? 1 : 2,
+            transferCategory = statusId switch
+            {
+                INVENTORY_STATUS_ID_GOOD => 1,
+                INVENTORY_STATUS_ID_BAD => 3,
+                INVENTORY_STATUS_ID_MISSING => 5,
+                _ => throw new ArgumentOutOfRangeException(nameof(statusId), statusId, "Unsupported inventory status for transfer-order receipt.")
+            },
             custbody_dbti_prepared_by = dto.PreparedById,
             receiverEmployeeId = dto.PreparedById,
             fulfillmentId = dto.ItemFulfillmentId,
@@ -954,7 +958,6 @@ public class ReceivingIntegration(
                         itemreceive = isItemReceived,
                         orderLine = line.LineNumber,
                         quantity = isItemReceived ? lineQuantity : (decimal?)null,
-                        custcol_dbti_actual_qty = line.TotalConfiscated,
                         custcol_dbti_actual_weight = isItemReceived ? line.WeightActual : (decimal?)null,
                         rate = isItemReceived && isGood ? (decimal?)null : 0,
                         inventoryDetail = isItemReceived ? new

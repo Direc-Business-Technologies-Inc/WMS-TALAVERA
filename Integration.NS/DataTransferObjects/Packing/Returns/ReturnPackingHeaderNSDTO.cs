@@ -11,5 +11,6 @@ public class ReturnPackingHeaderNSDTO
     public string Location { get; set; } = string.Empty;
     public string TransferLocation { get; set; } = string.Empty;
     public string TransferCategory { get; set; } = string.Empty;
+    public int TripTicketExemptionId { get; set; }
     public string PreparedBy { get; set; } = string.Empty;
 }
