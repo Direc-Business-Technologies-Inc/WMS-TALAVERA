@@ -6,6 +6,7 @@ namespace Application.DataTransferObjects.Transactions.Commons.NS;
 public class PostReturnsDTO : TransactionDTO
 {
     public int TransferCategory { get; set; }
+    public bool IsTripTicketExempt { get; set; }
 
     public int NetsuiteFromLocationInternalId { get; set; }
     public int NetsuiteToLocationInternalId { get; set; }

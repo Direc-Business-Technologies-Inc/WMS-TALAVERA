@@ -29,6 +29,7 @@ public class VendorReturnAuthorizationItemReceiptPackingHandler(ISender sender) 
             Vendor = lines.FirstOrDefault()?.VendorName ?? string.Empty,
             LocationId = header.LocationId,
             Location = header.Location,
+            IsTripTicketExempt = header.IsTripTicketExempt,
             Subsidiary = header.FromSubsidiary,
             Date = header.Date,
             SourceInternalId = lines.FirstOrDefault()?.NetsuiteOrderInternalId ?? header.Id,
@@ -52,8 +53,8 @@ public class VendorReturnAuthorizationItemReceiptPackingHandler(ISender sender) 
 
                 return new[]
                 {
-                    MapToDto(line, submittedLine, isBad: false),
-                    MapToDto(line, submittedLine, isBad: true)
+                    MapToDto(line, submittedLine, data.IsTripTicketExempt, isBad: false),
+                    MapToDto(line, submittedLine, data.IsTripTicketExempt, isBad: true)
                 };
             })
             .ToList();
@@ -96,7 +97,7 @@ public class VendorReturnAuthorizationItemReceiptPackingHandler(ISender sender) 
         };
     }
 
-    private static PostVendorReturnAuthorizationDTO MapToDto(VendorReturnAuthorizationLineDTO dto, VendorReturnAuthorizationItemReceiptLinePackingVM? submittedLine, bool isBad)
+    private static PostVendorReturnAuthorizationDTO MapToDto(VendorReturnAuthorizationLineDTO dto, VendorReturnAuthorizationItemReceiptLinePackingVM? submittedLine, bool isTripTicketExempt, bool isBad)
     {
         var scannedQuantity = submittedLine is not null && submittedLine.IsReceived
             ? isBad ? submittedLine.QuantityBad : submittedLine.QuantityGood
@@ -112,6 +113,7 @@ public class VendorReturnAuthorizationItemReceiptPackingHandler(ISender sender) 
             OrderNumber = dto.OrderNumber,
             OrderType = dto.OrderType,
             OrderStatus = dto.OrderStatus,
+            IsTripTicketExempt = isTripTicketExempt,
             NetsuiteSubsidiaryInternalId = dto.NetsuiteSubsidiaryInternalId,
             NetsuiteLocationInternalId = dto.NetsuiteLocationInternalId,
             LocationName = dto.LocationName,
