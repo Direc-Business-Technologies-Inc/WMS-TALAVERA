@@ -753,6 +753,7 @@ namespace Integration.NS.Services
         {
             var orderId = Data.Select(x => x.NetsuiteOrderInternalId).FirstOrDefault();
             var isUsedBin = Data.Select(x => x.IsLocationUsedBin).FirstOrDefault();
+            var itemFulfillmentStatus = Data.FirstOrDefault()?.IsTripTicketExempt == true ? "C" : "B";
 
             string url = string.Format(isUsedBin ? ItemFulfillmentUrl : ItemFulfillmentUrlNotUsedBin, "transferOrder", orderId);
 
@@ -762,7 +763,7 @@ namespace Integration.NS.Services
             {
                 try
                 {
-                    var payloadBad = TransferOrderIFPayloadDTO.CreateForItemFulfillment(badTO, "B", isUsedBin);
+                    var payloadBad = TransferOrderIFPayloadDTO.CreateForItemFulfillment(badTO, itemFulfillmentStatus, isUsedBin);
 
                     var jsonStringBad = JsonSerializer.Serialize(payloadBad, JsonSerializerOption);
 
@@ -780,7 +781,7 @@ namespace Integration.NS.Services
             {
                 try
                 {
-                    var payloadGood = TransferOrderIFPayloadDTO.CreateForItemFulfillment(goodTO, "B", isUsedBin);
+                    var payloadGood = TransferOrderIFPayloadDTO.CreateForItemFulfillment(goodTO, itemFulfillmentStatus, isUsedBin);
 
                     var jsonStringGood = JsonSerializer.Serialize(payloadGood, JsonSerializerOption);
 
@@ -798,12 +799,13 @@ namespace Integration.NS.Services
         {
             var orderId = Data.Select(x => x.NetsuiteOrderInternalId).FirstOrDefault();
             var isUsedBin = Data.Select(x => x.IsLocationUsedBin).FirstOrDefault();
+            var itemFulfillmentStatus = Data.FirstOrDefault()?.IsTripTicketExempt == true ? "C" : "B";
 
             string url = string.Format(isUsedBin ? ItemFulfillmentUrl : ItemFulfillmentUrlNotUsedBin, "transferOrder", orderId);
 
             try
             {
-                ReturnsIFPayloadDTO payloadGood = ReturnsIFPayloadDTO.CreateForItemFulfillment(Data, "B", isUsedBin);
+                ReturnsIFPayloadDTO payloadGood = ReturnsIFPayloadDTO.CreateForItemFulfillment(Data, itemFulfillmentStatus, isUsedBin);
 
                 var jsonStringGood = JsonSerializer.Serialize(payloadGood, JsonSerializerOption);
 
@@ -821,6 +823,7 @@ namespace Integration.NS.Services
         {
             var orderId = Data.Select(x => x.NetsuiteOrderInternalId).FirstOrDefault();
             var isUsedBin = Data.Select(x => x.IsLocationUsedBin).FirstOrDefault();
+            var itemFulfillmentStatus = Data.FirstOrDefault()?.IsTripTicketExempt == true ? "C" : "B";
 
             //string url = string.Format(isUsedBin ? ItemFulfillmentUrl : ItemFulfillmentUrlNotUsedBin, "vendorReturnAuthorization", orderId);
             string url = string.Format(ItemFulfillmentUrlNotUsedBin, "vendorReturnAuthorization", orderId);
@@ -831,7 +834,7 @@ namespace Integration.NS.Services
             {
                 try
                 {
-                    var payloadBad = VendorReturnAuthorizationIFPayloadDTO.CreateForItemFulfillment(badTO, "B", isUsedBin);
+                    var payloadBad = VendorReturnAuthorizationIFPayloadDTO.CreateForItemFulfillment(badTO, itemFulfillmentStatus, isUsedBin);
 
                     var jsonStringBad = JsonSerializer.Serialize(payloadBad, JsonSerializerOption);
 
@@ -849,7 +852,7 @@ namespace Integration.NS.Services
             {
                 try
                 {
-                    var payloadGood = VendorReturnAuthorizationIFPayloadDTO.CreateForItemFulfillment(goodTO, "B", isUsedBin);
+                    var payloadGood = VendorReturnAuthorizationIFPayloadDTO.CreateForItemFulfillment(goodTO, itemFulfillmentStatus, isUsedBin);
 
                     var jsonStringGood = JsonSerializer.Serialize(payloadGood, JsonSerializerOption);
 

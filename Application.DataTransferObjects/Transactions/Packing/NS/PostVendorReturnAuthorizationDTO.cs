@@ -4,6 +4,7 @@ namespace Application.DataTransferObjects.Transactions.Packing.NS;
 
 public class PostVendorReturnAuthorizationDTO : TransactionDTO
 {
+    public bool IsTripTicketExempt { get; set; }
     public string LocationUsedBin { get; set; } = string.Empty;
     public bool IsLocationUsedBin { get; set; }
 
