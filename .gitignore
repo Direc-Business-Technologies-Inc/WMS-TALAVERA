@@ -487,3 +487,9 @@ $RECYCLE.BIN/
 
 # Exclusions
 !Integration.SAP/
+
+# === Graphify ===
+graphify-out/
+
+# Codex
+.codex/
