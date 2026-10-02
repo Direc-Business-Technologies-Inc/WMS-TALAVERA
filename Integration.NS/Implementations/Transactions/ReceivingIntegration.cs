@@ -465,7 +465,7 @@ public class ReceivingIntegration(
             .Join("transaction t", on: "tl.transaction = t.id")
             .Join("location loc", on: "tl.location = loc.id")
             .Join("unitstypeuom uom", on: "tl.units = uom.internalid")
-            .LeftJoin("CUSTOMRECORD_BARCODE_PER_UOM barcode", "barcode.custrecord_bpu_uom = tl.units AND barcode.custrecord_bpu_item = tl.item")
+            .LeftJoin(@"(SELECT bpu.custrecord_bpu_item, bpu.custrecord_bpu_uom, MIN(bpu.name) AS name FROM CUSTOMRECORD_BARCODE_PER_UOM bpu GROUP BY bpu.custrecord_bpu_item, bpu.custrecord_bpu_uom) barcode", "barcode.custrecord_bpu_uom = tl.units AND barcode.custrecord_bpu_item = tl.item")            
             .LeftJoin("(SELECT ibq.bin, ibq.item, b.location FROM itembinquantity ibq JOIN bin b ON ibq.bin = b.id WHERE preferredbin = \'T\') pb", on: "pb.item = item.id AND pb.location = tl.location")
             .WithFilters(
                 Equal("t.tranid", docEntry)
@@ -506,7 +506,7 @@ public class ReceivingIntegration(
             .Join("location loc", on: "tl.location = loc.id")
             .Join("unitstypeuom uom", on: "tl.units = uom.internalid")
             .LeftJoin("(SELECT ibq.bin, ibq.item, b.location FROM itembinquantity ibq JOIN bin b ON ibq.bin = b.id WHERE preferredbin = \'T\') pb", on: "pb.item = item.id AND pb.location = tl.location")
-            .LeftJoin("CUSTOMRECORD_BARCODE_PER_UOM barcode", "barcode.custrecord_bpu_uom = tl.units AND barcode.custrecord_bpu_item = tl.item")
+            .LeftJoin(@"(SELECT bpu.custrecord_bpu_item, bpu.custrecord_bpu_uom, MIN(bpu.name) AS name FROM CUSTOMRECORD_BARCODE_PER_UOM bpu GROUP BY bpu.custrecord_bpu_item, bpu.custrecord_bpu_uom) barcode", "barcode.custrecord_bpu_uom = tl.units AND barcode.custrecord_bpu_item = tl.item")            
             .WithFilters(
                 Equal("t.tranid", docEntry),
                 Equal("tl.mainline", "F")
@@ -944,7 +944,9 @@ public class ReceivingIntegration(
             memo = dto.Remarks,
             item = new
             {
-                items = dto.Lines.Select(line =>
+                items = lines.Where(x => x.QuantityAlloted > 0)
+                .GroupBy(x => x.LineNumber).Select(g => g.First())
+                .Select(line =>
                 {
                     decimal lineQuantity = line.InventoryDetails.Sum(x => x.Status?.Id == statusId ? x.QuantityAlloted : 0);
                     bool isItemReceived = line.IsReceived && lineQuantity > 0 && line.InventoryDetails.Any(x => x.Status?.Id == statusId);
@@ -954,9 +956,9 @@ public class ReceivingIntegration(
                         itemreceive = isItemReceived,
                         orderLine = line.LineNumber,
                         quantity = isItemReceived ? lineQuantity : (decimal?)null,
-                        custcol_dbti_actual_qty = line.TotalConfiscated,
+                        custcol_dbti_actual_qty = isItemReceived ? line.TotalConfiscated : (decimal?)null,
                         custcol_dbti_actual_weight = isItemReceived ? line.WeightActual : (decimal?)null,
-                        rate = isItemReceived && isGood ? (decimal?)null : 0,
+                        rate = isItemReceived ? (isGood ? (decimal?)null : 0) : (decimal?)null,
                         inventoryDetail = isItemReceived ? new
                         {
                             inventoryAssignment = new
