@@ -11,6 +11,9 @@
     <File Path=".gitignore" />
     <File Path="changelogs.md" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="Tests/Application.UseCases.Tests/Application.UseCases.Tests.csproj" />
+  </Folder>
   <Folder Name="/shared/">
     <Project Path="Shared.DataCipher/Shared.DataCipher.csproj" Id="62b1f967-e6e9-4abd-8fe4-a90871b7070a" />
     <Project Path="Shared.Libraries/Shared.Libraries.csproj" />

@@ -29,6 +29,7 @@ public class ItemReceiptPackingHandler(ISender sender) : IItemReceiptPackingHand
             LocationId = header.LocationId,
             Location = header.Location,
             TransferLocation = header.TransferLocation,
+            IsTripTicketExempt = header.IsTripTicketExempt,
             Subsidiary = header.FromSubsidiary,
             ToSubsidiary = header.ToSubsidiary,
             Date = header.Date,

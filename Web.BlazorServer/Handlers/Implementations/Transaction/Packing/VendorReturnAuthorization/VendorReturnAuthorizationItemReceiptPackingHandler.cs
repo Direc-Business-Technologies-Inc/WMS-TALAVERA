@@ -29,6 +29,7 @@ public class VendorReturnAuthorizationItemReceiptPackingHandler(ISender sender) 
             Vendor = lines.FirstOrDefault()?.VendorName ?? string.Empty,
             LocationId = header.LocationId,
             Location = header.Location,
+            IsTripTicketExempt = header.IsTripTicketExempt,
             Subsidiary = header.FromSubsidiary,
             Date = header.Date,
             SourceInternalId = lines.FirstOrDefault()?.NetsuiteOrderInternalId ?? header.Id,

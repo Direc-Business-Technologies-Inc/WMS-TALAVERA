@@ -18,6 +18,7 @@ public class ReturnsItemReceiptPackingVM
     public int LocationId { get; set; }
     public string Location { get; set; } = string.Empty;
     public string TransferLocation { get; set; } = string.Empty;
+    public bool IsTripTicketExempt { get; set; }
     public string Subsidiary { get; set; } = string.Empty;
     public string ToSubsidiary { get; set; } = string.Empty;
     public DateTime Date { get; set; }

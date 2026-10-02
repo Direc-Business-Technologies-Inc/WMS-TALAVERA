@@ -3,6 +3,7 @@ using Application.DataTransferObjects.Transactions.Commons.NS;
 using Application.DataTransferObjects.Transactions.Commons.NS.Payload;
 using Application.DataTransferObjects.Transactions.InventoryCounting.NS;
 using Application.DataTransferObjects.Transactions.InventoryCounting.NS.Payload;
+using Application.DataTransferObjects.Transactions.Packing;
 using Application.DataTransferObjects.Transactions.Packing.NS;
 using Application.DataTransferObjects.Transactions.Packing.NS.Payload;
 using Application.DataTransferObjects.Transactions.Receiving.NS;
@@ -634,7 +635,11 @@ namespace Integration.NS.Services
                     throw new Exception($"Error while posting GOOD PO Item Receipt. {ex.Message}", ex);
                 }
             }
-
+            /*
+            Action failed: Error while posting GOOD PO Item Receipt. 
+            Bad Request(400): [USER_ERROR] Error while accessing a resource. 
+            Please configure the inventory details in line 11 of the item list.
+            */
             return true;
         }
 
@@ -749,10 +754,13 @@ namespace Integration.NS.Services
         #endregion
 
         #region Itemfulfillment
-        public async Task<bool> SaveTOItemFulfillment(List<PostTransferOrderDTO> Data)
+        public async Task<bool> SaveTOItemFulfillment(
+            List<PostTransferOrderDTO> Data,
+            ItemFulfillmentShipStatus status)
         {
             var orderId = Data.Select(x => x.NetsuiteOrderInternalId).FirstOrDefault();
             var isUsedBin = Data.Select(x => x.IsLocationUsedBin).FirstOrDefault();
+            var itemFulfillmentStatus = GetNetSuiteShipStatus(status);
 
             string url = string.Format(isUsedBin ? ItemFulfillmentUrl : ItemFulfillmentUrlNotUsedBin, "transferOrder", orderId);
 
@@ -762,7 +770,7 @@ namespace Integration.NS.Services
             {
                 try
                 {
-                    var payloadBad = TransferOrderIFPayloadDTO.CreateForItemFulfillment(badTO, "B", isUsedBin);
+                    var payloadBad = TransferOrderIFPayloadDTO.CreateForItemFulfillment(badTO, itemFulfillmentStatus, isUsedBin);
 
                     var jsonStringBad = JsonSerializer.Serialize(payloadBad, JsonSerializerOption);
 
@@ -780,7 +788,7 @@ namespace Integration.NS.Services
             {
                 try
                 {
-                    var payloadGood = TransferOrderIFPayloadDTO.CreateForItemFulfillment(goodTO, "B", isUsedBin);
+                    var payloadGood = TransferOrderIFPayloadDTO.CreateForItemFulfillment(goodTO, itemFulfillmentStatus, isUsedBin);
 
                     var jsonStringGood = JsonSerializer.Serialize(payloadGood, JsonSerializerOption);
 
@@ -794,16 +802,19 @@ namespace Integration.NS.Services
             return true;
         }
 
-        public async Task<bool> SaveReturnsItemFulfillment(List<PostReturnsDTO> Data)
+        public async Task<bool> SaveReturnsItemFulfillment(
+            List<PostReturnsDTO> Data,
+            ItemFulfillmentShipStatus status)
         {
             var orderId = Data.Select(x => x.NetsuiteOrderInternalId).FirstOrDefault();
             var isUsedBin = Data.Select(x => x.IsLocationUsedBin).FirstOrDefault();
+            var itemFulfillmentStatus = GetNetSuiteShipStatus(status);
 
             string url = string.Format(isUsedBin ? ItemFulfillmentUrl : ItemFulfillmentUrlNotUsedBin, "transferOrder", orderId);
 
             try
             {
-                ReturnsIFPayloadDTO payloadGood = ReturnsIFPayloadDTO.CreateForItemFulfillment(Data, "B", isUsedBin);
+                ReturnsIFPayloadDTO payloadGood = ReturnsIFPayloadDTO.CreateForItemFulfillment(Data, itemFulfillmentStatus, isUsedBin);
 
                 var jsonStringGood = JsonSerializer.Serialize(payloadGood, JsonSerializerOption);
 
@@ -817,10 +828,13 @@ namespace Integration.NS.Services
             return true;
         }
 
-        public async Task<bool> SaveVRAItemFulfillment(List<PostVendorReturnAuthorizationDTO> Data)
+        public async Task<bool> SaveVRAItemFulfillment(
+            List<PostVendorReturnAuthorizationDTO> Data,
+            ItemFulfillmentShipStatus status)
         {
             var orderId = Data.Select(x => x.NetsuiteOrderInternalId).FirstOrDefault();
             var isUsedBin = Data.Select(x => x.IsLocationUsedBin).FirstOrDefault();
+            var itemFulfillmentStatus = GetNetSuiteShipStatus(status);
 
             //string url = string.Format(isUsedBin ? ItemFulfillmentUrl : ItemFulfillmentUrlNotUsedBin, "vendorReturnAuthorization", orderId);
             string url = string.Format(ItemFulfillmentUrlNotUsedBin, "vendorReturnAuthorization", orderId);
@@ -831,7 +845,7 @@ namespace Integration.NS.Services
             {
                 try
                 {
-                    var payloadBad = VendorReturnAuthorizationIFPayloadDTO.CreateForItemFulfillment(badTO, "B", isUsedBin);
+                    var payloadBad = VendorReturnAuthorizationIFPayloadDTO.CreateForItemFulfillment(badTO, itemFulfillmentStatus, isUsedBin);
 
                     var jsonStringBad = JsonSerializer.Serialize(payloadBad, JsonSerializerOption);
 
@@ -849,7 +863,7 @@ namespace Integration.NS.Services
             {
                 try
                 {
-                    var payloadGood = VendorReturnAuthorizationIFPayloadDTO.CreateForItemFulfillment(goodTO, "B", isUsedBin);
+                    var payloadGood = VendorReturnAuthorizationIFPayloadDTO.CreateForItemFulfillment(goodTO, itemFulfillmentStatus, isUsedBin);
 
                     var jsonStringGood = JsonSerializer.Serialize(payloadGood, JsonSerializerOption);
 
@@ -862,6 +876,13 @@ namespace Integration.NS.Services
             }
             return true;
         }
+
+        private static string GetNetSuiteShipStatus(ItemFulfillmentShipStatus status) => status switch
+        {
+            ItemFulfillmentShipStatus.Packed => "B",
+            ItemFulfillmentShipStatus.Shipped => "C",
+            _ => throw new ArgumentOutOfRangeException(nameof(status), status, "Unsupported item fulfillment ship status.")
+        };
         #endregion
 
         #region TripTicket
