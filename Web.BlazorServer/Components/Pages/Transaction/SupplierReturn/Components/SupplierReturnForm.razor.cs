@@ -65,6 +65,8 @@ public partial class SupplierReturnForm
 
     BarcodeStore BarcodeStore = new();
 
+    const string VendorSearchProperty = nameof(VendorVM.ReferenceNumber);
+
     readonly List<AppFilterDescriptor> ItemFilters = [
         DataGridFilterUtilities.GreaterThan("QuantityAvailable", 0)
     ];
@@ -124,6 +126,22 @@ public partial class SupplierReturnForm
 
     async Task<(IEnumerable<VendorVM>, int)> VendorProvider(DataGridIntent intent)
     {
+        var searchFilter = intent.Filters.FirstOrDefault(x =>
+            x.Filters.Count == 0 &&
+            x.Property == VendorSearchProperty &&
+            x.Value is string search &&
+            !string.IsNullOrWhiteSpace(search));
+
+        if (searchFilter is not null)
+        {
+            var search = (string)searchFilter.Value!;
+
+            intent.Filters.Remove(searchFilter);
+            intent.Filters.Add(DataGridFilterUtilities.Any(
+                DataGridFilterUtilities.Contains(VendorSearchProperty, search),
+                DataGridFilterUtilities.Contains(nameof(VendorVM.Name), search)));
+        }
+
         return await vendorHandler.GetVendorsListAsync(intent);
     }
 

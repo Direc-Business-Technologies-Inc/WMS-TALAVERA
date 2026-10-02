@@ -288,14 +288,6 @@ public partial class STRForm
         var originalValue = Model.Subsidiary;
         Model.Subsidiary = value;
 
-        if (Model.IsIntercompany && SameSubsidiary(value, Model.ToSubsidiary))
-        {
-            ToastService.Warning("\"Subsidiary\" cannot be the same as \"To Subsidiary\"");
-            await Task.Yield();
-            Model.Subsidiary = originalValue;
-            return;
-        }
-
         if (Model.Lines.Any())
         {
             var confirm = await DialogService.Confirm(message: "Changing subsidiaries will clear added items") ?? false;
@@ -520,16 +512,7 @@ public partial class STRForm
 
     public async Task OnToSubsidiaryChanged(SubsidiaryVM? value)
     {
-        var originalValue = Model.ToSubsidiary;
         Model.ToSubsidiary = value;
-
-        if (Model.IsIntercompany && SameSubsidiary(value, Model.Subsidiary))
-        {
-            ToastService.Warning("\"To Subsidiary\" cannot be the same as \"Subsidiary\"");
-            await Task.Yield();
-            Model.ToSubsidiary = originalValue;
-            return;
-        }
 
         Model.DestinationLocation = null;
         Model.Vendor = null;
@@ -584,12 +567,6 @@ public partial class STRForm
         line.QuantityAlloted *= oldcr / newcr;
 
         line.UoM = uom;
-    }
-
-    bool SameSubsidiary(SubsidiaryVM? a, SubsidiaryVM? b)
-    {
-        if (a is null && b is null) return false;
-        return a?.Id == b?.Id;
     }
 
     string PrintableURL => Model.Category.IsInterCompany ? $"{PRINTABLE_URL_INTERCOMPANY}&recordId={Model.Id}" : $"{PRINTABLE_URL_TO}&recordId={Model.Id}";

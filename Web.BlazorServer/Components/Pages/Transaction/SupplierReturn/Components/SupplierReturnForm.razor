@@ -41,7 +41,7 @@
                         <RadzenFormField Text="Vendor" class="rz-w-100">
                             <ChildContent>
                                 <RadzenTextBox Disabled="IsDisabled" Visible="@(!IsEditable)" Value="@Model.Vendor?.Name" Placeholder="No vendor given" />
-                                <QuickVirtualizedDropdown Disabled="IsDisabled" Name="str_vendor" @bind-Value:get="@Model.Vendor" @bind-Value:set="@VendorSet" Visible="@IsEditable" TItem="VendorVM" DataGetter="@VendorProvider" TextProperty="@nameof(VendorVM.Name)" />
+                                <QuickVirtualizedDropdown Disabled="IsDisabled" Name="str_vendor" @bind-Value:get="@Model.Vendor" @bind-Value:set="@VendorSet" Visible="@IsEditable" TItem="VendorVM" DataGetter="@VendorProvider" TextProperty="@nameof(VendorVM.Name)" FilterTarget="@nameof(VendorVM.ReferenceNumber)" />
                             </ChildContent>
                             <Helper>
                                 <RadzenRequiredValidator Visible="@IsEditable" Component="str_vendor" />
