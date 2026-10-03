@@ -600,9 +600,9 @@ namespace Integration.NS.Services
             var orderId = Data.Select(x => x.NetsuiteOrderInternalId).FirstOrDefault();
             string url = string.Format(ItemReceiptUrl, "purchaseOrder", orderId);
 
-            var badPO = Data.Where(x => x.IsBad && x.ScannedQuantity > 0).ToList();
+            var badPO = Data.Where(x => x.IsBad).ToList();
 
-            if (badPO.Any())
+            if (badPO.Any(x => x.ScannedQuantity > 0))
             {
                 try
                 {
@@ -618,9 +618,9 @@ namespace Integration.NS.Services
                 }
             }
 
-            var goodPO = Data.Where(x => !x.IsBad && x.ScannedQuantity > 0).ToList();
+            var goodPO = Data.Where(x => !x.IsBad).ToList();
 
-            if (goodPO.Any())
+            if (goodPO.Any(x => x.ScannedQuantity > 0))
             {
                 try
                 {

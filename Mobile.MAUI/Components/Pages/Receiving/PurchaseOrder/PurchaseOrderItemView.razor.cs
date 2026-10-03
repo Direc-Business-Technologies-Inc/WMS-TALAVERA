@@ -662,10 +662,10 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
                 var badQty = BadPOItems.FirstOrDefault(b =>
                     b.LineSequenceNumber == g.LineSequenceNumber)?.ScannedQuantity ?? 0;
 
-                return g.ScannedQuantity > 0 &&
+                return g.NSLineQuantityReceived > 0 &&
                        g.ScannedQuantity + badQty <= g.NSLineQuantityReceived;
             })
-            .Concat(BadPOItems.Where(x => x.ScannedQuantity > 0))
+            .Concat(BadPOItems.Where(x => x.NSLineQuantityReceived > 0))
             .Select(x => new PurchaseOrderLineVM
             {
                 NetsuiteOrderInternalId = x.NetsuiteOrderInternalId,
