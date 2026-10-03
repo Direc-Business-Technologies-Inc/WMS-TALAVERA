@@ -188,7 +188,9 @@ internal class ReturnPackingIntegration(
             .Join("transactionline tl", "tl.mainline = 'T' and tl.transaction = t.id")
             .WithFilters(
                 Equal("t.recordtype", "itemfulfillment"),
-                Equal("t.status", "B")
+                Any(
+                    Equal("t.status", "B"),
+                    Equal("t.custbody_dbti_print_label", "T"))
             )
             .WithDatagridIntent(intent)
             .Build();
