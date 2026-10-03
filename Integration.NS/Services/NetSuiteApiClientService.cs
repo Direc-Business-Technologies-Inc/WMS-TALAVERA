@@ -753,7 +753,8 @@ namespace Integration.NS.Services
         {
             var orderId = Data.Select(x => x.NetsuiteOrderInternalId).FirstOrDefault();
             var isUsedBin = Data.Select(x => x.IsLocationUsedBin).FirstOrDefault();
-            var itemFulfillmentStatus = Data.FirstOrDefault()?.IsTripTicketExempt == true ? "C" : "B";
+            var itemFulfillmentStatus = GetNetSuiteShipStatus(status);
+            var printLabel = status == ItemFulfillmentShipStatus.Shipped;
 
             string url = string.Format(isUsedBin ? ItemFulfillmentUrl : ItemFulfillmentUrlNotUsedBin, "transferOrder", orderId);
 
@@ -763,7 +764,7 @@ namespace Integration.NS.Services
             {
                 try
                 {
-                    var payloadBad = TransferOrderIFPayloadDTO.CreateForItemFulfillment(badTO, itemFulfillmentStatus, isUsedBin);
+                    var payloadBad = TransferOrderIFPayloadDTO.CreateForItemFulfillment(badTO, itemFulfillmentStatus, printLabel, isUsedBin);
 
                     var jsonStringBad = JsonSerializer.Serialize(payloadBad, JsonSerializerOption);
 
@@ -781,7 +782,7 @@ namespace Integration.NS.Services
             {
                 try
                 {
-                    var payloadGood = TransferOrderIFPayloadDTO.CreateForItemFulfillment(goodTO, itemFulfillmentStatus, isUsedBin);
+                    var payloadGood = TransferOrderIFPayloadDTO.CreateForItemFulfillment(goodTO, itemFulfillmentStatus, printLabel, isUsedBin);
 
                     var jsonStringGood = JsonSerializer.Serialize(payloadGood, JsonSerializerOption);
 

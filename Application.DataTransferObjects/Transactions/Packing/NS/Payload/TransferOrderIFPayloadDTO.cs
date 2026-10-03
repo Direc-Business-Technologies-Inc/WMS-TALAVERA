@@ -6,18 +6,22 @@ public class TransferOrderIFPayloadDTO
 {
     [JsonPropertyName("shipStatus")]
     public string ShipStatus { get; set; }
+    [JsonPropertyName("custbody_dbti_print_label")]
+    public bool PrintLabel { get; set; }
     [JsonPropertyName("item")]
     public ItemContainer Item { get; set; } = new();
 
     public static TransferOrderIFPayloadDTO CreateForItemFulfillment(
         List<PostTransferOrderDTO> lines,
         string shipStatus,
+        bool printLabel,
         bool isUsedBin)
     {
         // Make it nullable if its not included in json
         return new TransferOrderIFPayloadDTO
         {
             ShipStatus = shipStatus,
+            PrintLabel = printLabel,
 
             Item = new ItemContainer
             {
