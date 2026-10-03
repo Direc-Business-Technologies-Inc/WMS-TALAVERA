@@ -59,6 +59,7 @@ public static class NSImplementationDI
         services.TryAddTransient<IStockTransferRequestPackingIntegration, StockTransferRequestPackingIntegration>();
         services.TryAddTransient<IReturnPackingIntegration, ReturnPackingIntegration>();
         services.TryAddTransient<IVendorReturnAuthorizationPackingIntegration, VendorReturnAuthorizationPackingIntegration>();
+        services.TryAddTransient<IItemFulfillmentStatusResolver, ItemFulfillmentStatusResolver>();
 
         services.TryAddTransient<INetsuiteIdentityIntegration, NetsuiteIdentityIntegration>();
 

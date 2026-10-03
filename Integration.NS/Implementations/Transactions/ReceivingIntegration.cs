@@ -885,7 +885,9 @@ public class ReceivingIntegration(
     private string CreatePOJson(ItemReceiptDTO dto, bool isGood)
     {
         int statusId = isGood ? INVENTORY_STATUS_ID_GOOD : INVENTORY_STATUS_ID_BAD;
-        var lines = dto.Lines.Where(x => x.InventoryDetails.Any(y => y.Status?.Id == statusId));
+        var lines = dto.Lines.Where(x =>
+            x.IsReceived && x.InventoryDetails.Any(y =>
+                y.Status?.Id == statusId && y.QuantityAlloted > 0));
 
         var obj = new
         {
@@ -898,7 +900,7 @@ public class ReceivingIntegration(
             custbody_dbti_received_by = dto.PreparedById,
             item = new
             {
-                items = dto.Lines.Select(line =>
+                items = lines.Select(line =>
                 {
                     decimal lineQuantity = line.InventoryDetails.Sum(x => x.Status?.Id == statusId ? x.QuantityAlloted : 0);
                     bool isItemReceived = line.IsReceived && lineQuantity > 0 && line.InventoryDetails.Any(x => x.Status?.Id == statusId);
@@ -935,7 +937,9 @@ public class ReceivingIntegration(
 
     private string CreatePOJson(ItemReceiptDTO dto, int statusId)
     {
-        var lines = dto.Lines.Where(x => x.InventoryDetails.Any(y => y.Status?.Id == statusId));
+        var lines = dto.Lines.Where(x =>
+            x.IsReceived && x.InventoryDetails.Any(y =>
+                y.Status?.Id == statusId && y.QuantityAlloted > 0));
         var isGood = statusId == INVENTORY_STATUS_ID_GOOD;
         var isMissing = statusId == INVENTORY_STATUS_ID_MISSING;
 
@@ -952,7 +956,7 @@ public class ReceivingIntegration(
             memo = dto.Remarks,
             item = new
             {
-                items = lines.Where(x => x.QuantityAlloted > 0)
+                items = lines
                 .GroupBy(x => x.LineNumber).Select(g => g.First())
                 .Select(line =>
                 {

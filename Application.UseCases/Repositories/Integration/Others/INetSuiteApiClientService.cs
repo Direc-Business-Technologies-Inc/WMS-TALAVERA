@@ -1,6 +1,7 @@
 ﻿using Application.DataTransferObjects.Others.NS;
 using Application.DataTransferObjects.Transactions.Commons.NS;
 using Application.DataTransferObjects.Transactions.InventoryCounting.NS;
+using Application.DataTransferObjects.Transactions.Packing;
 using Application.DataTransferObjects.Transactions.Packing.NS;
 using Application.DataTransferObjects.Transactions.Receiving.NS;
 using Application.DataTransferObjects.Transactions.TripTicket.NS;
@@ -18,9 +19,9 @@ public interface INetSuiteApiClientService : INotifyPropertyChanged
     string GetRestletURI { get; }
 
 
-    Task<bool> SaveTOItemFulfillment(List<PostTransferOrderDTO> Data);
-    Task<bool> SaveReturnsItemFulfillment(List<PostReturnsDTO> Data);
-    Task<bool> SaveVRAItemFulfillment(List<PostVendorReturnAuthorizationDTO> Data);
+    Task<bool> SaveTOItemFulfillment(List<PostTransferOrderDTO> Data, ItemFulfillmentShipStatus status);
+    Task<bool> SaveReturnsItemFulfillment(List<PostReturnsDTO> Data, ItemFulfillmentShipStatus status);
+    Task<bool> SaveVRAItemFulfillment(List<PostVendorReturnAuthorizationDTO> Data, ItemFulfillmentShipStatus status);
 
     Task<bool> UpdateTripTicket(PostTripTicketDTO Data, List<ItemFulfillmentDTO> RemovedIF, List<ItemFulfillmentDTO> AddedIF);
     Task<bool> CancelTripTicket(PostTripTicketDTO Data);
