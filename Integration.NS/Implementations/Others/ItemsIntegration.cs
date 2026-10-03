@@ -143,13 +143,11 @@ public class ItemsIntegration(
             .From("unitsTypeUom uom")
             .Join("item i", "i.unitstype = uom.unitstype")
             .WithDatagridIntent(intent)
-            .WithFilters(
-                DataGridFilterUtilities.Equal("uom.inuse", "T"),
-                DataGridFilterUtilities.Equal("i.id", itemId))
+            .WithFilter(DataGridFilterUtilities.Equal("i.id", itemId))
             .Build();
 
         var result = await netsuiteService.ExecuteSuiteQLQuery<ItemUnitDTO>(query.Query, query.Limit, query.Offset);
-        return (result.items, result.count);
+        return (result.items, result.totalResults);
     }
 
     private ItemsDTO ConvertItemNSDTO(ItemsNSDTO nsdto)
