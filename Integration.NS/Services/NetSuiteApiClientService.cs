@@ -753,8 +753,9 @@ namespace Integration.NS.Services
         {
             var orderId = Data.Select(x => x.NetsuiteOrderInternalId).FirstOrDefault();
             var isUsedBin = Data.Select(x => x.IsLocationUsedBin).FirstOrDefault();
-            var itemFulfillmentStatus = GetNetSuiteShipStatus(status);
-            var printLabel = status == ItemFulfillmentShipStatus.Shipped;
+            var isTripTicketExempt = Data.FirstOrDefault()?.IsTripTicketExempt == true;
+            var itemFulfillmentStatus = isTripTicketExempt ? "C" : "B";
+            var printLabel = true; // Packing labels are required regardless of trip-ticket exemption.
 
             string url = string.Format(isUsedBin ? ItemFulfillmentUrl : ItemFulfillmentUrlNotUsedBin, "transferOrder", orderId);
 
@@ -800,13 +801,15 @@ namespace Integration.NS.Services
         {
             var orderId = Data.Select(x => x.NetsuiteOrderInternalId).FirstOrDefault();
             var isUsedBin = Data.Select(x => x.IsLocationUsedBin).FirstOrDefault();
-            var itemFulfillmentStatus = Data.FirstOrDefault()?.IsTripTicketExempt == true ? "C" : "B";
+            var isTripTicketExempt = Data.FirstOrDefault()?.IsTripTicketExempt == true;
+            var itemFulfillmentStatus = isTripTicketExempt ? "C" : "B";
+            var printLabel = true; // Packing labels are required regardless of trip-ticket exemption.
 
             string url = string.Format(isUsedBin ? ItemFulfillmentUrl : ItemFulfillmentUrlNotUsedBin, "transferOrder", orderId);
 
             try
             {
-                ReturnsIFPayloadDTO payloadGood = ReturnsIFPayloadDTO.CreateForItemFulfillment(Data, itemFulfillmentStatus, isUsedBin);
+                ReturnsIFPayloadDTO payloadGood = ReturnsIFPayloadDTO.CreateForItemFulfillment(Data, itemFulfillmentStatus, printLabel, isUsedBin);
 
                 var jsonStringGood = JsonSerializer.Serialize(payloadGood, JsonSerializerOption);
 
@@ -824,7 +827,9 @@ namespace Integration.NS.Services
         {
             var orderId = Data.Select(x => x.NetsuiteOrderInternalId).FirstOrDefault();
             var isUsedBin = Data.Select(x => x.IsLocationUsedBin).FirstOrDefault();
-            var itemFulfillmentStatus = Data.FirstOrDefault()?.IsTripTicketExempt == true ? "C" : "B";
+            var isTripTicketExempt = Data.FirstOrDefault()?.IsTripTicketExempt == true;
+            var itemFulfillmentStatus = isTripTicketExempt ? "C" : "B";
+            var printLabel = true; // Packing labels are required regardless of trip-ticket exemption.
 
             //string url = string.Format(isUsedBin ? ItemFulfillmentUrl : ItemFulfillmentUrlNotUsedBin, "vendorReturnAuthorization", orderId);
             string url = string.Format(ItemFulfillmentUrlNotUsedBin, "vendorReturnAuthorization", orderId);
@@ -835,7 +840,7 @@ namespace Integration.NS.Services
             {
                 try
                 {
-                    var payloadBad = VendorReturnAuthorizationIFPayloadDTO.CreateForItemFulfillment(badTO, itemFulfillmentStatus, isUsedBin);
+                    var payloadBad = VendorReturnAuthorizationIFPayloadDTO.CreateForItemFulfillment(badTO, itemFulfillmentStatus, printLabel, isUsedBin);
 
                     var jsonStringBad = JsonSerializer.Serialize(payloadBad, JsonSerializerOption);
 
@@ -853,7 +858,7 @@ namespace Integration.NS.Services
             {
                 try
                 {
-                    var payloadGood = VendorReturnAuthorizationIFPayloadDTO.CreateForItemFulfillment(goodTO, itemFulfillmentStatus, isUsedBin);
+                    var payloadGood = VendorReturnAuthorizationIFPayloadDTO.CreateForItemFulfillment(goodTO, itemFulfillmentStatus, printLabel, isUsedBin);
 
                     var jsonStringGood = JsonSerializer.Serialize(payloadGood, JsonSerializerOption);
 

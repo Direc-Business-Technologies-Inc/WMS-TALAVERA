@@ -7,18 +7,22 @@ public class VendorReturnAuthorizationIFPayloadDTO
 {
     [JsonPropertyName("shipStatus")]
     public string ShipStatus { get; set; }
+    [JsonPropertyName("custbody_dbti_print_label")]
+    public bool PrintLabel { get; set; }
     [JsonPropertyName("item")]
     public ItemContainer Item { get; set; } = new();
 
     public static VendorReturnAuthorizationIFPayloadDTO CreateForItemFulfillment(
         List<PostVendorReturnAuthorizationDTO> lines,
         string shipStatus,
+        bool printLabel,
         bool isUsedBin)
     {
         // Make it nullable if its not included in json
         return new VendorReturnAuthorizationIFPayloadDTO
         {
             ShipStatus = shipStatus,
+            PrintLabel = printLabel,
             Item = new ItemContainer
             {
                 Items = lines.Select(line =>
