@@ -133,9 +133,6 @@
                                         <ChildContent>
                                             <RadzenNumeric Disabled="IsDisabled" @bind-Value="@data.QuantityAlloted" Format="#,##0.##" />
                                         </ChildContent>
-                                        <Helper>
-                                            <RadzenText Visible="@(data.QuantityAlloted > data.QuantityAvailable)" TextStyle="TextStyle.Caption" class="rz-color-danger" Text="Quantity exceeds available" />
-                                        </Helper>
                                     </RadzenFormField>
                                 </RadzenStack>
                             </Template>

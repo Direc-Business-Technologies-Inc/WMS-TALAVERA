@@ -65,9 +65,9 @@ public partial class SupplierReturnForm
 
     BarcodeStore BarcodeStore = new();
 
-    readonly List<AppFilterDescriptor> ItemFilters = [
-        DataGridFilterUtilities.GreaterThan("QuantityAvailable", 0)
-    ];
+    const string VendorSearchProperty = nameof(VendorVM.ReferenceNumber);
+
+    readonly List<AppFilterDescriptor> ItemFilters = [];
 
     const string PRINTABLE_URL = "https://11608969.extforms.netsuite.com/app/site/hosting/scriptlet.nl?script=1671&deploy=1&compid=11608969&ns-at=AAEJ7tMQ9evIwFEEUifIBokQgQ0jhowAItpfjv5Smu7B76K41lU&recordType=vendorreturnauthorization&transactionDefault=true";
 
@@ -95,7 +95,6 @@ public partial class SupplierReturnForm
         DataGridIntent intent = new DataGridIntent
         {
             Filters = [
-                DataGridFilterUtilities.GreaterThan(nameof(ItemsVM.QuantityAvailable), 0),
                 DataGridFilterUtilities.In(nameof(ItemsVM.Id), itemIds)
                 ],
 
@@ -181,7 +180,7 @@ public partial class SupplierReturnForm
 
         if (Model.Lines.Count > 0)
         {
-            var response = await AlertService.PromptAsync("Changing the locations may remove items that are no longer available");
+            var response = await AlertService.PromptAsync("Changing the locations may remove items that are not present at the selected location");
             if (!response) return;
         }
 
@@ -277,12 +276,6 @@ public partial class SupplierReturnForm
 
     async Task SubmitClicked()
     {
-        if (Model.Lines.Any(x => x.QuantityAlloted > x.QuantityAvailable))
-        {
-            ToastService.Error("Some alloted quantities exceed the available quantity");
-            return;
-        }
-
         if (OnSubmit.HasDelegate)
             await OnSubmit.InvokeAsync(Model);
     }
@@ -441,12 +434,6 @@ public partial class SupplierReturnForm
         var uomRate = line.UoM?.ConversionRate ?? 1;
         var itemCount = BarcodeStore.CountItemQuantity(line.ItemId) / uomRate;
         var incomingCount = (barcode.UoM?.ConversionRate ?? 0) / uomRate;
-
-        if (line.QuantityOnHandByUoM - line.QuantityAlloted - itemCount < incomingCount)
-        {
-            reason = $"The quantity of the item {line.ItemCode} exceeds the expected amount";
-            return false;
-        }
 
         reason = "";
         return true;
