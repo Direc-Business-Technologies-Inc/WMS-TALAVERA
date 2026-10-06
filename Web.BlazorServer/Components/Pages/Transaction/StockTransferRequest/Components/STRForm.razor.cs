@@ -110,6 +110,30 @@ public partial class STRForm
             return;
         }
 
+        // Per-line Preferred Vendor is required on every line of every category
+        // (posted to custcol_dbti_vendor). Name the offending lines so the user
+        // can find them; per-row RadzenRequiredValidator cannot work here because
+        // grid rows share one column template.
+        var linesMissingVendor = Model.Lines
+            .Select((line, index) => (line, index))
+            .Where(x => x.line.Vendor is null)
+            .Select(x => (x.line.LineNumber ?? x.index + 1).ToString())
+            .ToList();
+        if (linesMissingVendor.Count > 0)
+        {
+            ToastService.Error($"Preferred Vendor is required on line(s): {string.Join(", ", linesMissingVendor)}", "Error");
+            return;
+        }
+
+        // Return categories post the Preferred Vendor to the transfer order header
+        // (custbody_dbti_return_to_vendor). Block the submit rather than let
+        // NetSuite reject the whole document with an opaque error.
+        if (Model.IsReturn && Model.Vendor is null)
+        {
+            ToastService.Error("Preferred Vendor is required for return documents", "Error");
+            return;
+        }
+
         bool success = true;
         if (OnSubmit is not null) success = await OnSubmit(Model);
         if (success && !string.IsNullOrEmpty(ActionURI))
@@ -130,6 +154,7 @@ public partial class STRForm
                 Warehouse = Model.SourceLocation?.Name ?? string.Empty,
                 PreferredBin = item.PreferredBin,
                 UoM = item.PurchaseUnit,
+                Vendor = item.PreferredVendorId.HasValue ? new VendorVM { Id = item.PreferredVendorId.Value, Name = item.PreferredVendorName ?? string.Empty } : null,
                 QuantityOnHand = item.QuantityOnHand,
                 QuantityAvailable = item.QuantityAvailable,
                 QuantityAlloted = 0
@@ -176,7 +201,7 @@ public partial class STRForm
 
         var result = location == 0 ?
         await ItemsHandler.GetItemsDataGridAsync(intent) :
-        await ItemsHandler.GetItemsAtLocationDataGridAsync(intent, location);
+        await ItemsHandler.GetItemsAtLocationDataGridAsync(intent, location, VendorSubsidiary?.Id ?? Model.Subsidiary?.Id);
 
         Items = result.Data.ToList();
 
@@ -209,16 +234,41 @@ public partial class STRForm
         }
     }
 
+    /// <summary>
+    ///     Owning subsidiary for Preferred Vendor. Intercompany documents scope the
+    ///     vendor to the To Subsidiary, everything else to the source Subsidiary.
+    ///     Single-sourced so the dropdown and the reset-on-subsidiary-change check
+    ///     can never disagree.
+    /// </summary>
+    private SubsidiaryVM? VendorSubsidiary =>
+        Model.IsIntercompany && Model.ToSubsidiary is not null ? Model.ToSubsidiary : Model.Subsidiary;
+
     async Task<(IEnumerable<VendorVM>, int)> VendorProvider(DataGridIntent intent)
     {
-        if (Model.ToSubsidiary is null) return ([], 0);
+        // Preferred Vendor is a header-level concept on the transfer order
+        // (custbody_dbti_return_to_vendor), scoped to the owning subsidiary.
+        // Previously this keyed off ToSubsidiary alone, which returned an empty
+        // list for every non-intercompany document and left the dropdown unusable.
+        var subsidiary = VendorSubsidiary;
+
+        if (subsidiary is null) return ([], 0);
 
         await _concurrencySemaphore.WaitAsync();
 
-        var result = await VendorHandler.GetTradeVendorsListBySubsidiaryAsync(intent, Model.ToSubsidiary.Id);
+        try
+        {
+            return await VendorHandler.GetTradeVendorsListBySubsidiaryAsync(intent, subsidiary.Id);
+        }
+        finally
+        {
+            _concurrencySemaphore.Release();
+        }
+    }
 
-        _concurrencySemaphore.Release();
-        return result;
+    async Task VendorSet(VendorVM? vm)
+    {
+        Model.Vendor = vm;
+        await InvokeAsync(StateHasChanged);
     }
 
     async Task<(IEnumerable<SubsidiaryVM>, int)> SubsidiaryProvider(DataGridIntent intent)
@@ -500,6 +550,7 @@ public partial class STRForm
                     Warehouse = Model.SourceLocation?.Name ?? string.Empty,
                     PreferredBin = item.PreferredBin,
                     UoM = targetUom,
+                    Vendor = item.PreferredVendorId.HasValue ? new VendorVM { Id = item.PreferredVendorId.Value, Name = item.PreferredVendorName ?? string.Empty } : null,
                     QuantityOnHand = item.QuantityOnHand,
                     QuantityAvailable = item.QuantityAvailable,
                     QuantityAlloted = baseItemCount / lineConversionRate
@@ -532,9 +583,20 @@ public partial class STRForm
         }
 
         Model.DestinationLocation = null;
-        Model.Vendor = null;
         DestinationLocationDropdown?.Reset();
-        VendorDropdown?.Reset();
+
+        // Header + line Preferred Vendors are scoped to the owning subsidiary, so
+        // they MUST be cleared when either subsidiary changes - otherwise a vendor
+        // from the previous subsidiary would be posted to NetSuite against the new one.
+        if (Model.Vendor is not null)
+        {
+            Model.Vendor = null;
+            VendorDropdown?.Reset();
+        }
+        foreach (var line in Model.Lines)
+        {
+            line.Vendor = null;
+        }
     }
 
     async Task SubmitForApproval()
@@ -584,6 +646,12 @@ public partial class STRForm
         line.QuantityAlloted *= oldcr / newcr;
 
         line.UoM = uom;
+    }
+
+    async Task LineVendorSet(StockTransferRequestLineVM line, VendorVM? vendor)
+    {
+        line.Vendor = vendor;
+        await InvokeAsync(StateHasChanged);
     }
 
     bool SameSubsidiary(SubsidiaryVM? a, SubsidiaryVM? b)

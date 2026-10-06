@@ -12,12 +12,12 @@ using System.Threading.Tasks;
 
 namespace Application.UseCases.Queries.Others;
 
-public record GetItemsByLocationQry(DataGridIntent Intent, int locationId) : IRequest<(IEnumerable<ItemsDTO> data, int count)>;
+public record GetItemsByLocationQry(DataGridIntent Intent, int locationId, int? subsidiaryId = null) : IRequest<(IEnumerable<ItemsDTO> data, int count)>;
 
 public class GetItemsQryByLocationHandler(IItemsIntegration itemsIntegration) : IRequestHandler<GetItemsByLocationQry, (IEnumerable<ItemsDTO> data, int count)>
 {
     public async Task<(IEnumerable<ItemsDTO> data, int count)> Handle(GetItemsByLocationQry request, CancellationToken cancellationToken)
     {
-        return await itemsIntegration.GetItemsByLocationDataGridAsync(request.Intent, request.locationId);
+        return await itemsIntegration.GetItemsByLocationDataGridAsync(request.Intent, request.locationId, request.subsidiaryId);
     }
 }

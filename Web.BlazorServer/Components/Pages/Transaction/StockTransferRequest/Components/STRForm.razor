@@ -55,10 +55,10 @@
                             TextProperty="@nameof(TransferCategory.Name)" />
                         </RadzenFormField>
                     </RadzenColumn>
-                    @* <RadzenColumn Visible="@Model.IsReturn" SizeLG="6" SizeMD="12">
-                         <RadzenFormField AllowFloatingLabel="@(!ReadOnly)" Text="Vendor" class="rz-w-100">
+                    <RadzenColumn Visible="@Model.IsReturn" SizeLG="6" SizeMD="12">
+                         <RadzenFormField AllowFloatingLabel="@(!ReadOnly)" Text="Preferred Vendor" class="rz-w-100">
                             <ChildContent>
-                                <RadzenTextBox Disabled="@Disabled"  Visible="@ReadOnly" ReadOnly Value="@(Model.Vendor?.Name ?? null)" />
+                                <RadzenTextBox Disabled="@Disabled"  Visible="@ReadOnly" ReadOnly Value="@(Model.Vendor?.Name ?? null)" Placeholder="No vendor given" />
                                 <QuickVirtualizedDropdown Visible="@(!ReadOnly)"
                                 Disabled="@Disabled"
                                 @ref="@VendorDropdown"
@@ -66,17 +66,18 @@
                                 Name="str_vendor_dropdown"
                                 ActionName="@ActionGetVendors"
                                 DataGetter="@VendorProvider"
-                                @bind-Value="@Model.Vendor"
+                                @bind-Value:get="@Model.Vendor"
+                                @bind-Value:set="@VendorSet"
                                 FilterTarget="@nameof(VendorVM.Name)"
                                 TextProperty="@nameof(VendorVM.Name)"
                                 AllowClear
                                 AllowFiltering />
                             </ChildContent>
                             <Helper>
-                                <RadzenRequiredValidator Component="str_vendor_dropdown" />
+                                <RadzenRequiredValidator Visible="@(!ReadOnly && Model.IsReturn)" Component="str_vendor_dropdown" />
                             </Helper>
                         </RadzenFormField> 
-                    </RadzenColumn> *@
+                    </RadzenColumn>
 
                     <RadzenColumn SizeLG="6" SizeMD="12">
                         <RadzenFormField Text="Purchase Category" class="rz-w-100">
@@ -227,22 +228,12 @@
                         </RadzenDataGridColumn>
 
                         <RadzenDataGridColumn TItem="StockTransferRequestLineVM"
-                                              Property="@nameof(StockTransferRequestLineVM.Vendor)"
-                                              Title="Preferred Vendor">
+                        Property="@nameof(StockTransferRequestLineVM.Vendor)"
+                        Title="Preferred Vendor">
                             <Template Context="data">
                                 <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center">
-                                    <RadzenText Disabled="@Disabled" Visible="@ReadOnly" ReadOnly Value="@(data.Vendor?.Name ?? null)" />
-                                    <QuickVirtualizedDropdown Visible="@(!ReadOnly)"
-                                    TItem="VendorVM"
-                                    Name="str_vendorline_dropdown"
-                                    ActionName="@ActionGetVendors"
-                                    DataGetter="@VendorProvider"
-                                    @bind-Value:get="@data.Vendor" 
-                                    FilterTarget="@nameof(VendorVM.Name)"
-                                    TextProperty="@nameof(VendorVM.Name)"
-                                    AllowClear
-                                    AllowFiltering />
-                                    <RadzenRequiredValidator Component="str_vendorline_dropdown" />
+                                    <RadzenText Visible="@ReadOnly" TextStyle="TextStyle.Body2">@(data.Vendor?.Name ?? "Not set")</RadzenText>
+                                    <QuickVirtualizedDropdown Disabled="@Disabled" Visible="@(!ReadOnly)" TItem="VendorVM" DataGetter="@VendorProvider" ActionName="@ActionGetVendors" @bind-Value:get="@data.Vendor" @bind-Value:set="@(val => LineVendorSet(data, val))" FilterTarget="@nameof(VendorVM.Name)" TextProperty="@nameof(VendorVM.Name)" AllowClear="false" AllowFiltering />
                                 </RadzenStack>
                             </Template>
                         </RadzenDataGridColumn>
@@ -364,7 +355,7 @@
     {
         List<ItemsVM> items = await DialogService.OpenAsync(
             "Select Items",
-            ds => @<ItemSelectionDialog Location="@(Model.SourceLocation?.Id ?? null)" Filters="@ItemFilters" />,
+            ds => @<ItemSelectionDialog Location="@(Model.SourceLocation?.Id ?? null)" SubsidiaryId="@(VendorSubsidiary?.Id ?? Model.Subsidiary?.Id)" Filters="@ItemFilters" />,
     options: GridSettingsService.GetDialogOptions());
 
         if (items is not null) await AddItems(items);

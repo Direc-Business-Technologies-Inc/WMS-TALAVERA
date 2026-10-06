@@ -110,7 +110,9 @@ public class SupplierReturnIntegration(
                 ("tl.location", nameof(SupplierReturnLineNSDTO.LocationId)),
                 ("item.displayname", nameof(SupplierReturnLineNSDTO.ItemDescription)),
                 ("-(tl.quantity / uom.conversionrate)", nameof(SupplierReturnLineNSDTO.QuantityAlloted)),
-                ("(iil.quantityavailable / uom.conversionrate)", nameof(SupplierReturnLineNSDTO.QuantityAvailable))
+                ("(iil.quantityavailable / uom.conversionrate)", nameof(SupplierReturnLineNSDTO.QuantityAvailable)),
+                ("BUILTIN.DF(tl.custcol_dbti_vendor)", nameof(SupplierReturnLineNSDTO.VendorName)),
+                ("tl.custcol_dbti_vendor", nameof(SupplierReturnLineNSDTO.VendorId))
             )
             .From("transactionline tl")
             .Join("transaction t", on: "tl.transaction = t.id")
@@ -318,7 +320,9 @@ public class SupplierReturnIntegration(
                 ("tl.location", nameof(SupplierReturnLineNSDTO.LocationId)),
                 ("item.displayname", nameof(SupplierReturnLineNSDTO.ItemDescription)),
                 ("(iil.quantityavailable / uom.conversionrate)", nameof(SupplierReturnLineNSDTO.QuantityAvailable)),
-                ("(tl.quantity / uom.conversionrate)", nameof(SupplierReturnLineNSDTO.QuantityAlloted))
+                ("(tl.quantity / uom.conversionrate)", nameof(SupplierReturnLineNSDTO.QuantityAlloted)),
+                ("BUILTIN.DF(tl.custcol_dbti_vendor)", nameof(SupplierReturnLineNSDTO.VendorName)),
+                ("tl.custcol_dbti_vendor", nameof(SupplierReturnLineNSDTO.VendorId))
             )
             .From("transactionline tl")
             .Join("transaction t", on: "tl.transaction = t.id")
@@ -416,13 +420,14 @@ public class SupplierReturnIntegration(
                     item = x.ItemId,
                     quantity = x.QuantityAlloted,
                     department = 15, //operations
-                    units = x.UoM?.Id.ToString() ?? null
-                })
-            }
-        };
+                     units = x.UoM?.Id.ToString() ?? null,
+                     custcol_dbti_vendor = x.Vendor is not null ? new { id = x.Vendor.Id.ToString() } : null
+                 })
+             }
+         };
 
-        return JsonSerializer.Serialize(anon, jsonOpts);
-    }
+         return JsonSerializer.Serialize(anon, jsonOpts);
+     }
 
     private readonly JsonSerializerOptions jsonOpts = new JsonSerializerOptions
     {
@@ -435,7 +440,8 @@ public class SupplierReturnIntegration(
         return nsdto.Adapt(new SupplierReturnLineDTO() 
         { 
             UoM = new() { Id = nsdto.UoMId, Name = nsdto.UoMName, ConversionRate = nsdto.UoMRate },
-            Location = new () { Id = nsdto.LocationId, Name = nsdto.LocationName }
+            Location = new () { Id = nsdto.LocationId, Name = nsdto.LocationName },
+            Vendor = nsdto.VendorId.HasValue ? new Application.DataTransferObjects.Others.VendorDTO { Id = nsdto.VendorId.Value, Name = nsdto.VendorName ?? string.Empty } : null
         });
     }
 }

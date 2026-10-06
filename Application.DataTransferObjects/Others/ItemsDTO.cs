@@ -16,6 +16,8 @@ public class ItemsDTO
     public decimal QuantityOnHand { get; set; }
     public decimal QuantityAvailable { get; set; }
     public string? PreferredBin { get; set; }
+    public int? PreferredVendorId { get; set; }
+    public string? PreferredVendorName { get; set; }
     public decimal Weight { get; set; }
     public int UnitTypeId { get; set; }
     public ItemUnitDTO PurchaseUnit { get; set; } = new(); 

@@ -6,7 +6,7 @@ namespace Web.BlazorServer.Handlers.Repositories.Others;
 public interface IItemsHandler
 {
     Task<(IEnumerable<ItemsVM> Data, int Count)> GetItemsDataGridAsync(DataGridIntent intent);
-    Task<(IEnumerable<ItemsVM> Data, int Count)> GetItemsAtLocationDataGridAsync(DataGridIntent intent, int locationId);
+    Task<(IEnumerable<ItemsVM> Data, int Count)> GetItemsAtLocationDataGridAsync(DataGridIntent intent, int locationId, int? subsidiaryId = null);
     Task<ItemsVM> GetItemsAsync(string id);
     Task<(IEnumerable<ItemUnitVM> Data, int Count)> GetItemUnits(int itemId, DataGridIntent intent);
 }

@@ -43,11 +43,30 @@ internal static class SuiteQLFragments
         var locationFilter = location.HasValue ? $" AND b.location = {location.Value}" : string.Empty;
 
         return $"""
-            (SELECT ibq.item, b.location, MIN(b.binnumber) AS binnumber
-             FROM itembinquantity ibq
-             JOIN bin b ON ibq.bin = b.id
-             WHERE ibq.preferredbin = 'T'{locationFilter}
-             GROUP BY ibq.item, b.location)
-            """;
+             (SELECT ibq.item, b.location, MIN(b.binnumber) AS binnumber
+              FROM itembinquantity ibq
+              JOIN bin b ON ibq.bin = b.id
+              WHERE ibq.preferredbin = 'T'{locationFilter}
+              GROUP BY ibq.item, b.location)
+             """;
+    }
+
+    /// <summary>
+    ///     Derived table yielding the preferred vendor per item (and optionally subsidiary).
+    ///     One row per item+subsidiary holding preferredvendor = 'T' (subsidiary-scoped
+    ///     per the item vendor master). The WMS defaults new STR/RTS lines from this so the
+    ///     user sees the master default immediately; a non-destructive NetSuite script
+    ///     backfills anything missed on save and never overwrites an override.
+    /// </summary>
+    /// <param name="subsidiary">Subsidiary internal id to scope by (document owning subsidiary), or null to leave unscoped (all preferred rows).</param>
+    /// <returns>A parenthesised subquery exposing item, vendor, subsidiary. Append the join alias, e.g. $"{SuiteQLFragments.PreferredVendor(subsidiary)} pv".</returns>
+    public static string PreferredVendor(int? subsidiary = null)
+    {
+        var subsidiaryFilter = subsidiary.HasValue ? $" AND iv.subsidiary = {subsidiary.Value}" : string.Empty;
+        return $"""
+             (SELECT iv.item, iv.vendor, iv.subsidiary
+              FROM itemvendor iv
+              WHERE iv.preferredvendor = 'T'{subsidiaryFilter})
+             """;
     }
 }

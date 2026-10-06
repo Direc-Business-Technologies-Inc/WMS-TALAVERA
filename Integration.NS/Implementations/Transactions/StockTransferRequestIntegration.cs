@@ -234,7 +234,9 @@ internal class StockTransferRequestIntegration(
                 ("item.displayname", nameof(StockTransferRequestLineNSDTO.ItemDescription)),
                 ("tl.linesequencenumber", nameof(StockTransferRequestLineNSDTO.LineNumber)),
                 ("(iil.quantityavailable / uom.conversionrate)", nameof(StockTransferRequestLineNSDTO.QuantityOnHand)),
-                ("(-tl.quantity / uom.conversionrate)", nameof(StockTransferRequestLineNSDTO.QuantityAlloted)) // idk why this is negative
+                ("(-tl.quantity / uom.conversionrate)", nameof(StockTransferRequestLineNSDTO.QuantityAlloted)), // idk why this is negative
+                ("BUILTIN.DF(tl.custcol_dbti_vendor)", nameof(StockTransferRequestLineNSDTO.VendorName)),
+                ("tl.custcol_dbti_vendor", nameof(StockTransferRequestLineNSDTO.VendorId))
             )
             .From("transactionline tl")
             .Join("transaction t", on: "tl.transaction = t.id")
@@ -256,7 +258,8 @@ internal class StockTransferRequestIntegration(
                 ConversionRate = x.UoMRate,
                 Name = x.UoMName,
                 Id = x.UoMId
-            }
+            },
+            Vendor = x.VendorId.HasValue ? new Application.DataTransferObjects.Others.VendorDTO { Id = x.VendorId.Value, Name = x.VendorName ?? string.Empty } : null
         }))];
      }
 
@@ -373,7 +376,7 @@ internal class StockTransferRequestIntegration(
             orderStatus = "A",
             custbody_dbti_transfer_category = new { id = dto.TransferCategory.Id },
             custbody_dbti_prepared_by = dto.PreparedById,
-            // custbody_dbti_return_to_vendor = dto.TransferCategory.IsReturn && dto.Vendor != null ? new { id = dto.Vendor.Id.ToString() } : null,
+            custbody_dbti_return_to_vendor = dto.TransferCategory.IsReturn && dto.Vendor is not null ? new { id = dto.Vendor.Id.ToString() } : null,
             custbody_dbti_purchase_category = dto.PurchaseCategory?.Id ?? null,
             custbody_dbti_purchase_subcategory = dto.PurchaseSubcategory?.Id ?? null,
             Department = new { id = "4" },
@@ -390,12 +393,13 @@ internal class StockTransferRequestIntegration(
                         item = new { id = line.ItemId },
                         quantity = line.QuantityAlloted,
                         department = new { id = "4" },
-                        units = line.UoM?.Id.ToString() ?? null
-                    };
-                })
-            }
-        };
+                         units = line.UoM?.Id.ToString() ?? null,
+                         custcol_dbti_vendor = line.Vendor is not null ? new { id = line.Vendor.Id.ToString() } : null
+                     };
+                 })
+             }
+         };
 
-        return JsonSerializer.Serialize(anon, jsonSerializerOptions);
-    }
+         return JsonSerializer.Serialize(anon, jsonSerializerOptions);
+     }
 }

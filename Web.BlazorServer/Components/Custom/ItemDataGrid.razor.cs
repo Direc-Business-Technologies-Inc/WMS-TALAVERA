@@ -15,6 +15,7 @@ partial class ItemDataGrid
 
     [Parameter] public string? Id { get; set; } = "items_datagrid";
     [Parameter] public int? LocationId { get; set; }
+    [Parameter] public int? SubsidiaryId { get; set; }
     [Parameter] public EventCallback<List<ItemsVM>> OnItemsSelected { get; set; }
     [Parameter] public SelectionModes SelectionMode { get; set; } = SelectionModes.Single;
     [Parameter] public List<AppFilterDescriptor> Filters { get; set; } = [];
@@ -88,7 +89,8 @@ partial class ItemDataGrid
                 ? await ItemsHandler.GetItemsDataGridAsync(intent)
                 : await ItemsHandler.GetItemsAtLocationDataGridAsync(
                     intent,
-                    (int)LocationId);
+                    (int)LocationId,
+                    SubsidiaryId);
 
             return response;
 

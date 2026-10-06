@@ -123,6 +123,14 @@
                                 </RadzenStack>
                             </Template>
                         </RadzenDataGridColumn>
+                        <RadzenDataGridColumn TItem="SupplierReturnLineVM" Title="Preferred Vendor" Property="@nameof(SupplierReturnLineVM.Vendor)">
+                            <Template Context="data">
+                                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center">
+                                    <RadzenText Visible="@(!IsEditable)" TextStyle="TextStyle.Body2" Text="@(data.Vendor?.Name ?? "Not set")" />
+                                    <QuickVirtualizedDropdown Disabled="IsDisabled" @bind-Value:get="@data.Vendor" @bind-Value:set="@(val => LineVendorSet(data, val))" Visible="@IsEditable" TItem="VendorVM" DataGetter="@VendorProvider" FilterTarget="@nameof(VendorVM.Name)" TextProperty="@nameof(VendorVM.Name)" AllowClear="false" AllowFiltering />
+                                </RadzenStack>
+                            </Template>
+                        </RadzenDataGridColumn>
                         <RadzenDataGridColumn TItem="SupplierReturnLineVM" Title="Available Quantity" Property="@nameof(SupplierReturnLineVM.QuantityOnHandByUoM)" Type="typeof(decimal)" FormatString="{0:#,##0.##}" />
                         <RadzenDataGridColumn TItem="SupplierReturnLineVM" Title="Alloted Quantity">
                             <Template Context="data">
@@ -194,7 +202,7 @@
     {
         List<ItemsVM> items = await DialogService.OpenAsync(
             "Select Items",
-            ds => @<ItemSelectionDialog Location="@(Model.Location?.Id ?? null)" Filters="ItemFilters" />,
+            ds => @<ItemSelectionDialog Location="@(Model.Location?.Id ?? null)" SubsidiaryId="@Model.Subsidiary?.Id" Filters="ItemFilters" />,
     options: dialogOptions);
 
         if (items is not null) await AddItems(items);

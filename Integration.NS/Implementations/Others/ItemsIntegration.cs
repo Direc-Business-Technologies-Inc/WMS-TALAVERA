@@ -55,7 +55,7 @@ public class ItemsIntegration(
         return ConvertItemNSDTO(nsdto);
     }
 
-    public async Task<(IEnumerable<ItemsDTO> Data, int Count)> GetItemsByLocationDataGridAsync(DataGridIntent intent, int location)
+    public async Task<(IEnumerable<ItemsDTO> Data, int Count)> GetItemsByLocationDataGridAsync(DataGridIntent intent, int location, int? subsidiary = null)
     {
         var query = builderFactory.Create()
             .Select(
@@ -75,7 +75,9 @@ public class ItemsIntegration(
                 ("u3.conversionrate", nameof(ItemsNSDTO.PurchaseUnitRate)),
                 ("ail.quantityonhand", nameof(ItemsNSDTO.QuantityOnHand)),
                 ("ail.quantityavailable", nameof(ItemsNSDTO.QuantityAvailable)),
-                ("pb.binnumber", nameof(ItemsNSDTO.PreferredBin))
+                ("pb.binnumber", nameof(ItemsNSDTO.PreferredBin)),
+                ("pv.vendor", nameof(ItemsNSDTO.PreferredVendorId)),
+                ("BUILTIN.DF(pv.vendor)", nameof(ItemsNSDTO.PreferredVendorName))
             )
             .From("item i")
             .LeftJoin("aggregateitemlocation ail", on:"ail.item = i.id")
@@ -84,6 +86,7 @@ public class ItemsIntegration(
             .LeftJoin("unitsTypeUom u2", on: "u2.internalid = i.stockunit")
             .LeftJoin("unitsTypeUom u3", on: "u3.internalid = i.purchaseunit")
             .LeftJoin($"{SuiteQLFragments.PreferredBin(location)} pb", on: "pb.item = i.id")
+            .LeftJoin($"{SuiteQLFragments.PreferredVendor(subsidiary)} pv", on: "pv.item = i.id")
             .WithFilter(DataGridFilterUtilities.Equal("loc.id", location))
             .WithDatagridIntent(intent)
             .Build();
