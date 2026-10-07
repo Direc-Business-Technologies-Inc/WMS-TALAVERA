@@ -102,7 +102,7 @@ internal class ReturnPackingIntegration(
             .WithFilters(
                 Equal("t.tranid", tranid),
                 Equal("tl.mainline", "T"),
-                In("t.recordtype", new string[] { "intercompanytransferorder" }))
+                In("t.recordtype", new string[] { "intercompanytransferorder", "transferorder" }))
             .GroupBy("t.id")
             .Build();
 
