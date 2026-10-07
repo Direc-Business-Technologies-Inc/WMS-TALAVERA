@@ -43,7 +43,7 @@ internal class ReturnPackingIntegration(
             .LeftJoin("transferorderstatus s", on: "s.id = t.status")
             .WithFilters(
                 Equal("tl.mainline", "T"),
-                Equal("tl.subsidiary", subsidiaryId))
+                Equal("t.subsidiary", subsidiaryId))
             .WithFilters(PackingReturnsFilters())
             .WithDatagridIntent(intent)
             .Build();
@@ -145,9 +145,8 @@ internal class ReturnPackingIntegration(
     {
         return
         [
-            In("t.recordtype", new string[] { "intercompanytransferorder" }),
+            In("t.recordtype", new string[] { "intercompanytransferorder", "transferorder" }),
             In("t.custbody_dbti_transfer_category", new string[] { "3", "4" }),
-            Equal("t.ordpicked", "F"),
             In("t.status", new string[] { "B", "D", "E" })
         ];
     }
