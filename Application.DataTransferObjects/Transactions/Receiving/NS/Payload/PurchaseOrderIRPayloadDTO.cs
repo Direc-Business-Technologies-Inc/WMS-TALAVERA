@@ -114,12 +114,18 @@ public class PurchaseOrderIRPayloadDTO
                                         {
                                             Id = "1"
                                         },
-                                        BinNumber = line.IsLocationUsedBin ? new ReferenceValue
-                                        {
-                                            Id = line.VendorBinAssignmentId != 0
-                                                        ? line.VendorBinAssignmentId.ToString()
-                                                        : line.NetsuiteMaterialPrefferedBinId.ToString()
-                                        } : null,
+                                        BinNumber = !line.IsLocationUsedBin ? null :
+                                            line.VendorBinAssignmentId != 0
+                                            ? new ReferenceValue
+                                            {
+                                                Id = line.VendorBinAssignmentId.ToString()
+                                            }
+                                            : line.NetsuiteMaterialPrefferedBinId != 0
+                                            ? new ReferenceValue
+                                            {
+                                                Id = line.NetsuiteMaterialPrefferedBinId.ToString()
+                                            }
+                                            : null,
                                         Quantity = line.ScannedQuantity
                                     }
                                 }
