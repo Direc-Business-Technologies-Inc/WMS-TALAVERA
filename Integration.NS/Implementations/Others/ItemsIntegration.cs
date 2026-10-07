@@ -104,7 +104,7 @@ public class ItemsIntegration(
             .WithDatagridIntent(intent)
             .Build();
 
-        var result = await netsuiteService.ExecuteSuiteQLQuery<ItemsNSDTO>(query.Query, query.Limit, query.Offset);
+        var result = await query.ExecuteWithPaging<ItemsNSDTO>(netsuiteService);
 
         return (result.items.Select(ConvertItemNSDTO), result.totalResults);
     }
@@ -137,7 +137,7 @@ public class ItemsIntegration(
             .WithDatagridIntent(intent)
             .Build();
 
-        var result = await netsuiteService.ExecuteSuiteQLQuery<ItemsNSDTO>(query.Query, query.Limit, query.Offset);
+        var result = await query.ExecuteWithPaging<ItemsNSDTO>(netsuiteService);
 
         return (result.items.Select(ConvertItemNSDTO), result.totalResults);
     }
@@ -162,7 +162,7 @@ public class ItemsIntegration(
             .WithFilter(DataGridFilterUtilities.Equal("i.id", itemId))
             .Build();
 
-        var result = await netsuiteService.ExecuteSuiteQLQuery<ItemUnitDTO>(query.Query, query.Limit, query.Offset);
+        var result = await query.ExecuteWithPaging<ItemUnitDTO>(netsuiteService);
         return (result.items, result.totalResults);
     }
 
