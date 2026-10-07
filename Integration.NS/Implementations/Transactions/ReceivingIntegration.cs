@@ -278,6 +278,18 @@ public class ReceivingIntegration(
             AllowedLocations = JsonSerializer.Deserialize<int[]>(claimValue) ?? [-1];
         }
 
+        List<AppFilterDescriptor> filters =
+        [
+            In("t.recordtype", new string[] { "intercompanytransferorder", "transferorder" }),
+            In("t.status", new string[] { "F", "E" }),
+            Any(
+                Equal("t.custbody_dbti_transfer_category", 3),
+                Equal("t.custbody_dbti_transfer_category", 4)),
+            In("t.transferlocation", AllowedLocations)
+        ];
+
+        var subsidiaryScope = ReturnSubsidiaryScope();
+        if (subsidiaryScope is not null) filters.Add(subsidiaryScope);
 
         var query = builderFactory.Create()
             .Select(
@@ -297,15 +309,7 @@ public class ReceivingIntegration(
             .LeftJoin("transferorderstatus s", on: "s.id = t.status")
             .LeftJoin("transactionline ml", "ml.transaction = t.id AND ml.mainline = 'T'")
             .WithDatagridIntent(intent)
-            .WithSubsidiaries(httpContext, "t", true)
-            .WithFilters(
-                Equal("t.recordtype", "intercompanytransferorder"),
-                In("t.status", new string[] { "F", "E" }),
-                Any(
-                    Equal("t.custbody_dbti_transfer_category", 3),
-                    Equal("t.custbody_dbti_transfer_category", 4)),
-                In("t.transferlocation", AllowedLocations)
-            ).Build();
+            .WithFilters([.. filters]).Build();
 
         var response = await netsuiteService.ExecuteSuiteQLQuery<ReturnsDataGridDTO>(query.Query, limit: query.Limit, offset: query.Offset);
         return (response.items, response.totalResults);
@@ -313,6 +317,18 @@ public class ReceivingIntegration(
 
     public async Task<ReturnsDTO?> GetReturnsHeaderAsync(string docEntry)
     {
+        List<AppFilterDescriptor> filters =
+        [
+            In("t.recordtype", new string[] { "intercompanytransferorder", "transferorder" }),
+            Any(
+                Equal("t.custbody_dbti_transfer_category", 3),
+                Equal("t.custbody_dbti_transfer_category", 4)),
+            Equal("t.tranid", docEntry)
+        ];
+
+        var subsidiaryScope = ReturnSubsidiaryScope();
+        if (subsidiaryScope is not null) filters.Add(subsidiaryScope);
+
         var query = builderFactory.Create()
             .Select(
                 ("t.id", nameof(ReturnsDTO.Id)),
@@ -327,14 +343,7 @@ public class ReceivingIntegration(
             .From("transaction t")
             .Join("transactionline tl", "tl.transaction = t.id AND tl.mainline = 'T'")
             .LeftJoin("employee e", "e.id = t.custbody_dbti_prepared_by")
-            .WithSubsidiaries(httpContext, "t", true)
-            .WithFilters(
-                Equal("t.recordtype", "intercompanytransferorder"),
-                Any(
-                    Equal("t.custbody_dbti_transfer_category", 3),
-                    Equal("t.custbody_dbti_transfer_category", 4)),
-                Equal("t.tranid", docEntry)
-            ).Build();
+            .WithFilters([.. filters]).Build();
 
         var response = await netsuiteService.ExecuteSuiteQLQuery<ReturnsDTO>(query.Query);
         return response.items.FirstOrDefault();
@@ -355,6 +364,7 @@ public class ReceivingIntegration(
             .Join("item", on: "tl.item = item.id")
             .LeftJoin("unitstypeuom uom", on: "tl.units = uom.internalid")
             .WithFilters(
+                In("t.recordtype", new string[] { "intercompanytransferorder", "transferorder" }),
                 Equal("tl.transactionlinetype", "RECEIVING"),
                 Equal("t.tranid", docEntry),
                 Equal("tl.mainline", "F")
@@ -362,6 +372,26 @@ public class ReceivingIntegration(
 
         var response = await netsuiteService.ExecuteSuiteQLQuery<ReturnsLineDTO>(query.Query);
         return [.. response.items];
+    }
+
+    private AppFilterDescriptor? ReturnSubsidiaryScope()
+    {
+        string? claimValue = httpContext.HttpContext?.User?.FindFirst("com.direcbusiness.wms.nsAllowedSubsidiaries")?.Value;
+        if (claimValue is null) return null;
+
+        List<int> allowedSubsidiaries = JsonSerializer.Deserialize<List<int>>(claimValue) ?? [];
+        if (allowedSubsidiaries.Count == 0) return null;
+
+        return Any(
+            All(
+                Equal("t.recordtype", "intercompanytransferorder"),
+                In("t.tosubsidiary", allowedSubsidiaries)
+            ),
+            All(
+                Equal("t.recordtype", "transferorder"),
+                In("t.subsidiary", allowedSubsidiaries)
+            )
+        );
     }
 
     public async Task<ItemReceiptDTO?> GetItemReceiptHeaderAsync(string docEntry)

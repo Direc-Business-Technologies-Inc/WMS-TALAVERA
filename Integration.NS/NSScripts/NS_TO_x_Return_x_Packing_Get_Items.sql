@@ -153,7 +153,7 @@ LEFT JOIN (
     AND ibli2.inventorystatus = '3'
 
 WHERE
-    t.recordtype IN ('intercompanytransferorder')
+    t.recordtype IN ('intercompanytransferorder', 'transferorder')
     AND t.custbody_dbti_transfer_category IN ('3', '4')
     AND t.status IN ('B', 'D', 'E')
     AND tl.transactionlinetype = 'SHIPPING'
