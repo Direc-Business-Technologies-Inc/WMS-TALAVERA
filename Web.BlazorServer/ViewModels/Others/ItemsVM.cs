@@ -12,6 +12,8 @@ public class ItemsVM
     public decimal QuantityOnHand { get; set; }
     public decimal QuantityAvailable { get; set; }
     public string? PreferredBin { get; set; }
+    public int? PreferredVendorId { get; set; }
+    public string? PreferredVendorName { get; set; }
     public ItemUnitVM PurchaseUnit { get; set; } = new();
     public ItemUnitVM StockUnit { get; set; } = new(); 
     public ItemUnitVM SaleUnit { get; set; } = new();

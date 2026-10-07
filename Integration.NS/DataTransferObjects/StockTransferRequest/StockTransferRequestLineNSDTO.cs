@@ -20,4 +20,6 @@ public class StockTransferRequestLineNSDTO
     public string? PreferredBin { get; set; }
     public decimal QuantityOnHand { get; set; }
     public decimal QuantityAlloted { get; set; }
+    public int? VendorId { get; set; }
+    public string? VendorName { get; set; }
 }

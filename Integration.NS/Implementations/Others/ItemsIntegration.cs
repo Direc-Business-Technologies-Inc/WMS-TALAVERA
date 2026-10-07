@@ -55,9 +55,9 @@ public class ItemsIntegration(
         return ConvertItemNSDTO(nsdto);
     }
 
-    public async Task<(IEnumerable<ItemsDTO> Data, int Count)> GetItemsByLocationDataGridAsync(DataGridIntent intent, int location)
+    public async Task<(IEnumerable<ItemsDTO> Data, int Count)> GetItemsByLocationDataGridAsync(DataGridIntent intent, int location, int? subsidiary = null)
     {
-        var query = builderFactory.Create()
+        var builder = builderFactory.Create()
             .Select(
                 ("i.itemid", nameof(ItemsNSDTO.ItemNumber)),
                 ("i.id", nameof(ItemsNSDTO.Id)),
@@ -83,12 +83,28 @@ public class ItemsIntegration(
             .LeftJoin("unitsTypeUom u1", on: "u1.internalid = i.saleunit")
             .LeftJoin("unitsTypeUom u2", on: "u2.internalid = i.stockunit")
             .LeftJoin("unitsTypeUom u3", on: "u3.internalid = i.purchaseunit")
-            .LeftJoin($"{SuiteQLFragments.PreferredBin(location)} pb", on: "pb.item = i.id")
+            .LeftJoin($"{SuiteQLFragments.PreferredBin(location)} pb", on: "pb.item = i.id");
+
+        // The PreferredVendor subquery yields one row per item+subsidiary, so
+        // joining it unscoped duplicates multi-subsidiary items. Only consumers
+        // that scope a subsidiary (STR/RTS) get the join; others (ITR, Inventory
+        // Adjustment) keep the duplicate-free pre-vendor result shape.
+        if (subsidiary.HasValue)
+        {
+            builder = builder
+                .LeftJoin($"{SuiteQLFragments.PreferredVendor(subsidiary.Value)} pv", on: "pv.item = i.id")
+                .Select(
+                    ("pv.vendor", nameof(ItemsNSDTO.PreferredVendorId)),
+                    ("BUILTIN.DF(pv.vendor)", nameof(ItemsNSDTO.PreferredVendorName))
+                );
+        }
+
+        var query = builder
             .WithFilter(DataGridFilterUtilities.Equal("loc.id", location))
             .WithDatagridIntent(intent)
             .Build();
 
-        var result = await netsuiteService.ExecuteSuiteQLQuery<ItemsNSDTO>(query.Query, query.Limit, query.Offset);
+        var result = await query.ExecuteWithPaging<ItemsNSDTO>(netsuiteService);
 
         return (result.items.Select(ConvertItemNSDTO), result.totalResults);
     }
@@ -121,7 +137,7 @@ public class ItemsIntegration(
             .WithDatagridIntent(intent)
             .Build();
 
-        var result = await netsuiteService.ExecuteSuiteQLQuery<ItemsNSDTO>(query.Query, query.Limit, query.Offset);
+        var result = await query.ExecuteWithPaging<ItemsNSDTO>(netsuiteService);
 
         return (result.items.Select(ConvertItemNSDTO), result.totalResults);
     }
@@ -146,7 +162,7 @@ public class ItemsIntegration(
             .WithFilter(DataGridFilterUtilities.Equal("i.id", itemId))
             .Build();
 
-        var result = await netsuiteService.ExecuteSuiteQLQuery<ItemUnitDTO>(query.Query, query.Limit, query.Offset);
+        var result = await query.ExecuteWithPaging<ItemUnitDTO>(netsuiteService);
         return (result.items, result.totalResults);
     }
 

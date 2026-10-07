@@ -13,6 +13,7 @@ using Application.UseCases.Repositories.Integration.Others;
 using Database.Libraries.Repositories;
 using Integration.NS.Entities;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using System.ComponentModel;
 using System.IdentityModel.Tokens.Jwt;
@@ -30,7 +31,7 @@ using static Application.DataTransferObjects.Transactions.Commons.NS.ReturnsEnum
 
 namespace Integration.NS.Services
 {
-    public class NetSuiteApiClientService(HttpContextAccessor httpContextAccessor, ISqlQueryManager sqlQuery) : INetSuiteApiClientService, INotifyPropertyChanged
+    public class NetSuiteApiClientService(HttpContextAccessor httpContextAccessor, ISqlQueryManager sqlQuery, ILogger<NetSuiteApiClientService> logger) : INetSuiteApiClientService, INotifyPropertyChanged
     {
 
         string NsDateTimeFormat = "YYYY-MM-DD HH24:MI:SS";
@@ -299,12 +300,34 @@ namespace Integration.NS.Services
                             "Bad response from NetSuite API");
                 }
 
-                var errorBody = await httpResponse.Content.ReadFromJsonAsync<NetSuiteErrorResponse>();
+                // Parse the error from the string already read above; a second
+                // ReadFromJsonAsync content read can throw JsonException and mask
+                // the real status code (G2/G3).
+                string? displayString = null;
+
+                try
+                {
+                    displayString =
+                        JsonSerializer.Deserialize<NetSuiteErrorResponse>(
+                            responseJson,
+                            JsonSerializerRequestOption)?.DisplayString;
+                }
+                catch (JsonException)
+                {
+                    // Unrecognized body — fall back to the detail chain below.
+                }
+
+                var detail = !string.IsNullOrWhiteSpace(displayString)
+                    ? displayString
+                    : GetNetSuiteErrorDetail(responseJson);
+
+                LogNonSuccessResponse(httpResponse, method, url, reqBody, responseJson);
 
                 throw new Exception(
-                    errorBody?.DisplayString ??
-                    $"Request failed with status code: " +
-                    $"{httpResponse.StatusCode}");
+                    BuildNetSuiteErrorMessage(
+                        httpResponse,
+                        detail,
+                        responseJson));
             }
             finally
             {
@@ -465,8 +488,13 @@ namespace Integration.NS.Services
 
             var errorDetail = GetNetSuiteErrorDetail(responseJson);
 
-            //throw new Exception($"Request failed with status code: {httpResponse.StatusCode}");
-            throw new Exception(errorDetail);
+            LogNonSuccessResponse(httpResponse, method, url, reqBody, responseJson);
+
+            throw new Exception(
+                BuildNetSuiteErrorMessage(
+                    httpResponse,
+                    errorDetail,
+                    responseJson));
         }
 
         private static string? GetNetSuiteErrorDetail(string responseJson)
@@ -508,24 +536,39 @@ namespace Integration.NS.Services
                 //   "success": false,
                 //   "error": "The field estamount contained..."
                 // }
-                if (root.TryGetProperty("error", out var errorElement) &&
-                    errorElement.ValueKind == JsonValueKind.String)
+                // Format 3 (RESTlet object shape):
+                // {
+                //   "success": false,
+                //   "error": { "code": "...", "message": "...", "title": "..." }
+                // }
+                if (root.TryGetProperty("error", out var errorElement))
                 {
-                    var error = errorElement.GetString();
+                    if (errorElement.ValueKind == JsonValueKind.String)
+                    {
+                        var error = errorElement.GetString();
 
-                    if (!string.IsNullOrWhiteSpace(error))
-                        return error;
+                        if (!string.IsNullOrWhiteSpace(error))
+                            return error;
+                    }
+                    else if (errorElement.ValueKind == JsonValueKind.Object)
+                    {
+                        if (TryReadStringProperty(errorElement, "message", out var objectMessage))
+                            return objectMessage;
+
+                        if (TryReadStringProperty(errorElement, "title", out var objectTitle))
+                            return objectTitle;
+
+                        if (TryReadStringProperty(errorElement, "code", out var objectCode))
+                            return objectCode;
+                    }
                 }
 
-                //// Optional fallback: title
-                //if (root.TryGetProperty("title", out var titleElement) &&
-                //    titleElement.ValueKind == JsonValueKind.String)
-                //{
-                //    var title = titleElement.GetString();
+                // Final fallbacks: top-level title / message.
+                if (TryReadStringProperty(root, "title", out var title))
+                    return title;
 
-                //    if (!string.IsNullOrWhiteSpace(title))
-                //        return title;
-                //}
+                if (TryReadStringProperty(root, "message", out var message))
+                    return message;
 
                 return null;
             }
@@ -533,6 +576,81 @@ namespace Integration.NS.Services
             {
                 return null;
             }
+        }
+
+        private static bool TryReadStringProperty(
+            JsonElement element,
+            string name,
+            out string value)
+        {
+            value = string.Empty;
+
+            if (element.ValueKind == JsonValueKind.Object &&
+                element.TryGetProperty(name, out var property) &&
+                property.ValueKind == JsonValueKind.String)
+            {
+                var text = property.GetString();
+
+                if (!string.IsNullOrWhiteSpace(text))
+                {
+                    value = text;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Builds a non-null NetSuite failure message of the form
+        /// "NetSuite &lt;code&gt; &lt;reason&gt;: &lt;detail&gt;", where the detail is the
+        /// parsed error when available, otherwise a raw-body excerpt of at most
+        /// 2000 characters.
+        /// </summary>
+        private static string BuildNetSuiteErrorMessage(
+            HttpResponseMessage response,
+            string? detail,
+            string responseBody)
+        {
+            var statusLine =
+                $"NetSuite {(int)response.StatusCode} " +
+                $"{response.ReasonPhrase ?? response.StatusCode.ToString()}";
+
+            if (!string.IsNullOrWhiteSpace(detail))
+                return $"{statusLine}: {detail}";
+
+            if (string.IsNullOrWhiteSpace(responseBody))
+                return $"{statusLine}: empty response body";
+
+            const int maxBodyExcerpt = 2000;
+
+            var body = responseBody.Length <= maxBodyExcerpt
+                ? responseBody
+                : responseBody[..maxBodyExcerpt];
+
+            return $"{statusLine}: {body}";
+        }
+
+        /// <summary>
+        /// Warning-level record of every failed NetSuite request: URL, status,
+        /// request payload (so the fulfillment id actually sent is visible) and
+        /// response body. Authorization headers and tokens are never logged.
+        /// </summary>
+        private void LogNonSuccessResponse(
+            HttpResponseMessage response,
+            HttpMethod method,
+            string url,
+            string? requestBody,
+            string responseBody)
+        {
+            logger.LogWarning(
+                "NetSuite request failed: {Method} {Url} returned {StatusCode} {ReasonPhrase}. Request payload: {RequestBody} Response body: {ResponseBody}",
+                method.Method,
+                url,
+                (int)response.StatusCode,
+                response.ReasonPhrase,
+                requestBody,
+                responseBody);
         }
 
         public async Task<IEnumerable<T>?> NetsuiteQuery<T>(
@@ -753,8 +871,9 @@ namespace Integration.NS.Services
         {
             var orderId = Data.Select(x => x.NetsuiteOrderInternalId).FirstOrDefault();
             var isUsedBin = Data.Select(x => x.IsLocationUsedBin).FirstOrDefault();
-            var itemFulfillmentStatus = GetNetSuiteShipStatus(status);
-            var printLabel = status == ItemFulfillmentShipStatus.Shipped;
+            var isTripTicketExempt = Data.FirstOrDefault()?.IsTripTicketExempt == true;
+            var itemFulfillmentStatus = isTripTicketExempt ? "C" : "B";
+            var printLabel = true; // Packing labels are required regardless of trip-ticket exemption.
 
             string url = string.Format(isUsedBin ? ItemFulfillmentUrl : ItemFulfillmentUrlNotUsedBin, "transferOrder", orderId);
 
@@ -800,13 +919,15 @@ namespace Integration.NS.Services
         {
             var orderId = Data.Select(x => x.NetsuiteOrderInternalId).FirstOrDefault();
             var isUsedBin = Data.Select(x => x.IsLocationUsedBin).FirstOrDefault();
-            var itemFulfillmentStatus = Data.FirstOrDefault()?.IsTripTicketExempt == true ? "C" : "B";
+            var isTripTicketExempt = Data.FirstOrDefault()?.IsTripTicketExempt == true;
+            var itemFulfillmentStatus = isTripTicketExempt ? "C" : "B";
+            var printLabel = true; // Packing labels are required regardless of trip-ticket exemption.
 
             string url = string.Format(isUsedBin ? ItemFulfillmentUrl : ItemFulfillmentUrlNotUsedBin, "transferOrder", orderId);
 
             try
             {
-                ReturnsIFPayloadDTO payloadGood = ReturnsIFPayloadDTO.CreateForItemFulfillment(Data, itemFulfillmentStatus, isUsedBin);
+                ReturnsIFPayloadDTO payloadGood = ReturnsIFPayloadDTO.CreateForItemFulfillment(Data, itemFulfillmentStatus, printLabel, isUsedBin);
 
                 var jsonStringGood = JsonSerializer.Serialize(payloadGood, JsonSerializerOption);
 
@@ -824,7 +945,9 @@ namespace Integration.NS.Services
         {
             var orderId = Data.Select(x => x.NetsuiteOrderInternalId).FirstOrDefault();
             var isUsedBin = Data.Select(x => x.IsLocationUsedBin).FirstOrDefault();
-            var itemFulfillmentStatus = Data.FirstOrDefault()?.IsTripTicketExempt == true ? "C" : "B";
+            var isTripTicketExempt = Data.FirstOrDefault()?.IsTripTicketExempt == true;
+            var itemFulfillmentStatus = isTripTicketExempt ? "C" : "B";
+            var printLabel = true; // Packing labels are required regardless of trip-ticket exemption.
 
             //string url = string.Format(isUsedBin ? ItemFulfillmentUrl : ItemFulfillmentUrlNotUsedBin, "vendorReturnAuthorization", orderId);
             string url = string.Format(ItemFulfillmentUrlNotUsedBin, "vendorReturnAuthorization", orderId);
@@ -835,7 +958,7 @@ namespace Integration.NS.Services
             {
                 try
                 {
-                    var payloadBad = VendorReturnAuthorizationIFPayloadDTO.CreateForItemFulfillment(badTO, itemFulfillmentStatus, isUsedBin);
+                    var payloadBad = VendorReturnAuthorizationIFPayloadDTO.CreateForItemFulfillment(badTO, itemFulfillmentStatus, printLabel, isUsedBin);
 
                     var jsonStringBad = JsonSerializer.Serialize(payloadBad, JsonSerializerOption);
 
@@ -853,7 +976,7 @@ namespace Integration.NS.Services
             {
                 try
                 {
-                    var payloadGood = VendorReturnAuthorizationIFPayloadDTO.CreateForItemFulfillment(goodTO, itemFulfillmentStatus, isUsedBin);
+                    var payloadGood = VendorReturnAuthorizationIFPayloadDTO.CreateForItemFulfillment(goodTO, itemFulfillmentStatus, printLabel, isUsedBin);
 
                     var jsonStringGood = JsonSerializer.Serialize(payloadGood, JsonSerializerOption);
 

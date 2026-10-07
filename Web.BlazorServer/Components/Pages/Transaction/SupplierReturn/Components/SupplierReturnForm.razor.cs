@@ -107,7 +107,7 @@ public partial class SupplierReturnForm
 
         var result = location == 0 ?
         await itemsHandler.GetItemsDataGridAsync(intent) :
-        await itemsHandler.GetItemsAtLocationDataGridAsync(intent, location);
+        await itemsHandler.GetItemsAtLocationDataGridAsync(intent, location, Model.Subsidiary?.Id);
 
         Items = result.Data.ToList();
 
@@ -276,6 +276,21 @@ public partial class SupplierReturnForm
 
     async Task SubmitClicked()
     {
+        // Per-line Preferred Vendor is required on every line (posted to
+        // custcol_dbti_vendor). Name the offending lines so the user can find
+        // them; per-row RadzenRequiredValidator cannot work here because grid
+        // rows share one column template.
+        var linesMissingVendor = Model.Lines
+            .Select((line, index) => (line, index))
+            .Where(x => x.line.Vendor is null)
+            .Select(x => (x.line.LineNumber ?? x.index + 1).ToString())
+            .ToList();
+        if (linesMissingVendor.Count > 0)
+        {
+            ToastService.Error($"Preferred Vendor is required on line(s): {string.Join(", ", linesMissingVendor)}", "Error");
+            return;
+        }
+
         if (OnSubmit.HasDelegate)
             await OnSubmit.InvokeAsync(Model);
     }
@@ -285,6 +300,21 @@ public partial class SupplierReturnForm
         if (Model.Location is null) return;
 
         canSelectPO = false;
+
+        // A fresh RTS is created against one header vendor, so default every new
+        // line to it. Fall back to the item master default when no header vendor
+        // is picked yet (the submit guard still blocks nulls). Clone the header
+        // VM per line so editing one line can never mutate the others.
+        VendorVM? headerVendor = Model.Vendor is null
+            ? null
+            : new VendorVM
+            {
+                Id = Model.Vendor.Id,
+                ReferenceNumber = Model.Vendor.ReferenceNumber,
+                Name = Model.Vendor.Name,
+                CompanyName = Model.Vendor.CompanyName,
+                Category = Model.Vendor.Category
+            };
         Model.Lines.AddRange(
             items.Select(x => new SupplierReturnLineVM
             {
@@ -292,6 +322,16 @@ public partial class SupplierReturnForm
                 ItemCode = x.Name,
                 ItemDescription = x.Description,
                 UoM = x.StockUnit,
+                Vendor = headerVendor is not null
+                    ? new VendorVM
+                    {
+                        Id = headerVendor.Id,
+                        ReferenceNumber = headerVendor.ReferenceNumber,
+                        Name = headerVendor.Name,
+                        CompanyName = headerVendor.CompanyName,
+                        Category = headerVendor.Category
+                    }
+                    : x.PreferredVendorId.HasValue ? new VendorVM { Id = x.PreferredVendorId.Value, Name = x.PreferredVendorName ?? string.Empty } : null,
                 Location = Model.Location,
                 QuantityOnHand = x.QuantityOnHand,
                 QuantityAvailable = x.QuantityAvailable,
@@ -330,6 +370,12 @@ public partial class SupplierReturnForm
         await InvokeAsync(StateHasChanged);
     }
 
+    async Task LineVendorSet(SupplierReturnLineVM line, VendorVM? vendor)
+    {
+        line.Vendor = vendor;
+        await InvokeAsync(StateHasChanged);
+    }
+
     async void ApplyBarcodes()
     {
         if (!BarcodeStore.Any()) return;
@@ -365,12 +411,25 @@ public partial class SupplierReturnForm
                 var targetUom = barcode.UoM;
                 var lineConversionRate = targetUom?.ConversionRate ?? 1;
 
+                // Same default as AddItems: the RTS header vendor wins; the item
+                // master default is the fallback when no header vendor is set.
+                VendorVM? lineVendor = Model.Vendor is null
+                    ? item.PreferredVendorId.HasValue ? new VendorVM { Id = item.PreferredVendorId.Value, Name = item.PreferredVendorName ?? string.Empty } : null
+                    : new VendorVM
+                    {
+                        Id = Model.Vendor.Id,
+                        ReferenceNumber = Model.Vendor.ReferenceNumber,
+                        Name = Model.Vendor.Name,
+                        CompanyName = Model.Vendor.CompanyName,
+                        Category = Model.Vendor.Category
+                    };
                 Model.Lines.Add(new SupplierReturnLineVM
                 {
                     ItemId = item.Id,
                     ItemCode = item.ItemNumber,
                     ItemDescription = item.Name,
                     UoM = targetUom,
+                    Vendor = lineVendor,
                     Location = Model.Location,
                     QuantityOnHand = item.QuantityOnHand,
                     QuantityAvailable = item.QuantityAvailable,

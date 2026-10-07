@@ -2,6 +2,7 @@
 using Application.UseCases.Repositories.Integration.Others;
 using Integration.NS.Services;
 using Microsoft.AspNetCore.Http;
+using Shared.Entities;
 using Shared.Libraries.Utilities;
 using System;
 using System.Collections.Generic;
@@ -89,11 +90,22 @@ public static class SuiteQLQueryExtensions
         List<int> allowedSubsidiaries = JsonSerializer.Deserialize<List<int>>(claimValue) ?? [];
 
         if (allowedSubsidiaries.Count == 0) return builder;
-        return builder.WithFilter(DataGridFilterUtilities.Any(
+
+        List<AppFilterDescriptor> scope =
+        [
             DataGridFilterUtilities.In(
                 $"{transactionTablename}.subsidiary", allowedSubsidiaries),
             DataGridFilterUtilities.In(
                 $"{transactionTablename}.tosubsidiary", allowedSubsidiaries)
-            ));
+        ];
+
+        string? preparedBy = context.HttpContext?.User?.FindFirst("com.direcbusiness.wms.nsEmployeeId")?.Value;
+        if (int.TryParse(preparedBy, out int employeeId))
+        {
+            scope.Add(DataGridFilterUtilities.Equal(
+                $"{transactionTablename}.custbody_dbti_prepared_by", employeeId));
+        }
+
+        return builder.WithFilter(DataGridFilterUtilities.Any([.. scope]));
     }
 }

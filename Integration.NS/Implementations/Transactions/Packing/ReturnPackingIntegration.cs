@@ -3,6 +3,7 @@ using Application.DataTransferObjects.Transactions.Packing.Returns;
 using Application.UseCases.Repositories.Integration.Others;
 using Application.UseCases.Repositories.Integration.Transaction.Packing;
 using Database.Libraries.Repositories;
+using Integration.NS.DataTransferObjects.Packing;
 using Integration.NS.DataTransferObjects.Packing.Returns;
 using Integration.NS.DataTransferObjects.Packing.STR;
 using Integration.NS.Helpers;
@@ -82,6 +83,33 @@ internal class ReturnPackingIntegration(
         var nsdto = response.items.FirstOrDefault();
 
         return nsdto is null ? null : MapInfoDto(nsdto);
+    }
+
+    public async Task<bool?> GetTripTicketExemption(string tranid)
+    {
+        if (string.IsNullOrWhiteSpace(tranid)) return null;
+
+        // No packing filters here on purpose. Exemption belongs to the location pair, so it must
+        // still resolve when the order has advanced past the packing screen's filters. Reusing
+        // GetPackingReturn would return null in exactly that case and the caller would post a
+        // Packed ship status for an exempt order.
+        var query = builderFactory.Create()
+            .Select(
+                ("NVL(MIN(tte.id), 0)", nameof(TripTicketExemptionNSDTO.ExemptionId)))
+            .From("transaction t")
+            .Join("transactionline tl", on: "tl.transaction = t.id")
+            .LeftJoin("customrecord_dbti_trip_ticket_exemption tte", SuiteQLFragments.TripTicketExemptionJoin)
+            .WithFilters(
+                Equal("t.tranid", tranid),
+                Equal("tl.mainline", "T"),
+                In("t.recordtype", new string[] { "intercompanytransferorder" }))
+            .GroupBy("t.id")
+            .Build();
+
+        var response = await netsuiteService.ExecuteSuiteQLQuery<TripTicketExemptionNSDTO>(query.Query, query.Limit, query.Offset);
+        var row = response.items.FirstOrDefault();
+
+        return row is null ? null : row.ExemptionId != 0;
     }
 
     public async Task<(IEnumerable<ReturnsLineDTO> Data, int Count)> GetPackingReturnLines(string id, DataGridIntent intent)
@@ -188,9 +216,7 @@ internal class ReturnPackingIntegration(
             .Join("transactionline tl", "tl.mainline = 'T' and tl.transaction = t.id")
             .WithFilters(
                 Equal("t.recordtype", "itemfulfillment"),
-                Any(
-                    Equal("t.status", "B"),
-                    Equal("t.custbody_dbti_print_label", "T"))
+                Equal("t.custbody_dbti_print_label", "T")
             )
             .WithDatagridIntent(intent)
             .Build();

@@ -7,18 +7,22 @@ public class ReturnsIFPayloadDTO
 {
     [JsonPropertyName("shipStatus")]
     public string ShipStatus { get; set; }
+    [JsonPropertyName("custbody_dbti_print_label")]
+    public bool PrintLabel { get; set; }
     [JsonPropertyName("item")]
     public ItemContainer Item { get; set; } = new();
 
     public static ReturnsIFPayloadDTO CreateForItemFulfillment(
         List<PostReturnsDTO> lines,
         string shipStatus,
+        bool printLabel,
         bool isUsedBin)
     {
         // Make it nullable if its not included in json
         return new ReturnsIFPayloadDTO
         {
             ShipStatus = shipStatus,
+            PrintLabel = printLabel,
             Item = new ItemContainer
             {
                 Items = lines.Select(line =>
