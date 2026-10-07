@@ -125,14 +125,8 @@ public partial class STRForm
             return;
         }
 
-        // Return categories post the Preferred Vendor to the transfer order header
-        // (custbody_dbti_return_to_vendor). Block the submit rather than let
-        // NetSuite reject the whole document with an opaque error.
-        if (Model.IsReturn && Model.Vendor is null)
-        {
-            ToastService.Error("Preferred Vendor is required for return documents", "Error");
-            return;
-        }
+        // Return categories no longer require a header Preferred Vendor; the
+        // per-line check above is the vendor capture requirement.
 
         bool success = true;
         if (OnSubmit is not null) success = await OnSubmit(Model);
@@ -265,12 +259,6 @@ public partial class STRForm
         }
     }
 
-    async Task VendorSet(VendorVM? vm)
-    {
-        Model.Vendor = vm;
-        await InvokeAsync(StateHasChanged);
-    }
-
     async Task<(IEnumerable<SubsidiaryVM>, int)> SubsidiaryProvider(DataGridIntent intent)
     {
 
@@ -338,14 +326,6 @@ public partial class STRForm
         var originalValue = Model.Subsidiary;
         Model.Subsidiary = value;
 
-        if (Model.IsIntercompany && SameSubsidiary(value, Model.ToSubsidiary))
-        {
-            ToastService.Warning("\"Subsidiary\" cannot be the same as \"To Subsidiary\"");
-            await Task.Yield();
-            Model.Subsidiary = originalValue;
-            return;
-        }
-
         if (Model.Lines.Any())
         {
             var confirm = await DialogService.Confirm(message: "Changing subsidiaries will clear added items") ?? false;
@@ -389,7 +369,7 @@ public partial class STRForm
         {
             ToastService.Error("Source location may not be the same as the destination location");
             await Task.Yield();
-            Model.DestinationLocation = originalValue;
+            Model.SourceLocation = originalValue;
             return;
         }
 
@@ -571,16 +551,7 @@ public partial class STRForm
 
     public async Task OnToSubsidiaryChanged(SubsidiaryVM? value)
     {
-        var originalValue = Model.ToSubsidiary;
         Model.ToSubsidiary = value;
-
-        if (Model.IsIntercompany && SameSubsidiary(value, Model.Subsidiary))
-        {
-            ToastService.Warning("\"To Subsidiary\" cannot be the same as \"Subsidiary\"");
-            await Task.Yield();
-            Model.ToSubsidiary = originalValue;
-            return;
-        }
 
         Model.DestinationLocation = null;
         DestinationLocationDropdown?.Reset();
@@ -652,12 +623,6 @@ public partial class STRForm
     {
         line.Vendor = vendor;
         await InvokeAsync(StateHasChanged);
-    }
-
-    bool SameSubsidiary(SubsidiaryVM? a, SubsidiaryVM? b)
-    {
-        if (a is null && b is null) return false;
-        return a?.Id == b?.Id;
     }
 
     string PrintableURL => Model.Category.IsInterCompany ? $"{PRINTABLE_URL_INTERCOMPANY}&recordId={Model.Id}" : $"{PRINTABLE_URL_TO}&recordId={Model.Id}";

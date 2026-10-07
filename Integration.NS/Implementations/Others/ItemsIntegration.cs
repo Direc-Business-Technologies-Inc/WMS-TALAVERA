@@ -57,7 +57,7 @@ public class ItemsIntegration(
 
     public async Task<(IEnumerable<ItemsDTO> Data, int Count)> GetItemsByLocationDataGridAsync(DataGridIntent intent, int location, int? subsidiary = null)
     {
-        var query = builderFactory.Create()
+        var builder = builderFactory.Create()
             .Select(
                 ("i.itemid", nameof(ItemsNSDTO.ItemNumber)),
                 ("i.id", nameof(ItemsNSDTO.Id)),
@@ -75,9 +75,7 @@ public class ItemsIntegration(
                 ("u3.conversionrate", nameof(ItemsNSDTO.PurchaseUnitRate)),
                 ("ail.quantityonhand", nameof(ItemsNSDTO.QuantityOnHand)),
                 ("ail.quantityavailable", nameof(ItemsNSDTO.QuantityAvailable)),
-                ("pb.binnumber", nameof(ItemsNSDTO.PreferredBin)),
-                ("pv.vendor", nameof(ItemsNSDTO.PreferredVendorId)),
-                ("BUILTIN.DF(pv.vendor)", nameof(ItemsNSDTO.PreferredVendorName))
+                ("pb.binnumber", nameof(ItemsNSDTO.PreferredBin))
             )
             .From("item i")
             .LeftJoin("aggregateitemlocation ail", on:"ail.item = i.id")
@@ -85,8 +83,23 @@ public class ItemsIntegration(
             .LeftJoin("unitsTypeUom u1", on: "u1.internalid = i.saleunit")
             .LeftJoin("unitsTypeUom u2", on: "u2.internalid = i.stockunit")
             .LeftJoin("unitsTypeUom u3", on: "u3.internalid = i.purchaseunit")
-            .LeftJoin($"{SuiteQLFragments.PreferredBin(location)} pb", on: "pb.item = i.id")
-            .LeftJoin($"{SuiteQLFragments.PreferredVendor(subsidiary)} pv", on: "pv.item = i.id")
+            .LeftJoin($"{SuiteQLFragments.PreferredBin(location)} pb", on: "pb.item = i.id");
+
+        // The PreferredVendor subquery yields one row per item+subsidiary, so
+        // joining it unscoped duplicates multi-subsidiary items. Only consumers
+        // that scope a subsidiary (STR/RTS) get the join; others (ITR, Inventory
+        // Adjustment) keep the duplicate-free pre-vendor result shape.
+        if (subsidiary.HasValue)
+        {
+            builder = builder
+                .LeftJoin($"{SuiteQLFragments.PreferredVendor(subsidiary.Value)} pv", on: "pv.item = i.id")
+                .Select(
+                    ("pv.vendor", nameof(ItemsNSDTO.PreferredVendorId)),
+                    ("BUILTIN.DF(pv.vendor)", nameof(ItemsNSDTO.PreferredVendorName))
+                );
+        }
+
+        var query = builder
             .WithFilter(DataGridFilterUtilities.Equal("loc.id", location))
             .WithDatagridIntent(intent)
             .Build();

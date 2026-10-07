@@ -15,6 +15,7 @@ using Integration.SAP.Entities.Transactional.Receiving;
 using Mapster;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Shared.Entities;
 using Shared.Libraries.Utilities;
 using Shared.Libraries.ViewModel;
@@ -30,7 +31,8 @@ namespace Integration.NS.Implementations.Transactions;
 public class ReceivingIntegration(
     INetSuiteApiClientService netsuiteService,
     IHttpContextAccessor httpContext,
-    SuiteQLQueryBuilderFactoryService builderFactory)
+    SuiteQLQueryBuilderFactoryService builderFactory,
+    ILogger<ReceivingIntegration> logger)
     : IReceivingIntegration
 {
     public Task<PurchaseDeliveryNoteHeaderSAPDTO?> GetPurchaseDeliveryNoteHeaderAsync(int docEntry)
@@ -574,22 +576,20 @@ public class ReceivingIntegration(
 
                 var payload = CreatePayload(statusId);
 
-                if (dto.SourceType == ItemReceiptDTO.SourceTypes.PurchaseOrder)
-                {
-                    tasks.Add(
-                        netsuiteService.MakeRequest<object>(
-                            uri,
-                            payload,
-                            HttpMethod.Post));
-                }
-                else
-                {
-                    tasks.Add(
-                        netsuiteService.MakeRequestOAuth1<object>(
-                            uri,
-                            payload,
-                            HttpMethod.Post));
-                }
+                // G1: the entire payload (including the fulfillment id actually
+                // sent) is logged for every post attempt, successful or not.
+                logger.LogInformation(
+                    "PostItemReceipt payload ({SourceType}, status {StatusId}) to {Uri}: {Payload}",
+                    dto.SourceType,
+                    statusId,
+                    uri,
+                    payload);
+
+                tasks.Add(
+                    netsuiteService.MakeRequest<object>(
+                        uri,
+                        payload,
+                        HttpMethod.Post));
             }
 
             AddPostTask(hasBadLines, INVENTORY_STATUS_ID_BAD);
@@ -600,28 +600,65 @@ public class ReceivingIntegration(
         }
         catch (Exception ex)
         {
+            // Nothing was posted (e.g. payload construction threw before any
+            // task was created): preserve the original exception instead of
+            // swallowing it into a true return.
+            if (tasks.Count == 0)
+            {
+                logger.LogWarning(
+                    ex,
+                    "PostItemReceipt aborted before posting ({SourceType}, uri: {Uri})",
+                    dto.SourceType,
+                    uri);
+
+                throw;
+            }
+
             foreach (var task in tasks.Where(t => t.IsFaulted))
             {
                 foreach (var exception in task.Exception!.Flatten().InnerExceptions)
                 {
-                    if (!exception.Message.Equals(
-                            "Empty response from NetSuite API",
-                            StringComparison.OrdinalIgnoreCase))
-                    {
-                        exceptions.Add(new Exception(
-                            "Error posting items: " + exception.Message,
-                            exception));
-                    }
+                    // Each rewrap keeps the original exception as inner so the
+                    // stack chain reaches the log; the unreachable
+                    // "Empty response from NetSuite API" filter was removed (G5).
+                    exceptions.Add(new Exception(
+                        "Error posting items: " + exception.Message,
+                        exception));
                 }
+            }
+
+            // No faulted-task message could be captured; rethrow rather than
+            // report success.
+            if (exceptions.Count == 0)
+            {
+                logger.LogWarning(
+                    ex,
+                    "PostItemReceipt failed without faulted task detail ({SourceType}, uri: {Uri})",
+                    dto.SourceType,
+                    uri);
+
+                throw;
             }
         }
 
         if (exceptions.Count > 0)
         {
-            throw new Exception(
+            // The aggregate carries every collected exception as inner, so the
+            // original stack chain is preserved while the toast keeps showing
+            // the same joined message (G4/G6).
+            var aggregateException = new AggregateException(
                 string.Join(
                     "\n\n",
-                    exceptions.Select(ex => ex.Message)));
+                    exceptions.Select(ex => ex.Message)),
+                exceptions);
+
+            logger.LogError(
+                aggregateException,
+                "PostItemReceipt failed for {SourceType} (uri: {Uri})",
+                dto.SourceType,
+                uri);
+
+            throw aggregateException;
         }
 
         return true;

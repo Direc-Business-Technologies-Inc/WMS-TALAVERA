@@ -44,11 +44,11 @@ internal class StockTransferRequestPackingIntegration(
                 Any(
                     All(
                         Equal("t.recordtype", "transferorder"),
-                        Equal("tl.subsidiary", subsidiaryId)
+                        Equal("t.subsidiary", subsidiaryId)
                     ),
                     All(
                         Equal("t.recordtype", "intercompanytransferorder"),
-                        Equal("tl.subsidiary", subsidiaryId)
+                        Equal("t.subsidiary", subsidiaryId)
                     )
                 )
             )

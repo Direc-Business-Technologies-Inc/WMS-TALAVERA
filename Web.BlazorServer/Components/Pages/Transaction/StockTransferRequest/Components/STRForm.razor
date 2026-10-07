@@ -55,7 +55,8 @@
                             TextProperty="@nameof(TransferCategory.Name)" />
                         </RadzenFormField>
                     </RadzenColumn>
-                    <RadzenColumn Visible="@Model.IsReturn" SizeLG="6" SizeMD="12">
+                    @* Preferred Vendor is captured per line below; the header field stays hidden *@
+                    @* <RadzenColumn Visible="@Model.IsReturn" SizeLG="6" SizeMD="12">
                          <RadzenFormField AllowFloatingLabel="@(!ReadOnly)" Text="Preferred Vendor" class="rz-w-100">
                             <ChildContent>
                                 <RadzenTextBox Disabled="@Disabled"  Visible="@ReadOnly" ReadOnly Value="@(Model.Vendor?.Name ?? null)" Placeholder="No vendor given" />
@@ -76,8 +77,8 @@
                             <Helper>
                                 <RadzenRequiredValidator Visible="@(!ReadOnly && Model.IsReturn)" Component="str_vendor_dropdown" />
                             </Helper>
-                        </RadzenFormField> 
-                    </RadzenColumn>
+                        </RadzenFormField>
+                    </RadzenColumn> *@
 
                     <RadzenColumn SizeLG="6" SizeMD="12">
                         <RadzenFormField Text="Purchase Category" class="rz-w-100">
