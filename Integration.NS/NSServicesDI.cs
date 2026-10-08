@@ -15,6 +15,7 @@ public static class NSServicesDI
         services.AddScoped<HttpContextAccessor>();
 
         services.AddSingleton<SuiteQLQueryBuilderFactoryService>();
+        services.AddMemoryCache();
         services.AddNSImplementationsIntegraton();
 
         return services;

@@ -49,8 +49,6 @@ public partial class SupplierReturnForm
 
     private List<ItemsVM> Items = new();
 
-    private readonly SemaphoreSlim _concurrencySemaphore = new SemaphoreSlim(2, 2);
-
     QuickVirtualizedDropdown<LocationVM> LocationDropdown { get; set; } = default!;
     QuickVirtualizedDropdown<SubsidiaryVM> SubsidiaryDropdown { get; set; } = default!;
     QuickVirtualizedDropdown<PurchaseSubcategoryVM> PurchaseSubcategoryDropdown { get; set; } = default!;
@@ -101,8 +99,6 @@ public partial class SupplierReturnForm
             Take = 1000
         };
 
-        await _concurrencySemaphore.WaitAsync();
-
         int location = Model.Location.Id;
 
         var result = location == 0 ?
@@ -111,7 +107,6 @@ public partial class SupplierReturnForm
 
         Items = result.Data.ToList();
 
-        _concurrencySemaphore.Release();
         return result;
     }
 

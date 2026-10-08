@@ -47,8 +47,6 @@ public partial class ITRForm
 
     private List<ItemsVM> Items = new();
 
-    private readonly SemaphoreSlim _concurrencySemaphore = new SemaphoreSlim(2, 2);
-
     BarcodeStore BarcodeStore = new();
 
     HashSet<int> LoadedInventoryDetails = new();
@@ -89,8 +87,6 @@ public partial class ITRForm
             Take = 1000
         };
 
-        await _concurrencySemaphore.WaitAsync();
-
         int location = Model.SourceLocation.Id;
 
         var result = location == 0 ?
@@ -99,7 +95,6 @@ public partial class ITRForm
 
         Items = result.Data.ToList();
 
-        _concurrencySemaphore.Release();
         return result;
     }
 

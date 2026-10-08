@@ -14,10 +14,13 @@ using Application.UseCases.Repositories.Integration.Transaction.SalesReturn;
 using Application.UseCases.Repositories.Integration.Transaction.StockTransferRequest;
 using Application.UseCases.Repositories.Integration.Transaction.SupplierReturn;
 using Integration.NS.Implementations.Others;
+using Integration.NS.Implementations.Others.Caching;
 using Integration.NS.Implementations.Transactions;
 using Integration.NS.Implementations.Transactions.Packing;
 using Integration.NS.Implementations.Vestigial;
 using Integration.NS.Services;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Application.UseCases.Repositories.Integration.Transaction;
@@ -42,9 +45,26 @@ public static class NSImplementationDI
         services.TryAddTransient<IInventoryCountingIntegration, InventoryCountingIntegration>();
         services.TryAddTransient<IItemsIntegration, ItemsIntegration>();
         services.TryAddTransient<IStockTransferRequestIntegration, StockTransferRequestIntegration>();
-        services.TryAddTransient<ILocationIntegration, LocationIntegration>();
-        services.TryAddTransient<ISubsidiaryIntegration, SubsidiaryIntegration>();
-        services.TryAddTransient<IVendorIntegration, VendorIntegration>();
+
+        // Reference-data reads are wrapped with per-process cache decorators
+        // (no DB/Redis in this phase). The concretes are registered so the
+        // decorators can wrap them; transactional integrations are untouched.
+        services.TryAddTransient<LocationIntegration>();
+        services.TryAddTransient<SubsidiaryIntegration>();
+        services.TryAddTransient<VendorIntegration>();
+
+        services.TryAddTransient<ILocationIntegration>(sp => new CachedLocationIntegration(
+            sp.GetRequiredService<LocationIntegration>(),
+            sp.GetRequiredService<IMemoryCache>(),
+            sp.GetRequiredService<IHttpContextAccessor>()));
+        services.TryAddTransient<ISubsidiaryIntegration>(sp => new CachedSubsidiaryIntegration(
+            sp.GetRequiredService<SubsidiaryIntegration>(),
+            sp.GetRequiredService<IMemoryCache>(),
+            sp.GetRequiredService<IHttpContextAccessor>()));
+        services.TryAddTransient<IVendorIntegration>(sp => new CachedVendorIntegration(
+            sp.GetRequiredService<VendorIntegration>(),
+            sp.GetRequiredService<IMemoryCache>()));
+
         services.TryAddTransient<ICustomerIntegration, CustomerIntegration>();
         services.TryAddTransient<IBusinessAccountIntegration, BusinessAccountIntegration>();
         services.TryAddTransient<IInventoryTransferRequestIntegration, InventoryTransferRequestIntegration>();

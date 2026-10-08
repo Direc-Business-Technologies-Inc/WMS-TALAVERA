@@ -58,8 +58,6 @@ public partial class STRForm
 
     private List<ItemsVM> Items = new();
 
-    private readonly SemaphoreSlim _concurrencySemaphore = new SemaphoreSlim(2, 2);
-
     private BarcodeStore BarcodeStore = new();
 
     bool DefaultSubsidiaryLoading = false;
@@ -167,11 +165,8 @@ public partial class STRForm
     {
         if (Model.Subsidiary is null) return ([], 0);
 
-        await _concurrencySemaphore.WaitAsync();
-        
         var result = await LocationHandler.GetLocationsBySubsidiaryAsync(intent, Model.Subsidiary.Id);
 
-        _concurrencySemaphore.Release();
         return result;
     }
 
@@ -189,8 +184,6 @@ public partial class STRForm
             Take = 1000
         };
 
-        await _concurrencySemaphore.WaitAsync();
-
         int location = Model.SourceLocation.Id;
 
         var result = location == 0 ?
@@ -199,7 +192,6 @@ public partial class STRForm
 
         Items = result.Data.ToList();
 
-        _concurrencySemaphore.Release();
         return result;
     }
 
@@ -207,25 +199,16 @@ public partial class STRForm
     {
         if (Model.ToSubsidiary is null) return ([], 0);
 
-        await _concurrencySemaphore.WaitAsync();
-
-        try
+        if (Model.IsIntercompany)
         {
-            if (Model.IsIntercompany)
-            {
-                return await LocationHandler.GetLocationsBySubsidiaryAsync(
-                    intent,
-                    Model.ToSubsidiary.Id);
-            }
-
             return await LocationHandler.GetLocationsBySubsidiaryAsync(
-                    intent,
-                    Model.Subsidiary.Id);
+                intent,
+                Model.ToSubsidiary.Id);
         }
-        finally
-        {
-            _concurrencySemaphore.Release();
-        }
+
+        return await LocationHandler.GetLocationsBySubsidiaryAsync(
+                intent,
+                Model.Subsidiary.Id);
     }
 
     /// <summary>
@@ -247,58 +230,35 @@ public partial class STRForm
 
         if (subsidiary is null) return ([], 0);
 
-        await _concurrencySemaphore.WaitAsync();
-
-        try
-        {
-            return await VendorHandler.GetTradeVendorsListBySubsidiaryAsync(intent, subsidiary.Id);
-        }
-        finally
-        {
-            _concurrencySemaphore.Release();
-        }
+        return await VendorHandler.GetTradeVendorsListBySubsidiaryAsync(intent, subsidiary.Id);
     }
 
     async Task<(IEnumerable<SubsidiaryVM>, int)> SubsidiaryProvider(DataGridIntent intent)
     {
-
-        await _concurrencySemaphore.WaitAsync();
-
         var result = await SubsidiaryHandler.GetSubsidiariesAsync(intent);
 
-        _concurrencySemaphore.Release();
         return result;
     }
 
     async Task<(IEnumerable<SubsidiaryVM>, int)> ToSubsidiaryProvider(DataGridIntent intent)
     {
-
-        await _concurrencySemaphore.WaitAsync();
-
         var result = await SubsidiaryHandler.GetSubsidiariesAsync(intent);
 
-        _concurrencySemaphore.Release();
         return result;
     }
 
     async Task<(IEnumerable<PurchaseCategoryVM>, int)> PurchaseCategoryProvider(DataGridIntent intent)
     {
-        await _concurrencySemaphore.WaitAsync();
-
         var result = await SubsidiaryHandler.GetPurchaseCategoriesAsync(intent);
 
-        _concurrencySemaphore.Release();
         return result;
     }
 
     async Task<(IEnumerable<PurchaseSubcategoryVM>, int)> PurchaseSubcategoryProvider(DataGridIntent intent)
     {
-        await _concurrencySemaphore.WaitAsync();
-
         if (Model.PurchaseCategory is null) return ([], 0);
         var result = await SubsidiaryHandler.GetPurchaseSubCategoriesAsync(Model.PurchaseCategory, intent);
 
-        _concurrencySemaphore.Release();
         return result;
     }
 
@@ -313,11 +273,8 @@ public partial class STRForm
 
     async Task<(IEnumerable<ItemUnitVM>, int)> ItemUnitProvider(int itemId, DataGridIntent intent)
     {
-
-        await _concurrencySemaphore.WaitAsync();
         var result = await ItemsHandler.GetItemUnits(itemId, intent);
 
-        _concurrencySemaphore.Release();
         return result;
     }
 
