@@ -140,6 +140,55 @@ public class PurchaseOrderIRPayloadDTOTests
         Assert.Equal(new[] { 1, 3 }, goodReceived.Union(badReceived).OrderBy(x => x).ToArray());
     }
 
+    // Regression — the mobile client sends a split line twice (good row + bad row,
+    // same LineSequenceNumber). NetSuite rejects the resulting duplicate orderLine
+    // entries with [DUPLICATE_KEYS].
+    [Fact]
+    public void Line_split_between_good_and_bad_yields_a_single_entry_per_payload()
+    {
+        var split = new List<PostPurchaseOrderDTO>
+        {
+            Line(1, isBad: false, scannedQuantity: 8),
+            Line(1, isBad: true, scannedQuantity: 2)
+        };
+
+        using var good = Serialize(split, 1);
+        using var bad = Serialize(split, 2);
+
+        Assert.Equal(1, Items(good).Count);
+        Assert.Equal(1, Items(bad).Count);
+
+        var goodLine = LineEntry(good, 1);
+        Assert.True(goodLine.GetProperty("itemreceive").GetBoolean());
+        Assert.Equal(8m, goodLine.GetProperty("quantity").GetDecimal());
+
+        var badLine = LineEntry(bad, 1);
+        Assert.True(badLine.GetProperty("itemreceive").GetBoolean());
+        Assert.Equal(2m, badLine.GetProperty("quantity").GetDecimal());
+    }
+
+    [Fact]
+    public void Line_scanned_only_as_good_is_not_received_by_the_bad_post()
+    {
+        var lines = new List<PostPurchaseOrderDTO> { Line(1, isBad: false, scannedQuantity: 8) };
+
+        using var bad = Serialize(lines, 2);
+
+        Assert.Equal(1, Items(bad).Count);
+        AssertNotReceived(LineEntry(bad, 1), 1);
+    }
+
+    [Fact]
+    public void Line_scanned_only_as_bad_is_not_received_by_the_good_post()
+    {
+        var lines = new List<PostPurchaseOrderDTO> { Line(1, isBad: true, scannedQuantity: 2) };
+
+        using var good = Serialize(lines, 1);
+
+        Assert.Equal(1, Items(good).Count);
+        AssertNotReceived(LineEntry(good, 1), 1);
+    }
+
     [Fact]
     public void Single_line_fully_received_payload_matches_current_shape()
     {

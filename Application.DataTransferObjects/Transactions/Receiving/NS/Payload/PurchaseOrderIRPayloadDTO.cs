@@ -37,8 +37,15 @@ public class PurchaseOrderIRPayloadDTO
             Memo = remarks,
             Item = new ItemContainer
             {
-                Items = lines.Select(line =>
+                // A PO line scanned as both good and bad arrives as two rows sharing the
+                // same LineSequenceNumber; NetSuite rejects duplicate orderLine entries.
+                Items = lines.GroupBy(line => line.LineSequenceNumber).Select(group =>
                 {
+                    var line = (isGoodPost
+                            ? group.FirstOrDefault(x => !x.IsBad)
+                            : group.FirstOrDefault(x => x.IsBad))
+                        ?? group.First();
+
                     bool isReceived = line.ScannedQuantity > 0 && (isGoodPost ? !line.IsBad : line.IsBad);
 
                     if (!isReceived)
