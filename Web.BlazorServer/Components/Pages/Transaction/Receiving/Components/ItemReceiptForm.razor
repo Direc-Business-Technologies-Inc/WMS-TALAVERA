@@ -88,7 +88,12 @@
                                  JustifyContent="JustifyContent.End"
                                  AlignItems="AlignItems.Center"
                                  Gap="8px">
-                        <RadzenButton Disabled="Disabled" Text="Scan Barcodes" Icon="barcode" Click="OpenBarcodeDialog" ButtonType="ButtonType.Button" Size="ButtonSize.Small" />
+                        <RadzenButton Disabled="@Disabled"
+                            Text="Scan Barcodes"
+                            Icon="barcode"
+                            Click="OpenBarcodeDialog"
+                            ButtonType="ButtonType.Button"
+                            Size="ButtonSize.Small" />
                         <RadzenButton Icon="settings" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@OpenTableSettings" />
                     </RadzenStack>
                 </HeaderTemplate>
@@ -165,6 +170,7 @@
 
 
 @code {
+    
     async Task OpenBarcodeDialog()
     {
         bool? save = await DialogService.OpenAsync(

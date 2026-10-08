@@ -741,6 +741,20 @@ public class ReceivingIntegration(
 
     public async Task<BarcodeDTO?> GetBarcodeData(string barcode, int? location)
     {
+        // A location is optional. It scopes only the location-dependent facts: quantity,
+        // preferred bin and preferred vendor.
+        //
+        // Scoped, the location rides in the JOIN condition so a barcode still resolves for
+        // an item with no stock there. It must never ride in the WHERE clause: a predicate
+        // on a LEFT JOINed table discards the row, which is why "loc.id = N" used to report
+        // valid barcodes as not found.
+        //
+        // Unscoped, the location-dependent fields are dropped rather than guessed. Preferred
+        // bin and vendor would otherwise span every location and subsidiary, fanning a
+        // multi-location or multi-subsidiary item into duplicate rows and risking a bin or
+        // vendor from the wrong scope.
+        var scoped = location > 0;
+
         var builder = builderFactory.Create()
             .Select(
                 ("b.name", nameof(BarcodeNSDTO.Barcode)),
@@ -751,23 +765,38 @@ public class ReceivingIntegration(
                 ("uom.internalid", nameof(BarcodeNSDTO.UoMId)),
                 ("uom.unitName", nameof(BarcodeNSDTO.UoMName)),
                 ("uom.conversionRate", nameof(BarcodeNSDTO.UoMRate)),
-                ("ail.quantityonhand", nameof(BarcodeNSDTO.QuantityOnHand)),
-                ("ail.quantityavailable", nameof(BarcodeNSDTO.QuantityAvailable)),
-                ("pb.binnumber", nameof(BarcodeNSDTO.PreferredBin)),
-                ("pv.vendor", nameof(BarcodeNSDTO.PreferredVendorId)),
-                ("BUILTIN.DF(pv.vendor)", nameof(BarcodeNSDTO.PreferredVendorName))
+                // Unscoped, summing keeps this to one row per barcode. Joining
+                // aggregateitemlocation without a location yields one row per stocking
+                // location instead.
+                (scoped
+                    ? "ail.quantityonhand"
+                    : "(SELECT SUM(ail.quantityonhand) FROM aggregateitemlocation ail WHERE ail.item = item.id)",
+                 nameof(BarcodeNSDTO.QuantityOnHand)),
+                (scoped
+                    ? "ail.quantityavailable"
+                    : "(SELECT SUM(ail.quantityavailable) FROM aggregateitemlocation ail WHERE ail.item = item.id)",
+                 nameof(BarcodeNSDTO.QuantityAvailable))
             )
             .From("CUSTOMRECORD_BARCODE_PER_UOM b")
             .Join("unitstypeuom uom", on: "b.custrecord_bpu_uom = uom.internalid")
             .Join("item", "item.id = b.custrecord_bpu_item")
-            .LeftJoin("aggregateitemlocation ail", on: "ail.item = item.id")
-            .LeftJoin("location loc", on: "ail.location = loc.id")
-            .LeftJoin($"{SuiteQLFragments.PreferredBin(location)} pb", on: "pb.item = item.id AND pb.location = loc.id")
-            .LeftJoin($"{SuiteQLFragments.PreferredVendor()} pv", on: "pv.item = item.id AND pv.subsidiary = loc.subsidiary")
             .WithFilters(
-                Equal("b.name", barcode),
-                Equal("loc.id", location)
+                Equal("b.name", barcode)
             );
+
+        if (scoped)
+        {
+            builder = builder
+                .LeftJoin("aggregateitemlocation ail", on: $"ail.item = item.id AND ail.location = {location}")
+                .LeftJoin("location loc", on: "ail.location = loc.id")
+                .LeftJoin($"{SuiteQLFragments.PreferredBin(location)} pb", on: "pb.item = item.id AND pb.location = loc.id")
+                .LeftJoin($"{SuiteQLFragments.PreferredVendorForLocation(location)} pv", on: "pv.item = item.id")
+                .Select(
+                    ("pb.binnumber", nameof(BarcodeNSDTO.PreferredBin)),
+                    ("pv.vendor", nameof(BarcodeNSDTO.PreferredVendorId)),
+                    ("BUILTIN.DF(pv.vendor)", nameof(BarcodeNSDTO.PreferredVendorName))
+                );
+        }
 
         var response = await netsuiteService.ExecuteSuiteQLQuery<BarcodeNSDTO>(builder.Build().Query);
         var barcodeData = response.items.FirstOrDefault();

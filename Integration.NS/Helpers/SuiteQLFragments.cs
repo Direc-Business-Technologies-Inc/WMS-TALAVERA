@@ -69,4 +69,35 @@ internal static class SuiteQLFragments
               WHERE iv.preferredvendor = 'T'{subsidiaryFilter})
              """;
     }
+
+    /// <summary>
+    ///     Derived table yielding the preferred vendor per item for the subsidiary owning
+    ///     a given location. Row shape and semantics match <see cref="PreferredVendor(int?)"/>
+    ///     with a subsidiary argument.
+    ///     <para>
+    ///     Exists for callers holding only a location id, which must resolve to one
+    ///     subsidiary to avoid joining every preferred row for an item.
+    ///     <para>
+    ///     The subsidiary filter belongs inside the derived table, as in
+    ///     ItemsIntegration. Filtering after the join instead
+    ///     (<c>ON pv.item = item.id AND pv.subsidiary = loc.subsidiary</c> against an
+    ///     unscoped PreferredVendor) is rejected by NetSuite with
+    ///     <c>400 [INVALID_PARAMETER] ... Invalid or unsupported search</c>. That correlation
+    ///     has no production precedent in this codebase, so prefer this shape.
+    ///     </para>
+    ///     </para>
+    /// </summary>
+    /// <param name="location">Location internal id whose subsidiary scopes the result, or null to leave unscoped (all preferred rows).</param>
+    /// <returns>A parenthesised subquery exposing item, vendor, subsidiary. Append the join alias, e.g. $"{SuiteQLFragments.PreferredVendorForLocation(location)} pv".</returns>
+    public static string PreferredVendorForLocation(int? location = null)
+    {
+        if (!location.HasValue) return PreferredVendor();
+
+        return $"""
+             (SELECT iv.item, iv.vendor, iv.subsidiary
+              FROM itemvendor iv
+              WHERE iv.preferredvendor = 'T'
+                AND iv.subsidiary = (SELECT l.subsidiary FROM location l WHERE l.id = {location.Value}))
+             """;
+    }
 }
