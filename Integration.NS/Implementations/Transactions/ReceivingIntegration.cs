@@ -753,7 +753,9 @@ public class ReceivingIntegration(
                 ("uom.conversionRate", nameof(BarcodeNSDTO.UoMRate)),
                 ("ail.quantityonhand", nameof(BarcodeNSDTO.QuantityOnHand)),
                 ("ail.quantityavailable", nameof(BarcodeNSDTO.QuantityAvailable)),
-                ("pb.binnumber", nameof(BarcodeNSDTO.PreferredBin))
+                ("pb.binnumber", nameof(BarcodeNSDTO.PreferredBin)),
+                ("pv.vendor", nameof(BarcodeNSDTO.PreferredVendorId)),
+                ("BUILTIN.DF(pv.vendor)", nameof(BarcodeNSDTO.PreferredVendorName))
             )
             .From("CUSTOMRECORD_BARCODE_PER_UOM b")
             .Join("unitstypeuom uom", on: "b.custrecord_bpu_uom = uom.internalid")
@@ -761,6 +763,7 @@ public class ReceivingIntegration(
             .LeftJoin("aggregateitemlocation ail", on: "ail.item = item.id")
             .LeftJoin("location loc", on: "ail.location = loc.id")
             .LeftJoin($"{SuiteQLFragments.PreferredBin(location)} pb", on: "pb.item = item.id AND pb.location = loc.id")
+            .LeftJoin($"{SuiteQLFragments.PreferredVendor()} pv", on: "pv.item = item.id AND pv.subsidiary = loc.subsidiary")
             .WithFilters(
                 Equal("b.name", barcode),
                 Equal("loc.id", location)
@@ -781,6 +784,8 @@ public class ReceivingIntegration(
                 QuantityAvailable = barcodeData.QuantityAvailable,
                 QuantityOnHand = barcodeData.QuantityOnHand,
                 PreferredBin = barcodeData.PreferredBin,
+                PreferredVendorId = barcodeData.PreferredVendorId,
+                PreferredVendorName = barcodeData.PreferredVendorName,
             },
             UoM = new()
             {
