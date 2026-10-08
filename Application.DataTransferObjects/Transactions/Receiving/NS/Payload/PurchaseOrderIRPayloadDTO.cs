@@ -27,6 +27,8 @@ public class PurchaseOrderIRPayloadDTO
         string remarks
         )
     {
+        bool isGoodPost = receivingCategory == 1;
+
         // Make it nullable if its not included in json
         return new PurchaseOrderIRPayloadDTO
         {
@@ -37,7 +39,9 @@ public class PurchaseOrderIRPayloadDTO
             {
                 Items = lines.Select(line =>
                 {
-                    if (line.ScannedQuantity == 0)
+                    bool isReceived = line.ScannedQuantity > 0 && (isGoodPost ? !line.IsBad : line.IsBad);
+
+                    if (!isReceived)
                     {
                         return new OrderLineItem
                         {
@@ -45,94 +49,46 @@ public class PurchaseOrderIRPayloadDTO
                             isReceived = false
                         };
                     }
-                    else
+
+                    return new OrderLineItem
                     {
-                        //var assignment = new InventoryAssignment
-                        //{
-                        //    Items =
-                        //    [
-                        //        new InventoryAssignmentItem
-                        //        {
-                        //            InventoryStatus = new ReferenceValue
-                        //            {
-                        //                Id = /*line.IsBad ? "3" :*/ "1"
-                        //            },
-                        //            Quantity = line.ScannedQuantity,
-                        //            BinNumber = !line.IsLocationUsedBin ? null :
-                        //                line.VendorBinAssignmentId != 0
-                        //                ? new ReferenceValue
-                        //                {
-                        //                    Id = line.VendorBinAssignmentId.ToString()
-                        //                }
-                        //                : line.NetsuiteMaterialPrefferedBinId != 0
-                        //                ? new ReferenceValue
-                        //                {
-                        //                    Id = line.NetsuiteMaterialPrefferedBinId.ToString()
-                        //                }
-                        //                : null
-                        //        }
-                        //    ]
-                        //};
-
-                        //var inventoryDetail = new InventoryDetail
-                        //{
-                        //    InventoryAssignmentList = new InventoryAssignmentList
-                        //    {
-                        //        InventoryAssignment = assignment
-                        //    }
-                        //};
-
-                        //return new OrderLineItem
-                        //{
-                        //    OrderLine = line.LineSequenceNumber,
-                        //    isReceived = true,
-                        //    Quantity = line.ScannedQuantity,
-                        //    RecordWeight = line.TotalWeight,
-                        //    ActualWeight = line.ScannedWeight,
-                        //    Rate = line.IsBad ? 0 : null,
-                        //    InventoryDetail = inventoryDetail
-                        //};
-
-                        return new OrderLineItem
+                        OrderLine = line.LineSequenceNumber,
+                        isReceived = true,
+                        Quantity = line.ScannedQuantity,
+                        RecordWeight = line.TotalWeight,
+                        PhysicaQuantity = line.PhysicalQuantity,
+                        ActualWeight = line.ScannedWeight,
+                        Rate = line.IsBad ? 0 : null,
+                        InventoryDetail = new InventoryDetail
                         {
-                            OrderLine = line.LineSequenceNumber,
-                            isReceived = true,
-                            Quantity = line.ScannedQuantity,
-                            RecordWeight = line.TotalWeight,
-                            PhysicaQuantity = line.PhysicalQuantity,
-                            ActualWeight = line.ScannedWeight,
-                            Rate = line.IsBad ? 0 : null,
-                            InventoryDetail = new InventoryDetail
+                            InventoryAssignment = new InventoryAssignment
                             {
-                                InventoryAssignment = new InventoryAssignment
+                                Items = new List<InventoryAssignmentItem>
+                            {
+                                new()
                                 {
-                                    Items = new List<InventoryAssignmentItem>
-                                {
-                                    new()
+                                    InventoryStatus = new ReferenceValue
                                     {
-                                        InventoryStatus = new ReferenceValue
+                                        Id = "1"
+                                    },
+                                    BinNumber = !line.IsLocationUsedBin ? null :
+                                        line.VendorBinAssignmentId != 0
+                                        ? new ReferenceValue
                                         {
-                                            Id = "1"
-                                        },
-                                        BinNumber = !line.IsLocationUsedBin ? null :
-                                            line.VendorBinAssignmentId != 0
-                                            ? new ReferenceValue
-                                            {
-                                                Id = line.VendorBinAssignmentId.ToString()
-                                            }
-                                            : line.NetsuiteMaterialPrefferedBinId != 0
-                                            ? new ReferenceValue
-                                            {
-                                                Id = line.NetsuiteMaterialPrefferedBinId.ToString()
-                                            }
-                                            : null,
-                                        Quantity = line.ScannedQuantity
-                                    }
-                                }
+                                            Id = line.VendorBinAssignmentId.ToString()
+                                        }
+                                        : line.NetsuiteMaterialPrefferedBinId != 0
+                                        ? new ReferenceValue
+                                        {
+                                            Id = line.NetsuiteMaterialPrefferedBinId.ToString()
+                                        }
+                                        : null,
+                                    Quantity = line.ScannedQuantity
                                 }
                             }
-                        };
-                    }
+                            }
+                        }
+                    };
                 }).ToList()
             }
         };

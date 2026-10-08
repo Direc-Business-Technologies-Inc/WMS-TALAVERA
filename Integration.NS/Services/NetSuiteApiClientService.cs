@@ -12,12 +12,15 @@ using Application.DataTransferObjects.Transactions.TripTicket.NS.Payload;
 using Application.UseCases.Repositories.Integration.Others;
 using Database.Libraries.Repositories;
 using Integration.NS.Entities;
+using Integration.NS.Exceptions;
+using Integration.NS.Resilience;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using System.ComponentModel;
 using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -53,11 +56,11 @@ namespace Integration.NS.Services
 
         private static readonly string ClientCredentialsCertificateId = Environment.GetEnvironmentVariable("NETSUITE_CERTIFICATE_ID") ?? string.Empty;
 
-        private static readonly string ItemReceiptRestletUrl = $"https://{AccountId}.restlets.api.netsuite.com/app/site/hosting/restlet.nl?script=1853&deploy=1";
+        private static string ItemReceiptRestletUrl = $"https://{AccountId}.restlets.api.netsuite.com/app/site/hosting/restlet.nl?script=1853&deploy=1";
 
-        private static readonly string TripTicketRestletUrl = $"https://{AccountId}.restlets.api.netsuite.com/app/site/hosting/restlet.nl?script=1862&deploy=1";
+        private static string TripTicketRestletUrl = $"https://{AccountId}.restlets.api.netsuite.com/app/site/hosting/restlet.nl?script=1862&deploy=1";
 
-        private static readonly string InventoryWorksheetRestletUrl = $"https://{AccountId}.restlets.api.netsuite.com/app/site/hosting/restlet.nl?script=1878&deploy=1";
+        private static string InventoryWorksheetRestletUrl = $"https://{AccountId}.restlets.api.netsuite.com/app/site/hosting/restlet.nl?script=1878&deploy=1";
 
         private static readonly string ApiConsumerKey = Environment.GetEnvironmentVariable("NETSUITE_CONSUMER_KEY") ?? string.Empty;
 
@@ -70,7 +73,100 @@ namespace Integration.NS.Services
 
         private static string TokenEndPointUrl = $"{Oauth2ApiRoot}/token";
 
-        private static readonly HttpClient _httpClient = new HttpClient();
+        private static HttpClient _httpClient = CreateHttpClient();
+
+        /// <summary>
+        /// The RSA private key is imported once per process and reused for every
+        /// JWT client assertion. Reading/parsing the key file on each token
+        /// refresh was wasted work (Req 3.2).
+        /// </summary>
+        private static readonly Lazy<RSA> _rsaKey = new(LoadPrivateKey, LazyThreadSafetyMode.ExecutionAndPublication);
+
+        private static HttpClient CreateHttpClient()
+        {
+            return new HttpClient
+            {
+                // NetSuite's server-side cutoff is 15 minutes; stay well below it
+                // so a hung call fails fast instead of pinning a permit (Req 3.3).
+                Timeout = TimeSpan.FromSeconds(GetHttpTimeoutSeconds())
+            };
+        }
+
+        internal static double GetHttpTimeoutSeconds()
+        {
+            var raw = Environment.GetEnvironmentVariable("NETSUITE_HTTP_TIMEOUT_SECONDS");
+            return double.TryParse(raw, out var seconds) && seconds > 0 ? seconds : 100;
+        }
+
+        /// <summary>
+        /// Maximum simultaneous NetSuite requests per process. Defaults to 2 so
+        /// two hosts cannot exceed the account concurrency limit of 5; an
+        /// explicit environment value is honoured with a floor of 1.
+        /// </summary>
+        internal static int GetMaxInFlightPerProcess()
+        {
+            var raw = Environment.GetEnvironmentVariable("NETSUITE_MAX_INFLIGHT_PER_PROCESS");
+            return int.TryParse(raw, out var value) ? Math.Max(1, value) : 2;
+        }
+
+        /// <summary>
+        /// Test seam: replaces the shared <see cref="HttpClient"/>. Production
+        /// behaviour is untouched when never called.
+        /// </summary>
+        internal static void OverrideHttpClientForTests(HttpClient client)
+        {
+            _httpClient = client;
+        }
+
+        /// <summary>
+        /// Test seam: points request roots at a fake (e.g. WireMock). Only the
+        /// roots tests need are overridable; <see cref="ResetUrlRootsForTests"/>
+        /// restores production values.
+        /// </summary>
+        internal static void OverrideUrlRootsForTests(
+            string? suiteQlRoot = null,
+            string? recordApiRoot = null,
+            string? itemReceiptRestlet = null,
+            string? tripTicketRestlet = null,
+            string? inventoryWorksheetRestlet = null)
+        {
+            if (suiteQlRoot is not null) SuiteQLRoot = suiteQlRoot;
+            if (recordApiRoot is not null) RecordApiRoot = recordApiRoot;
+            if (itemReceiptRestlet is not null) ItemReceiptRestletUrl = itemReceiptRestlet;
+            if (tripTicketRestlet is not null) TripTicketRestletUrl = tripTicketRestlet;
+            if (inventoryWorksheetRestlet is not null) InventoryWorksheetRestletUrl = inventoryWorksheetRestlet;
+        }
+
+        internal static void ResetUrlRootsForTests()
+        {
+            SuiteQLRoot = $"{RestApiRoot}/query/v1/suiteql";
+            RecordApiRoot = $"{RestApiRoot}/record/v1";
+            ItemReceiptRestletUrl = $"https://{AccountId}.restlets.api.netsuite.com/app/site/hosting/restlet.nl?script=1853&deploy=1";
+            TripTicketRestletUrl = $"https://{AccountId}.restlets.api.netsuite.com/app/site/hosting/restlet.nl?script=1862&deploy=1";
+            InventoryWorksheetRestletUrl = $"https://{AccountId}.restlets.api.netsuite.com/app/site/hosting/restlet.nl?script=1878&deploy=1";
+        }
+
+        private static RSA LoadPrivateKey()
+        {
+            string privateKeyPem = File.ReadAllText(Environment.GetEnvironmentVariable("PRIVATEKEY_PATH") ?? string.Empty);
+            // Remove headers and footers
+            privateKeyPem = privateKeyPem.Replace("-----BEGIN PRIVATE KEY-----", "")
+                                         .Replace("-----END PRIVATE KEY-----", "")
+                                         .Replace("\n", "")
+                                         .Replace("\r", "");
+            // Decode the Base64 key
+            byte[] privateKeyRaw = Convert.FromBase64String(privateKeyPem);
+            var rsa = RSACng.Create();
+            rsa.KeySize = 3072;
+            rsa.ImportPkcs8PrivateKey(privateKeyRaw, out _);
+            // Ensure the key size is at least 3072 bits
+            if (rsa.KeySize < 3072)
+            {
+                throw new Exception("RSA key size must be at least 3072 bits for NetSuite OAuth.");
+            }
+
+            return rsa;
+        }
 
         private static string _accessToken;
         private static DateTime _tokenExpiryTime;
@@ -121,11 +217,21 @@ namespace Integration.NS.Services
 
         public async Task<string> GetAccessToken()
         {
+            return await GetAccessToken((request, cancellationToken) =>
+                _httpClient.SendAsync(request, cancellationToken));
+        }
 
+        /// <summary>
+        /// Token acquisition with an injectable sender so the refresh flow can be
+        /// exercised in unit tests. This method intentionally does NOT set
+        /// <c>_tokenExpiryTime</c>: expiry is owned exclusively by
+        /// <see cref="GetValidAccessToken"/> after a successful refresh (Req 3.1).
+        /// </summary>
+        internal async Task<string> GetAccessToken(
+            Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> sendAsync)
+        {
             var url = Oauth2ApiRoot + "/token";
             string clientAssertion = GetJwtToken();
-
-            _tokenExpiryTime = DateTime.UtcNow.AddMinutes(30);
 
             var requestParams = new List<KeyValuePair<string, string>>()
             {
@@ -138,7 +244,7 @@ namespace Integration.NS.Services
 
             httpRequest.Content = new FormUrlEncodedContent(requestParams);
 
-            var httpResponse = await _httpClient.SendAsync(httpRequest);
+            var httpResponse = await sendAsync(httpRequest, CancellationToken.None);
             string res = await httpResponse.Content.ReadAsStringAsync();
             if (httpResponse.IsSuccessStatusCode)
             {
@@ -161,22 +267,8 @@ namespace Integration.NS.Services
             {
                 return tokenText; // Return the existing token if it's still valid.
             }
-            string privateKeyPem = File.ReadAllText(Environment.GetEnvironmentVariable("PRIVATEKEY_PATH") ?? string.Empty);
-            // Remove headers and footers
-            privateKeyPem = privateKeyPem.Replace("-----BEGIN PRIVATE KEY-----", "")
-                                         .Replace("-----END PRIVATE KEY-----", "")
-                                         .Replace("\n", "")
-                                         .Replace("\r", "");
-            // Decode the Base64 key
-            byte[] privateKeyRaw = Convert.FromBase64String(privateKeyPem);
-            var rsa = RSACng.Create();
-            rsa.KeySize = 3072;
-            rsa.ImportPkcs8PrivateKey(privateKeyRaw, out _);
-            // Ensure the key size is at least 3072 bits
-            if (rsa.KeySize < 3072)
-            {
-                throw new Exception("RSA key size must be at least 3072 bits for NetSuite OAuth.");
-            }
+            // Use the cached RSA key (imported once per process).
+            var rsa = _rsaKey.Value;
             // Use RSA-PSS (PS256) instead of RS256
             var rsaSecurityKey = new RsaSecurityKey(rsa)
             {
@@ -207,7 +299,8 @@ namespace Integration.NS.Services
         }
 
         private static readonly SemaphoreSlim _tokenSemaphore = new(1, 1);
-        private static readonly SemaphoreSlim _requestSemaphore = new(4, 4);
+        private static readonly SemaphoreSlim _requestSemaphore =
+            new(GetMaxInFlightPerProcess(), GetMaxInFlightPerProcess());
 
         //public async Task<T> MakeRequest<T>(string url, string? reqBody, HttpMethod method)
         //{
@@ -250,88 +343,133 @@ namespace Integration.NS.Services
         public async Task<T> MakeRequest<T>(
         string url,
         string? reqBody,
-        HttpMethod method)
+        HttpMethod method,
+        NetSuiteRequestKind? kind = null,
+        NetSuiteRetryProfile profile = NetSuiteRetryProfile.Interactive)
         {
             var accessToken = await GetValidAccessToken();
 
-            // Limit concurrent calls to NetSuite.
+            var requestKind = kind ?? NetSuiteRequestClassifier.Classify(url, method);
+            var pipeline = NetSuitePipelines.For(profile, requestKind);
+
+            // Limit concurrent calls to NetSuite. The retry pipeline executes
+            // inside the permit hold (D5) so a 429 storm cannot starve the
+            // limiter by re-acquiring between attempts.
             await _requestSemaphore.WaitAsync();
 
             try
             {
-                using var httpRequest =
-                    new HttpRequestMessage(method, url);
-
-                httpRequest.Headers.Authorization =
-                    new AuthenticationHeaderValue(
-                        "Bearer",
-                        accessToken);
-
-                httpRequest.Headers.Add(
-                    "Prefer",
-                    "transient");
-
-                if (!string.IsNullOrEmpty(reqBody))
-                {
-                    httpRequest.Content = new StringContent(
-                        reqBody,
-                        Encoding.UTF8,
-                        "application/json");
-                }
-
-                using var httpResponse =
-                    await _httpClient.SendAsync(httpRequest);
-
-                var responseJson =
-                    await httpResponse.Content.ReadAsStringAsync();
-
-                if (httpResponse.IsSuccessStatusCode)
-                {
-                    if (string.IsNullOrEmpty(responseJson))
-                        return default!;
-
-                    var response =
-                        JsonSerializer.Deserialize<T>(
-                            responseJson,
-                            JsonSerializerRequestOption);
-
-                    return response
-                        ?? throw new Exception(
-                            "Bad response from NetSuite API");
-                }
-
-                // Parse the error from the string already read above; a second
-                // ReadFromJsonAsync content read can throw JsonException and mask
-                // the real status code (G2/G3).
-                string? displayString = null;
-
-                try
-                {
-                    displayString =
-                        JsonSerializer.Deserialize<NetSuiteErrorResponse>(
-                            responseJson,
-                            JsonSerializerRequestOption)?.DisplayString;
-                }
-                catch (JsonException)
-                {
-                    // Unrecognized body — fall back to the detail chain below.
-                }
-
-                var detail = !string.IsNullOrWhiteSpace(displayString)
-                    ? displayString
-                    : GetNetSuiteErrorDetail(responseJson);
-
-                LogNonSuccessResponse(httpResponse, method, url, reqBody, responseJson);
-
-                throw new Exception(
-                    BuildNetSuiteErrorMessage(
-                        httpResponse,
-                        detail,
-                        responseJson));
+                return await pipeline.ExecuteAsync(
+                    ct => SendAndHandleOAuth2<T>(url, reqBody, method, accessToken),
+                    CancellationToken.None);
             }
             finally
             {
                 _requestSemaphore.Release();
+            }
+        }
+
+        private async ValueTask<T> SendAndHandleOAuth2<T>(
+            string url,
+            string? reqBody,
+            HttpMethod method,
+            string accessToken)
+        {
+            using var httpRequest =
+                new HttpRequestMessage(method, url);
+
+            httpRequest.Headers.Authorization =
+                new AuthenticationHeaderValue(
+                    "Bearer",
+                    accessToken);
+
+            httpRequest.Headers.Add(
+                "Prefer",
+                "transient");
+
+            if (!string.IsNullOrEmpty(reqBody))
+            {
+                httpRequest.Content = new StringContent(
+                    reqBody,
+                    Encoding.UTF8,
+                    "application/json");
+            }
+
+            using var httpResponse =
+                await SendRequestAsync(httpRequest);
+
+            var responseJson =
+                await httpResponse.Content.ReadAsStringAsync();
+
+            if (httpResponse.IsSuccessStatusCode)
+            {
+                if (string.IsNullOrEmpty(responseJson))
+                    return default!;
+
+                var response =
+                    JsonSerializer.Deserialize<T>(
+                        responseJson,
+                        JsonSerializerRequestOption);
+
+                return response
+                    ?? throw new Exception(
+                        "Bad response from NetSuite API");
+            }
+
+            // Parse the error from the string already read above; a second
+            // ReadFromJsonAsync content read can throw JsonException and mask
+            // the real status code (G2/G3).
+            string? displayString = null;
+
+            try
+            {
+                displayString =
+                    JsonSerializer.Deserialize<NetSuiteErrorResponse>(
+                        responseJson,
+                        JsonSerializerRequestOption)?.DisplayString;
+            }
+            catch (JsonException)
+            {
+                // Unrecognized body — fall back to the detail chain below.
+            }
+
+            var detail = !string.IsNullOrWhiteSpace(displayString)
+                ? displayString
+                : GetNetSuiteErrorDetail(responseJson);
+
+            LogNonSuccessResponse(httpResponse, method, url, reqBody, responseJson);
+
+            throw NetSuiteExceptionFactory.CreateForStatus(
+                httpResponse.StatusCode,
+                BuildNetSuiteErrorMessage(
+                    httpResponse,
+                    detail,
+                    responseJson),
+                detail);
+        }
+
+        /// <summary>
+        /// Sends a request, mapping transport/network failures to
+        /// <see cref="NetSuiteTransientException"/> so the retry policy can treat
+        /// them uniformly with 429/5xx responses (Req 4.1).
+        /// </summary>
+        private static async Task<HttpResponseMessage> SendRequestAsync(HttpRequestMessage request)
+        {
+            try
+            {
+                return await _httpClient.SendAsync(request);
+            }
+            catch (HttpRequestException ex)
+            {
+                throw NetSuiteExceptionFactory.CreateForNetworkError(
+                    $"NetSuite request failed: {ex.Message}",
+                    ex);
+            }
+            catch (TaskCanceledException ex)
+            {
+                throw NetSuiteExceptionFactory.CreateForNetworkError(
+                    $"NetSuite request timed out: {ex.Message}",
+                    ex);
             }
         }
 
@@ -382,7 +520,12 @@ namespace Integration.NS.Services
             return await MakeRequest<T>(url, reqBody, HttpMethod.Post);
         }
 
-        public async Task<T> MakeRequestOAuth1<T>(string url, string? reqBody, HttpMethod method)
+        public async Task<T> MakeRequestOAuth1<T>(
+            string url,
+            string? reqBody,
+            HttpMethod method,
+            NetSuiteRequestKind? kind = null,
+            NetSuiteRetryProfile profile = NetSuiteRetryProfile.Interactive)
         {
             string consumerKey = Environment.GetEnvironmentVariable("OAUTH1_CONSUMER_KEY") ?? "";
             string consumerSecret = Environment.GetEnvironmentVariable("OAUTH1_CONSUMER_SECRET") ?? "";
@@ -461,6 +604,31 @@ namespace Integration.NS.Services
                 $"oauth_version=\"1.0\", " +
                 $"oauth_signature=\"{Uri.EscapeDataString(signature)}\"";
 
+            var requestKind = kind ?? NetSuiteRequestClassifier.Classify(url, method);
+            var pipeline = NetSuitePipelines.For(profile, requestKind);
+
+            // Defense-in-depth: the OAuth1 path shares the same limiter as the
+            // OAuth2 path (two separate semaphores would sum back over budget).
+            await _requestSemaphore.WaitAsync();
+
+            try
+            {
+                return await pipeline.ExecuteAsync(
+                    ct => SendAndHandleOAuth1<T>(url, reqBody, method, authorizationHeader),
+                    CancellationToken.None);
+            }
+            finally
+            {
+                _requestSemaphore.Release();
+            }
+        }
+
+        private async ValueTask<T> SendAndHandleOAuth1<T>(
+            string url,
+            string? reqBody,
+            HttpMethod method,
+            string authorizationHeader)
+        {
             using var request = new HttpRequestMessage(method, url);
 
             request.Headers.TryAddWithoutValidation(
@@ -475,13 +643,13 @@ namespace Integration.NS.Services
                     "application/json");
             }
 
-            var httpResponse = await _httpClient.SendAsync(request);
+            using var httpResponse = await SendRequestAsync(request);
 
             var responseJson = await httpResponse.Content.ReadAsStringAsync();
             if (httpResponse.IsSuccessStatusCode)
             {
                 if (string.IsNullOrEmpty(responseJson))
-                    return default(T);
+                    return default!;
 
                 return System.Text.Json.JsonSerializer.Deserialize<T>(responseJson);
             }
@@ -490,11 +658,13 @@ namespace Integration.NS.Services
 
             LogNonSuccessResponse(httpResponse, method, url, reqBody, responseJson);
 
-            throw new Exception(
+            throw NetSuiteExceptionFactory.CreateForStatus(
+                httpResponse.StatusCode,
                 BuildNetSuiteErrorMessage(
                     httpResponse,
                     errorDetail,
-                    responseJson));
+                    responseJson),
+                errorDetail);
         }
 
         private static string? GetNetSuiteErrorDetail(string responseJson)
@@ -607,7 +777,7 @@ namespace Integration.NS.Services
         /// parsed error when available, otherwise a raw-body excerpt of at most
         /// 2000 characters.
         /// </summary>
-        private static string BuildNetSuiteErrorMessage(
+        internal static string BuildNetSuiteErrorMessage(
             HttpResponseMessage response,
             string? detail,
             string responseBody)
@@ -723,7 +893,7 @@ namespace Integration.NS.Services
             {
                 try
                 {
-                    var payloadBad = PurchaseOrderIRPayloadDTO.CreateForItemReceipt(badPO, userId, 2, remarks);
+                    var payloadBad = PurchaseOrderIRPayloadDTO.CreateForItemReceipt(Data, userId, 2, remarks);
 
                     var jsonStringBad = JsonSerializer.Serialize(payloadBad, JsonSerializerOption);
 
@@ -741,7 +911,7 @@ namespace Integration.NS.Services
             {
                 try
                 {
-                    var payloadGood = PurchaseOrderIRPayloadDTO.CreateForItemReceipt(goodPO, userId, 1, remarks);
+                    var payloadGood = PurchaseOrderIRPayloadDTO.CreateForItemReceipt(Data, userId, 1, remarks);
 
                     var jsonStringGood = JsonSerializer.Serialize(payloadGood, JsonSerializerOption);
 
