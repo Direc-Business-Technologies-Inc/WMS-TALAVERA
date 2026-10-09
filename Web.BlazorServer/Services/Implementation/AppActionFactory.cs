@@ -45,6 +45,13 @@ public class AppActionFactory(
                 ToastService.Success($"{options.ActionName} completed successfully.");
 
         }
+        catch (OperationCanceledException)
+        {
+            // Cancelled fetches (navigation-away, superseded grid/dropdown
+            // loads) are not failures: mark cancelled and stay silent so no
+            // error UI surfaces (Req 3.3, 5.2).
+            action.IsCancelled = true;
+        }
         catch (Exception ex)
         {
             action.SetException(ex);
@@ -95,6 +102,11 @@ public class AppActionFactory(
             if (options.ShowToastOnSuccess)
                 ToastService.Success($"{options.ActionName} completed successfully.");
 
+        }
+        catch (OperationCanceledException)
+        {
+            // See generic overload: cancellation is silent, not a failure.
+            action.IsCancelled = true;
         }
         catch (Exception ex)
         {

@@ -10,7 +10,7 @@ using Web.BlazorServer.ViewModels.Others;
 
 namespace Web.BlazorServer.Components.Custom;
 
-partial class ItemDataGrid
+partial class ItemDataGrid : IAsyncDisposable
 {
 
     [Parameter] public string? Id { get; set; } = "items_datagrid";
@@ -27,6 +27,7 @@ partial class ItemDataGrid
     private readonly string ActionGetItems = "Get Items List";
     private List<ItemsVM> SelectedItems { get; set; } = [];
     private string? SearchText { get; set; }
+    private CancellationTokenSource? _loadCts;
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         await base.OnAfterRenderAsync(firstRender);
@@ -38,9 +39,22 @@ partial class ItemDataGrid
 
     async Task<DataGridResultVM<ItemsVM>> LoadDataAsync(DataGridIntent intent)
     {
-        var action = await AppActionFactory.RunAsync(async () =>
+        // A new load supersedes any in-flight one; disposing the component
+        // (navigation away) cancels the current load so the underlying
+        // NetSuite HTTP request is aborted (Req 3.1).
+        _loadCts?.Cancel();
+        _loadCts?.Dispose();
+        _loadCts = new CancellationTokenSource();
+        var ct = _loadCts.Token;
+
+        DataGridResultVM<ItemsVM> cancelled() =>
+            DataGridResultVM<ItemsVM>.New(Enumerable.Empty<ItemsVM>(), 0);
+
+        try
         {
-            AppBusyService.SetBusy(ActionGetItems, true);
+            var action = await AppActionFactory.RunAsync(async () =>
+            {
+                AppBusyService.SetBusy(ActionGetItems, true);
 
             var filters = new List<AppFilterDescriptor>();
 
@@ -86,11 +100,14 @@ partial class ItemDataGrid
             intent.Filters = filters;
 
             var response = LocationId is null
-                ? await ItemsHandler.GetItemsDataGridAsync(intent)
+                ? await ItemsHandler.GetItemsDataGridAsync(intent, ct)
                 : await ItemsHandler.GetItemsAtLocationDataGridAsync(
                     intent,
                     (int)LocationId,
-                    SubsidiaryId);
+                    SubsidiaryId,
+                    ct);
+
+            ct.ThrowIfCancellationRequested();
 
             return response;
 
@@ -98,9 +115,19 @@ partial class ItemDataGrid
 
         AppBusyService.SetBusy(ActionGetItems, false);
 
+        // Cancelled/failed loads resolve silently with empty data (Req 3.3, 5.2):
+        // the factory marks cancellations with no error UI.
+        if (!action.IsSuccess)
+            return cancelled();
+
         return DataGridResultVM<ItemsVM>.New(
             action.Result.Data ?? [],
             action.Result.Count);
+    }
+    catch (OperationCanceledException)
+    {
+        return cancelled();
+    }
     }
 
     async Task OnSearchChanged(object? value)
@@ -153,6 +180,15 @@ partial class ItemDataGrid
                 SelectedItems.Add(item);
             }
         }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        _loadCts?.Cancel();
+        _loadCts?.Dispose();
+        _loadCts = null;
+        GC.SuppressFinalize(this);
+        await Task.CompletedTask;
     }
 
     public enum SelectionModes

@@ -215,10 +215,10 @@ namespace Integration.NS.Services
             }
         }
 
-        public async Task<string> GetAccessToken()
+        public async Task<string> GetAccessToken(CancellationToken ct = default)
         {
             return await GetAccessToken((request, cancellationToken) =>
-                _httpClient.SendAsync(request, cancellationToken));
+                _httpClient.SendAsync(request, cancellationToken), ct);
         }
 
         /// <summary>
@@ -228,7 +228,8 @@ namespace Integration.NS.Services
         /// <see cref="GetValidAccessToken"/> after a successful refresh (Req 3.1).
         /// </summary>
         internal async Task<string> GetAccessToken(
-            Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> sendAsync)
+            Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> sendAsync,
+            CancellationToken ct = default)
         {
             var url = Oauth2ApiRoot + "/token";
             string clientAssertion = GetJwtToken();
@@ -244,8 +245,8 @@ namespace Integration.NS.Services
 
             httpRequest.Content = new FormUrlEncodedContent(requestParams);
 
-            var httpResponse = await sendAsync(httpRequest, CancellationToken.None);
-            string res = await httpResponse.Content.ReadAsStringAsync();
+            var httpResponse = await sendAsync(httpRequest, ct);
+            string res = await httpResponse.Content.ReadAsStringAsync(ct);
             if (httpResponse.IsSuccessStatusCode)
             {
                 var responseJson = await httpResponse.Content.ReadAsStringAsync();
@@ -345,9 +346,10 @@ namespace Integration.NS.Services
         string? reqBody,
         HttpMethod method,
         NetSuiteRequestKind? kind = null,
-        NetSuiteRetryProfile profile = NetSuiteRetryProfile.Interactive)
+        NetSuiteRetryProfile profile = NetSuiteRetryProfile.Interactive,
+        CancellationToken ct = default)
         {
-            var accessToken = await GetValidAccessToken();
+            var accessToken = await GetValidAccessToken(ct);
 
             var requestKind = kind ?? NetSuiteRequestClassifier.Classify(url, method);
             var pipeline = NetSuitePipelines.For(profile, requestKind);
@@ -355,13 +357,13 @@ namespace Integration.NS.Services
             // Limit concurrent calls to NetSuite. The retry pipeline executes
             // inside the permit hold (D5) so a 429 storm cannot starve the
             // limiter by re-acquiring between attempts.
-            await _requestSemaphore.WaitAsync();
+            await _requestSemaphore.WaitAsync(ct);
 
             try
             {
                 return await pipeline.ExecuteAsync(
-                    ct => SendAndHandleOAuth2<T>(url, reqBody, method, accessToken),
-                    CancellationToken.None);
+                    pipelineCt => SendAndHandleOAuth2<T>(url, reqBody, method, accessToken, pipelineCt),
+                    ct);
             }
             finally
             {
@@ -373,7 +375,8 @@ namespace Integration.NS.Services
             string url,
             string? reqBody,
             HttpMethod method,
-            string accessToken)
+            string accessToken,
+            CancellationToken ct = default)
         {
             using var httpRequest =
                 new HttpRequestMessage(method, url);
@@ -396,10 +399,10 @@ namespace Integration.NS.Services
             }
 
             using var httpResponse =
-                await SendRequestAsync(httpRequest);
+                await SendRequestAsync(httpRequest, ct);
 
             var responseJson =
-                await httpResponse.Content.ReadAsStringAsync();
+                await httpResponse.Content.ReadAsStringAsync(ct);
 
             if (httpResponse.IsSuccessStatusCode)
             {
@@ -452,12 +455,19 @@ namespace Integration.NS.Services
         /// Sends a request, mapping transport/network failures to
         /// <see cref="NetSuiteTransientException"/> so the retry policy can treat
         /// them uniformly with 429/5xx responses (Req 4.1).
+        /// Cancellation requested via <paramref name="ct"/> is never mapped or
+        /// retried: it propagates as <see cref="OperationCanceledException"/>
+        /// so Blazor navigation-away simply stops updating (Req 3.1, 3.3).
         /// </summary>
-        private static async Task<HttpResponseMessage> SendRequestAsync(HttpRequestMessage request)
+        private static async Task<HttpResponseMessage> SendRequestAsync(HttpRequestMessage request, CancellationToken ct = default)
         {
             try
             {
-                return await _httpClient.SendAsync(request);
+                return await _httpClient.SendAsync(request, ct);
+            }
+            catch (OperationCanceledException ex) when (ct.IsCancellationRequested)
+            {
+                throw new OperationCanceledException("NetSuite request was cancelled.", ex, ct);
             }
             catch (HttpRequestException ex)
             {
@@ -473,7 +483,7 @@ namespace Integration.NS.Services
             }
         }
 
-        private async Task<string> GetValidAccessToken()
+        private async Task<string> GetValidAccessToken(CancellationToken ct = default)
         {
             // Fast path — most requests should come through here.
             if (_accessToken != null &&
@@ -483,7 +493,7 @@ namespace Integration.NS.Services
             }
 
             // Only one request can refresh the token at a time.
-            await _tokenSemaphore.WaitAsync();
+            await _tokenSemaphore.WaitAsync(ct);
 
             try
             {
@@ -497,7 +507,7 @@ namespace Integration.NS.Services
                     return _accessToken;
                 }
 
-                var newToken = await GetAccessToken();
+                var newToken = await GetAccessToken(ct);
 
                 _accessToken = newToken;
 
@@ -515,9 +525,9 @@ namespace Integration.NS.Services
         }
 
 
-        async Task<T> MakeRequest<T>(string url, string? reqBody = null)
+        async Task<T> MakeRequest<T>(string url, string? reqBody = null, CancellationToken ct = default)
         {
-            return await MakeRequest<T>(url, reqBody, HttpMethod.Post);
+            return await MakeRequest<T>(url, reqBody, HttpMethod.Post, ct: ct);
         }
 
         public async Task<T> MakeRequestOAuth1<T>(
@@ -525,7 +535,8 @@ namespace Integration.NS.Services
             string? reqBody,
             HttpMethod method,
             NetSuiteRequestKind? kind = null,
-            NetSuiteRetryProfile profile = NetSuiteRetryProfile.Interactive)
+            NetSuiteRetryProfile profile = NetSuiteRetryProfile.Interactive,
+            CancellationToken ct = default)
         {
             string consumerKey = Environment.GetEnvironmentVariable("OAUTH1_CONSUMER_KEY") ?? "";
             string consumerSecret = Environment.GetEnvironmentVariable("OAUTH1_CONSUMER_SECRET") ?? "";
@@ -609,13 +620,13 @@ namespace Integration.NS.Services
 
             // Defense-in-depth: the OAuth1 path shares the same limiter as the
             // OAuth2 path (two separate semaphores would sum back over budget).
-            await _requestSemaphore.WaitAsync();
+            await _requestSemaphore.WaitAsync(ct);
 
             try
             {
                 return await pipeline.ExecuteAsync(
-                    ct => SendAndHandleOAuth1<T>(url, reqBody, method, authorizationHeader),
-                    CancellationToken.None);
+                    pipelineCt => SendAndHandleOAuth1<T>(url, reqBody, method, authorizationHeader, pipelineCt),
+                    ct);
             }
             finally
             {
@@ -627,7 +638,8 @@ namespace Integration.NS.Services
             string url,
             string? reqBody,
             HttpMethod method,
-            string authorizationHeader)
+            string authorizationHeader,
+            CancellationToken ct = default)
         {
             using var request = new HttpRequestMessage(method, url);
 
@@ -643,9 +655,9 @@ namespace Integration.NS.Services
                     "application/json");
             }
 
-            using var httpResponse = await SendRequestAsync(request);
+            using var httpResponse = await SendRequestAsync(request, ct);
 
-            var responseJson = await httpResponse.Content.ReadAsStringAsync();
+            var responseJson = await httpResponse.Content.ReadAsStringAsync(ct);
             if (httpResponse.IsSuccessStatusCode)
             {
                 if (string.IsNullOrEmpty(responseJson))
@@ -827,7 +839,8 @@ namespace Integration.NS.Services
             string queryName,
             Dictionary<string, string>? parameters = null,
             int limit = 0,
-            int offset = 0)
+            int offset = 0,
+            CancellationToken ct = default)
         {
             var url = SuiteQLRoot;
 
@@ -862,12 +875,12 @@ namespace Integration.NS.Services
                 q = FormatQuery(query)
             });
 
-            var result = await MakeRequest<NetSuiteResponse<T>>(url, jsonBody, HttpMethod.Post);
+            var result = await MakeRequest<NetSuiteResponse<T>>(url, jsonBody, HttpMethod.Post, ct: ct);
 
             return result.items;
         }
 
-        public async Task<NetSuiteResponse<T>> ExecuteSuiteQLQuery<T>(string query, int? limit = null, int? offset = null)
+        public async Task<NetSuiteResponse<T>> ExecuteSuiteQLQuery<T>(string query, int? limit = null, int? offset = null, CancellationToken ct = default)
         {
             var url = SuiteQLRoot;
             if (limit.HasValue) url += $"?limit={limit.Value}" + (offset.HasValue ? $"&offset={offset.Value}" : "");
@@ -877,7 +890,7 @@ namespace Integration.NS.Services
 
             var jsonBody = JsonSerializer.Serialize(new { q = query });
 
-            return await MakeRequest<NetSuiteResponse<T>>(url, jsonBody, HttpMethod.Post);
+            return await MakeRequest<NetSuiteResponse<T>>(url, jsonBody, HttpMethod.Post, ct: ct);
         }
 
         #region Receiving

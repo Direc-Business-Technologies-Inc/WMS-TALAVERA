@@ -159,6 +159,116 @@ public class CachedReferenceIntegrationTests
         Assert.Equal(1, client.ExecuteSuiteQlCalls);
     }
 
+    // Req 1.2 — department reads are cached per subsidiary scope.
+    [Fact]
+    public async Task Department_reads_are_cached()
+    {
+        var client = new CountingNetSuiteClient();
+        var accessor = new HttpContextAccessor();
+        var cached = new CachedDepartmentIntegration(
+            new DepartmentIntegration(client, accessor, new SuiteQLQueryBuilderFactoryService()),
+            NewCache(),
+            accessor);
+
+        var intent = new DataGridIntent { Take = 10 };
+
+        await cached.GetDepartmentsList(intent);
+        await cached.GetDepartmentsList(intent);
+
+        Assert.Equal(1, client.ExecuteSuiteQlCalls);
+    }
+
+    [Fact]
+    public async Task Department_reads_are_scoped_by_the_allowed_subsidiaries_claim()
+    {
+        var cache = NewCache();
+        var builder = new SuiteQLQueryBuilderFactoryService();
+        var intent = new DataGridIntent { Take = 10 };
+
+        var client = new CountingNetSuiteClient();
+        var accessorA = AccessorWithClaims((AllowedSubsidiariesClaim, "[1,2]"));
+        var cachedA = new CachedDepartmentIntegration(
+            new DepartmentIntegration(client, accessorA, builder), cache, accessorA);
+
+        await cachedA.GetDepartmentsList(intent);
+        await cachedA.GetDepartmentsList(intent);
+        Assert.Equal(1, client.ExecuteSuiteQlCalls);
+
+        var accessorB = AccessorWithClaims((AllowedSubsidiariesClaim, "[3,4]"));
+        var cachedB = new CachedDepartmentIntegration(
+            new DepartmentIntegration(client, accessorB, builder), cache, accessorB);
+
+        await cachedB.GetDepartmentsList(intent);
+        Assert.Equal(2, client.ExecuteSuiteQlCalls);
+    }
+
+    // Req 1.4 — N concurrent identical misses produce exactly 1 NetSuite call.
+    [Fact]
+    public async Task Concurrent_identical_misses_produce_a_single_call()
+    {
+        var client = new CountingNetSuiteClient();
+        var accessor = new HttpContextAccessor();
+        var cached = new CachedDepartmentIntegration(
+            new DepartmentIntegration(client, accessor, new SuiteQLQueryBuilderFactoryService()),
+            NewCache(),
+            accessor);
+
+        var intent = new DataGridIntent { Take = 10 };
+
+        await Task.WhenAll(Enumerable.Range(0, 10).Select(_ => cached.GetDepartmentsList(intent)));
+
+        Assert.Equal(1, client.ExecuteSuiteQlCalls);
+    }
+
+    // Factory failures are never cached — the next request retries NetSuite.
+    [Fact]
+    public async Task Failed_reads_are_not_cached()
+    {
+        var cache = NewCache();
+        var calls = 0;
+
+        async Task<int> FailingFactory()
+        {
+            calls++;
+            await Task.Yield();
+            throw new InvalidOperationException("NetSuite is down");
+        }
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => cache.GetOrAddAsync("ns:cache:v1:Test:Method:abc", TimeSpan.FromMinutes(15), FailingFactory));
+
+        var result = await cache.GetOrAddAsync(
+            "ns:cache:v1:Test:Method:abc", TimeSpan.FromMinutes(15), () => Task.FromResult(42));
+
+        Assert.Equal(42, result);
+        Assert.Equal(1, calls);
+    }
+
+    // Req 1.3 — invalidation evicts so the next read hits NetSuite again.
+    [Fact]
+    public async Task Invalidation_evicts_reference_data_entries()
+    {
+        var client = new CountingNetSuiteClient();
+        var accessor = new HttpContextAccessor();
+        var cache = NewCache();
+        var cached = new CachedDepartmentIntegration(
+            new DepartmentIntegration(client, accessor, new SuiteQLQueryBuilderFactoryService()),
+            cache,
+            accessor);
+        var invalidator = new ReferenceDataCacheInvalidator(cache);
+
+        var intent = new DataGridIntent { Take = 10 };
+
+        await cached.GetDepartmentsList(intent);
+        await cached.GetDepartmentsList(intent);
+        Assert.Equal(1, client.ExecuteSuiteQlCalls);
+
+        invalidator.Invalidate(CachedDepartmentIntegration.InterfaceName);
+
+        await cached.GetDepartmentsList(intent);
+        Assert.Equal(2, client.ExecuteSuiteQlCalls);
+    }
+
     // AC7 — transactional reads are never decorated and always come fresh.
     [Fact]
     public async Task Transactional_reads_are_never_cached()
