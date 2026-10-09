@@ -92,6 +92,20 @@
                         </RadzenFormField>
                     </RadzenColumn>
                     <RadzenColumn SizeLG="6" SizeMD="12">
+                        <RadzenFormField Text="Requested By" class="rz-w-100">
+                            <ChildContent>
+                                <RadzenTextBox Disabled="@Disabled" Visible="@ReadOnly" ReadOnly Value="@(Model.RequestedBy?.FullName)" Placeholder="@(ReadOnly ? "Not set" : "Select an employee")" />
+                                <QuickVirtualizedDropdown Disabled="@Disabled" Visible="@(!ReadOnly)"
+                                Name="str_requested_by" TItem="EmployeeNsVM"
+                                ActionName="@ActionGetEmployees" DataGetter="@EmployeeProvider"
+                                @bind-Value:get="@Model.RequestedBy" @bind-Value:set="@(val => Model.RequestedBy = val)"
+                                FilterTarget="@nameof(EmployeeNsVM.FullName)"
+                                TextProperty="@nameof(EmployeeNsVM.FullName)"
+                                AllowFiltering AllowClear="false" />
+                            </ChildContent>
+                        </RadzenFormField>
+                    </RadzenColumn>
+                    <RadzenColumn SizeLG="6" SizeMD="12">
                         <RadzenFormField Text="Purchase Subcategory" class="rz-w-100">
                             <ChildContent>
                                 <RadzenTextBox Disabled="Disabled" Visible="@ReadOnly" Value="@Model.PurchaseSubcategory?.Name" Placeholder="No purchase subcategory given" />

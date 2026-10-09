@@ -8,6 +8,7 @@ using Shared.Libraries.Utilities;
 using Web.BlazorServer.Components.Custom;
 using Web.BlazorServer.Components.Pages.Transaction.Others.BarcodeScanning;
 using Web.BlazorServer.Components.Shared.Abstraction;
+using Web.BlazorServer.Handlers.Repositories.Administration.User;
 using Web.BlazorServer.Handlers.Repositories.Others;
 using Web.BlazorServer.Handlers.Repositories.Transaction.StockTransferRequest;
 using Web.BlazorServer.Helpers;
@@ -39,6 +40,7 @@ public partial class STRForm
     [Inject] IVendorHandler VendorHandler { get; set; } = default!;
     [Inject] IItemsHandler ItemsHandler { get; set; } = default!;
     [Inject] IHttpContextAccessor httpContextAccessor { get; set; } = default!;
+    [Inject] IUserManagementHandler UserManagementHandler { get; set; } = default!;
 
     AppTable<StockTransferRequestLineVM> LinesTable = default!;
     DataGridSettings TableSettings { get; set; } = new();
@@ -47,6 +49,7 @@ public partial class STRForm
     readonly string ActionGetSubsidiaries = "Get Subsidiaries";
     readonly string ActionGetVendors = "Get Vendors";
     readonly string ActionGetItemUnits = "Get Item Units";
+    readonly string ActionGetEmployees = "Get Employees";
 
     private QuickVirtualizedDropdown<LocationVM>? SourceLocationDropdown { get; set; }
     private QuickVirtualizedDropdown<LocationVM>? DestinationLocationDropdown { get; set; }
@@ -120,6 +123,12 @@ public partial class STRForm
         if (linesMissingVendor.Count > 0)
         {
             ToastService.Error($"Preferred Vendor is required on line(s): {string.Join(", ", linesMissingVendor)}", "Error");
+            return;
+        }
+
+        if (Model.RequestedBy is null)
+        {
+            ToastService.Error("Please select a Requested By employee", "Error");
             return;
         }
 
@@ -245,6 +254,11 @@ public partial class STRForm
         var result = await SubsidiaryHandler.GetSubsidiariesAsync(intent);
 
         return result;
+    }
+
+    async Task<(IEnumerable<EmployeeNsVM>, int)> EmployeeProvider(DataGridIntent intent)
+    {
+        return await UserManagementHandler.GetAllEmployeesAsync(intent);
     }
 
     async Task<(IEnumerable<PurchaseCategoryVM>, int)> PurchaseCategoryProvider(DataGridIntent intent)

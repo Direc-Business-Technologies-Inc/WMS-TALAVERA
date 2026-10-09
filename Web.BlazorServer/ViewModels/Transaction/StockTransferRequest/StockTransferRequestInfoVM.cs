@@ -15,6 +15,7 @@ public class StockTransferRequestInfoVM
     public TransferOrderStatusVM Status { get; set; } = new();
     public PurchaseCategoryVM? PurchaseCategory { get; set; } = null;
     public PurchaseSubcategoryVM? PurchaseSubcategory { get; set; } = null;
+    public EmployeeNsVM? RequestedBy { get; set; } = null;
     public string PreparedBy { get; set; } = string.Empty;
     public string Remarks { get; set; } = string.Empty;
     public DateTime Date { get; set; }

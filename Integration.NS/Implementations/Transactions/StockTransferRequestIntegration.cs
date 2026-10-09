@@ -1,4 +1,5 @@
-﻿using Application.DataTransferObjects.Transactions.Receiving;
+﻿using Application.DataTransferObjects.Others;
+using Application.DataTransferObjects.Transactions.Receiving;
 using Application.DataTransferObjects.Transactions.StockTransferRequest;
 using Application.UseCases.Repositories.Integration.Others;
 using Application.UseCases.Repositories.Integration.Transaction.StockTransferRequest;
@@ -44,12 +45,14 @@ internal class StockTransferRequestIntegration(
                     ("BUILTIN.DF(tl.location)", nameof(StockTransferRequestDataGridNSDTO.SourceLocation)),
                     ("s.name", nameof(StockTransferRequestDataGridNSDTO.StatusName)),
                     ("s.id", nameof(StockTransferRequestDataGridNSDTO.StatusId)),
+                    ("CONCAT(re.firstname,CONCAT(' ',re.lastname))", nameof(StockTransferRequestDataGridNSDTO.RequestedBy)),
                     ("t.memo", nameof(StockTransferRequestDataGridNSDTO.Remarks))
                 )
                 .From("transaction t")
                 .Join("transactionline tl", on: "tl.transaction = t.id")
                 .LeftJoin("CUSTOMLIST_DBTI_CR_APPROVAL_STATUSES s", on: "s.id = t.custbody_dbti_custom_approval_status")
                 .LeftJoin("employee e", on: "e.id = t.custbody_dbti_prepared_by")
+                .LeftJoin("employee re", on: "re.id = t.employee")
                 .WithFilters(
                     DataGridFilterUtilities.Equal("tl.mainline", "T"),
                     DataGridFilterUtilities.Equal("t.recordtype", "intercompanytransferorder"),
@@ -86,12 +89,14 @@ internal class StockTransferRequestIntegration(
                     ("BUILTIN.DF(tl.location)", nameof(StockTransferRequestDataGridNSDTO.SourceLocation)),
                     ("s.name", nameof(StockTransferRequestDataGridNSDTO.StatusName)),
                     ("s.id", nameof(StockTransferRequestDataGridNSDTO.StatusId)),
+                    ("CONCAT(re.firstname,CONCAT(' ',re.lastname))", nameof(StockTransferRequestDataGridNSDTO.RequestedBy)),
                     ("t.memo", nameof(StockTransferRequestDataGridNSDTO.Remarks))
                 )
                 .From("transaction t")
                 .Join("transactionline tl", on: "tl.transaction = t.id")
                 .LeftJoin("CUSTOMLIST_DBTI_CR_APPROVAL_STATUSES s", on: "s.id = t.custbody_dbti_custom_approval_status")
                 .LeftJoin("employee e", on: "e.id = t.custbody_dbti_prepared_by")
+                .LeftJoin("employee re", on: "re.id = t.employee")
                 .WithFilters(
                     DataGridFilterUtilities.Equal("tl.mainline", "T"),
                     DataGridFilterUtilities.In("t.recordtype", new string[] { "intercompanytransferorder", "transferorder" }),
@@ -124,12 +129,14 @@ internal class StockTransferRequestIntegration(
                     ("s.name", nameof(StockTransferRequestDataGridNSDTO.StatusName)),
                     ("s.id", nameof(StockTransferRequestDataGridNSDTO.StatusId)),
                     ("BUILTIN.DF(tl.location)", nameof(StockTransferRequestDataGridNSDTO.SourceLocation)),
+                    ("CONCAT(re.firstname,CONCAT(' ',re.lastname))", nameof(StockTransferRequestDataGridNSDTO.RequestedBy)),
                     ("t.memo", nameof(StockTransferRequestDataGridNSDTO.Remarks))
                 )
                 .From("transaction t")
                 .Join("transactionline tl", on: "tl.transaction = t.id")
                 .LeftJoin("CUSTOMLIST_DBTI_CR_APPROVAL_STATUSES s", on: "s.id = t.custbody_dbti_custom_approval_status")
                 .LeftJoin("employee e", on: "e.id = t.custbody_dbti_prepared_by")
+                .LeftJoin("employee re", on: "re.id = t.employee")
                 .WithFilters(
                     DataGridFilterUtilities.Equal("tl.mainline", "T"),
                     DataGridFilterUtilities.Equal("t.recordtype", "transferorder"),
@@ -175,12 +182,16 @@ internal class StockTransferRequestIntegration(
                     ("s.id", nameof(StockTransferRequestHeaderNSDTO.StatusId)),
                     ("t.id", nameof(StockTransferRequestHeaderNSDTO.Id)),
                     ("t.custbody_dbti_submitted_for_approval", nameof(StockTransferRequestHeaderNSDTO.SubmittedForApprovals)),
-                    ("BUILTIN.DF(t.custbody_dbti_transfer_category)", nameof(StockTransferRequestHeaderNSDTO.TransferCategoryName))
+                    ("BUILTIN.DF(t.custbody_dbti_transfer_category)", nameof(StockTransferRequestHeaderNSDTO.TransferCategoryName)),
+                    ("re.firstname", nameof(StockTransferRequestHeaderNSDTO.RequestedByFirstName)),
+                    ("re.lastname", nameof(StockTransferRequestHeaderNSDTO.RequestedByLastName)),
+                    ("t.employee", nameof(StockTransferRequestHeaderNSDTO.RequestedById))
                 )
                 .From("transaction t")
                 .Join("transactionline tl", on: "tl.transaction = t.id")
                 .LeftJoin("CUSTOMLIST_DBTI_CR_APPROVAL_STATUSES s", on: "s.id = t.custbody_dbti_custom_approval_status")
                 .LeftJoin("employee e", on: "e.id = t.custbody_dbti_prepared_by")
+                .LeftJoin("employee re", on: "re.id = t.employee")
                 //.WithSubsidiaries(httpContextAccessor, "t")
                 .WithFilters(
                     DataGridFilterUtilities.Equal("t.tranid", id),
@@ -204,6 +215,14 @@ internal class StockTransferRequestIntegration(
         dto.PurchaseCategory = new() { Name = nsdto.PurchaseCategoryName, Id = nsdto.PurchaseCategoryId };
         dto.PurchaseSubcategory = new() { Name = nsdto.PurchaseSubcategoryName, Id = nsdto.PurchaseSubcategoryId };
         dto.Status = new() { Name = nsdto.StatusName, Id = nsdto.StatusId };
+        dto.RequestedBy = nsdto.RequestedById > 0
+            ? new EmployeeNsDTO
+            {
+                NsId = nsdto.RequestedById,
+                FirstName = nsdto.RequestedByFirstName,
+                LastName = nsdto.RequestedByLastName
+            }
+            : null;
         dto.IsEditable = !nsdto.IsSubmittedForApprovals && (nsdto.StatusId == 3 || nsdto.StatusId == 2);
         dto.TransferCategory = nsdto.TransferCategoryId switch
         {
@@ -376,6 +395,7 @@ internal class StockTransferRequestIntegration(
             orderStatus = "A",
             custbody_dbti_transfer_category = new { id = dto.TransferCategory.Id },
             custbody_dbti_prepared_by = dto.PreparedById,
+            employee = dto.RequestedBy is not null ? new { id = dto.RequestedBy.NsId.ToString() } : null,
             custbody_dbti_return_to_vendor = dto.TransferCategory.IsReturn && dto.Vendor is not null ? new { id = dto.Vendor.Id.ToString() } : null,
             custbody_dbti_purchase_category = dto.PurchaseCategory?.Id ?? null,
             custbody_dbti_purchase_subcategory = dto.PurchaseSubcategory?.Id ?? null,

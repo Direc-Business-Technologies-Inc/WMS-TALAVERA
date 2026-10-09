@@ -19,6 +19,7 @@ public class StockTransferRequestDataGridNSDTO
     public string Subsidiary { get; set; } = string.Empty;
     public string ToSubsidiary { get; set; } = string.Empty;
     public string PreparedBy { get; set; } = string.Empty;
+    public string RequestedBy { get; set; } = string.Empty;
     public string Remarks { get; set; } = string.Empty;
     public string StatusName { get; set; } = string.Empty;
     public int StatusId { get; set; }
