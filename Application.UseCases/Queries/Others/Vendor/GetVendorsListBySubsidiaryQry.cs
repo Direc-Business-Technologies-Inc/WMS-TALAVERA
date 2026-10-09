@@ -16,6 +16,6 @@ public class GetVendorsListBySubsidiaryQryHandler(IVendorIntegration vendorInteg
 {
     public async Task<(IEnumerable<VendorDTO> Data, int Count)> Handle(GetVendorsListBySubsidiaryQry request, CancellationToken cancellationToken)
     {
-        return await vendorIntegration.GetVendorsBySubsidiaryListAsync(request.Intent, request.subsidiaryId);
+        return await vendorIntegration.GetVendorsBySubsidiaryListAsync(request.Intent, request.subsidiaryId, cancellationToken);
     }
 }

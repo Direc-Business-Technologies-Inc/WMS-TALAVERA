@@ -22,7 +22,7 @@ public sealed class CountingNetSuiteClient : INetSuiteApiClientService
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
-    public Task<NetSuiteResponse<T>> ExecuteSuiteQLQuery<T>(string query, int? limit = null, int? offset = null)
+    public Task<NetSuiteResponse<T>> ExecuteSuiteQLQuery<T>(string query, int? limit = null, int? offset = null, CancellationToken ct = default)
     {
         Interlocked.Increment(ref _executeSuiteQlCalls);
         return Task.FromResult(new NetSuiteResponse<T>
@@ -36,7 +36,8 @@ public sealed class CountingNetSuiteClient : INetSuiteApiClientService
         string queryName,
         Dictionary<string, string>? parameters = null,
         int limit = 0,
-        int offset = 0)
+        int offset = 0,
+        CancellationToken ct = default)
         => throw new NotSupportedException();
 
     public Task<T> MakeRequest<T>(
@@ -44,7 +45,8 @@ public sealed class CountingNetSuiteClient : INetSuiteApiClientService
         string? reqBody,
         HttpMethod method,
         NetSuiteRequestKind? kind = null,
-        NetSuiteRetryProfile profile = NetSuiteRetryProfile.Interactive)
+        NetSuiteRetryProfile profile = NetSuiteRetryProfile.Interactive,
+        CancellationToken ct = default)
         => throw new NotSupportedException();
 
     public Task<T> MakeRequestOAuth1<T>(
@@ -52,7 +54,8 @@ public sealed class CountingNetSuiteClient : INetSuiteApiClientService
         string? reqBody,
         HttpMethod method,
         NetSuiteRequestKind? kind = null,
-        NetSuiteRetryProfile profile = NetSuiteRetryProfile.Interactive)
+        NetSuiteRetryProfile profile = NetSuiteRetryProfile.Interactive,
+        CancellationToken ct = default)
         => throw new NotSupportedException();
 
     public string GetRestAPIURI => string.Empty;

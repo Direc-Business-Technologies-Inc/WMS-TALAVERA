@@ -17,6 +17,6 @@ public class GetLocationBinsQryHandler(ILocationIntegration integration)
 {
     public async Task<(IEnumerable<LocationBinDTO> data, int count)> Handle(GetLocationBinsQry request, CancellationToken cancellationToken)
     {
-        return await integration.GetLocationBinsAsync(request.locationId, request.Intent);
+        return await integration.GetLocationBinsAsync(request.locationId, request.Intent, cancellationToken);
     }
 }

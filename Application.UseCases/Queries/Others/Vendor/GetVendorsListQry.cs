@@ -16,6 +16,6 @@ public class GetVendorsListQryHandler(IVendorIntegration vendorIntegration) : IR
 {
     public async Task<(IEnumerable<VendorDTO> Data, int Count)> Handle(GetVendorsListQry request, CancellationToken cancellationToken)
     {
-        return await vendorIntegration.GetVendorsListAsync(request.Intent);
+        return await vendorIntegration.GetVendorsListAsync(request.Intent, cancellationToken);
     }
 }

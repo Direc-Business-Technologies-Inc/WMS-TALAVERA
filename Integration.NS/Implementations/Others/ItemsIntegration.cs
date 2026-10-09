@@ -18,7 +18,7 @@ public class ItemsIntegration(
     INetSuiteApiClientService netsuiteService,
     SuiteQLQueryBuilderFactoryService builderFactory) : IItemsIntegration
 {
-    public async Task<ItemsDTO?> GetItem(string id)
+    public async Task<ItemsDTO?> GetItem(string id, CancellationToken ct = default)
     {
         var query = builderFactory.Create()
             .Select(
@@ -48,14 +48,14 @@ public class ItemsIntegration(
             )
             .Build();
 
-        var result = await netsuiteService.ExecuteSuiteQLQuery<ItemsNSDTO>(query.Query, query.Limit, query.Offset);
+        var result = await netsuiteService.ExecuteSuiteQLQuery<ItemsNSDTO>(query.Query, query.Limit, query.Offset, ct);
         var nsdto = result.items.FirstOrDefault();
         if (nsdto is null) return null;
 
         return ConvertItemNSDTO(nsdto);
     }
 
-    public async Task<(IEnumerable<ItemsDTO> Data, int Count)> GetItemsByLocationDataGridAsync(DataGridIntent intent, int location, int? subsidiary = null)
+    public async Task<(IEnumerable<ItemsDTO> Data, int Count)> GetItemsByLocationDataGridAsync(DataGridIntent intent, int location, int? subsidiary = null, CancellationToken ct = default)
     {
         var builder = builderFactory.Create()
             .Select(
@@ -104,12 +104,12 @@ public class ItemsIntegration(
             .WithDatagridIntent(intent)
             .Build();
 
-        var result = await query.ExecuteWithPaging<ItemsNSDTO>(netsuiteService);
+        var result = await query.ExecuteWithPaging<ItemsNSDTO>(netsuiteService, ct);
 
         return (result.items.Select(ConvertItemNSDTO), result.totalResults);
     }
 
-    public async Task<(IEnumerable<ItemsDTO> Data, int Count)> GetItemsDataGridAsync(DataGridIntent intent)
+    public async Task<(IEnumerable<ItemsDTO> Data, int Count)> GetItemsDataGridAsync(DataGridIntent intent, CancellationToken ct = default)
     {
         var query = builderFactory.Create()
             .Select(
@@ -137,17 +137,17 @@ public class ItemsIntegration(
             .WithDatagridIntent(intent)
             .Build();
 
-        var result = await query.ExecuteWithPaging<ItemsNSDTO>(netsuiteService);
+        var result = await query.ExecuteWithPaging<ItemsNSDTO>(netsuiteService, ct);
 
         return (result.items.Select(ConvertItemNSDTO), result.totalResults);
     }
 
-    public async Task<(IEnumerable<ItemUnitDTO> Data, int Count)> GetItemUnits(ItemsDTO item, DataGridIntent intent)
+    public async Task<(IEnumerable<ItemUnitDTO> Data, int Count)> GetItemUnits(ItemsDTO item, DataGridIntent intent, CancellationToken ct = default)
     {
-        return await GetItemUnits(item.Id, intent);
+        return await GetItemUnits(item.Id, intent, ct);
     }
 
-    public async Task<(IEnumerable<ItemUnitDTO> Data, int Count)> GetItemUnits(int itemId, DataGridIntent intent)
+    public async Task<(IEnumerable<ItemUnitDTO> Data, int Count)> GetItemUnits(int itemId, DataGridIntent intent, CancellationToken ct = default)
     {
         var query = builderFactory.Create()
             .Select(
@@ -162,7 +162,7 @@ public class ItemsIntegration(
             .WithFilter(DataGridFilterUtilities.Equal("i.id", itemId))
             .Build();
 
-        var result = await query.ExecuteWithPaging<ItemUnitDTO>(netsuiteService);
+        var result = await query.ExecuteWithPaging<ItemUnitDTO>(netsuiteService, ct);
         return (result.items, result.totalResults);
     }
 

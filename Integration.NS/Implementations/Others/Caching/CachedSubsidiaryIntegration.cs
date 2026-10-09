@@ -20,34 +20,34 @@ public class CachedSubsidiaryIntegration(
     private const string AllowedSubsidiariesClaim = "com.direcbusiness.wms.nsAllowedSubsidiaries";
     private static readonly TimeSpan Ttl = TimeSpan.FromHours(6);
 
-    public Task<(IEnumerable<SubsidiaryDTO> Data, int Count)> GetSubsidiariesAsync(DataGridIntent intent)
+    public Task<(IEnumerable<SubsidiaryDTO> Data, int Count)> GetSubsidiariesAsync(DataGridIntent intent, CancellationToken ct = default)
     {
         var scope = accessor.HttpContext?.User?.FindFirst(AllowedSubsidiariesClaim)?.Value;
         var key = NsCacheKey.Build(InterfaceName, nameof(GetSubsidiariesAsync), intent, scope);
-        return cache.GetOrAddAsync(key, Ttl, () => inner.GetSubsidiariesAsync(intent));
+        return cache.GetOrAddAsync(key, Ttl, () => inner.GetSubsidiariesAsync(intent, ct), ct);
     }
 
-    public Task<(IEnumerable<SubsidiaryDTO> Data, int Count)> GetSubsidiariesByVendorAsync(DataGridIntent intent, int vendorId)
+    public Task<(IEnumerable<SubsidiaryDTO> Data, int Count)> GetSubsidiariesByVendorAsync(DataGridIntent intent, int vendorId, CancellationToken ct = default)
     {
         var key = NsCacheKey.Build(InterfaceName, nameof(GetSubsidiariesByVendorAsync), intent, null, vendorId);
-        return cache.GetOrAddAsync(key, Ttl, () => inner.GetSubsidiariesByVendorAsync(intent, vendorId));
+        return cache.GetOrAddAsync(key, Ttl, () => inner.GetSubsidiariesByVendorAsync(intent, vendorId, ct), ct);
     }
 
-    public Task<(IEnumerable<SubsidiaryDTO> Data, int Count)> GetSubsidiariesByCustomerAsync(DataGridIntent intent, int customerId)
+    public Task<(IEnumerable<SubsidiaryDTO> Data, int Count)> GetSubsidiariesByCustomerAsync(DataGridIntent intent, int customerId, CancellationToken ct = default)
     {
         var key = NsCacheKey.Build(InterfaceName, nameof(GetSubsidiariesByCustomerAsync), intent, null, customerId);
-        return cache.GetOrAddAsync(key, Ttl, () => inner.GetSubsidiariesByCustomerAsync(intent, customerId));
+        return cache.GetOrAddAsync(key, Ttl, () => inner.GetSubsidiariesByCustomerAsync(intent, customerId, ct), ct);
     }
 
-    public Task<IEnumerable<SubsidiaryDTO>> GetChildSubsidiariesAsync(int subsidiaryId)
+    public Task<IEnumerable<SubsidiaryDTO>> GetChildSubsidiariesAsync(int subsidiaryId, CancellationToken ct = default)
     {
         var key = NsCacheKey.Build(InterfaceName, nameof(GetChildSubsidiariesAsync), null, null, subsidiaryId);
-        return cache.GetOrAddAsync(key, Ttl, () => inner.GetChildSubsidiariesAsync(subsidiaryId));
+        return cache.GetOrAddAsync(key, Ttl, () => inner.GetChildSubsidiariesAsync(subsidiaryId, ct), ct);
     }
 
-    public Task<SubsidiaryDTO?> GetSubsidiaryAsync(int subsidiaryid)
+    public Task<SubsidiaryDTO?> GetSubsidiaryAsync(int subsidiaryid, CancellationToken ct = default)
     {
         var key = NsCacheKey.Build(InterfaceName, nameof(GetSubsidiaryAsync), null, null, subsidiaryid);
-        return cache.GetOrAddAsync(key, Ttl, () => inner.GetSubsidiaryAsync(subsidiaryid));
+        return cache.GetOrAddAsync(key, Ttl, () => inner.GetSubsidiaryAsync(subsidiaryid, ct), ct);
     }
 }

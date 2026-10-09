@@ -16,7 +16,7 @@ namespace Application.UseCases.Queries.Others
     {
         public Task<SubsidiaryDTO?> Handle(GetSubsidiaryQry request, CancellationToken cancellationToken)
         {
-            return integration.GetSubsidiaryAsync(request.id);
+            return integration.GetSubsidiaryAsync(request.id, cancellationToken);
         }
     }
 }

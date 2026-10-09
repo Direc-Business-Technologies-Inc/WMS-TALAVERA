@@ -17,6 +17,6 @@ public class GetCurrentUserLocationQryHandler(ILocationIntegration locationInteg
 {
     public async Task<(IEnumerable<LocationDTO>, int count)> Handle(GetCurrentUserLocationsQry request, CancellationToken cancellationToken)
     {
-        return await locationIntegration.GetCurrentUserAllowedLocations(request.Intent);
+        return await locationIntegration.GetCurrentUserAllowedLocations(request.Intent, cancellationToken);
     }
 }

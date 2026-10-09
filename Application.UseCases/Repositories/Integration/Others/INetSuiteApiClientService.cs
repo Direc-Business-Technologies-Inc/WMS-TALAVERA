@@ -9,10 +9,10 @@ namespace Application.UseCases.Repositories.Integration.Others;
 
 public interface INetSuiteApiClientService : INotifyPropertyChanged
 {
-    Task<NetSuiteResponse<T>> ExecuteSuiteQLQuery<T>(string query, int? limit = null, int? offset = null);
-    Task<IEnumerable<T>?> NetsuiteQuery<T>(string queryName, Dictionary<string, string>? parameters = null, int limit = 0, int offset = 0);
-    Task<T> MakeRequest<T>(string url, string? reqBody, HttpMethod method, NetSuiteRequestKind? kind = null, NetSuiteRetryProfile profile = NetSuiteRetryProfile.Interactive);
-    Task<T> MakeRequestOAuth1<T>(string url, string? reqBody, HttpMethod method, NetSuiteRequestKind? kind = null, NetSuiteRetryProfile profile = NetSuiteRetryProfile.Interactive);
+    Task<NetSuiteResponse<T>> ExecuteSuiteQLQuery<T>(string query, int? limit = null, int? offset = null, CancellationToken ct = default);
+    Task<IEnumerable<T>?> NetsuiteQuery<T>(string queryName, Dictionary<string, string>? parameters = null, int limit = 0, int offset = 0, CancellationToken ct = default);
+    Task<T> MakeRequest<T>(string url, string? reqBody, HttpMethod method, NetSuiteRequestKind? kind = null, NetSuiteRetryProfile profile = NetSuiteRetryProfile.Interactive, CancellationToken ct = default);
+    Task<T> MakeRequestOAuth1<T>(string url, string? reqBody, HttpMethod method, NetSuiteRequestKind? kind = null, NetSuiteRetryProfile profile = NetSuiteRetryProfile.Interactive, CancellationToken ct = default);
 
     string GetRestAPIURI { get; }
     string GetRestletURI { get; }

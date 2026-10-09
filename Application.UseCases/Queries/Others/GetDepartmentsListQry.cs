@@ -18,7 +18,7 @@ namespace Application.UseCases.Queries.Others
     {
         public Task<(IEnumerable<DepartmentDTO>, int)> Handle(GetDepartmentsListQry request, CancellationToken cancellationToken)
         {
-            return departmentIntegration.GetDepartmentsList(request.Intent);
+            return departmentIntegration.GetDepartmentsList(request.Intent, cancellationToken);
         }
     }
 }

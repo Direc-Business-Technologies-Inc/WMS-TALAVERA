@@ -18,6 +18,6 @@ public class GetItemsQryByLocationHandler(IItemsIntegration itemsIntegration) : 
 {
     public async Task<(IEnumerable<ItemsDTO> data, int count)> Handle(GetItemsByLocationQry request, CancellationToken cancellationToken)
     {
-        return await itemsIntegration.GetItemsByLocationDataGridAsync(request.Intent, request.locationId, request.subsidiaryId);
+        return await itemsIntegration.GetItemsByLocationDataGridAsync(request.Intent, request.locationId, request.subsidiaryId, cancellationToken);
     }
 }

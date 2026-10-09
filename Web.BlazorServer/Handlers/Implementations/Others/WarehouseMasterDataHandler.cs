@@ -12,10 +12,10 @@ public class WarehouseMasterDataHandler(
     ISender Sender)
     : IWarehouseMasterDataHandler
 {
-    public async Task<(IEnumerable<WarehouseVM> Data, int Count)> GetWarehousesAsync(DataGridIntent intent)
+    public async Task<(IEnumerable<WarehouseVM> Data, int Count)> GetWarehousesAsync(DataGridIntent intent, CancellationToken ct = default)
     {
         GetWarehousesQry qry = new(intent);
-        (IEnumerable<WarehouseDTO> Data, int Count) = await Sender.Send(qry);
+        (IEnumerable<WarehouseDTO> Data, int Count) = await Sender.Send(qry, ct);
 
         return (Data.Adapt<IEnumerable<WarehouseVM>>(), Count);
 

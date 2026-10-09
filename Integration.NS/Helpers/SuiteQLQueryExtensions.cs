@@ -26,25 +26,25 @@ public static class SuiteQLQueryExtensions
     /// <param name="query">SuiteQLQuery object containing the query</param>
     /// <param name="netsuiteService">INetSuiteApiClientService to send the request to</param>
     /// <returns></returns>
-    public static async Task<NetSuiteResponse<T>> ExecuteWithPaging<T>(this SuiteQLQuery query, INetSuiteApiClientService netsuiteService)
+    public static async Task<NetSuiteResponse<T>> ExecuteWithPaging<T>(this SuiteQLQuery query, INetSuiteApiClientService netsuiteService, CancellationToken ct = default)
     {
         if (query.Limit < 0) { query.Limit = null; }
         if (query.Offset is null || query.Limit is null)
         {
-            return await netsuiteService.ExecuteSuiteQLQuery<T>(query.Query, query.Limit, query.Offset);
+            return await netsuiteService.ExecuteSuiteQLQuery<T>(query.Query, query.Limit, query.Offset, ct);
         }
 
         int modulos = (int)query.Offset % (int)query.Limit;
         if (modulos == 0)
         {
-            return await netsuiteService.ExecuteSuiteQLQuery<T>(query.Query, query.Limit, query.Offset);
+            return await netsuiteService.ExecuteSuiteQLQuery<T>(query.Query, query.Limit, query.Offset, ct);
         }
 
         int nearestMultiple = (int)query.Offset - modulos;
 
         // query values one at a time to try and avoid hitting netsuite's concurrency limit
-        var response0 = await netsuiteService.ExecuteSuiteQLQuery<T>(query.Query, query.Limit, nearestMultiple);
-        var response1 = await netsuiteService.ExecuteSuiteQLQuery<T>(query.Query, query.Limit, nearestMultiple + query.Limit);
+        var response0 = await netsuiteService.ExecuteSuiteQLQuery<T>(query.Query, query.Limit, nearestMultiple, ct);
+        var response1 = await netsuiteService.ExecuteSuiteQLQuery<T>(query.Query, query.Limit, nearestMultiple + query.Limit, ct);
 
         List<T> itemsStitched = [
            .. response0.items.Skip(modulos),

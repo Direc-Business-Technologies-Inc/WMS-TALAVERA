@@ -10,9 +10,9 @@ namespace Application.UseCases.Repositories.Integration.Others;
 
 public interface IItemsIntegration
 {
-    Task<(IEnumerable<ItemsDTO> Data, int Count)> GetItemsDataGridAsync(DataGridIntent intent);
-    Task<(IEnumerable<ItemsDTO> Data, int Count)> GetItemsByLocationDataGridAsync(DataGridIntent intent, int location, int? subsidiary = null);
-    Task<(IEnumerable<ItemUnitDTO> Data, int Count)> GetItemUnits(ItemsDTO itemId, DataGridIntent intent);
-    Task<(IEnumerable<ItemUnitDTO> Data, int Count)> GetItemUnits(int itemId, DataGridIntent intent);
-    Task<ItemsDTO?> GetItem(string  id);
+    Task<(IEnumerable<ItemsDTO> Data, int Count)> GetItemsDataGridAsync(DataGridIntent intent, CancellationToken ct = default);
+    Task<(IEnumerable<ItemsDTO> Data, int Count)> GetItemsByLocationDataGridAsync(DataGridIntent intent, int location, int? subsidiary = null, CancellationToken ct = default);
+    Task<(IEnumerable<ItemUnitDTO> Data, int Count)> GetItemUnits(ItemsDTO itemId, DataGridIntent intent, CancellationToken ct = default);
+    Task<(IEnumerable<ItemUnitDTO> Data, int Count)> GetItemUnits(int itemId, DataGridIntent intent, CancellationToken ct = default);
+    Task<ItemsDTO?> GetItem(string  id, CancellationToken ct = default);
 }
