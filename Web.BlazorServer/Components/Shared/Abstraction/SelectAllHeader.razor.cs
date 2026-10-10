@@ -11,8 +11,6 @@ public partial class SelectAllHeader : BaseComponent
     [Parameter] public bool Disabled { get; set; }
     [Parameter] public bool ShowCheckbox { get; set; } = true;
     [Parameter] public bool ShowButton { get; set; } = true;
-    [Parameter] public string SelectText { get; set; } = "Select All";
-    [Parameter] public string DeselectText { get; set; } = "Deselect All";
     [Parameter] public string CheckboxName { get; set; } = $"select_all_{Guid.NewGuid():N}";
 
     async Task OnCheckboxChange(bool? value)

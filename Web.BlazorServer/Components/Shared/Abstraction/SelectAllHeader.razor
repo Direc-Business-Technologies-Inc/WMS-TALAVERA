@@ -12,9 +12,9 @@
     }
     @if (ShowButton)
     {
-        <RadzenButton Variant="Variant.Text"
+        <RadzenButton Icon="done_all"
+                      Variant="Variant.Text"
                       Size="ButtonSize.ExtraSmall"
-                      Text="@(Value == true ? DeselectText : SelectText)"
                       Click="@OnButtonClick"
                       Disabled="@Disabled" />
     }
