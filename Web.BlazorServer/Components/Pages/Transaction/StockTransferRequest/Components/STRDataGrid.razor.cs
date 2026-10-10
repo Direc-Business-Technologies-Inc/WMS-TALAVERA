@@ -34,7 +34,7 @@ partial class STRDataGrid
     DataGridSettings DataGridSettings { get; set; }
     TransferOrderStatusVM? StatusFilter { get; set; } = null;
 
-    readonly string ActionGetStockTransferRequests = "get things from db";
+    [Parameter] public string ActionName { get; set; } = "str_datagrid";
     readonly string ActionGetTranferOrderStatuses = "Get Transfer Order Status";
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -43,8 +43,14 @@ partial class STRDataGrid
         {
             await base.OnAfterRenderAsync(firstRender);
 
-            await LoadGridSettings();
-            await InvokeAsync(StateHasChanged);
+            // NOTE: AppDataGrid (child) already loads persisted grid settings and
+            // triggers the initial Reload() in its own OnAfterRenderAsync. Doing it
+            // here too fires LoadData twice per mount (double NetSuite round-trip:
+            // the second concurrent load early-returns empty via the IsBusy guard,
+            // producing the "No records -> Wait -> rows -> Wait -> rows" sequence).
+            // Child-first render ordering guarantees DataGrid.DataGrid exists here.
+            await GridSettingsService.SetGridSettings(DataGrid.DataGrid, settings => DataGridSettings = settings ?? new());
+            GridSettingsLoaded = true;
         }
     }
 
@@ -60,7 +66,7 @@ partial class STRDataGrid
     {
         var action = await AppActionFactory.RunAsync(async () =>
         {
-            AppBusyService.SetBusy(ActionGetStockTransferRequests, true);
+            AppBusyService.SetBusy(ActionName, true);
 
             if (intent.Sorts.Count == 0)
             {
@@ -84,22 +90,13 @@ partial class STRDataGrid
             }
 
             return await DataGetter(intent);
+        }, AppActionOptionPresets.Loading(ActionName));
 
-            throw new Exception("Invalid source for receiving grid");
-        }, AppActionOptionPresets.Loading(ActionGetStockTransferRequests));
-
-        AppBusyService.SetBusy(ActionGetStockTransferRequests, false);
+        AppBusyService.SetBusy(ActionName, false);
         return DataGridResultVM<StockTransferRequestDataGridVM>.New(action.Result.data ?? [], action.Result.count);
     }
 
-    async Task LoadGridSettings()
-    {
-        await GridSettingsService.SetGridSettings(DataGrid.DataGrid, settings => DataGridSettings = settings ?? new());
-        GridSettingsLoaded = true;
-
-        await DataGrid.DataGrid.ReloadSettings();
-        await DataGrid.DataGrid.Reload();
-    }
+    public delegate Task<(IEnumerable<StockTransferRequestDataGridVM> data, int count)> DataGetterDelegate(DataGridIntent intent);
 
     async Task<(IEnumerable<TransferOrderStatusVM>, int count)> TranferOrderStatusProvider(DataGridIntent intent)
     {
@@ -141,6 +138,4 @@ partial class STRDataGrid
 
         await DataGrid.DataGrid.Reload();
     }
-
-    public delegate Task<(IEnumerable<StockTransferRequestDataGridVM> data, int count)> DataGetterDelegate(DataGridIntent intent);
 }

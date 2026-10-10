@@ -300,4 +300,117 @@ public class StockTransferRequestIntegrationTests
         var payload = PayloadOf(client.LastBody);
         Assert.False(payload.TryGetProperty("custbody_dbti_prepared_by", out _));
     }
+
+    // ---------------------------------------------------------------------
+    // PERF 2026-10-09 — the purchase-category OR-group
+    // (purchase_category != 3 OR purchase_subcategory = 5) resolved in NetSuite
+    // as a ~45s full scan (Q0=46s, Q5-without-it=1-2s, Q6-date-bound=47-48s).
+    // It is therefore NOT sent to NetSuite; the equivalent predicate runs in
+    // memory over the selective base set. NULL semantics mirror SQL 3VL:
+    // NULL != 3 is UNKNOWN (kept only if the other arm is TRUE).
+    // ---------------------------------------------------------------------
+    [Fact]
+    public async Task Transfer_order_list_query_omits_purchase_category_or_group()
+    {
+        var (sut, client) = CreateCapturing();
+
+        await sut.GetTransferOrderList(new DataGridIntent { Take = 10 });
+
+        Assert.NotNull(client.LastQuery);
+        // The DF display projections stay (grid columns), but the scan-driving
+        // WHERE predicate must be gone.
+        Assert.DoesNotContain("!= 3", client.LastQuery);
+        Assert.DoesNotContain("purchase_subcategory = 5", client.LastQuery);
+        var where = client.LastQuery.Split("WHERE", StringSplitOptions.RemoveEmptyEntries).Last();
+        Assert.DoesNotContain("custbody_dbti_purchase_category", where);
+        Assert.DoesNotContain("custbody_dbti_purchase_subcategory", where);
+    }
+
+    [Fact]
+    public async Task Intercompany_list_query_omits_purchase_category_or_group()
+    {
+        var (sut, client) = CreateCapturing();
+
+        await sut.GetIntercompanyTransferOrderList(new DataGridIntent { Take = 10 });
+
+        Assert.NotNull(client.LastQuery);
+        Assert.DoesNotContain("!= 3", client.LastQuery);
+        Assert.DoesNotContain("purchase_subcategory = 5", client.LastQuery);
+        var where = client.LastQuery.Split("WHERE", StringSplitOptions.RemoveEmptyEntries).Last();
+        Assert.DoesNotContain("custbody_dbti_purchase_category", where);
+        Assert.DoesNotContain("custbody_dbti_purchase_subcategory", where);
+    }
+
+    [Fact]
+    public async Task Transfer_order_list_query_selects_raw_purchase_category_ids()
+    {
+        var (sut, client) = CreateCapturing();
+
+        await sut.GetTransferOrderList(new DataGridIntent { Take = 10 });
+
+        Assert.NotNull(client.LastQuery);
+        Assert.Contains("AS PurchaseCategoryId", client.LastQuery);
+        Assert.Contains("AS PurchaseSubcategoryId", client.LastQuery);
+    }
+
+    private static StockTransferRequestDataGridNSDTO GridRow(
+        string refNo, int? categoryId, int? subcategoryId) => new()
+        {
+            ReferenceNumber = refNo,
+            PurchaseCategoryId = categoryId,
+            PurchaseSubcategoryId = subcategoryId,
+            StatusId = 3,
+            StatusName = "Pending Approval",
+        };
+
+    [Fact]
+    public async Task Transfer_order_list_applies_purchase_category_filter_in_memory()
+    {
+        var (sut, client) = CreateCapturing();
+        client.NextItems =
+        [
+            GridRow("TO-1", 1, 1),   // cat != 3 -> keep
+            GridRow("TO-2", 3, 5),   // cat = 3 but sub = 5 -> keep
+            GridRow("TO-3", 3, 7),   // neither arm -> drop
+            GridRow("TO-4", null, 5),// NULL != 3 unknown, sub = 5 true -> keep
+            GridRow("TO-5", null, null), // both unknown -> drop
+        ];
+
+        var (data, count) = await sut.GetTransferOrderList(new DataGridIntent { Take = 10 });
+
+        Assert.Equal(3, count);
+        Assert.Equal(["TO-1", "TO-2", "TO-4"], data.Select(d => d.ReferenceNumber).Order());
+    }
+
+    [Fact]
+    public async Task Intercompany_list_applies_purchase_category_filter_in_memory()
+    {
+        var (sut, client) = CreateCapturing();
+        client.NextItems =
+        [
+            GridRow("ICTO-1", 2, 2), // keep
+            GridRow("ICTO-2", 3, 1), // drop
+        ];
+
+        var (data, count) = await sut.GetIntercompanyTransferOrderList(new DataGridIntent { Take = 10 });
+
+        Assert.Equal(1, count);
+        Assert.Single(data);
+        Assert.Equal("ICTO-1", data.Single().ReferenceNumber);
+    }
+
+    [Fact]
+    public async Task Transfer_order_list_pages_the_filtered_set_not_the_base_set()
+    {
+        var (sut, client) = CreateCapturing();
+        client.NextItems = Enumerable.Range(1, 15)
+            .Select(i => GridRow($"TO-{i:00}", 1, 1))
+            .Cast<object>()
+            .ToList();
+
+        var (page2, count) = await sut.GetTransferOrderList(new DataGridIntent { Take = 10, Skip = 10 });
+
+        Assert.Equal(15, count);
+        Assert.Equal(5, page2.Count());
+    }
 }

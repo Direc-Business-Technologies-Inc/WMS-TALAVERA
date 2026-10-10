@@ -5,7 +5,7 @@
 
 @inherits BaseComponent
 
-<AppDataGrid @ref="@DataGrid" Id="@TableId" TItem="StockTransferRequestDataGridVM" DataGetter="@LoadDataAsync" GridSettings="@DataGridSettings" @bind-GridSettingsLoaded="@GridSettingsLoaded" ActionName="@ActionGetStockTransferRequests">
+<AppDataGrid @ref="@DataGrid" Id="@TableId" TItem="StockTransferRequestDataGridVM" DataGetter="@LoadDataAsync" GridSettings="@DataGridSettings" @bind-GridSettingsLoaded="@GridSettingsLoaded" ActionName="@ActionName">
     <HeaderTemplate>
         <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center" Gap="8px">
             <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Start" AlignItems="AlignItems.Center" Gap="8px">

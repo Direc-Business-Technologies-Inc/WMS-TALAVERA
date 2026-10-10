@@ -18,6 +18,7 @@ public sealed class CapturingNetSuiteClient : INetSuiteApiClientService
 {
     public string? LastQuery { get; private set; }
     public object? NextResult { get; set; }
+    public List<object> NextItems { get; set; } = [];
     public int CallCount { get; private set; }
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -27,6 +28,7 @@ public sealed class CapturingNetSuiteClient : INetSuiteApiClientService
         CallCount++;
         LastQuery = query;
         var items = new List<T>();
+        foreach (var next in NextItems.OfType<T>()) items.Add(next);
         if (NextResult is T typed) items.Add(typed);
         return Task.FromResult(new NetSuiteResponse<T>
         {
