@@ -1,0 +1,21 @@
+﻿@inherits BaseComponent
+
+<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="4px">
+    @if (ShowCheckbox)
+    {
+        <RadzenCheckBox TriState="true"
+                        TValue="bool?"
+                        Value="@Value"
+                        Change="@OnCheckboxChange"
+                        Disabled="@Disabled"
+                        Name="@CheckboxName" />
+    }
+    @if (ShowButton)
+    {
+        <RadzenButton Variant="Variant.Text"
+                      Size="ButtonSize.ExtraSmall"
+                      Text="@(Value == true ? DeselectText : SelectText)"
+                      Click="@OnButtonClick"
+                      Disabled="@Disabled" />
+    }
+</RadzenStack>

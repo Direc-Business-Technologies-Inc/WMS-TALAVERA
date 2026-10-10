@@ -16,6 +16,7 @@
                  OnRowDeselect="@OnRowDeselect">
         <HeaderTemplate>
             <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" AlignItems="AlignItems.Center" Gap="8px">
+                <SelectAllHeader Value="@GetSelectionHeaderState()" OnChange="@ToggleAllItems" ShowCheckbox="false" />
                 <RadzenButton Icon="settings" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@OpenTableSettings" />
             </RadzenStack>
         </HeaderTemplate>
@@ -24,6 +25,12 @@
                                   Width="45px" TextAlign="TextAlign.Center"
                                   Frozen FrozenPosition="FrozenColumnPosition.Left"
                                   Filterable="false" Sortable="false" Pickable="false">
+                <HeaderTemplate>
+                    <SelectAllHeader Value="@GetSelectionHeaderState()"
+                                     OnChange="@ToggleAllItems"
+                                     ShowButton="false"
+                                     CheckboxName="inventory_counting_item_selection_grid_select_all" />
+                </HeaderTemplate>
                 <Template Context="data">
                     <RadzenCheckBox Value="@(SelectedItems.Any(si => si.ItemCode == data.ItemCode))" />
                 </Template>

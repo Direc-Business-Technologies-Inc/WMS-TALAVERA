@@ -116,7 +116,7 @@ public partial class TripTicketFulfillmentSelection
         await FulfillmentsDataGrid.ReloadDataAsync();
     }
 
-    async Task SelectItem(ItemFulfillmentVM item)
+    void ApplyItemSelection(ItemFulfillmentVM item)
     {
         var selectedItem = SelectedFulfillments.FirstOrDefault(x => x.OrderNumber == item.OrderNumber);
 
@@ -175,6 +175,43 @@ public partial class TripTicketFulfillmentSelection
             }
         }
 
+    }
+
+    async Task SelectItem(ItemFulfillmentVM item)
+    {
+        ApplyItemSelection(item);
+
+        await DocumentChanged.InvokeAsync(Document);
+        await InvokeAsync(StateHasChanged);
+    }
+
+    // "All" refers to the rows of the currently loaded page only; paging
+    // through the whole data set is intentionally not triggered from here.
+    List<ItemFulfillmentVM> PageItems => FulfillmentsDataGrid?.DGResult.Items?.ToList() ?? [];
+
+    bool? GetSelectionHeaderState()
+    {
+        var pageItems = PageItems;
+        return SelectAllHeader.Compute(
+            pageItems.Count,
+            pageItems.Count(item => SelectedFulfillments.Any(x => x.OrderNumber == item.OrderNumber)));
+    }
+
+    async Task ToggleAllItems(bool? value)
+    {
+        bool select = value == true;
+
+        foreach (var item in PageItems)
+        {
+            bool isSelected = SelectedFulfillments.Any(x => x.OrderNumber == item.OrderNumber);
+
+            // ApplyItemSelection toggles, so only touch items whose state
+            // actually differs from the requested one.
+            if (select != isSelected)
+                ApplyItemSelection(item);
+        }
+
+        UnsavedChangesService.MarkDirty();
         await DocumentChanged.InvokeAsync(Document);
         await InvokeAsync(StateHasChanged);
     }

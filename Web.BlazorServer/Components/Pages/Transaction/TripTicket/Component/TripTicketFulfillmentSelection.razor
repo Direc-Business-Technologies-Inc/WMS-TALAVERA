@@ -37,6 +37,9 @@
                 <RadzenStack Orientation="Orientation.Horizontal"
                              AlignItems="AlignItems.Center"
                              Gap="4px">
+                    <SelectAllHeader Value="@GetSelectionHeaderState()"
+                                     OnChange="@ToggleAllItems"
+                                     ShowCheckbox="false" />
                     <RadzenButton Icon="settings" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@OpenTableSettings" />
                     <RadzenButton Icon="sync" Size="ButtonSize.Small" Click="FulfillmentsDataGrid.ReloadDataAsync" />
                 </RadzenStack>
@@ -48,11 +51,16 @@
                                   FrozenPosition="FrozenColumnPosition.Right"
                                   Width="35px"
                                   Filterable="false" Sortable="false" Pickable="false">
+                <HeaderTemplate>
+                    <SelectAllHeader Value="@GetSelectionHeaderState()"
+                                     OnChange="@ToggleAllItems"
+                                     ShowButton="false"
+                                     CheckboxName="trip_ticket_fulfillment_selection_select_all" />
+                </HeaderTemplate>
                 <Template>
-                    <RadzenButton Variant="Variant.Text"
-                                  Icon="@(SelectedFulfillments.Any(x => x.OrderNumber == context.OrderNumber) ? "check_box" : "check_box_outline_blank")"
-                                  Size="ButtonSize.ExtraSmall"
-                                  Click="() => SelectItem(context)" />
+                    <RadzenCheckBox TValue="bool"
+                                    Value="@(SelectedFulfillments.Any(x => x.OrderNumber == context.OrderNumber))"
+                                    Change="@(_ => SelectItem(context))" />
                 </Template>
             </RadzenDataGridColumn>
             <RadzenDataGridColumn TItem="ItemFulfillmentVM"

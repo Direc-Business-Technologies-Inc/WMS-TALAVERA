@@ -52,13 +52,20 @@
                       Data="@FulfillableLines">
                 <HeaderTemplate>
                     <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5em">
+                        <SelectAllHeader Value="@GetIsReceivedHeaderState()" OnChange="@ToggleAllIsReceived" ShowCheckbox="false" />
                         <RadzenButton Icon="barcode" ButtonStyle="ButtonStyle.Primary" Click="(() => OpenBarcodeDialog(false))" Size="ButtonSize.Small" Text="Scan Good Items" />
                         <RadzenButton Icon="barcode" ButtonStyle="ButtonStyle.Danger" Click="(() => OpenBarcodeDialog(true))" Size="ButtonSize.Small" Text="Scan Bad Items" />
                         <RadzenButton Icon="settings" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@OpenTableSettings" />
                     </RadzenStack>
                 </HeaderTemplate>
                 <Columns>
-                    <RadzenDataGridColumn TItem="VendorReturnAuthorizationItemReceiptLinePackingVM" Width="30px">
+                    <RadzenDataGridColumn TItem="VendorReturnAuthorizationItemReceiptLinePackingVM" Width="30px" Filterable="false" Sortable="false" Pickable="false">
+                        <HeaderTemplate>
+                            <SelectAllHeader Value="@GetIsReceivedHeaderState()"
+                                             OnChange="@ToggleAllIsReceived"
+                                             ShowButton="false"
+                                             CheckboxName="packing_vendor_return_authorization_item_receipt_lines_select_all" />
+                        </HeaderTemplate>
                         <Template Context="data">
                             <RadzenCheckBox @bind-Value="data.IsReceived" Disabled="data.IsComplete" />
                         </Template>

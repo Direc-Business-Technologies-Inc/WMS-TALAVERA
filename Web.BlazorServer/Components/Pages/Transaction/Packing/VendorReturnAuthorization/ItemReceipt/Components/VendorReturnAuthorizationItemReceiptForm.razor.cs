@@ -85,6 +85,25 @@ public partial class VendorReturnAuthorizationItemReceiptForm
 
     private IList<VendorReturnAuthorizationItemReceiptLinePackingVM> selectedItems = new List<VendorReturnAuthorizationItemReceiptLinePackingVM>();
 
+    bool? GetIsReceivedHeaderState()
+    {
+        var eligible = Data.Lines.Where(l => !l.IsComplete).ToList();
+        return SelectAllHeader.Compute(eligible.Count, eligible.Count(l => l.IsReceived));
+    }
+
+    async Task ToggleAllIsReceived(bool? value)
+    {
+        bool select = value == true;
+
+        foreach (var line in Data.Lines.Where(l => !l.IsComplete))
+            line.IsReceived = select;
+
+        if (EditContext is not null)
+            EditContext.NotifyFieldChanged(new FieldIdentifier(Data, nameof(Data.Lines)));
+
+        await InvokeAsync(StateHasChanged);
+    }
+
     async Task OnRowClick(DataGridRowMouseEventArgs<VendorReturnAuthorizationItemReceiptLinePackingVM> args)
     {
         if (selectedItems.Contains(args.Data))

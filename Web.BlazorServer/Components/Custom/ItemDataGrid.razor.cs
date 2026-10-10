@@ -182,6 +182,39 @@ partial class ItemDataGrid : IAsyncDisposable
         }
     }
 
+    // "All" refers to the rows of the currently loaded page only; paging
+    // through the whole data set is intentionally not triggered from here.
+    List<ItemsVM> PageItems => DataGrid?.DGResult.Items?.ToList() ?? [];
+
+    bool? GetSelectionHeaderState()
+    {
+        var pageItems = PageItems;
+        return SelectAllHeader.Compute(
+            pageItems.Count,
+            pageItems.Count(item => SelectedItems.Any(x => x.ItemNumber == item.ItemNumber)));
+    }
+
+    async Task ToggleAllItems(bool? value)
+    {
+        // Selecting the whole page only makes sense for multi-select grids.
+        if (SelectionMode != SelectionModes.Multiple)
+            return;
+
+        bool select = value == true;
+
+        foreach (var item in PageItems)
+        {
+            bool isSelected = SelectedItems.Any(x => x.ItemNumber == item.ItemNumber);
+
+            // SelectItem toggles in Multiple mode, so only touch items whose
+            // state actually differs from the requested one.
+            if (select != isSelected)
+                await SelectItem(item);
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+
     public async ValueTask DisposeAsync()
     {
         _loadCts?.Cancel();
