@@ -46,6 +46,7 @@ internal class StockTransferRequestIntegration(
     private SuiteQLQueryBuilder BuildIntercompanyBaseQuery(DataGridIntent intent) =>
         builderFactory.Create()
                 .Select(
+                    ("t.id", nameof(StockTransferRequestDataGridNSDTO.Id)),
                     ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(StockTransferRequestDataGridNSDTO.Date)),
                     ("TO_CHAR(t.lastmodifieddate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(StockTransferRequestDataGridNSDTO.DateLastModified)),
                     ("t.tranid", nameof(StockTransferRequestDataGridNSDTO.ReferenceNumber)),
@@ -83,6 +84,7 @@ internal class StockTransferRequestIntegration(
             intent.Sorts.Add(DataGridSortUtilities.Descending(nameof(StockTransferRequestDataGridNSDTO.ReferenceNumber)));
         var query = builderFactory.Create()
                 .Select(
+                    ("t.id", nameof(StockTransferRequestDataGridNSDTO.Id)),
                     ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(StockTransferRequestDataGridNSDTO.Date)),
                     ("TO_CHAR(t.lastmodifieddate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(StockTransferRequestDataGridNSDTO.DateLastModified)),
                     ("t.tranid", nameof(StockTransferRequestDataGridNSDTO.ReferenceNumber)),
@@ -133,6 +135,7 @@ internal class StockTransferRequestIntegration(
     private SuiteQLQueryBuilder BuildTransferOrderBaseQuery(DataGridIntent intent) =>
         builderFactory.Create()
                 .Select(
+                    ("t.id", nameof(StockTransferRequestDataGridNSDTO.Id)),
                     ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(StockTransferRequestDataGridNSDTO.Date)),
                     ("TO_CHAR(t.lastmodifieddate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(StockTransferRequestDataGridNSDTO.DateLastModified)),
                     ("t.tranid", nameof(StockTransferRequestDataGridNSDTO.ReferenceNumber)),

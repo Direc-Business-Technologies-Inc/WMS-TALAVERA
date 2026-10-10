@@ -4,6 +4,7 @@ using Radzen.Blazor;
 using Shared.Entities;
 using Shared.Libraries.Utilities;
 using Web.BlazorServer.Components.Shared.Abstraction;
+using Web.BlazorServer.Components.Shared.Others;
 using Web.BlazorServer.Defaults;
 using Web.BlazorServer.Handlers.Repositories.Transaction.StockTransferRequest;
 using Web.BlazorServer.Services.Repositories;
@@ -107,6 +108,10 @@ partial class STRDataGrid
     {
         NavManager.NavigateTo(STRRoutes.View + $"?ref={item.ReferenceNumber}");
     }
+
+    // Every STR grid row is sourced from the NetSuite transaction table, so a row that is
+    // present is by definition printable. NetSuitePrint returns null for a defensive id <= 0.
+    static string? PrintUrl(StockTransferRequestDataGridVM item) => NetSuitePrint.TransferOrder(item.Id);
 
     async Task AddButtonPressed()
     {

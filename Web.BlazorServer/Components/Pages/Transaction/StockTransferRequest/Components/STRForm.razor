@@ -215,9 +215,7 @@
                         JustifyContent="JustifyContent.End"
                         AlignItems="AlignItems.Center"
                         Gap="8px">
-                            <RadzenButton Icon="print" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Visible="@(ReadOnly)">
-                                <RadzenLink Path="@PrintableURL" Text="Print" target="_blank" Icon="print" />
-                            </RadzenButton>
+                            <AppPrintLink Url="@PrintableURL" Visible="@ReadOnly" />
                             <RadzenButton Disabled="@(Model.SourceLocation is null)" Visible="@(!ReadOnly)" Text="Scan Barcodes" Icon="barcode" Click="OpenBarcodeDialog" ButtonType="ButtonType.Button" Size="ButtonSize.Small" />
                             <RadzenButton Icon="settings" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@OpenTableSettings" />
                             <RadzenButton Visible="@(!ReadOnly)" Disabled="@(Model.SourceLocation is null)" Icon="add" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Success" Click="@OpenItemDialog" />
@@ -246,10 +244,7 @@
                         Property="@nameof(StockTransferRequestLineVM.Vendor)"
                         Title="Preferred Vendor">
                             <Template Context="data">
-                                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center">
-                                    <RadzenText Visible="@ReadOnly" TextStyle="TextStyle.Body2">@(data.Vendor?.Name ?? "Not set")</RadzenText>
-                                    <QuickVirtualizedDropdown Disabled="@Disabled" Visible="@(!ReadOnly)" TItem="VendorVM" DataGetter="@VendorProvider" ActionName="@ActionGetVendors" @bind-Value:get="@data.Vendor" @bind-Value:set="@(val => LineVendorSet(data, val))" FilterTarget="@nameof(VendorVM.Name)" TextProperty="@nameof(VendorVM.Name)" AllowClear="false" AllowFiltering />
-                                </RadzenStack>
+                                <RadzenText TextStyle="TextStyle.Body2">@(data.Vendor?.Name ?? "Not set")</RadzenText>
                             </Template>
                         </RadzenDataGridColumn>
 

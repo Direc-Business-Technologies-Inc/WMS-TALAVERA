@@ -8,6 +8,7 @@ using Shared.Libraries.Utilities;
 using Web.BlazorServer.Components.Custom;
 using Web.BlazorServer.Components.Pages.Transaction.Others.BarcodeScanning;
 using Web.BlazorServer.Components.Shared.Abstraction;
+using Web.BlazorServer.Components.Shared.Others;
 using Web.BlazorServer.Handlers.Repositories.Administration.User;
 using Web.BlazorServer.Handlers.Repositories.Others;
 using Web.BlazorServer.Handlers.Repositories.Transaction.StockTransferRequest;
@@ -64,9 +65,6 @@ public partial class STRForm
     private BarcodeStore BarcodeStore = new();
 
     bool DefaultSubsidiaryLoading = false;
-
-    const string PRINTABLE_URL_INTERCOMPANY = "https://11608969.extforms.netsuite.com/app/site/hosting/scriptlet.nl?script=1671&deploy=1&compid=11608969&ns-at=AAEJ7tMQ9evIwFEEUifIBokQgQ0jhowAItpfjv5Smu7B76K41lU&recordType=tranferOrder&isPickingTicket=true";
-    const string PRINTABLE_URL_TO = "https://11608969.extforms.netsuite.com/app/site/hosting/scriptlet.nl?script=1671&deploy=1&compid=11608969&ns-at=AAEJ7tMQ9evIwFEEUifIBokQgQ0jhowAItpfjv5Smu7B76K41lU&recordType=tranferOrder&isPickingTicket=true";
 
     public string ReferenceString => string.IsNullOrEmpty(Model.ReferenceNumber) ?
         ReadOnly ? "N/A" : "Auto-Generated" :
@@ -596,7 +594,10 @@ public partial class STRForm
         await InvokeAsync(StateHasChanged);
     }
 
-    string PrintableURL => Model.Category.IsInterCompany ? $"{PRINTABLE_URL_INTERCOMPANY}&recordId={Model.Id}" : $"{PRINTABLE_URL_TO}&recordId={Model.Id}";
+    // Transfer Order and Intercompany Transfer Order resolve to the same printout scriptlet,
+// so a single builder covers both. Previously this branched on IsInterCompany between two
+// byte-identical constants.
+string? PrintableURL => NetSuitePrint.TransferOrder(Model.Id);
 
     void Return()
     {

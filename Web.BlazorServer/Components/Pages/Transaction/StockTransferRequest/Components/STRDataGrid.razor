@@ -90,9 +90,12 @@
         <RadzenDataGridColumn TItem="StockTransferRequestDataGridVM"
                               Frozen
                               FrozenPosition="FrozenColumnPosition.Right"
-                              Width="35px">
+                              Width="55px">
             <Template>
-                <RadzenButton Icon="arrow_right_alt" Size="ButtonSize.ExtraSmall" Click="() => ViewSTR(context)" />
+                <RadzenStack Orientation="Orientation.Horizontal" Gap="4px" JustifyContent="JustifyContent.End">
+                    <AppPrintLink Url="@PrintUrl(context)" Size="ButtonSize.ExtraSmall" />
+                    <RadzenButton Icon="arrow_right_alt" Size="ButtonSize.ExtraSmall" Click="() => ViewSTR(context)" />
+                </RadzenStack>
             </Template>
         </RadzenDataGridColumn>
     </GridColumns>

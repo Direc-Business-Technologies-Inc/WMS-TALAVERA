@@ -8,6 +8,8 @@ namespace Application.DataTransferObjects.Transactions.SupplierReturn;
 
 public class SupplierReturnDataGridDTO
 {
+    /// <summary>NetSuite internal id of the transaction (t.id). Required for the printout URL.</summary>
+    public int Id { get; set; }
     public string VendorName { get; set; } = string.Empty;
     public string CategoryName { get; set; } = string.Empty;
     public string ReferenceNumber { get; set; } = string.Empty;
