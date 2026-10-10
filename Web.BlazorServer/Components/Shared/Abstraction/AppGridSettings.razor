@@ -8,7 +8,9 @@
 
     <RadzenFormField Text="Page size">
         <ChildContent>
-            <RadzenNumeric Disabled="@(!GridCopy.AllowPaging)" ShowUpDown="false" Min="1" @bind-Value=@GridCopy.PageSize Name="rn-pagesize" Change="@(async (int value) => await NotifyParent())" class="w-100" />
+            @* Max mirrors NetSuite SuiteQL's limit ceiling (1..1000); a larger page size
+               would otherwise be clamped silently at the integration boundary. *@
+            <RadzenNumeric Disabled="@(!GridCopy.AllowPaging)" ShowUpDown="false" Min="1" Max="1000" @bind-Value=@GridCopy.PageSize Name="rn-pagesize" Change="@(async (int value) => await NotifyParent())" class="w-100" />
         </ChildContent>
         <End>
             <RadzenCheckBox TValue="bool" TriState="false" Name="table_settings_use_paging" @bind-Value=@GridCopy.AllowPaging Change="@(async (bool value) => await SetPaging(value))" />

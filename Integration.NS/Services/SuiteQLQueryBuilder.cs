@@ -23,6 +23,8 @@ public class SuiteQLQueryBuilder
 {
     const string DATETIME_FORMAT_STRING = "yyyy-MM-ddTHH:mm:ss";
     const string NETSUITE_DATETIME_FORMAT_STRING = "YYYY-MM-DD\"T\"HH24:MI:SS";
+    /// <summary>NetSuite SuiteQL REST ceiling for the limit query parameter (valid range 1..1000).</summary>
+    const int NETSUITE_MAX_LIMIT = 1000;
     public int? Take { get; set; }
     public int? Skip { get; set; }
     public List<AppFilterDescriptor> Filters { get; set; } = [];
@@ -113,13 +115,33 @@ public class SuiteQLQueryBuilder
         return $" FROM {_tableName} {string.Join(" ", _joins)}";
     }
 
+    /// <summary>
+    /// Builds the SuiteQL query, normalizing <see cref="Take"/> to the range NetSuite
+    /// accepts for the <c>limit</c> query parameter (1..1000). NetSuite rejects anything
+    /// outside that range with a 400 INVALID_PARAMETER, and callers reach this builder
+    /// from grids (user-configurable page size), dropdowns, and hand-written intents —
+    /// so the guarantee is enforced here, at the single chokepoint every builder-made
+    /// query passes through, rather than trusted at each call site.
+    /// <list type="bullet">
+    /// <item>Below 1 (including the -1 "unlimited" convention and the reachable
+    /// <c>Take = 0</c> from DataGridIntentAdapter) becomes <c>null</c>, which omits the
+    /// query parameter entirely and lets NetSuite use its default page.</item>
+    /// <item>Above 1000 is capped at 1000.</item>
+    /// </list>
+    /// Clamping happens before <c>SuiteQLQueryExtensions.ExecuteWithPaging</c> runs its
+    /// modulo math, so non-null limits still get their offsets realigned by the existing
+    /// stitching path (NetSuite requires offset to be divisible by limit).
+    /// </summary>
     public SuiteQLQuery Build()
     {
+        int? limit = Take;
+        if (limit < 1) limit = null;
+        else if (limit > NETSUITE_MAX_LIMIT) limit = NETSUITE_MAX_LIMIT;
 
         return new()
         {
             Query = BuildSelect() + BuildFrom() + BuildFilters() + BuildSorts() + _groupBy,
-            Limit = Take,
+            Limit = limit,
             Offset = Skip
         };
     }

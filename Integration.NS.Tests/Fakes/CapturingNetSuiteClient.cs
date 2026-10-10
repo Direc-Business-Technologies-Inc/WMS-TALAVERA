@@ -11,12 +11,17 @@ namespace Integration.NS.Tests.Fakes;
 
 /// <summary>
 /// <see cref="INetSuiteApiClientService"/> stub that captures the last SuiteQL
-/// text and returns a caller-supplied result. Used to assert query shape and
-/// DTO mapping without a live NetSuite connection.
+/// text and the limit/offset of every call, and returns a caller-supplied result.
+/// Used to assert query shape, limit/offset bounds, and DTO mapping without a
+/// live NetSuite connection.
 /// </summary>
 public sealed class CapturingNetSuiteClient : INetSuiteApiClientService
 {
     public string? LastQuery { get; private set; }
+    public int? LastLimit { get; private set; }
+    public int? LastOffset { get; private set; }
+    /// <summary>(limit, offset) of every <see cref="ExecuteSuiteQLQuery{T}"/> call, in order.</summary>
+    public List<(int? Limit, int? Offset)> Calls { get; } = [];
     public object? NextResult { get; set; }
     public List<object> NextItems { get; set; } = [];
     public int CallCount { get; private set; }
@@ -27,6 +32,9 @@ public sealed class CapturingNetSuiteClient : INetSuiteApiClientService
     {
         CallCount++;
         LastQuery = query;
+        LastLimit = limit;
+        LastOffset = offset;
+        Calls.Add((limit, offset));
         var items = new List<T>();
         foreach (var next in NextItems.OfType<T>()) items.Add(next);
         if (NextResult is T typed) items.Add(typed);
