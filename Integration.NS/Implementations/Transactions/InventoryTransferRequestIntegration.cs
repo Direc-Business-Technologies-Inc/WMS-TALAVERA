@@ -177,7 +177,7 @@ public class InventoryTransferRequestIntegration(
         var url = netsuiteService.GetRestAPIURI + $"/record/v1/inventoryTransfer/{data.Id}";
         var anon = new
         {
-            custbody_dbti_submitted_for_approval = "T",
+            custbody_dbti_submitted_for_approval = true,
         };
         var payload = JsonSerializer.Serialize(anon, jsonOpts);
 
