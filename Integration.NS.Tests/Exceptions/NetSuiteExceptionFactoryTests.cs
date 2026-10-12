@@ -54,6 +54,56 @@ public class NetSuiteExceptionFactoryTests
         Assert.Equal("Insufficient stock", exception.Detail);
     }
 
+    [Fact]
+    public void Offset_out_of_bounds_message_is_classified_for_retry()
+    {
+        // Exact wording from the reported failure: detail carries the hint,
+        // message carries the INVALID_PARAMETER envelope.
+        var exception = Assert.IsType<NetSuiteValidationException>(
+            NetSuiteExceptionFactory.CreateForStatus(
+                HttpStatusCode.NotFound,
+                "NetSuite 404 Not Found: Not Found(404): [INVALID_PARAMETER] The specified query parameter 'offset' is out of bounds. Provide value between 0 and 20",
+                "The specified query parameter 'offset' is out of bounds. Provide value between 0 and 20"));
+
+        Assert.Equal(NetSuiteErrorCode.OffsetOutOfBounds, exception.ErrorCode);
+    }
+
+    [Fact]
+    public void Offset_out_of_bounds_is_classified_from_message_when_detail_is_null()
+    {
+        // One SuiteQL path passes a null detail; the classification must still
+        // fire from the message text.
+        var exception = Assert.IsType<NetSuiteValidationException>(
+            NetSuiteExceptionFactory.CreateForStatus(
+                HttpStatusCode.NotFound,
+                "NetSuite 404 Not Found: offset is out of bounds. Provide value between 0 and 20",
+                null));
+
+        Assert.Equal(NetSuiteErrorCode.OffsetOutOfBounds, exception.ErrorCode);
+    }
+
+    [Theory]
+    [InlineData("The specified query parameter 'offset' is out of bounds. Provide value between 0 and 20", 20)]
+    [InlineData("offset must be divisible by the page limit", null)]
+    [InlineData("Insufficient stock", null)]
+    [InlineData(null, null)]
+    public void Offset_upper_bound_is_parsed_from_the_between_hint(string? text, int? expected)
+    {
+        Assert.Equal(expected, NetSuiteErrorCodes.GetOffsetUpperBound("NetSuite 404 wrapper", text));
+    }
+
+    [Fact]
+    public void Unrelated_validation_failure_stays_unknown()
+    {
+        var exception = Assert.IsType<NetSuiteValidationException>(
+            NetSuiteExceptionFactory.CreateForStatus(
+                HttpStatusCode.BadRequest,
+                "NetSuite 400 Bad Request: Insufficient stock",
+                "Insufficient stock"));
+
+        Assert.Equal(NetSuiteErrorCode.Unknown, exception.ErrorCode);
+    }
+
     [Theory]
     [InlineData(408)]
     [InlineData(429)]

@@ -39,7 +39,7 @@ public static class NetSuiteExceptionFactory
     {
         return IsTransientStatus(statusCode)
             ? new NetSuiteTransientException(message, statusCode)
-            : new NetSuiteValidationException(message, detail);
+            : new NetSuiteValidationException(message, detail, NetSuiteErrorCodes.Classify(message, detail));
     }
 
     /// <summary>

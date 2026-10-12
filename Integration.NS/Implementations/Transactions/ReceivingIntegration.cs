@@ -9,6 +9,8 @@ using Application.UseCases.Repositories.Integration.Transaction.Receiving;
 using Integration.NS.DataTransferObjects.ItemReceipt;
 using Integration.NS.DataTransferObjects.Others;
 using Integration.NS.DataTransferObjects.Receiving;
+using Application.DataTransferObjects.Others.NS;
+using Integration.NS.Exceptions;
 using Integration.NS.Helpers;
 using Integration.NS.Services;
 using Integration.SAP.Entities.Transactional.Receiving;
@@ -240,6 +242,52 @@ public class ReceivingIntegration(
 
     public async Task<(IEnumerable<Application.DataTransferObjects.Transactions.Receiving.NS.ReceivingLineNSDTO>, int)> GetTransferOrderLinesAsync(string Id, DataGridIntent intent)
     {
+        try
+        {
+            var response = await QueryTransferOrderLinesAsync(Id, intent);
+            return (response.items, response.totalResults);
+        }
+        catch (NetSuiteValidationException ex) when (ex.ErrorCode == NetSuiteErrorCode.OffsetOutOfBounds)
+        {
+            // Radzen derives Skip from CurrentPage * PageSize, so the requested
+            // offset can land past the end of the result set: changing the page
+            // size on a later page, a stale persisted page index, or a
+            // filter/sort that shrank the result set. Clamp to the last legal
+            // page and retry once so the user sees rows instead of a 404.
+            //
+            // Preference order: the N from NetSuite's "between 0 and N" hint
+            // (last legal start = largest multiple of Take within N), else the
+            // first page. Single retry only — a second OffsetOutOfBounds means
+            // the data moved under us; surface it rather than looping.
+            var take = intent.Take <= 0 ? 10 : intent.Take;
+            var bound = NetSuiteErrorCodes.GetOffsetUpperBound(ex.Message, ex.Detail);
+            var retrySkip = bound.HasValue
+                ? Math.Max(0, (bound.Value / take) * take)
+                : 0;
+
+            if (retrySkip == intent.Skip)
+            {
+                throw;
+            }
+
+            logger.LogWarning(
+                ex,
+                "Transfer order {TransferOrderId} lines requested offset {Skip} is out of bounds; retrying once at offset {RetrySkip}.",
+                Id, intent.Skip, retrySkip);
+
+            var retry = await QueryTransferOrderLinesAsync(Id, intent, skipOverride: retrySkip);
+            throw new NetSuiteOffsetCorrectedException<IEnumerable<Application.DataTransferObjects.Transactions.Receiving.NS.ReceivingLineNSDTO>>(retry.items, retry.totalResults, retrySkip, ex);
+        }
+    }
+
+    /// <summary>
+    /// Builds the TO-lines SuiteQL query from <paramref name="intent"/> and runs
+    /// it. The query text is rebuilt per attempt (rather than mutating
+    /// <paramref name="intent"/>) so the caller's grid state is never rewritten
+    /// behind Radzen's back.
+    /// </summary>
+    private async Task<Application.DataTransferObjects.Others.NS.NetSuiteResponse<Application.DataTransferObjects.Transactions.Receiving.NS.ReceivingLineNSDTO>> QueryTransferOrderLinesAsync(string Id, DataGridIntent intent, int? skipOverride = null)
+    {
         var query = builderFactory.Create()
             .Select(
                 ("item.itemId", "ItemCode"),
@@ -262,8 +310,12 @@ public class ReceivingIntegration(
             .WithDatagridIntent(intent)
             .Build();
 
-        var response = await netsuiteService.ExecuteSuiteQLQuery<Application.DataTransferObjects.Transactions.Receiving.NS.ReceivingLineNSDTO>(query.Query, limit: query.Limit, offset: query.Offset);
-        return (response.items, response.totalResults);
+        if (skipOverride.HasValue)
+        {
+            query.Offset = skipOverride.Value;
+        }
+
+        return await netsuiteService.ExecuteSuiteQLQuery<Application.DataTransferObjects.Transactions.Receiving.NS.ReceivingLineNSDTO>(query.Query, limit: query.Limit, offset: query.Offset);
     }
 
     public async Task<(IEnumerable<ReturnsDataGridDTO>, int count)> GetReturnsListAsync(DataGridIntent intent)
