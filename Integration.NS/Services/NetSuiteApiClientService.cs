@@ -798,19 +798,30 @@ namespace Integration.NS.Services
                 $"NetSuite {(int)response.StatusCode} " +
                 $"{response.ReasonPhrase ?? response.StatusCode.ToString()}";
 
-            if (!string.IsNullOrWhiteSpace(detail))
+            // A parsed detail shorter than 10 characters (e.g. "(0)") carries
+            // no actionable information; append the raw-body excerpt so the
+            // real NetSuite error stays visible without log access.
+            if (!string.IsNullOrWhiteSpace(detail) && detail.Length >= 10)
                 return $"{statusLine}: {detail}";
+
+            var bodyExcerpt = string.Empty;
+
+            if (!string.IsNullOrWhiteSpace(responseBody))
+            {
+                const int maxBodyExcerpt = 2000;
+
+                bodyExcerpt = responseBody.Length <= maxBodyExcerpt
+                    ? responseBody
+                    : responseBody[..maxBodyExcerpt];
+            }
+
+            if (!string.IsNullOrWhiteSpace(detail))
+                return $"{statusLine}: {detail} | raw body: {bodyExcerpt}";
 
             if (string.IsNullOrWhiteSpace(responseBody))
                 return $"{statusLine}: empty response body";
 
-            const int maxBodyExcerpt = 2000;
-
-            var body = responseBody.Length <= maxBodyExcerpt
-                ? responseBody
-                : responseBody[..maxBodyExcerpt];
-
-            return $"{statusLine}: {body}";
+            return $"{statusLine}: {bodyExcerpt}";
         }
 
         /// <summary>

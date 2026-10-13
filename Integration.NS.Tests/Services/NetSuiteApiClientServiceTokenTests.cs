@@ -162,6 +162,24 @@ public class NetSuiteApiClientServiceTokenTests
     }
 
     [Fact]
+    public void BuildNetSuiteErrorMessage_appends_body_when_detail_is_terse()
+    {
+        using var response = new HttpResponseMessage(HttpStatusCode.BadRequest)
+        {
+            ReasonPhrase = "Bad Request"
+        };
+
+        var message = NetSuiteApiClientService.BuildNetSuiteErrorMessage(
+            response,
+            "(0)",
+            "{\"o:errorDetails\":[{\"detail\":\"(0)\",\"o:errorCode\":\"SOME_ERROR\"}]}");
+
+        Assert.Equal(
+            "NetSuite 400 Bad Request: (0) | raw body: {\"o:errorDetails\":[{\"detail\":\"(0)\",\"o:errorCode\":\"SOME_ERROR\"}]}",
+            message);
+    }
+
+    [Fact]
     public void BuildNetSuiteErrorMessage_falls_back_to_body_excerpt()
     {
         using var response = new HttpResponseMessage(HttpStatusCode.InternalServerError)

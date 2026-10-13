@@ -1,12 +1,15 @@
+using Application.DataTransferObjects.Others.NS;
 using Application.DataTransferObjects.Transactions.Packing.STR;
 using Application.UseCases.Repositories.Integration.Others;
 using Application.UseCases.Repositories.Integration.Transaction.Packing;
 using Database.Libraries.Repositories;
 using Integration.NS.DataTransferObjects.Packing;
 using Integration.NS.DataTransferObjects.Packing.STR;
+using Integration.NS.Exceptions;
 using Integration.NS.Helpers;
 using Integration.NS.Services;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 using Shared.Entities;
 using Shared.Libraries.Utilities;
 using static Shared.Libraries.Utilities.DataGridFilterUtilities;
@@ -17,13 +20,16 @@ internal class StockTransferRequestPackingIntegration(
     INetSuiteApiClientService netsuiteService,
     IHttpContextAccessor httpContextAccessor,
     ISqlQueryManager sqlQuery,
-    SuiteQLQueryBuilderFactoryService builderFactory) : IStockTransferRequestPackingIntegration
+    SuiteQLQueryBuilderFactoryService builderFactory,
+    ILogger<StockTransferRequestPackingIntegration> logger) : IStockTransferRequestPackingIntegration
 {
     public async Task<(IEnumerable<StockTransferRequestPackingDataGridDTO> Data, int Count)> GetPackingStockTransferRequestList(DataGridIntent intent, int subsidiaryId)
     {
         if (intent.Sorts.Count == 0) intent.Sorts.Add(DataGridSortUtilities.Descending(nameof(StrPackingDataGridNSDTO.DateLastModified)));
 
-        var query = builderFactory.Create()
+        var (items, totalResults) = await QueryListWithOffsetClampAsync(intent, "Packing STR list", async skipOverride =>
+        {
+            var query = builderFactory.Create()
             .Select(
                 ("t.id", nameof(StrPackingDataGridNSDTO.Id)),
                 ("t.tranid", nameof(StrPackingDataGridNSDTO.ReferenceNumber)),
@@ -56,9 +62,56 @@ internal class StockTransferRequestPackingIntegration(
             .WithDatagridIntent(intent)
             .Build();
 
-        var response = await query.ExecuteWithPaging<StrPackingDataGridNSDTO>(netsuiteService);
+            if (skipOverride.HasValue) query.Offset = skipOverride.Value;
 
-        return (response.items.Select(MapDataGridDto), response.totalResults);
+            var response = await query.ExecuteWithPaging<StrPackingDataGridNSDTO>(netsuiteService);
+
+            return response;
+        });
+
+        return (items.Select(MapDataGridDto), totalResults);
+    }
+
+    /// <summary>
+    /// Runs a paged list query with a single offset-clamp retry. NetSuite
+    /// rejects any offset past the end of its (possibly empty) result set, and
+    /// persisted Radzen pager positions routinely request such offsets once a
+    /// result set shrinks or empties. Falls back to the last legal page using
+    /// NetSuite's "between 0 and N" hint, else the first page. A second
+    /// OffsetOutOfBounds means the data moved under us; surface it rather than
+    /// looping. Mirrors the helper of the same name in ReceivingIntegration.
+    /// </summary>
+    private async Task<(IEnumerable<T> items, int totalResults)> QueryListWithOffsetClampAsync<T>(
+        DataGridIntent intent,
+        string gridName,
+        Func<int?, Task<Application.DataTransferObjects.Others.NS.NetSuiteResponse<T>>> executeQuery)
+    {
+        try
+        {
+            var response = await executeQuery(null);
+            return (response.items, response.totalResults);
+        }
+        catch (NetSuiteValidationException ex) when (ex.ErrorCode == NetSuiteErrorCode.OffsetOutOfBounds)
+        {
+            var take = intent.Take <= 0 ? 10 : intent.Take;
+            var bound = NetSuiteErrorCodes.GetOffsetUpperBound(ex.Message, ex.Detail);
+            var retrySkip = bound.HasValue
+                ? Math.Max(0, (bound.Value / take) * take)
+                : 0;
+
+            if (retrySkip == intent.Skip)
+            {
+                throw;
+            }
+
+            logger.LogWarning(
+                ex,
+                "{GridName} requested offset {Skip} is out of bounds; retrying once at offset {RetrySkip}.",
+                gridName, intent.Skip, retrySkip);
+
+            var retry = await executeQuery(retrySkip);
+            return (retry.items, retry.totalResults);
+        }
     }
 
     public async Task<StockTransferRequestInfoPackingDTO?> GetPackingStockTransferRequest(string id)

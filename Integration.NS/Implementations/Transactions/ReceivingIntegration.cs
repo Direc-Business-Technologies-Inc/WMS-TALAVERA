@@ -136,8 +136,13 @@ public class ReceivingIntegration(
 
         SuiteQLQuery query = builder.Build();
 
-        var response = await netsuiteService.ExecuteSuiteQLQuery<PurchaseOrderDataGridDTO>(query.Query, limit: query.Limit, offset: query.Offset);
-        return (response.items, response.totalResults);
+        return await QueryListWithOffsetClampAsync(intent, "Purchase orders list", async skipOverride =>
+        {
+            if (skipOverride.HasValue) query.Offset = skipOverride.Value;
+
+            var response = await netsuiteService.ExecuteSuiteQLQuery<PurchaseOrderDataGridDTO>(query.Query, limit: query.Limit, offset: query.Offset);
+            return response;
+        });
     }
 
     public async Task<(IEnumerable<TransferOrderDataGridDTO>, int count)> GetTransferOrderListAsync(DataGridIntent intent)
@@ -196,8 +201,55 @@ public class ReceivingIntegration(
             .WithDatagridIntent(intent)
             .Build();
 
-        var response = await netsuiteService.ExecuteSuiteQLQuery<TransferOrderDataGridDTO>(query.Query, limit: query.Limit, offset: query.Offset);
-        return (response.items, response.totalResults);
+        return await QueryListWithOffsetClampAsync(intent, "Transfer orders list", async skipOverride =>
+        {
+            if (skipOverride.HasValue) query.Offset = skipOverride.Value;
+
+            var response = await netsuiteService.ExecuteSuiteQLQuery<TransferOrderDataGridDTO>(query.Query, limit: query.Limit, offset: query.Offset);
+            return response;
+        });
+    }
+
+    /// <summary>
+    /// Runs a paged list query with a single offset-clamp retry. NetSuite
+    /// rejects any offset past the end of its (possibly empty) result set, and
+    /// persisted Radzen pager positions routinely request such offsets once a
+    /// result set shrinks or empties. Falls back to the last legal page using
+    /// NetSuite's "between 0 and N" hint, else the first page. A second
+    /// OffsetOutOfBounds means the data moved under us; surface it rather than
+    /// looping.
+    /// </summary>
+    private async Task<(IEnumerable<T> items, int totalResults)> QueryListWithOffsetClampAsync<T>(
+        DataGridIntent intent,
+        string gridName,
+        Func<int?, Task<Application.DataTransferObjects.Others.NS.NetSuiteResponse<T>>> executeQuery)
+    {
+        try
+        {
+            var response = await executeQuery(null);
+            return (response.items, response.totalResults);
+        }
+        catch (NetSuiteValidationException ex) when (ex.ErrorCode == NetSuiteErrorCode.OffsetOutOfBounds)
+        {
+            var take = intent.Take <= 0 ? 10 : intent.Take;
+            var bound = NetSuiteErrorCodes.GetOffsetUpperBound(ex.Message, ex.Detail);
+            var retrySkip = bound.HasValue
+                ? Math.Max(0, (bound.Value / take) * take)
+                : 0;
+
+            if (retrySkip == intent.Skip)
+            {
+                throw;
+            }
+
+            logger.LogWarning(
+                ex,
+                "{GridName} requested offset {Skip} is out of bounds; retrying once at offset {RetrySkip}.",
+                gridName, intent.Skip, retrySkip);
+
+            var retry = await executeQuery(retrySkip);
+            return (retry.items, retry.totalResults);
+        }
     }
 
     public Task<IEnumerable<PurchaseTypeSAPDTO>> GetPurchaseTypesAsync()
@@ -320,7 +372,15 @@ public class ReceivingIntegration(
 
     public async Task<(IEnumerable<ReturnsDataGridDTO>, int count)> GetReturnsListAsync(DataGridIntent intent)
     {
+        return await QueryListWithOffsetClampAsync(intent, "Returns list", async skipOverride =>
+        {
+            var response = await QueryReturnsListAsync(intent, skipOverride);
+            return response;
+        });
+    }
 
+    private async Task<Application.DataTransferObjects.Others.NS.NetSuiteResponse<ReturnsDataGridDTO>> QueryReturnsListAsync(DataGridIntent intent, int? skipOverride = null)
+    {
         if (intent.Sorts.Count == 0) intent.Sorts.Add(DataGridSortUtilities.Descending("ReferenceNumber"));
 
         int[] AllowedLocations = [-1];
@@ -363,8 +423,13 @@ public class ReceivingIntegration(
             .WithDatagridIntent(intent)
             .WithFilters([.. filters]).Build();
 
+        if (skipOverride.HasValue)
+        {
+            query.Offset = skipOverride.Value;
+        }
+
         var response = await netsuiteService.ExecuteSuiteQLQuery<ReturnsDataGridDTO>(query.Query, limit: query.Limit, offset: query.Offset);
-        return (response.items, response.totalResults);
+        return response;
     }
 
     public async Task<ReturnsDTO?> GetReturnsHeaderAsync(string docEntry)
@@ -622,6 +687,19 @@ public class ReceivingIntegration(
 
         try
         {
+            // A line without a resolved NetSuite line number cannot be posted:
+            // orderLine: 0 is always rejected with a 400 that surfaces only a
+            // terse "(0)" detail. Fail fast with a message identifying the line.
+            var unnumberedLine = dto.Lines.FirstOrDefault(x => x.LineNumber <= 0);
+
+            if (unnumberedLine is not null)
+            {
+                throw new Exception(
+                    $"Line '{unnumberedLine.ItemCode}' ({unnumberedLine.ItemDescription}) has no NetSuite " +
+                    "line number. Reload the page and retry; if it persists, the source document's " +
+                    "lines could not be matched to the receipt.");
+            }
+
             // Determine which statuses actually exist in the receipt
             var hasGoodLines = dto.Lines.Any(x =>
                 x.InventoryDetails.Any(y =>
@@ -1004,6 +1082,10 @@ public class ReceivingIntegration(
     {
         var lines = dto.Lines.Where(x => x.InventoryDetails.Any(y => y.Status?.Id == statusId));
 
+        // Mirrors the restlet contract proven by the mobile path
+        // (TransferOrderIRRestletPayloadDTO.CreateForItemReceiptRestlet):
+        // no binNumber in inventoryDetail, rate 0 for bad items only, and
+        // recWeight/actualWeight on every line.
         var obj = new
         {
             transferOrderId = dto.SourceInternalId,
@@ -1021,13 +1103,17 @@ public class ReceivingIntegration(
             memo = dto.Remarks,
             lines = lines.Where(x => x.QuantityAlloted > 0).Select(line =>
             {
+                var quantity = line.InventoryDetails.Sum(x => x.Status?.Id == statusId ? x.QuantityAlloted : 0);
+
                 return new
                 {
                     orderLine = line.LineNumber,
-                    quantity = line.InventoryDetails.Sum(x => x.Status?.Id == statusId ? x.QuantityAlloted : 0),
+                    quantity,
+                    recWeight = line.WeightPerItem * quantity,
+                    actualWeight = line.WeightActual,
+                    rate = statusId == INVENTORY_STATUS_ID_BAD ? 0m : (decimal?)null,
                     inventoryDetail = line.InventoryDetails.Where(x => x.Status?.Id == statusId).Select(y => new
                     {
-                        binNumber = y.Bin?.BinNumber,
                         inventoryStatus = statusId,
                         quantity = y.QuantityAlloted
                     })
