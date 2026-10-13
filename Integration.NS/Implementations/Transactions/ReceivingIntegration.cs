@@ -37,6 +37,16 @@ public class ReceivingIntegration(
     ILogger<ReceivingIntegration> logger)
     : IReceivingIntegration
 {
+    /// <summary>
+    /// NetSuite CUSTOMLIST_DBTI_PURCHASE_CATEGORY_LIST and
+    /// CUSTOMRECORD_DBTI_PURCHASE_CATEGORIES ids (ordinal inserts — reordering
+    /// in NetSuite breaks these silently). Rule (colleague-confirmed 2026-10-13):
+    /// Trade (category 1) passes untouched; Non-Trade (category 3) is narrowed
+    /// to Office Supplies (4), Store Supplies (5), Uniforms (9).
+    /// </summary>
+    private const int NonTradePurchaseCategoryId = 3;
+    private static readonly string[] NonTradeSubcategoryIds = ["4", "5", "9"];
+
     public Task<PurchaseDeliveryNoteHeaderSAPDTO?> GetPurchaseDeliveryNoteHeaderAsync(int docEntry)
     {
         throw new NotImplementedException();
@@ -121,6 +131,8 @@ public class ReceivingIntegration(
                 ("t.memo", "Memo"),
                 ("t.location", "LocationId"),
                 ("BUILTIN.DF(t.entity)", "VendorName"),
+                ("BUILTIN.DF(t.custbody_dbti_purchase_category)", "PurchaseCategory"),
+                ("BUILTIN.DF(t.custbody_dbti_purchase_subcategory)", "PurchaseSubcategory"),
                 ("s.name", nameof(PurchaseOrderDataGridDTO.Status)),
                 ("t.transferlocation", "TransferLocation"))
             .From("transaction t")
@@ -130,7 +142,10 @@ public class ReceivingIntegration(
             .WithFilters(
                 Equal("t.recordtype", "purchaseorder"),
                 In("t.status", new string[] { "B", "E" }),
-                In("tl.location", AllowedLocations)
+                In("tl.location", AllowedLocations),
+                Any(
+                    NotEqual("t.custbody_dbti_purchase_category", NonTradePurchaseCategoryId),
+                    In("t.custbody_dbti_purchase_subcategory", NonTradeSubcategoryIds))
             )
             .WithSubsidiaries(httpContext, "t");
 

@@ -46,6 +46,8 @@ public class ReceivingHandler(
             Date = x.Date,
             DeliveryDate = x.DeliveryDate,
             VendorName = x.VendorName,
+            PurchaseCategory = x.PurchaseCategory,
+            PurchaseSubcategory = x.PurchaseSubcategory,
             Remarks = x.Memo
         });
 
