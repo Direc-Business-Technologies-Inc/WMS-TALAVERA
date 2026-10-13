@@ -146,6 +146,17 @@ namespace Integration.NS.Services
             InventoryWorksheetRestletUrl = $"https://{AccountId}.restlets.api.netsuite.com/app/site/hosting/restlet.nl?script=1878&deploy=1";
         }
 
+        /// <summary>
+        /// Test seam: rebuilds the shared HttpClient at production defaults so
+        /// suites that override it (WireMock-created clients, short-timeout
+        /// stubs) cannot leak their stubs into order-dependent tests that assert
+        /// on the shared client's configuration.
+        /// </summary>
+        internal static void ResetHttpClientForTests()
+        {
+            _httpClient = CreateHttpClient();
+        }
+
         private static RSA LoadPrivateKey()
         {
             string privateKeyPem = File.ReadAllText(Environment.GetEnvironmentVariable("PRIVATEKEY_PATH") ?? string.Empty);
@@ -869,19 +880,9 @@ namespace Integration.NS.Services
                 throw new Exception($"SQL query '{queryName}' not found.");
             }
 
-            if (parameters != null)
-            {
-                foreach (var parameter in parameters)
-                {
-                    query = query.Replace(
-                        $"@{parameter.Key}",
-                        $"'{parameter.Value.Replace("'", "''")}'");
-
-                    query = query.Replace(
-                        $"{{{parameter.Key}}}",
-                        parameter.Value);
-                }
-            }
+            // Parameter substitution rules (including the {key} raw-splice guard)
+            // live in SuiteQLText — shared with SuiteQLScriptResolver.
+            query = Helpers.SuiteQLText.SubstituteScriptParameters(query, parameters);
 
             var jsonBody = System.Text.Json.JsonSerializer.Serialize(new
             {

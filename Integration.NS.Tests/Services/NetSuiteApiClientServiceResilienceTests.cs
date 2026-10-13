@@ -53,6 +53,7 @@ public class NetSuiteApiClientServiceResilienceTests : IDisposable
     {
         _server.Stop();
         NetSuiteApiClientService.ResetUrlRootsForTests();
+        NetSuiteApiClientService.ResetHttpClientForTests();
         NetSuitePipelines.ResetRetryDelayForTests();
     }
 
