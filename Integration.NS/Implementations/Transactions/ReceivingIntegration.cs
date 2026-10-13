@@ -140,7 +140,7 @@ public class ReceivingIntegration(
         {
             if (skipOverride.HasValue) query.Offset = skipOverride.Value;
 
-            var response = await netsuiteService.ExecuteSuiteQLQuery<PurchaseOrderDataGridDTO>(query.Query, limit: query.Limit, offset: query.Offset);
+            var response = await query.ExecuteWithPaging<PurchaseOrderDataGridDTO>(netsuiteService);
             return response;
         });
     }
@@ -205,7 +205,7 @@ public class ReceivingIntegration(
         {
             if (skipOverride.HasValue) query.Offset = skipOverride.Value;
 
-            var response = await netsuiteService.ExecuteSuiteQLQuery<TransferOrderDataGridDTO>(query.Query, limit: query.Limit, offset: query.Offset);
+            var response = await query.ExecuteWithPaging<TransferOrderDataGridDTO>(netsuiteService);
             return response;
         });
     }
@@ -428,7 +428,7 @@ public class ReceivingIntegration(
             query.Offset = skipOverride.Value;
         }
 
-        var response = await netsuiteService.ExecuteSuiteQLQuery<ReturnsDataGridDTO>(query.Query, limit: query.Limit, offset: query.Offset);
+        var response = await query.ExecuteWithPaging<ReturnsDataGridDTO>(netsuiteService);
         return response;
     }
 

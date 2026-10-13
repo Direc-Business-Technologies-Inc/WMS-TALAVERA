@@ -160,7 +160,7 @@ public class SupplierReturnIntegration(
                 .WithDatagridIntent(intent)
                 .Build();
 
-         var response = await netsuiteService.ExecuteSuiteQLQuery<SupplierReturnDataGridDTO>(query.Query, query.Limit, query.Offset);
+        var response = await query.ExecuteWithPaging<SupplierReturnDataGridDTO>(netsuiteService);
         return (response.items, response.totalResults);
     }
 

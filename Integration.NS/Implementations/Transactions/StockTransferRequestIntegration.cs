@@ -114,7 +114,7 @@ internal class StockTransferRequestIntegration(
                 .WithFromOrToSubsidiaries(httpContextAccessor, "t")
                 .WithDatagridIntent(intent)
                 .Build();
-        var response = await netsuiteService.ExecuteSuiteQLQuery<StockTransferRequestDataGridNSDTO>(query.Query, query.Limit, query.Offset);
+        var response = await query.ExecuteWithPaging<StockTransferRequestDataGridNSDTO>(netsuiteService);
         return (response.items.Select(ConvertDataGridDTO), response.totalResults);
     }
 
