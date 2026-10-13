@@ -31,15 +31,71 @@ public static class NetSuiteExceptionFactory
     /// Builds the typed exception for a non-success NetSuite response. The
     /// <paramref name="message"/> is passed through unchanged so the existing
     /// user-visible error strings are preserved (Req 4.2).
+    /// <para>
+    /// When the failure is an unsupported SuiteQL query shape and
+    /// <paramref name="requestBody"/> is supplied, a truncated excerpt of the
+    /// failing query is appended so the shape that broke is visible from the
+    /// toast/log without grepping the request-body logs. Everything else keeps
+    /// the message byte-identical (existing call sites and tests depend on it).
+    /// </para>
     /// </summary>
     public static Exception CreateForStatus(
         HttpStatusCode statusCode,
         string message,
-        string? detail = null)
+        string? detail = null,
+        string? requestBody = null)
     {
-        return IsTransientStatus(statusCode)
-            ? new NetSuiteTransientException(message, statusCode)
-            : new NetSuiteValidationException(message, detail, NetSuiteErrorCodes.Classify(message, detail));
+        if (IsTransientStatus(statusCode))
+        {
+            return new NetSuiteTransientException(message, statusCode);
+        }
+
+        var errorCode = NetSuiteErrorCodes.Classify(message, detail);
+
+        if (errorCode == NetSuiteErrorCode.UnsupportedSearch)
+        {
+            message = AppendQueryExcerpt(message, requestBody);
+        }
+
+        return new NetSuiteValidationException(message, detail, errorCode);
+    }
+
+    internal const int QueryExcerptLimit = 500;
+
+    private static string AppendQueryExcerpt(string message, string? requestBody)
+    {
+        if (string.IsNullOrWhiteSpace(requestBody))
+        {
+            return message;
+        }
+
+        var query = TryExtractSuiteQL(requestBody) ?? requestBody;
+
+        var excerpt = query.Length <= QueryExcerptLimit
+            ? query
+            : $"{query[..QueryExcerptLimit]} …(truncated)";
+
+        return $"{message}\nFailing query (excerpt): {excerpt}";
+    }
+
+    /// <summary>
+    /// The SuiteQL request body is <c>{"q":"..."}</c>; extracting the query text
+    /// beats excerpting the raw JSON (which spends the budget on escaping noise).
+    /// </summary>
+    private static string? TryExtractSuiteQL(string requestBody)
+    {
+        try
+        {
+            using var document = System.Text.Json.JsonDocument.Parse(requestBody);
+            return document.RootElement.TryGetProperty("q", out var query) &&
+                   query.ValueKind == System.Text.Json.JsonValueKind.String
+                ? query.GetString()
+                : null;
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return null;
+        }
     }
 
     /// <summary>

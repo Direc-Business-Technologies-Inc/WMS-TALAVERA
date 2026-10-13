@@ -205,7 +205,7 @@ public class SuiteQLQueryBuilder
 
     private string _stringifyValue(object value)
     {
-        if (value is string strVal) return $"'{strVal}'";
+        if (value is string strVal) return $"'{EscapeStringLiteral(strVal)}'";
         if (value is Literal literalVal) return literalVal.Value;
         if (value is DateTime dateVal) return $"'{dateVal.ToString(DATETIME_FORMAT_STRING)}'";
         if (value is null) return "NULL";
@@ -273,14 +273,26 @@ public class SuiteQLQueryBuilder
         if (value is null) throw new InvalidOperationException($"no value given for {prop}");
         if (value is not string strVal) throw new InvalidOperationException($"'{value}' is not a string and does not support {op}");
 
+        // Literal text rides inside a quoted pattern, so escape quotes first —
+        // an unescaped apostrophe (grid filter values are user input) breaks the
+        // statement and NetSuite rejects it with a 400 INVALID_PARAMETER.
+        var pattern = EscapeStringLiteral(strVal);
+
         return op switch
         {
-            ComparisonOperatorEnum.Contains => $"LOWER({prop}) LIKE LOWER('%{strVal}%')",
-            ComparisonOperatorEnum.EndsWith => $"LOWER({prop}) LIKE LOWER('%{strVal}')",
-            ComparisonOperatorEnum.StartsWith => $"LOWER({prop}) LIKE LOWER('{strVal}%')",
+            ComparisonOperatorEnum.Contains => $"LOWER({prop}) LIKE LOWER('%{pattern}%')",
+            ComparisonOperatorEnum.EndsWith => $"LOWER({prop}) LIKE LOWER('%{pattern}')",
+            ComparisonOperatorEnum.StartsWith => $"LOWER({prop}) LIKE LOWER('{pattern}%')",
             _ => throw new NotImplementedException($"string operation {op} is not implemented in this version of wms")
         };
     }
+
+    /// <summary>
+    /// Doubles single quotes so user/document text (tranids, grid filter input)
+    /// can never terminate a string literal and break the statement. Raw SQL must
+    /// be passed as <see cref="Literal"/> instead, which deliberately bypasses this.
+    /// </summary>
+    private static string EscapeStringLiteral(string value) => value.Replace("'", "''");
 
     private string _parseFilterGroup(AppFilterDescriptor filter, Dictionary<string, string>? propertyMap = null)
     {

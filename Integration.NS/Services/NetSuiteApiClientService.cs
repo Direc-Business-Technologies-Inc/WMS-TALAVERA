@@ -448,7 +448,8 @@ namespace Integration.NS.Services
                     httpResponse,
                     detail,
                     responseJson),
-                detail);
+                detail,
+                reqBody);
         }
 
         /// <summary>
@@ -676,7 +677,8 @@ namespace Integration.NS.Services
                     httpResponse,
                     errorDetail,
                     responseJson),
-                errorDetail);
+                errorDetail,
+                reqBody);
         }
 
         private static string? GetNetSuiteErrorDetail(string responseJson)

@@ -104,6 +104,78 @@ public class NetSuiteExceptionFactoryTests
         Assert.Equal(NetSuiteErrorCode.Unknown, exception.ErrorCode);
     }
 
+    [Fact]
+    public void Invalid_or_unsupported_search_is_classified()
+    {
+        // Exact wording from the reported STR item-receipt failure.
+        var exception = Assert.IsType<NetSuiteValidationException>(
+            NetSuiteExceptionFactory.CreateForStatus(
+                HttpStatusCode.BadRequest,
+                "NetSuite 400 Bad Request: Bad Request(400): [INVALID_PARAMETER] Invalid search query. Detailed unprocessed description follows. Search error occured: Invalid or unsupported search.",
+                "Invalid search query. Detailed unprocessed description follows. Search error occured: Invalid or unsupported search."));
+
+        Assert.Equal(NetSuiteErrorCode.UnsupportedSearch, exception.ErrorCode);
+    }
+
+    [Fact]
+    public void Unsupported_search_appends_the_suiteql_excerpt_from_the_request_body()
+    {
+        const string body = """{"q":"SELECT item.itemid AS ItemCode FROM transactionline tl JOIN item ON tl.item = item.id WHERE t.tranid = 'IF-1'"}""";
+
+        var exception = Assert.IsType<NetSuiteValidationException>(
+            NetSuiteExceptionFactory.CreateForStatus(
+                HttpStatusCode.BadRequest,
+                "NetSuite 400 Bad Request: Invalid or unsupported search.",
+                "Invalid or unsupported search.",
+                body));
+
+        Assert.Contains(
+            "Failing query (excerpt): SELECT item.itemid AS ItemCode FROM transactionline tl JOIN item ON tl.item = item.id WHERE t.tranid = 'IF-1'",
+            exception.Message);
+    }
+
+    [Fact]
+    public void Unsupported_search_excerpt_is_truncated_at_500_characters()
+    {
+        var longQuery = new string('x', 600);
+        var body = System.Text.Json.JsonSerializer.Serialize(new { q = longQuery });
+
+        var exception = Assert.IsType<NetSuiteValidationException>(
+            NetSuiteExceptionFactory.CreateForStatus(
+                HttpStatusCode.BadRequest,
+                "NetSuite 400 Bad Request: Invalid or unsupported search.",
+                "Invalid or unsupported search.",
+                body));
+
+        var excerpt = exception.Message.Split("Failing query (excerpt): ")[1];
+        Assert.Equal(NetSuiteExceptionFactory.QueryExcerptLimit + " …(truncated)".Length, excerpt.Length);
+    }
+
+    [Fact]
+    public void Unsupported_search_without_a_request_body_keeps_the_message_unchanged()
+    {
+        var exception = Assert.IsType<NetSuiteValidationException>(
+            NetSuiteExceptionFactory.CreateForStatus(
+                HttpStatusCode.BadRequest,
+                "NetSuite 400 Bad Request: Invalid or unsupported search.",
+                "Invalid or unsupported search."));
+
+        Assert.Equal("NetSuite 400 Bad Request: Invalid or unsupported search.", exception.Message);
+    }
+
+    [Fact]
+    public void Other_validation_failures_ignore_the_request_body()
+    {
+        var exception = Assert.IsType<NetSuiteValidationException>(
+            NetSuiteExceptionFactory.CreateForStatus(
+                HttpStatusCode.BadRequest,
+                "NetSuite 400 Bad Request: Insufficient stock",
+                "Insufficient stock",
+                """{"q":"SELECT 1"}"""));
+
+        Assert.Equal("NetSuite 400 Bad Request: Insufficient stock", exception.Message);
+    }
+
     [Theory]
     [InlineData(408)]
     [InlineData(429)]

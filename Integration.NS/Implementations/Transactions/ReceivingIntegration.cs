@@ -558,32 +558,34 @@ public class ReceivingIntegration(
         });
     }
 
-    const string IF_RECEIPTS_QUERY = """
-                SELECT
-        			sum(rtl.quantity) / uom.conversionrate
-        		FROM
-        			previoustransactionlinelink pttl
-        			JOIN transactionline rtl ON pttl.nextline = rtl.id
-        			AND pttl.nextdoc = rtl.transaction
-        		WHERE
-        			pttl.previousdoc = tl.transaction
-        			AND pttl.previousline = tl.id
-        			AND pttl.nexttype = 'ItemRcpt'
-        """;
-
-    const string IF_TO_LINE_ID= """
+    /// <summary>
+    ///     Derived table mapping each Item Fulfillment line to its source TO
+    ///     RECEIVING line id (<c>tolineid</c>) and that line's <c>quantityshiprecv</c>.
+    ///     <para>
+    ///     All correlation is resolved INSIDE the derived table; the outer join
+    ///     predicate only correlates the table's own output columns (ifdoc/ifline)
+    ///     to the driving alias. A previous shape embedded the same mapping as
+    ///     correlated scalar subqueries in the SELECT list (the QuantityReceived one
+    ///     nested two levels deep, reaching the outer <c>uom</c> alias), which
+    ///     NetSuite rejects with <c>400 [INVALID_PARAMETER] ... Invalid or
+    ///     unsupported search</c> — see .opencode/docs/SuiteQL-Shape-Rules.md.
+    ///     </para>
+    /// </summary>
+    /// <returns>A parenthesised subquery. Append the join alias, e.g. $"{IF_TO_LINE_MAP} ifmap".</returns>
+    const string IF_TO_LINE_MAP = """
             SELECT
-                ttl.id
+                tolink.nextdoc AS ifdoc,
+                tolink.nextline AS ifline,
+                ttl.id AS tolineid,
+                ttl.quantityshiprecv AS qtyrecv
         	FROM
         		previoustransactionlinelink tolink
-            JOIN 
+            JOIN
                 transactionline shippingline ON shippingline.id = tolink.previousline and shippingline.transaction = tolink.previousdoc
-            JOIN 
+            JOIN
                 transactionline ttl on ttl.transferorderitemlineid = shippingline.transferorderitemlineid and ttl.transaction = shippingline.transaction
         	WHERE
-        		tolink.nextdoc = tl.transaction
-                AND ttl.transactionlinetype = 'RECEIVING'
-        		AND tolink.nextline = tl.id
+                ttl.transactionlinetype = 'RECEIVING'
         		AND tolink.previoustype = 'TrnfrOrd'
         """;
 
@@ -594,7 +596,7 @@ public class ReceivingIntegration(
             .Select(
                 ("item.itemid", "ItemCode"),
                 ("item.id", "ItemId"),
-                ($"({IF_TO_LINE_ID})", "LineNumber"),
+                ("ifmap.tolineid", "LineNumber"),
                 ("uom.unitname", "UoM"),
                 ("uom.conversionrate", "UoMRate"),
                 ("loc.name", nameof(ItemReceiptLineDTO.LocationName)),
@@ -607,13 +609,14 @@ public class ReceivingIntegration(
                 ("tl.custcol_dbti_actual_weight", nameof(ItemReceiptLineDTO.WeightActual)),
                 ("ABS(tl.quantity / uom.conversionrate)", "QuantityPlanned"),
                 ("item.usebins", "ItemUseBins"),
-                ($"({IF_RECEIPTS_QUERY})", "QuantityReceived")
+                ("NVL(ifmap.qtyrecv / uom.conversionrate, 0)", "QuantityReceived")
             )
             .From("transactionline tl")
             .Join("item", on: "tl.item = item.id")
             .Join("transaction t", on: "tl.transaction = t.id")
             .Join("location loc", on: "tl.location = loc.id")
             .Join("unitstypeuom uom", on: "tl.units = uom.internalid")
+            .LeftJoin($"({IF_TO_LINE_MAP}) ifmap", "ifmap.ifdoc = tl.transaction AND ifmap.ifline = tl.id")
             .LeftJoin("CUSTOMRECORD_BARCODE_PER_UOM barcode", "barcode.custrecord_bpu_uom = tl.units AND barcode.custrecord_bpu_item = tl.item")
             .LeftJoin("(SELECT ibq.bin, ibq.item, b.location FROM itembinquantity ibq JOIN bin b ON ibq.bin = b.id WHERE preferredbin = \'T\') pb", on: "pb.item = item.id AND pb.location = tl.location")
             .WithFilters(
@@ -672,6 +675,50 @@ public class ReceivingIntegration(
         return [.. response.items];
     }
 
+    /// <summary>
+    /// Per-receiving-line planned vs received quantities of the source Transfer Order,
+    /// read from the TO ledger (<c>quantityshiprecv</c>) rather than from Item Receipts
+    /// linked to an Item Fulfillment. Receipts posted from mobile are linked TO→IR, so an
+    /// IF-based sum cannot see them; the TO counter can. Keyed by TO line id, which is what
+    /// <c>ItemReceiptLineDTO.LineNumber</c> already carries on both the IF and the
+    /// non-IF load paths.
+    /// </summary>
+    private async Task<IReadOnlyDictionary<int, TransferOrderLineRemaining>> GetTransferOrderLineRemainingAsync(int sourceInternalId)
+    {
+        var query = builderFactory.Create()
+            .Select(
+                ("tl.id", "LineId"),
+                ("item.itemid", "ItemCode"),
+                ("item.displayname", "ItemDescription"),
+                ("ABS(tl.quantity / NVL(uom.conversionrate, 1))", "QuantityPlanned"),
+                ("NVL(tl.quantityshiprecv / NVL(uom.conversionrate, 1), 0)", "QuantityReceived")
+            )
+            .From("transactionline tl")
+            .Join("item", on: "tl.item = item.id")
+            .Join("transaction t", on: "tl.transaction = t.id")
+            .Join("unitstypeuom uom", on: "tl.units = uom.internalid")
+            .WithFilters(
+                Equal("t.id", sourceInternalId),
+                In("t.recordtype", new[] { "transferorder", "intercompanytransferorder" }),
+                Equal("tl.mainline", "F"),
+                Equal("tl.transactionlinetype", "RECEIVING")
+            ).Build();
+
+        var response = await netsuiteService.ExecuteSuiteQLQuery<TransferOrderLineRemaining>(query.Query);
+
+        return response.items.ToDictionary(x => x.LineId);
+    }
+
+    private sealed record TransferOrderLineRemaining
+    {
+        public int LineId { get; init; }
+        public string ItemCode { get; init; } = string.Empty;
+        public string ItemDescription { get; init; } = string.Empty;
+        public decimal QuantityPlanned { get; init; }
+        public decimal QuantityReceived { get; init; }
+        public decimal QuantityRemaining => QuantityPlanned - QuantityReceived;
+    }
+
     const int INVENTORY_STATUS_ID_GOOD = 1;
     const int INVENTORY_STATUS_ID_BAD = 3;
     const int INVENTORY_STATUS_ID_MISSING = 6;
@@ -698,6 +745,47 @@ public class ReceivingIntegration(
                     $"Line '{unnumberedLine.ItemCode}' ({unnumberedLine.ItemDescription}) has no NetSuite " +
                     "line number. Reload the page and retry; if it persists, the source document's " +
                     "lines could not be matched to the receipt.");
+            }
+
+            // Over-receipt guard (non-PO only). The form's open quantity is a client-side
+            // number and can be stale by the time the operator submits — most notably when
+            // another device already received against the same Transfer Order, because such
+            // receipts are linked TO→IR and invisible to the IF-based math. Re-read the TO
+            // ledger and refuse anything beyond what is left, before any HTTP post, so the
+            // failure is an actionable message instead of a terse NetSuite 400. Lines that
+            // the lookup does not resolve are left to the orderLine guard above.
+            if (dto.SourceType != ItemReceiptDTO.SourceTypes.PurchaseOrder)
+            {
+                var remainingByLineId = await GetTransferOrderLineRemainingAsync(dto.SourceInternalId);
+
+                foreach (var line in dto.Lines.Where(x => x.InventoryDetails.Sum(y => y.QuantityAlloted) > 0))
+                {
+                    if (!remainingByLineId.TryGetValue(line.LineNumber, out var remaining))
+                        continue;
+
+                    var allotted = line.InventoryDetails.Sum(y => y.QuantityAlloted);
+
+                    if (allotted <= remaining.QuantityRemaining)
+                        continue;
+
+                    logger.LogWarning(
+                        "PostItemReceipt rejected over-receipt on line {LineId} ({ItemCode} {ItemDescription}): " +
+                        "allotted {Allotted} exceeds remaining {Remaining} ({Received} already received, " +
+                        "{SourceType} {SourceInternalId})",
+                        line.LineNumber,
+                        remaining.ItemCode,
+                        remaining.ItemDescription,
+                        allotted,
+                        remaining.QuantityRemaining,
+                        remaining.QuantityReceived,
+                        dto.SourceType,
+                        dto.SourceInternalId);
+
+                    throw new Exception(
+                        $"Line '{remaining.ItemCode}' ({remaining.ItemDescription}): allotted {allotted} " +
+                        $"exceeds remaining {remaining.QuantityRemaining} ({remaining.QuantityReceived} already " +
+                        "received, possibly from another device). Reload and adjust quantities.");
+                }
             }
 
             // Determine which statuses actually exist in the receipt

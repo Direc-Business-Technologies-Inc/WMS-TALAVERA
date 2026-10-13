@@ -17,6 +17,14 @@ public enum NetSuiteErrorCode
     /// and N") or not a multiple of the page size. Safe to retry on a legal page.
     /// </summary>
     OffsetOutOfBounds = 1,
+
+    /// <summary>
+    /// SuiteQL rejected the query SHAPE itself ("Search error occurred: Invalid
+    /// or unsupported search") — typically a correlated subquery referencing the
+    /// outer query's aliases. Never retryable; the fix is a query-shape change.
+    /// See .opencode/docs/SuiteQL-Shape-Rules.md.
+    /// </summary>
+    UnsupportedSearch = 2,
 }
 
 /// <summary>
@@ -33,6 +41,14 @@ public static class NetSuiteErrorCodes
         // "must be divisible by the page limit"), so match on the stable tokens
         // rather than the full sentence.
         var normalized = $"{message} {detail}".ToLowerInvariant();
+
+        // Matched first: the unsupported-search wording never carries the offset
+        // tokens, and a generic NetSuite wording drift must not re-classify it.
+        if (normalized.Contains("invalid or unsupported search"))
+        {
+            return NetSuiteErrorCode.UnsupportedSearch;
+        }
+
         if (normalized.Contains("offset") &&
             (normalized.Contains("out of bounds") ||
              normalized.Contains("out-of-bounds") ||
