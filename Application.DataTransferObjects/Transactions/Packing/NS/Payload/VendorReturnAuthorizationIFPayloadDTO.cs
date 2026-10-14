@@ -113,10 +113,7 @@ public class VendorReturnAuthorizationIFPayloadDTO
 
                         var inventoryDetail = new InventoryDetail
                         {
-                            InventoryAssignmentList = new InventoryAssignmentList
-                            {
-                                InventoryAssignment = assignment
-                            }
+                            InventoryAssignment = assignment
                         };
 
                         return new OrderLineItem
