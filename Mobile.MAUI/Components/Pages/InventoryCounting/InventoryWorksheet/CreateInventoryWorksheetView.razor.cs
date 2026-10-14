@@ -100,7 +100,7 @@ public partial class CreateInventoryWorksheetView : IAsyncDisposable
             {
                 await InvokeAsync(StateHasChanged);
 
-                var res = await Client.Get<List<LocationVM>>("/Lookup/Susidiary/Locations", new { NetsuiteUserSubsidiaryInternalId = UserSubsidiaryId });
+                var res = await Client.Post<List<LocationVM>>("/Lookup/Susidiary/Locations", new { NetsuiteUserSubsidiaryInternalId = UserSubsidiaryId });
 
                 return res;
             },
@@ -118,7 +118,7 @@ public partial class CreateInventoryWorksheetView : IAsyncDisposable
             {
                 await InvokeAsync(StateHasChanged);
 
-                var res = await Client.Get<List<BinVM>>(
+                var res = await Client.Post<List<BinVM>>(
                     "/Lookup/BinLocations",
                     new
                     {

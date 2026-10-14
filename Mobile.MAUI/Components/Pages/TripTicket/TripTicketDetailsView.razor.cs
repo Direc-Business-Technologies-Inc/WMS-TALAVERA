@@ -64,7 +64,7 @@ public partial class TripTicketDetailsView
             TaskAsync = async () =>
             {
                 await InvokeAsync(StateHasChanged);
-                var res = await Client.Get<List<LocationVM>>("/Lookup/Susidiary/Locations", new { NetsuiteUserSubsidiaryInternalId = UserSubsidiaryId });
+                var res = await Client.Post<List<LocationVM>>("/Lookup/Susidiary/Locations", new { NetsuiteUserSubsidiaryInternalId = UserSubsidiaryId });
                 return res;
             },
             OnSuccess = async (result) =>

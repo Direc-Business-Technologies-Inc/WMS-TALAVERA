@@ -31,7 +31,7 @@ public partial class ReturnsView : IAsyncDisposable
             TaskAsync = async () =>
             {
                 await InvokeAsync(StateHasChanged);
-                var res = await Client.Get<List<ReturnsVM>>("/Packing/Returns/PendingFulfillment", new { NetsuiteUserSubsidiaryInternalId = UserSubsidiaryId, NetsuiteUserInternalId = UserId });
+                var res = await Client.Post<List<ReturnsVM>>("/Packing/Returns/PendingFulfillment", new { NetsuiteUserSubsidiaryInternalId = UserSubsidiaryId, NetsuiteUserInternalId = UserId });
                 return res;
             },
             OnSuccess = async (result) =>

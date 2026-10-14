@@ -32,7 +32,7 @@ public partial class VendorReturnAuthorizationView : IAsyncDisposable
             TaskAsync = async () =>
             {
                 await InvokeAsync(StateHasChanged);
-                var res = await Client.Get<List<VendorReturnAuthorizationVM>>("/Packing/VendorReturnAuthorization/PendingReturn", new { NetsuiteUserSubsidiaryInternalId = UserSubsidiaryId, NetsuiteUserInternalId = UserId });
+                var res = await Client.Post<List<VendorReturnAuthorizationVM>>("/Packing/VendorReturnAuthorization/PendingReturn", new { NetsuiteUserSubsidiaryInternalId = UserSubsidiaryId, NetsuiteUserInternalId = UserId });
                 return res;
             },
             OnSuccess = async (result) =>
