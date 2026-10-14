@@ -17,13 +17,16 @@
     <RadzenTabs @bind-SelectedIndex="@TabIndex" @bind-SelectedIndex:after="@OnTabChanged">
         <Tabs>
             <RadzenTabsItem Text="Goods Receipts">
-                <QuickDataGrid DataGetter="@ReceiptsProvider" ActionName="@ActionGetInventoryAdjustment" Id="inventory_adjustment_receipt_datagrid">
+                <QuickDataGrid DataGetter="@ReceiptsProvider" ActionName="@ActionGetInventoryAdjustment" Id="inventory_adjustment_receipt_datagrid" ActionWidth="55">
                     <HeaderEnd>
                         <RadzenButton ButtonStyle="ButtonStyle.Success" Size="ButtonSize.Small" Icon="call_received" Text="Create Receipt" Click="@(() => NavManager.NavigateTo(InventoryAdjustmentRoutes.CREATE + "?type=receipt"))" />
                         <RadzenButton ButtonStyle="ButtonStyle.Success" Size="ButtonSize.Small" Icon="call_made" Text="Create Issue" Click="@(() => NavManager.NavigateTo(InventoryAdjustmentRoutes.CREATE + "?type=issue"))" />
                     </HeaderEnd>
                     <RowActions>
-                        <RadzenButton Icon="arrow_right_alt" Size="ButtonSize.ExtraSmall" Click="() => ViewInventoryAdjustment(context)" />
+                        <RadzenStack Orientation="Orientation.Horizontal" Gap="4px" JustifyContent="JustifyContent.End">
+                            <AppPrintLink Url="@PrintUrl(context)" Size="ButtonSize.ExtraSmall" />
+                            <RadzenButton Icon="arrow_right_alt" Size="ButtonSize.ExtraSmall" Click="() => ViewInventoryAdjustment(context)" />
+                        </RadzenStack>
                     </RowActions>
                 </QuickDataGrid>
             </RadzenTabsItem>
