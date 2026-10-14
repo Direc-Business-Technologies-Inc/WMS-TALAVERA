@@ -5,6 +5,66 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https:-/keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.6] - 2026-10-12
+### Fixed
+- (Packing → Returns) Returns that had already been packed were still listed on
+  the tab. The Returns filter was missing the `ordpicked = 'F'` guard that the
+  STR tab already applies, so it had no equivalent of the "not yet picked"
+  check. Added to both the Web SuiteQL filter
+  (`ReturnPackingIntegration.PackingReturnsFilters`) and the Mobile script
+  (`NS_TO_x_Return_x_Packing_Get_PendingFulfillment`) so the two lists stay in
+  parity.
+
+### Operational
+- Not yet verified against live NetSuite. Smoke test with a return that has
+  already been packed and confirm it drops off the tab after a refresh.
+- Confirm NetSuite sets `ordpicked = 'T'` when a Return Item Fulfillment posts.
+  If it does not, this guard will not remove packed returns, and a
+  quantity-based filter (`quantitypacked < quantity`) will be required instead.
+- Status `E` remains in both the packing filters (`B`, `D`, `E`) and the
+  receiving filters (`F`, `E`). Its meaning in `transferorderstatus` is still
+  unresolved, so returns sitting at `E` that have not been picked will still
+  appear.
+
+---
+
+## [0.12.5] - 2026-10-10
+### Added
+- (Stock Transfer Request, Returns to Supplier) Per-row Print button on the
+  STR grid (all three tabs) and the Returns to Supplier grid, alongside the
+  existing row action
+- `NetSuitePrint` centralizes NetSuite printout URL construction and
+  `AppPrintLink` replaces the copy-pasted print button markup
+
+### Fixed
+- STR grid rows were never selecting `t.id`, so `StockTransferRequestDataGridVM.Id`
+  silently deserialized as `0` on every row. Required for the printout URL.
+- Returns to Supplier grid did not surface the NetSuite internal id at any layer
+- Removed two byte-identical transfer order printout constants and the dead
+  ternary that selected between them
+
+### Operational
+- STR and Returns to Supplier grids are cached for 60s. Clear the grid cache on
+  release so the new print buttons are immediately usable.
+- Not yet verified against live NetSuite. Smoke test all three STR tabs plus
+  Returns to Supplier; the Returns tab runs live paged SuiteQL.
+
+---
+
+## [0.12.4] - 2026-10-09
+### Added
+- (Stock Transfer Request) Requested By header field for TO, ITO and Return —
+  sourced from NetSuite employees, required on save, persisted to the standard
+  NetSuite `employee` field, and shown as a new filterable/sortable list column
+  on all three STR tabs
+
+### Operational
+- STR grid results are cached for 60s (`CachedStockTransferRequestIntegration`).
+  Clear the grid cache on release so the new Requested By column is populated
+  immediately.
+
+---
+
 ## [0.12.3] - 2026-09-17
 ### Fixed and Added
 - (Trip Ticket) IF Selection and UI adjustments
