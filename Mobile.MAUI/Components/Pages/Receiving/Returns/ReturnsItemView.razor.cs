@@ -29,7 +29,16 @@ public partial class ReturnsItemView : IAsyncDisposable
     ReturnsLineVM? SelectedLine;
     //ReturnsLineVM? LastScanned => ReturnsItems.OrderByDescending(x => x.ScanCount).FirstOrDefault();
 
-    int ScanCount { get; set; }
+    private int _scanCount;
+    int ScanCount
+    {
+        get => _scanCount;
+        set
+        {
+            _scanCount = value;
+            if (value > 0) MarkScansDirty();
+        }
+    }
     bool SaveBtnDisabled => ScanCount == 0;
     bool IsWeightDialogOpen = false;
     decimal? ChangeWeight = null;
@@ -127,6 +136,7 @@ public partial class ReturnsItemView : IAsyncDisposable
                     return;
                 }
 
+                MarkScansClean();
                 await Toast.Success("Scanned items saved sucessfully");
                 NavManager.NavigateTo("/receiving");
             }
@@ -417,6 +427,7 @@ public partial class ReturnsItemView : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
+        MarkScansClean();
         BroadcastService.BroadcastReceived -= HandleItemScan;
 
         if (JsObj is not null)

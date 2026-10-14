@@ -38,7 +38,16 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
     VendorReturnAuthorizationLineVM? GoodSelectedLine;
     VendorReturnAuthorizationLineVM? BadSelectedLine;
 
-    int ScanCount { get; set; }
+    private int _scanCount;
+    int ScanCount
+    {
+        get => _scanCount;
+        set
+        {
+            _scanCount = value;
+            if (value > 0) MarkScansDirty();
+        }
+    }
     int ActiveTabIndex { get; set; } = 0;
 
     bool SaveBtnDisabled => ScanCount == 0;
@@ -198,6 +207,7 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
                     return;
                 }
 
+                MarkScansClean();
                 await Toast.Success("Scanned items saved sucessfully");
                 NavManager.NavigateTo("/packing");
             }
@@ -991,6 +1001,7 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
+        MarkScansClean();
         BroadcastService.BroadcastReceived -= HandleItemScan;
 
         if (JsObj is not null)
