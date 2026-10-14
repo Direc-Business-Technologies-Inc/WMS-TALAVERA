@@ -30,7 +30,7 @@ namespace Mobile.MAUI
 
             builder.Services.AddMauiBlazorWebView();
             builder.Services.AddAuthorizationCore();
-            builder.Services.AddScoped<AuthenticationStateProvider, JWTAuthStateProvider>();
+            builder.Services.AddScoped<AuthenticationStateProvider>(sp => sp.GetRequiredService<JWTAuthStateProvider>());
             builder.Services.AddScoped<JWTAuthStateProvider>();
             builder.Services.AddSingleton<GlobalStates>();
             builder.Services.AddAuthorizationCore();

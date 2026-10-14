@@ -10,9 +10,43 @@ public class ApiClientService
 {
     RestClient? Client { get; set; }
 
+    private Task? _unauthorizedHandling;
+
+    /// <summary>
+    /// Raised when the API responds with HTTP 401. Consumers (e.g. the main
+    /// layout) use this to clear the local session and route back to login.
+    /// </summary>
+    public event Func<Task>? Unauthorized;
+
     public ApiClientService()
     {
         
+    }
+
+    private Task NotifyUnauthorizedAsync(string endpoint)
+    {
+        if (endpoint.Contains("Auth/Login", StringComparison.OrdinalIgnoreCase))
+        {
+            return Task.CompletedTask;
+        }
+
+        return _unauthorizedHandling ??= HandleUnauthorizedCoreAsync();
+
+        async Task HandleUnauthorizedCoreAsync()
+        {
+            try
+            {
+                var handler = Unauthorized;
+                if (handler is not null)
+                {
+                    await handler.Invoke();
+                }
+            }
+            finally
+            {
+                _unauthorizedHandling = null;
+            }
+        }
     }
     public void UpdateClient(ClientEndpointVM vm)
     {
@@ -41,7 +75,8 @@ public class ApiClientService
         }
         else if (res.StatusCode == System.Net.HttpStatusCode.Unauthorized)
         {
-            throw new Exception("Not authorized.");
+            await NotifyUnauthorizedAsync(endpoint);
+            throw new NotAuthorizedException();
         }
 
         return (!string.IsNullOrEmpty(res.Content) ? JsonSerializer.Deserialize<ApiResult<T>>(res.Content) : new())!;
@@ -69,7 +104,8 @@ public class ApiClientService
         }
         else if (res.StatusCode == System.Net.HttpStatusCode.Unauthorized)
         {
-            throw new Exception("Not authorized.");
+            await NotifyUnauthorizedAsync(endpoint);
+            throw new NotAuthorizedException();
         }
 
 
@@ -98,7 +134,8 @@ public class ApiClientService
         }
         else if (res.StatusCode == System.Net.HttpStatusCode.Unauthorized)
         {
-            throw new Exception("Not authorized.");
+            await NotifyUnauthorizedAsync(endpoint);
+            throw new NotAuthorizedException();
         }
 
 

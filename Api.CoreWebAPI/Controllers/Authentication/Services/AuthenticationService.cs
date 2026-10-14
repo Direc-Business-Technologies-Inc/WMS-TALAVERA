@@ -56,7 +56,7 @@ public class AuthenticationService(ISender Sender,
                 issuer: "wmsapi",
                 audience: "com.wmsmobile.appname",
                 claims: claims,
-                expires: DateTime.Now.AddMinutes(480),
+                expires: DateTime.UtcNow.AddMinutes(480),
                 signingCredentials: creds
             );
 

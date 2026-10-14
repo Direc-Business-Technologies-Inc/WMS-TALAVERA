@@ -20,7 +20,6 @@ public class JWTAuthStateProvider : AuthenticationStateProvider
 
             if (string.IsNullOrWhiteSpace(token) || IsTokenExpired(token))
             {
-                NotifyUserLogout();
                 return new AuthenticationState(_anonymous);
             }
 
@@ -60,17 +59,12 @@ public class JWTAuthStateProvider : AuthenticationStateProvider
     private bool IsTokenExpired(string token)
     {
         var jwtToken = _tokenHandler.ReadJwtToken(token);
-        var timeRemaining = jwtToken.ValidTo - DateTime.UtcNow;
-        return timeRemaining.TotalMinutes <= 1;
+        return jwtToken.ValidTo <= DateTime.UtcNow;
     }
 
     private IEnumerable<Claim> ParseClaimsFromJwt(string jwt)
     {
         var jwtToken = _tokenHandler.ReadJwtToken(jwt);
         return jwtToken.Claims;
-    }
-    public string? GetAccessToken()
-    {
-        return SecureStorage.GetAsync("access-token").Result;
     }
 }

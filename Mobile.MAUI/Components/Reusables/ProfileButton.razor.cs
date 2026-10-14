@@ -40,7 +40,7 @@ public partial class ProfileButton
                 {
                     await RoleService.SetRole(null);
                     AuthStateProvider.NotifyUserLogout();
-                    NavManager.NavigateTo("/login", true, true);
+                    NavManager.NavigateTo("/login", false, true);
                 }
                 
                 await InvokeAsync(StateHasChanged);
@@ -58,7 +58,7 @@ public partial class ProfileButton
             {
                 await RoleService.SetRole(null);
                 AuthStateProvider.NotifyUserLogout();
-                NavManager.NavigateTo("/login", true, true);
+                NavManager.NavigateTo("/login", false, true);
             }
         }
         catch (Exception e)
