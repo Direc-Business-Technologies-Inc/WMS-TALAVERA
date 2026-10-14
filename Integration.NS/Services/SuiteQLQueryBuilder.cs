@@ -1,5 +1,6 @@
 ﻿using Application.DataTransferObjects.Others.NS;
 using Mapster;
+using Microsoft.Extensions.Logging;
 using Microsoft.Net.Http.Headers;
 using Shared.Entities;
 using System.Collections;
@@ -13,14 +14,22 @@ namespace Integration.NS.Services;
 
 public class SuiteQLQueryBuilderFactoryService
 {
+    private readonly ILogger? _logger;
+
+    public SuiteQLQueryBuilderFactoryService(ILogger<SuiteQLQueryBuilderFactoryService>? logger = null)
+    {
+        _logger = logger;
+    }
+
     public SuiteQLQueryBuilder Create()
     {
-        return new SuiteQLQueryBuilder();
+        return new SuiteQLQueryBuilder(_logger);
     }
 }
 
 public class SuiteQLQueryBuilder
 {
+    private readonly ILogger? logger;
     const string DATETIME_FORMAT_STRING = "yyyy-MM-ddTHH:mm:ss";
     const string NETSUITE_DATETIME_FORMAT_STRING = "YYYY-MM-DD\"T\"HH24:MI:SS";
     /// <summary>NetSuite SuiteQL REST ceiling for the limit query parameter (valid range 1..1000).</summary>
@@ -38,6 +47,7 @@ public class SuiteQLQueryBuilder
     private HashSet<string> _uniqueColumns = new();
 
     public SuiteQLQueryBuilder() { }
+    public SuiteQLQueryBuilder(ILogger? logger) { this.logger = logger; }
     public SuiteQLQueryBuilder(SuiteQLQueryBuilder source)
     {
         // TODO memory can be saved by usig a reference to the parent builder, but i doubt the query builder will take up too much memory so this is alright for now
@@ -54,24 +64,98 @@ public class SuiteQLQueryBuilder
         _tableName = source._tableName;
     }
 
+    /// <summary>
+    /// Applies grid filters, sorts, and paging. <paramref name="mapFields"/>
+    /// maps DTO/VM property names sent by the grid to SuiteQL column
+    /// expressions — required for columns exposed through SELECT aliases
+    /// (e.g. BUILTIN.DF(...)), because NetSuite does not resolve SELECT
+    /// aliases in WHERE/ORDER BY and rejects them with 400 INVALID_PARAMETER
+    /// "Unknown identifier". Unmapped properties are passed through verbatim,
+    /// matching the previous behavior.
+    /// </summary>
     public SuiteQLQueryBuilder WithDatagridIntent(DataGridIntent intent, Dictionary<string, string>? mapFields = null)
     {
-        WithDataGridFilters(intent, mapFields);
-        WithDataGridSorts(intent, mapFields);
+        if (mapFields is not null)
+        {
+            foreach (var (key, value) in mapFields)
+            {
+                PropertyMap[key] = value;
+            }
+        }
+        WithDataGridFilters(intent);
+        WithDataGridSorts(intent);
         Take = intent.Take;
         Skip = intent.Skip;
         return this;
     }
-    public SuiteQLQueryBuilder WithDataGridFilters(DataGridIntent intent, Dictionary<string, string>? mapFields = null)
+    public SuiteQLQueryBuilder WithDataGridFilters(DataGridIntent intent)
     {
-        Filters.AddRange(intent.Filters);
+        foreach (var filter in intent.Filters)
+        {
+            MarkGridSourced(filter);
+            Filters.Add(filter);
+        }
         return this;
     }
 
-    public SuiteQLQueryBuilder WithDataGridSorts(DataGridIntent intent, Dictionary<string, string>? mapFields = null)
+    public SuiteQLQueryBuilder WithDataGridSorts(DataGridIntent intent)
     {
-        Sorts.AddRange(intent.Sorts);
+        foreach (var sort in intent.Sorts)
+        {
+            _gridSourcedDescriptors.Add(sort);
+            Sorts.Add(sort);
+        }
         return this;
+    }
+
+    /// <summary>
+    /// Descriptors that arrived through a <see cref="DataGridIntent"/> (grid
+    /// user actions or replayed persisted grid settings). Their property names
+    /// are DTO/VM-facing, not SQL, so unresolved names are dropped at build
+    /// time instead of emitted as raw identifiers NetSuite rejects. Hand-written
+    /// filters added via WithFilters keep the legacy passthrough behavior.
+    /// </summary>
+    private readonly HashSet<object> _gridSourcedDescriptors = new();
+
+    private void MarkGridSourced(AppFilterDescriptor filter)
+    {
+        _gridSourcedDescriptors.Add(filter);
+        foreach (var child in filter.Filters)
+        {
+            MarkGridSourced(child);
+        }
+    }
+
+    /// <summary>
+    /// Resolves a sort/filter property name to a SuiteQL identifier.
+    /// Order: explicit PropertyMap entry → SELECT alias (exact, then
+    /// case-insensitive) → qualified column (contains '.') → raw passthrough
+    /// for hand-written descriptors. Returns null only for grid-sourced
+    /// descriptors that resolve to nothing — those are dropped rather than
+    /// emitted, because NetSuite cannot resolve an unknown bare identifier.
+    /// </summary>
+    private string? ResolveGridProperty(string property, bool isGridSourced)
+    {
+        if (PropertyMap.TryGetValue(property, out var mapped)) return mapped;
+
+        // Hand-written filters may target bare columns that are not SELECT
+        // aliases (e.g. equality checks on non-selected columns); preserve them.
+        if (property.Contains('.')) return property;
+
+        var aliasMatch =
+            SelectColumns.FirstOrDefault(c =>
+                c.alias is not null &&
+                string.Equals(c.alias, property, StringComparison.Ordinal));
+        if (aliasMatch.alias is null)
+        {
+            aliasMatch = SelectColumns.FirstOrDefault(c =>
+                c.alias is not null &&
+                string.Equals(c.alias, property, StringComparison.OrdinalIgnoreCase));
+        }
+        if (aliasMatch.alias is not null) return aliasMatch.col;
+
+        if (!isGridSourced) return property;
+        return null;
     }
 
     private string BuildFilters()
@@ -80,7 +164,12 @@ public class SuiteQLQueryBuilder
 
         try
         {
-            return " WHERE " + string.Join(" AND ", Filters.Select(f => _parseFilter(f)));
+            var parsed = Filters
+                .Select(f => _parseFilter(f))
+                .Where(f => f is not null)
+                .ToList();
+            if (parsed.Count == 0) return string.Empty;
+            return " WHERE " + string.Join(" AND ", parsed);
         }
         catch (Exception ex)
         {
@@ -93,7 +182,12 @@ public class SuiteQLQueryBuilder
 
         try
         {
-            return " ORDER BY " + string.Join(", ", Sorts.Select(s => _parseSort(s)));
+            var parsed = Sorts
+                .Select(s => _parseSort(s))
+                .Where(s => s is not null)
+                .ToList();
+            if (parsed.Count == 0) return string.Empty;
+            return " ORDER BY " + string.Join(", ", parsed);
         }
         catch (Exception ex)
         {
@@ -146,7 +240,7 @@ public class SuiteQLQueryBuilder
         };
     }
 
-    private string _parseSort(AppSortDescriptor sort, Dictionary<string, string>? propertyMap = null)
+    private string? _parseSort(AppSortDescriptor sort, Dictionary<string, string>? propertyMap = null)
     {
         propertyMap ??= PropertyMap;
 
@@ -156,14 +250,28 @@ public class SuiteQLQueryBuilder
             SortDirectionEnum.Ascending => "ASC",
             _ => throw new ArgumentException("Invalid sort direction")
         };
-        var property = propertyMap != null && propertyMap.ContainsKey(sort.Property) ? propertyMap[sort.Property] : sort.Property;
+        var property = ResolveGridProperty(sort.Property, _gridSourcedDescriptors.Contains(sort));
+        if (property is null)
+        {
+            logger?.LogWarning(
+                "Dropped grid sort on unmapped property '{Property}': it is neither in the property map, a SELECT alias, nor a qualified column, and would be rejected by NetSuite with 400 INVALID_PARAMETER.",
+                sort.Property);
+            return null;
+        }
         return $"{property} {sortDir}";
     }
 
-    private string _parseFilter(AppFilterDescriptor filter, Dictionary<string, string>? propertyMap = null)
+    private string? _parseFilter(AppFilterDescriptor filter, Dictionary<string, string>? propertyMap = null)
     {
         propertyMap ??= PropertyMap;
-        var prop = propertyMap != null && propertyMap.ContainsKey(filter.Property) ? propertyMap[filter.Property] : filter.Property;
+        var prop = ResolveGridProperty(filter.Property, _gridSourcedDescriptors.Contains(filter));
+        if (prop is null)
+        {
+            logger?.LogWarning(
+                "Dropped grid filter on unmapped property '{Property}': it is neither in the property map, a SELECT alias, nor a qualified column, and would be rejected by NetSuite with 400 INVALID_PARAMETER.",
+                filter.Property);
+            return null;
+        }
 
         if (filter.Filters.Count > 0) return _parseFilterGroup(filter);
         if (filter.ComparisonOperator == null) throw new InvalidOperationException($"no comparison operator given");

@@ -47,6 +47,53 @@ public class ReceivingIntegration(
     private const int NonTradePurchaseCategoryId = 3;
     private static readonly string[] NonTradeSubcategoryIds = ["4", "5", "9"];
 
+    /// <summary>
+    /// Maps grid property names to the underlying SuiteQL expressions for the
+    /// transfer order and returns list queries. These columns are exposed via
+    /// SELECT aliases, which NetSuite does not resolve in WHERE/ORDER BY.
+    /// Includes both the NS DTO alias names and the web VM property names
+    /// (From/ToSubsidiary, Source/DestinationWarehouse) that grids send after
+    /// handler projection.
+    /// </summary>
+    private static Dictionary<string, string> TransferOrderColumnMap { get; } = new()
+    {
+        ["SourceSubsidiary"] = "BUILTIN.DF(t.subsidiary)",
+        ["FromSubsidiary"] = "BUILTIN.DF(t.subsidiary)",
+        ["DestinationSubsidiary"] = "BUILTIN.DF(t.tosubsidiary)",
+        ["ToSubsidiary"] = "BUILTIN.DF(t.tosubsidiary)",
+        ["Location"] = "BUILTIN.DF(tl.location)",
+        ["SourceWarehouse"] = "BUILTIN.DF(ml.location)",
+        ["TransferLocation"] = "BUILTIN.DF(t.transferlocation)",
+        ["DestinationWarehouse"] = "BUILTIN.DF(t.transferlocation)",
+        ["VendorName"] = "BUILTIN.DF(t.custbody_dbti_return_to_vendor)",
+        ["Vendor"] = "BUILTIN.DF(t.custbody_dbti_return_to_vendor)",
+        ["Date"] = "t.trandate",
+        ["DateLastModified"] = "t.lastmodifieddate",
+        ["ReferenceNumber"] = "t.tranid",
+        ["Status"] = "s.name",
+        ["Remarks"] = "t.memo",
+    };
+
+    /// <summary>
+    /// Maps grid property names to the underlying SuiteQL expressions for the
+    /// purchase order list query. Computed and BUILTIN.DF columns are aliased
+    /// in the SELECT and must be expanded for WHERE/ORDER BY.
+    /// </summary>
+    private static Dictionary<string, string> PurchaseOrderColumnMap { get; } = new()
+    {
+        ["Date"] = "t.trandate",
+        ["DateLastModified"] = "t.lastmodifieddate",
+        ["DeliveryDate"] = "t.custbody_dbti_order_date",
+        ["VendorName"] = "BUILTIN.DF(t.entity)",
+        ["PurchaseCategory"] = "BUILTIN.DF(t.custbody_dbti_purchase_category)",
+        ["PurchaseSubcategory"] = "BUILTIN.DF(t.custbody_dbti_purchase_subcategory)",
+        ["Status"] = "s.name",
+        ["Remarks"] = "t.memo",
+        ["Location"] = "t.location",
+        ["TransferLocation"] = "t.transferlocation",
+        ["ReferenceNumber"] = "t.tranid",
+    };
+
     public Task<PurchaseDeliveryNoteHeaderSAPDTO?> GetPurchaseDeliveryNoteHeaderAsync(int docEntry)
     {
         throw new NotImplementedException();
@@ -138,7 +185,7 @@ public class ReceivingIntegration(
             .From("transaction t")
             .Join("transactionline tl", "tl.transaction = t.id")
             .LeftJoin("purchaseorderstatus s", on: "s.id = t.status")
-            .WithDatagridIntent(intent)
+            .WithDatagridIntent(intent, PurchaseOrderColumnMap)
             .WithFilters(
                 Equal("t.recordtype", "purchaseorder"),
                 In("t.status", new string[] { "B", "E" }),
@@ -213,7 +260,7 @@ public class ReceivingIntegration(
                 ),
                 In("t.transferlocation", AllowedLocations)
             )
-            .WithDatagridIntent(intent)
+            .WithDatagridIntent(intent, TransferOrderColumnMap)
             .Build();
 
         return await QueryListWithOffsetClampAsync(intent, "Transfer orders list", async skipOverride =>
@@ -435,7 +482,7 @@ public class ReceivingIntegration(
             .From("transaction t")
             .LeftJoin("transferorderstatus s", on: "s.id = t.status")
             .LeftJoin("transactionline ml", "ml.transaction = t.id AND ml.mainline = 'T'")
-            .WithDatagridIntent(intent)
+            .WithDatagridIntent(intent, TransferOrderColumnMap)
             .WithFilters([.. filters]).Build();
 
         if (skipOverride.HasValue)

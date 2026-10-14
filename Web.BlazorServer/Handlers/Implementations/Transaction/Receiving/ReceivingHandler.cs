@@ -88,7 +88,7 @@ public class ReceivingHandler(
             Location = x.Location,
             TransferLocation = x.TransferLocation,
             SourceSubsidiary = x.SourceSubsidiary,
-            DesctinationSubsidiary = x.DestinationSubsidiary, 
+            DestinationSubsidiary = x.DestinationSubsidiary, 
         });
 
         return (x, Count);
