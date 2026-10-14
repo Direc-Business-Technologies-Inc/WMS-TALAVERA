@@ -28,6 +28,9 @@ public partial class CreateInventoryWorksheetView : IAsyncDisposable
     private List<InventoryWorksheetLineVM> ICItems { get; set; } = [];
 
     private InventoryItemVM ItemScanned { get; set; }
+    private InventoryItemVM? ManualItem { get; set; }
+    private decimal ManualQuantity { get; set; }
+    private bool ShowManualEntry { get; set; }
     //private List<BarcodeRequestVM> ItemRequest { get; set; } = [];
     private string BarcodeRequest { get; set; }
 
@@ -139,6 +142,24 @@ public partial class CreateInventoryWorksheetView : IAsyncDisposable
         //    }
         //};
 
+        ActionGetInventoryItems = new AppAction<List<InventoryItemVM>>
+        {
+            Name = "GetInventoryWorksheetItems",
+            TaskAsync = async () =>
+            {
+                await InvokeAsync(StateHasChanged);
+
+                var res = await Client.Get<List<InventoryItemVM>>("/InventoryCounting/Worksheet/Items");
+
+                return res;
+            },
+            OnSuccess = async (result) =>
+            {
+                Data = result.Data ?? [];
+                await InvokeAsync(StateHasChanged);
+            }
+        };
+
         ActionGetItemPerBarcodes = new AppAction<InventoryItemVM>
         {
             Name = "GetItemBarcodes",
@@ -221,6 +242,11 @@ public partial class CreateInventoryWorksheetView : IAsyncDisposable
             //{
             //    await ActionFactory.ExecuteAppActionAsync(ActionGetInventoryItems);
             //}
+
+            if (ActionGetInventoryItems is not null)
+            {
+                await ActionFactory.ExecuteAppActionAsync(ActionGetInventoryItems);
+            }
 
             //ItemRequest = Data
             //    .Select(i => new BarcodeRequestVM
@@ -438,6 +464,66 @@ public partial class CreateInventoryWorksheetView : IAsyncDisposable
         ScanCount++;
     }
 
+    private async Task AddManualItem()
+    {
+        if (SelectedLocationInternalId == 0)
+        {
+            await Toast.Warning("Please select a location first.");
+            return;
+        }
+
+        if (RequiresBinSelection && SelectedBinInternalId == 0)
+        {
+            await Toast.Warning("Please select a bin first.");
+            return;
+        }
+
+        if (ManualItem is null || ManualQuantity <= 0)
+        {
+            await Toast.Warning("Please select an item and enter a quantity.");
+            return;
+        }
+
+        var binInternalId = CurrentBinInternalId;
+
+        var line = ICItems.FirstOrDefault(x =>
+            x.NetsuiteMaterialInternalId == ManualItem.NetsuiteMaterialInternalId &&
+            x.NetsuiteBinInternalId == binInternalId);
+
+        if (line is null)
+        {
+            line = new InventoryWorksheetLineVM
+            {
+                NetsuiteMaterialInternalId = ManualItem.NetsuiteMaterialInternalId,
+                MaterialCode = ManualItem.MaterialCode,
+                MaterialName = ManualItem.MaterialName,
+                MaterialWeight = ManualItem.MaterialWeight,
+                NetsuiteBinInternalId = binInternalId
+            };
+
+            ICItems.Add(line);
+        }
+
+        if (NextScanIsBad)
+            line.BadScannedQuantity += ManualQuantity;
+        else
+            line.GoodScannedQuantity += ManualQuantity;
+
+        line.ScanCount++;
+
+        ManualItem = null;
+        ManualQuantity = 0;
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void ToggleManualEntry()
+    {
+        ShowManualEntry = !ShowManualEntry;
+        InvokeAsync(StateHasChanged);
+    }
+
+
 
     private async Task SaveScan()
     {
@@ -456,6 +542,12 @@ public partial class CreateInventoryWorksheetView : IAsyncDisposable
         if (ICItems.Count == 0)
         {
             await Toast.Warning("No scanned items to save.");
+            return;
+        }
+
+        if (ICItems.Any(x => x.GoodScannedQuantity < 0 || x.BadScannedQuantity < 0))
+        {
+            await Toast.Warning("Quantities cannot be negative.");
             return;
         }
 
@@ -603,6 +695,25 @@ public partial class CreateInventoryWorksheetView : IAsyncDisposable
 
     private async Task OnLocationChanged(object value)
     {
+        var previousLocationInternalId = SelectedLocationInternalId;
+
+        if (ICItems.Count > 0)
+        {
+            var confirmResult = await Dialog.Confirm(
+                "Changing the location will clear all scanned and manually entered quantities. Continue?",
+                "Change location",
+                new ConfirmOptions { OkButtonText = "Yes, change location", CancelButtonText = "Cancel" });
+
+            if (confirmResult != true)
+            {
+                SelectedLocationInternalId = previousLocationInternalId;
+                await InvokeAsync(StateHasChanged);
+                return;
+            }
+
+            ICItems.Clear();
+        }
+
         SelectedBinInternalId = 0;
         Bins.Clear();
 
