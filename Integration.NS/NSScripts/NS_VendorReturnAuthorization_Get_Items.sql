@@ -53,16 +53,31 @@ JOIN subsidiary s ON t.subsidiary = s.id
 JOIN location loc ON tl.location = loc.id
 JOIN unitstypeuom uom ON tl.units = uom.internalid
 
-LEFT JOIN customrecord_dbti_vendor_bin_assignment ba ON t.entity = ba.custrecord_dbti_vba_vendor
+-- One row per (vendor, location) / (item, location): without GROUP BY these joins fan
+-- out one transaction line into several rows when the vendor has multiple
+-- bin-assignment records or the item has multiple preferred bins at the location, and
+-- the duplicated orderLine breaks the itemFulfillment transform at save time.
+-- ba also matches the line location so a bin assigned at another location never
+-- resolves onto this line.
+LEFT JOIN (
+	SELECT
+		custrecord_dbti_vba_vendor,
+		custrecord_dbti_vba_location,
+		MIN(custrecord_dbti_vba_assigned_bin) AS custrecord_dbti_vba_assigned_bin
+	FROM customrecord_dbti_vendor_bin_assignment
+	GROUP BY custrecord_dbti_vba_vendor, custrecord_dbti_vba_location
+) ba ON t.entity = ba.custrecord_dbti_vba_vendor
+	AND ba.custrecord_dbti_vba_location = tl.location
 
 LEFT JOIN (
 	SELECT
 		ibq.item,
-		ibq.bin,
+		MIN(ibq.bin) AS bin,
 		b.location
 	FROM itembinquantity ibq
 	JOIN bin b ON b.id = ibq.bin
 	WHERE ibq.preferredbin = 'T'
+	GROUP BY ibq.item, b.location
 ) ibq ON ibq.item = i.id  AND ibq.location = tl.location
 
 LEFT JOIN bin b ON b.id = ibq.bin

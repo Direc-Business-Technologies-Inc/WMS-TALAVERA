@@ -76,7 +76,10 @@ public class VendorReturnAuthorizationIFPayloadDTO
                                         Id = line.IsBad ? "3" : "1"
                                     },
                                     Quantity = line.ScannedQuantity,
-                                    BinNumber = !line.IsLocationUsedBin ? null :
+                                    // Use the header isUsedBin (same flag that decides ?replace= and filler
+                                    // shape) so a stale per-line flag can never null the bin on one line
+                                    // while the transform still demands inventoryDetail.
+                                    BinNumber = !isUsedBin ? null :
                                         line.NetsuiteMaterialVendorAssignedBin != 0
                                         ? new ReferenceValue
                                         {

@@ -1064,18 +1064,77 @@ namespace Integration.NS.Services
         #endregion
 
         #region Itemfulfillment
+
+        /// <summary>
+        /// The packing line queries (NS_TO_x_Packing_Get_Items etc.) join one transaction
+        /// line to the item's preferred bin and the preferred vendor's bin assignment.
+        /// Either join multiplies the row when the item has several preferred bins at the
+        /// location or the vendor has several assignment records there, and the mobile
+        /// posts every row back. Two body entries with the same orderLine are invalid for
+        /// the !transform/itemFulfillment POST: under ?replace=item.inventoryDetail.inventoryAssignment
+        /// the zero-qty filler copy's EMPTY assignment collides with the scanned copy's
+        /// assignment and NetSuite rejects with "Please configure the inventory detail in
+        /// line N of the item list" naming the scanned line. Collapse each (line, quality)
+        /// pair to one row, preferring the row the operator actually scanned; good/bad
+        /// split scans of one line (same LineSequenceNumber, different IsBad) are
+        /// legitimate and are kept. GroupBy preserves first-appearance order, so the
+        /// posted body order (and the line-N decoder below) stays aligned.
+        /// </summary>
+        internal static List<T> DeduplicateFulfillmentLines<T>(
+            List<T> lines,
+            Func<T, int> lineSequenceNumber,
+            Func<T, bool> isBad,
+            Func<T, decimal> scannedQuantity)
+        {
+            return lines
+                .GroupBy(x => (lineSequenceNumber(x), isBad(x)))
+                .Select(g => g
+                    .OrderByDescending(x => scannedQuantity(x) > 0)
+                    .ThenByDescending(scannedQuantity)
+                    .First())
+                .ToList();
+        }
+
         public async Task<bool> SaveTOItemFulfillment(List<PostTransferOrderDTO> Data)
         {
+            Data = DeduplicateFulfillmentLines(Data, x => x.LineSequenceNumber, x => x.IsBad, x => x.ScannedQuantity);
+
             var orderId = Data.Select(x => x.NetsuiteOrderInternalId).FirstOrDefault();
-            var isUsedBin = Data.Select(x => x.IsLocationUsedBin).FirstOrDefault();
+            // Use Any (not First): one stale non-bin line must not downgrade a
+            // bin-tracked fulfillment to the legacy no-detail shape.
+            var isUsedBin = Data.Any(x => x.IsLocationUsedBin);
+            var mixedBinFlags = Data.Select(x => x.IsLocationUsedBin).Distinct().Count() > 1;
             var isTripTicketExempt = Data.FirstOrDefault()?.IsTripTicketExempt == true;
             var itemFulfillmentStatus = isTripTicketExempt ? "C" : "B";
             var printLabel = true; // Packing labels are required regardless of trip-ticket exemption.
 
             var badTO = Data.Where(x => x.IsBad).ToList();
 
+            if (mixedBinFlags)
+            {
+                var flagSample = string.Join("; ", Data.Take(10).Select((line, i) => $"pos{i + 1}/WMS{line.LineSequenceNumber}/{line.MaterialCode} usedBin={line.IsLocationUsedBin} ({line.LocationUsedBin})"));
+                throw new Exception($"Cannot post BAD TO Item Fulfillment: mixed bin-tracked flags in one save (location '{Data.FirstOrDefault()?.LocationName}'). Reload the order so every line resolves the same location, then retry. Sample: {flagSample}.");
+            }
+
             if (badTO.Any(x => x.ScannedQuantity > 0))
             {
+                // NetSuite rejects inventoryDetail without binNumber at bin-tracked locations ("configure the inventory detail in line N").
+                // Fail here, naming the offending items and their item-list positions, instead of surfacing a cryptic 400.
+                var badMissingBin = new List<string>();
+                for (var i = 0; i < badTO.Count; i++)
+                {
+                    var line = badTO[i];
+                    if (line.ScannedQuantity > 0 && line.NetsuiteMaterialVendorAssignedBin == 0 && line.NetsuiteMaterialPrefferedBinId == 0)
+                    {
+                        badMissingBin.Add($"item-list line {i + 1} (WMS line {line.LineSequenceNumber}) {line.MaterialCode} - {line.MaterialName}");
+                    }
+                }
+
+                if (badMissingBin.Any())
+                {
+                    throw new Exception($"Cannot post BAD TO Item Fulfillment: location '{Data.FirstOrDefault()?.LocationName}' is bin-tracked but no bin is resolved for: {string.Join("; ", badMissingBin)}. Assign a bin to these items before saving.");
+                }
+
                 // replace + explicit inventoryDetail only for bin-tracked locations; non-bin posts run the legacy shape (no detail, no replace).
                 var url = string.Format(isUsedBin ? ItemFulfillmentUrl : ItemFulfillmentUrlNoReplace, "transferOrder", orderId);
 
@@ -1092,6 +1151,15 @@ namespace Integration.NS.Services
                 {
                     logger.LogError(ex, "BAD TO Item Fulfillment failed. Url: {Url}. Payload: {Payload}", url, jsonStringBad);
                     var diag = $"[diag replace={url.Contains("replace=")} usedBin={isUsedBin} scannedLines={badTO.Count(x => x.ScannedQuantity > 0)} totalLines={badTO.Count}]";
+
+                    // Decode NetSuite's "line N of the item list" into the actual DTO row so field tests identify the offender without server logs.
+                    var nsLineMatch = Regex.Match(ex.Message, @"line (\d+) of the item list");
+                    if (nsLineMatch.Success && int.TryParse(nsLineMatch.Groups[1].Value, out var nsLine) && nsLine >= 1 && nsLine <= badTO.Count)
+                    {
+                        var offender = badTO[nsLine - 1];
+                        diag += $" | line{nsLine}=WMSLine {offender.LineSequenceNumber} {offender.MaterialCode} - {offender.MaterialName} vendorBin={offender.NetsuiteMaterialVendorAssignedBin} preferredBin={offender.NetsuiteMaterialPrefferedBinId} qty={offender.ScannedQuantity}";
+                    }
+
                     throw new Exception($"Error while posting BAD TO Item Fulfillment. {ex.Message} {diag}", ex);
                 }
             }
@@ -1100,6 +1168,23 @@ namespace Integration.NS.Services
 
             if (goodTO.Any())
             {
+                // NetSuite rejects inventoryDetail without binNumber at bin-tracked locations ("configure the inventory detail in line N").
+                // Fail here, naming the offending items and their item-list positions, instead of surfacing a cryptic 400.
+                var goodMissingBin = new List<string>();
+                for (var i = 0; i < goodTO.Count; i++)
+                {
+                    var line = goodTO[i];
+                    if (line.ScannedQuantity > 0 && line.NetsuiteMaterialVendorAssignedBin == 0 && line.NetsuiteMaterialPrefferedBinId == 0)
+                    {
+                        goodMissingBin.Add($"item-list line {i + 1} (WMS line {line.LineSequenceNumber}) {line.MaterialCode} - {line.MaterialName}");
+                    }
+                }
+
+                if (goodMissingBin.Any())
+                {
+                    throw new Exception($"Cannot post GOOD TO Item Fulfillment: location '{Data.FirstOrDefault()?.LocationName}' is bin-tracked but no bin is resolved for: {string.Join("; ", goodMissingBin)}. Assign a bin to these items before saving.");
+                }
+
                 // replace + explicit inventoryDetail only when the location is bin-tracked AND the bucket carries scanned lines.
                 var usedBinWithScan = isUsedBin && goodTO.Any(x => x.ScannedQuantity > 0);
                 var url = string.Format(usedBinWithScan ? ItemFulfillmentUrl : ItemFulfillmentUrlNoReplace, "transferOrder", orderId);
@@ -1117,6 +1202,15 @@ namespace Integration.NS.Services
                 {
                     logger.LogError(ex, "GOOD TO Item Fulfillment failed. Url: {Url}. Payload: {Payload}", url, jsonStringGood);
                     var diag = $"[diag replace={url.Contains("replace=")} usedBin={isUsedBin} scannedLines={goodTO.Count(x => x.ScannedQuantity > 0)} totalLines={goodTO.Count}]";
+
+                    // Decode NetSuite's "line N of the item list" into the actual DTO row so field tests identify the offender without server logs.
+                    var nsLineMatch = Regex.Match(ex.Message, @"line (\d+) of the item list");
+                    if (nsLineMatch.Success && int.TryParse(nsLineMatch.Groups[1].Value, out var nsLine) && nsLine >= 1 && nsLine <= goodTO.Count)
+                    {
+                        var offender = goodTO[nsLine - 1];
+                        diag += $" | line{nsLine}=WMSLine {offender.LineSequenceNumber} {offender.MaterialCode} - {offender.MaterialName} vendorBin={offender.NetsuiteMaterialVendorAssignedBin} preferredBin={offender.NetsuiteMaterialPrefferedBinId} qty={offender.ScannedQuantity}";
+                    }
+
                     throw new Exception($"Error while posting GOOD TO Item Fulfillment. {ex.Message} {diag}", ex);
                 }
             }
@@ -1125,11 +1219,32 @@ namespace Integration.NS.Services
 
         public async Task<bool> SaveReturnsItemFulfillment(List<PostReturnsDTO> Data)
         {
+            Data = DeduplicateFulfillmentLines(Data, x => x.LineSequenceNumber, x => x.IsBad, x => x.ScannedQuantity);
+
             var orderId = Data.Select(x => x.NetsuiteOrderInternalId).FirstOrDefault();
-            var isUsedBin = Data.Select(x => x.IsLocationUsedBin).FirstOrDefault();
+            // Use Any (not First): one stale non-bin line must not downgrade a
+            // bin-tracked fulfillment to the legacy no-detail shape.
+            var isUsedBin = Data.Any(x => x.IsLocationUsedBin);
             var isTripTicketExempt = Data.FirstOrDefault()?.IsTripTicketExempt == true;
             var itemFulfillmentStatus = isTripTicketExempt ? "C" : "B";
             var printLabel = true; // Packing labels are required regardless of trip-ticket exemption.
+
+            // NetSuite rejects inventoryDetail without binNumber at bin-tracked locations ("configure the inventory detail in line N").
+            // Fail here, naming the offending items and their item-list positions, instead of surfacing a cryptic 400.
+            var returnsMissingBin = new List<string>();
+            for (var i = 0; i < Data.Count; i++)
+            {
+                var line = Data[i];
+                if (line.ScannedQuantity > 0 && line.NetsuiteMaterialVendorAssignedBin == 0 && line.NetsuiteMaterialPrefferedBinId == 0)
+                {
+                    returnsMissingBin.Add($"item-list line {i + 1} (WMS line {line.LineSequenceNumber}) {line.MaterialCode} - {line.MaterialName}");
+                }
+            }
+
+            if (returnsMissingBin.Any())
+            {
+                throw new Exception($"Cannot post Returns Item Fulfillment: location '{Data.FirstOrDefault()?.LocationName}' is bin-tracked but no bin is resolved for: {string.Join("; ", returnsMissingBin)}. Assign a bin to these items before saving.");
+            }
 
             // replace + explicit inventoryDetail only when the location is bin-tracked AND the payload carries scanned lines; otherwise legacy shape.
             var returnsUsedBinWithScan = isUsedBin && Data.Any(x => x.ScannedQuantity > 0);
@@ -1148,6 +1263,15 @@ namespace Integration.NS.Services
             {
                 logger.LogError(ex, "Returns Item Fulfillment failed. Url: {Url}. Payload: {Payload}", url, jsonStringGood);
                 var diag = $"[diag replace={url.Contains("replace=")} usedBin={isUsedBin} scannedLines={Data.Count(x => x.ScannedQuantity > 0)} totalLines={Data.Count}]";
+
+                // Decode NetSuite's "line N of the item list" into the actual DTO row so field tests identify the offender without server logs.
+                var nsLineMatch = Regex.Match(ex.Message, @"line (\d+) of the item list");
+                if (nsLineMatch.Success && int.TryParse(nsLineMatch.Groups[1].Value, out var nsLine) && nsLine >= 1 && nsLine <= Data.Count)
+                {
+                    var offender = Data[nsLine - 1];
+                    diag += $" | line{nsLine}=WMSLine {offender.LineSequenceNumber} {offender.MaterialCode} - {offender.MaterialName} vendorBin={offender.NetsuiteMaterialVendorAssignedBin} preferredBin={offender.NetsuiteMaterialPrefferedBinId} qty={offender.ScannedQuantity}";
+                }
+
                 throw new Exception($"Error while posting Returns Item Fulfillment. {ex.Message} {diag}", ex);
             }
 
@@ -1156,8 +1280,12 @@ namespace Integration.NS.Services
 
         public async Task<bool> SaveVRAItemFulfillment(List<PostVendorReturnAuthorizationDTO> Data)
         {
+            Data = DeduplicateFulfillmentLines(Data, x => x.LineSequenceNumber, x => x.IsBad, x => x.ScannedQuantity);
+
             var orderId = Data.Select(x => x.NetsuiteOrderInternalId).FirstOrDefault();
-            var isUsedBin = Data.Select(x => x.IsLocationUsedBin).FirstOrDefault();
+            // Use Any (not First): one stale non-bin line must not downgrade a
+            // bin-tracked fulfillment to the legacy no-detail shape.
+            var isUsedBin = Data.Any(x => x.IsLocationUsedBin);
             var isTripTicketExempt = Data.FirstOrDefault()?.IsTripTicketExempt == true;
             var itemFulfillmentStatus = isTripTicketExempt ? "C" : "B";
             var printLabel = true; // Packing labels are required regardless of trip-ticket exemption.
@@ -1169,6 +1297,22 @@ namespace Integration.NS.Services
 
             if (badTO.Any(x => x.ScannedQuantity > 0))
             {
+                // NetSuite rejects inventoryDetail without binNumber at bin-tracked locations ("configure the inventory detail in line N").
+                var badVraMissingBin = new List<string>();
+                for (var i = 0; i < badTO.Count; i++)
+                {
+                    var line = badTO[i];
+                    if (line.ScannedQuantity > 0 && line.NetsuiteMaterialVendorAssignedBin == 0 && line.NetsuiteMaterialPrefferedBinId == 0)
+                    {
+                        badVraMissingBin.Add($"item-list line {i + 1} (WMS line {line.LineSequenceNumber}) {line.MaterialCode} - {line.MaterialName}");
+                    }
+                }
+
+                if (badVraMissingBin.Any())
+                {
+                    throw new Exception($"Cannot post BAD VRA Item Fulfillment: location '{Data.FirstOrDefault()?.LocationName}' is bin-tracked but no bin is resolved for: {string.Join("; ", badVraMissingBin)}. Assign a bin to these items before saving.");
+                }
+
                 // Every posted bad line has scanned qty; replace + detail only for bin-tracked locations.
                 var urlBad = string.Format(isUsedBin ? ItemFulfillmentUrl : ItemFulfillmentUrlNoReplace, "vendorReturnAuthorization", orderId);
 
@@ -1185,6 +1329,15 @@ namespace Integration.NS.Services
                 {
                     logger.LogError(ex, "BAD VRA Item Fulfillment failed. Url: {Url}. Payload: {Payload}", urlBad, jsonStringBad);
                     var diag = $"[diag replace={urlBad.Contains("replace=")} usedBin={isUsedBin} scannedLines={badTO.Count(x => x.ScannedQuantity > 0)} totalLines={badTO.Count}]";
+
+                    // Decode NetSuite's "line N of the item list" into the actual DTO row so field tests identify the offender without server logs.
+                    var nsLineMatch = Regex.Match(ex.Message, @"line (\d+) of the item list");
+                    if (nsLineMatch.Success && int.TryParse(nsLineMatch.Groups[1].Value, out var nsLine) && nsLine >= 1 && nsLine <= badTO.Count)
+                    {
+                        var offender = badTO[nsLine - 1];
+                        diag += $" | line{nsLine}=WMSLine {offender.LineSequenceNumber} {offender.MaterialCode} - {offender.MaterialName} vendorBin={offender.NetsuiteMaterialVendorAssignedBin} preferredBin={offender.NetsuiteMaterialPrefferedBinId} qty={offender.ScannedQuantity}";
+                    }
+
                     throw new Exception($"Error while posting BAD VRA Item Fulfillment. {ex.Message} {diag}", ex);
                 }
             }
@@ -1193,6 +1346,22 @@ namespace Integration.NS.Services
 
             if (goodTO.Any())
             {
+                // NetSuite rejects inventoryDetail without binNumber at bin-tracked locations ("configure the inventory detail in line N").
+                var goodVraMissingBin = new List<string>();
+                for (var i = 0; i < goodTO.Count; i++)
+                {
+                    var line = goodTO[i];
+                    if (line.ScannedQuantity > 0 && line.NetsuiteMaterialVendorAssignedBin == 0 && line.NetsuiteMaterialPrefferedBinId == 0)
+                    {
+                        goodVraMissingBin.Add($"item-list line {i + 1} (WMS line {line.LineSequenceNumber}) {line.MaterialCode} - {line.MaterialName}");
+                    }
+                }
+
+                if (goodVraMissingBin.Any())
+                {
+                    throw new Exception($"Cannot post GOOD VRA Item Fulfillment: location '{Data.FirstOrDefault()?.LocationName}' is bin-tracked but no bin is resolved for: {string.Join("; ", goodVraMissingBin)}. Assign a bin to these items before saving.");
+                }
+
                 // replace + explicit inventoryDetail only when the location is bin-tracked AND the bucket carries scanned lines.
                 var goodUsedBinWithScan = isUsedBin && goodTO.Any(x => x.ScannedQuantity > 0);
                 var urlGood = string.Format(goodUsedBinWithScan ? ItemFulfillmentUrl : ItemFulfillmentUrlNoReplace, "vendorReturnAuthorization", orderId);
@@ -1210,6 +1379,15 @@ namespace Integration.NS.Services
                 {
                     logger.LogError(ex, "GOOD VRA Item Fulfillment failed. Url: {Url}. Payload: {Payload}", urlGood, jsonStringGood);
                     var diag = $"[diag replace={urlGood.Contains("replace=")} usedBin={isUsedBin} scannedLines={goodTO.Count(x => x.ScannedQuantity > 0)} totalLines={goodTO.Count}]";
+
+                    // Decode NetSuite's "line N of the item list" into the actual DTO row so field tests identify the offender without server logs.
+                    var nsLineMatch = Regex.Match(ex.Message, @"line (\d+) of the item list");
+                    if (nsLineMatch.Success && int.TryParse(nsLineMatch.Groups[1].Value, out var nsLine) && nsLine >= 1 && nsLine <= goodTO.Count)
+                    {
+                        var offender = goodTO[nsLine - 1];
+                        diag += $" | line{nsLine}=WMSLine {offender.LineSequenceNumber} {offender.MaterialCode} - {offender.MaterialName} vendorBin={offender.NetsuiteMaterialVendorAssignedBin} preferredBin={offender.NetsuiteMaterialPrefferedBinId} qty={offender.ScannedQuantity}";
+                    }
+
                     throw new Exception($"Error while posting GOOD VRA Item Fulfillment. {ex.Message} {diag}", ex);
                 }
             }
