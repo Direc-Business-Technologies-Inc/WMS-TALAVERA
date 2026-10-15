@@ -29,14 +29,42 @@ public class VendorReturnAuthorizationIFPayloadDTO
                 {
                     if (line.ScannedQuantity == 0)
                     {
-                        return new OrderLineItem
+                        // On bin-tracked locations the transform URL carries ?replace=item.inventoryDetail.inventoryAssignment,
+                        // and NetSuite rejects the request unless the body's item entries carry the sub-resource consistently.
+                        // Zero-qty filler lines therefore get an EMPTY assignment so the replace target exists on every line.
+                        var filler = new OrderLineItem
                         {
                             OrderLine = line.LineSequenceNumber,
                             isReceived = false
                         };
+
+                        if (isUsedBin)
+                        {
+                            filler.InventoryDetail = new InventoryDetail
+                            {
+                                InventoryAssignment = new InventoryAssignment
+                                {
+                                    Items = []
+                                }
+                            };
+                        }
+
+                        return filler;
                     }
                     else
                     {
+                        // Legacy working shape (pre-2026-07): non-bin locations send no inventoryDetail and let NetSuite auto-manage it.
+                        // Bin-tracked locations need the explicit REST-shaped detail plus ?replace= on the transform URL.
+                        if (!isUsedBin)
+                        {
+                            return new OrderLineItem
+                            {
+                                OrderLine = line.LineSequenceNumber,
+                                isReceived = true,
+                                Quantity = line.ScannedQuantity
+                            };
+                        }
+
                         var assignment = new InventoryAssignment
                         {
                             Items =

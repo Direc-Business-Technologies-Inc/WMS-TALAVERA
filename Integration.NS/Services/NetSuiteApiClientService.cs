@@ -44,6 +44,7 @@ namespace Integration.NS.Services
 
         private static readonly string ItemFulfillmentUrl = $"https://{AccountId}.suitetalk.api.netsuite.com/services/rest/record/v1/{{0}}/{{1}}/!transform/itemFulfillment?replace=item.inventoryDetail.inventoryAssignment";
         private static readonly string ItemFulfillmentUrlNotUsedBin = $"https://{AccountId}.suitetalk.api.netsuite.com/services/rest/record/v1/{{0}}/{{1}}/!transform/itemFulfillment?replace=item.inventoryDetail.inventoryAssignment";
+        private static readonly string ItemFulfillmentUrlNoReplace = $"https://{AccountId}.suitetalk.api.netsuite.com/services/rest/record/v1/{{0}}/{{1}}/!transform/itemFulfillment";
 
         private static readonly string PatchItemFulfillmentUrl = $"https://{AccountId}.suitetalk.api.netsuite.com/services/rest/record/v1/itemFulfillment/{{0}}";
 
@@ -1071,23 +1072,27 @@ namespace Integration.NS.Services
             var itemFulfillmentStatus = isTripTicketExempt ? "C" : "B";
             var printLabel = true; // Packing labels are required regardless of trip-ticket exemption.
 
-            string url = string.Format(isUsedBin ? ItemFulfillmentUrl : ItemFulfillmentUrlNotUsedBin, "transferOrder", orderId);
-
             var badTO = Data.Where(x => x.IsBad).ToList();
 
             if (badTO.Any(x => x.ScannedQuantity > 0))
             {
+                // replace + explicit inventoryDetail only for bin-tracked locations; non-bin posts run the legacy shape (no detail, no replace).
+                var url = string.Format(isUsedBin ? ItemFulfillmentUrl : ItemFulfillmentUrlNoReplace, "transferOrder", orderId);
+
+                string? jsonStringBad = null;
                 try
                 {
                     var payloadBad = TransferOrderIFPayloadDTO.CreateForItemFulfillment(badTO, itemFulfillmentStatus, printLabel, isUsedBin);
 
-                    var jsonStringBad = JsonSerializer.Serialize(payloadBad, JsonSerializerOption);
+                    jsonStringBad = JsonSerializer.Serialize(payloadBad, JsonSerializerOption);
 
                     await MakeRequest<object>(url, jsonStringBad, HttpMethod.Post);
                 }
                 catch (Exception ex)
                 {
-                    throw new Exception($"Error while posting BAD TO Item Fulfillment. {ex.Message}", ex);
+                    logger.LogError(ex, "BAD TO Item Fulfillment failed. Url: {Url}. Payload: {Payload}", url, jsonStringBad);
+                    var diag = $"[diag replace={url.Contains("replace=")} usedBin={isUsedBin} scannedLines={badTO.Count(x => x.ScannedQuantity > 0)} totalLines={badTO.Count}]";
+                    throw new Exception($"Error while posting BAD TO Item Fulfillment. {ex.Message} {diag}", ex);
                 }
             }
 
@@ -1095,17 +1100,24 @@ namespace Integration.NS.Services
 
             if (goodTO.Any())
             {
+                // replace + explicit inventoryDetail only when the location is bin-tracked AND the bucket carries scanned lines.
+                var usedBinWithScan = isUsedBin && goodTO.Any(x => x.ScannedQuantity > 0);
+                var url = string.Format(usedBinWithScan ? ItemFulfillmentUrl : ItemFulfillmentUrlNoReplace, "transferOrder", orderId);
+
+                string? jsonStringGood = null;
                 try
                 {
                     var payloadGood = TransferOrderIFPayloadDTO.CreateForItemFulfillment(goodTO, itemFulfillmentStatus, printLabel, isUsedBin);
 
-                    var jsonStringGood = JsonSerializer.Serialize(payloadGood, JsonSerializerOption);
+                    jsonStringGood = JsonSerializer.Serialize(payloadGood, JsonSerializerOption);
 
                     await MakeRequest<object>(url, jsonStringGood, HttpMethod.Post);
                 }
                 catch (Exception ex)
                 {
-                    throw new Exception($"Error while posting GOOD TO Item Fulfillment. {ex.Message}", ex);
+                    logger.LogError(ex, "GOOD TO Item Fulfillment failed. Url: {Url}. Payload: {Payload}", url, jsonStringGood);
+                    var diag = $"[diag replace={url.Contains("replace=")} usedBin={isUsedBin} scannedLines={goodTO.Count(x => x.ScannedQuantity > 0)} totalLines={goodTO.Count}]";
+                    throw new Exception($"Error while posting GOOD TO Item Fulfillment. {ex.Message} {diag}", ex);
                 }
             }
             return true;
@@ -1119,19 +1131,24 @@ namespace Integration.NS.Services
             var itemFulfillmentStatus = isTripTicketExempt ? "C" : "B";
             var printLabel = true; // Packing labels are required regardless of trip-ticket exemption.
 
-            string url = string.Format(isUsedBin ? ItemFulfillmentUrl : ItemFulfillmentUrlNotUsedBin, "transferOrder", orderId);
+            // replace + explicit inventoryDetail only when the location is bin-tracked AND the payload carries scanned lines; otherwise legacy shape.
+            var returnsUsedBinWithScan = isUsedBin && Data.Any(x => x.ScannedQuantity > 0);
+            string url = string.Format(returnsUsedBinWithScan ? ItemFulfillmentUrl : ItemFulfillmentUrlNoReplace, "transferOrder", orderId);
 
+            string? jsonStringGood = null;
             try
             {
                 ReturnsIFPayloadDTO payloadGood = ReturnsIFPayloadDTO.CreateForItemFulfillment(Data, itemFulfillmentStatus, printLabel, isUsedBin);
 
-                var jsonStringGood = JsonSerializer.Serialize(payloadGood, JsonSerializerOption);
+                jsonStringGood = JsonSerializer.Serialize(payloadGood, JsonSerializerOption);
 
                 await MakeRequest<object>(url, jsonStringGood, HttpMethod.Post);
             }
             catch (Exception ex)
             {
-                throw new Exception($"Error while posting Returns Item Fulfillment. {ex.Message}", ex);
+                logger.LogError(ex, "Returns Item Fulfillment failed. Url: {Url}. Payload: {Payload}", url, jsonStringGood);
+                var diag = $"[diag replace={url.Contains("replace=")} usedBin={isUsedBin} scannedLines={Data.Count(x => x.ScannedQuantity > 0)} totalLines={Data.Count}]";
+                throw new Exception($"Error while posting Returns Item Fulfillment. {ex.Message} {diag}", ex);
             }
 
             return true;
@@ -1146,23 +1163,29 @@ namespace Integration.NS.Services
             var printLabel = true; // Packing labels are required regardless of trip-ticket exemption.
 
             //string url = string.Format(isUsedBin ? ItemFulfillmentUrl : ItemFulfillmentUrlNotUsedBin, "vendorReturnAuthorization", orderId);
-            string url = string.Format(ItemFulfillmentUrlNotUsedBin, "vendorReturnAuthorization", orderId);
+            // Drop ?replace= per bucket when that bucket carries no inventoryDetail, otherwise NetSuite rejects the transform with INVALID_PARAMETER.
 
             var badTO = Data.Where(x => x.IsBad).ToList();
 
             if (badTO.Any(x => x.ScannedQuantity > 0))
             {
+                // Every posted bad line has scanned qty; replace + detail only for bin-tracked locations.
+                var urlBad = string.Format(isUsedBin ? ItemFulfillmentUrl : ItemFulfillmentUrlNoReplace, "vendorReturnAuthorization", orderId);
+
+                string? jsonStringBad = null;
                 try
                 {
                     var payloadBad = VendorReturnAuthorizationIFPayloadDTO.CreateForItemFulfillment(badTO, itemFulfillmentStatus, printLabel, isUsedBin);
 
-                    var jsonStringBad = JsonSerializer.Serialize(payloadBad, JsonSerializerOption);
+                    jsonStringBad = JsonSerializer.Serialize(payloadBad, JsonSerializerOption);
 
-                    await MakeRequest<object>(url, jsonStringBad, HttpMethod.Post);
+                    await MakeRequest<object>(urlBad, jsonStringBad, HttpMethod.Post);
                 }
                 catch (Exception ex)
                 {
-                    throw new Exception($"Error while posting BAD VRA Item Fulfillment. {ex.Message}", ex);
+                    logger.LogError(ex, "BAD VRA Item Fulfillment failed. Url: {Url}. Payload: {Payload}", urlBad, jsonStringBad);
+                    var diag = $"[diag replace={urlBad.Contains("replace=")} usedBin={isUsedBin} scannedLines={badTO.Count(x => x.ScannedQuantity > 0)} totalLines={badTO.Count}]";
+                    throw new Exception($"Error while posting BAD VRA Item Fulfillment. {ex.Message} {diag}", ex);
                 }
             }
 
@@ -1170,17 +1193,24 @@ namespace Integration.NS.Services
 
             if (goodTO.Any())
             {
+                // replace + explicit inventoryDetail only when the location is bin-tracked AND the bucket carries scanned lines.
+                var goodUsedBinWithScan = isUsedBin && goodTO.Any(x => x.ScannedQuantity > 0);
+                var urlGood = string.Format(goodUsedBinWithScan ? ItemFulfillmentUrl : ItemFulfillmentUrlNoReplace, "vendorReturnAuthorization", orderId);
+
+                string? jsonStringGood = null;
                 try
                 {
                     var payloadGood = VendorReturnAuthorizationIFPayloadDTO.CreateForItemFulfillment(goodTO, itemFulfillmentStatus, printLabel, isUsedBin);
 
-                    var jsonStringGood = JsonSerializer.Serialize(payloadGood, JsonSerializerOption);
+                    jsonStringGood = JsonSerializer.Serialize(payloadGood, JsonSerializerOption);
 
-                    await MakeRequest<object>(url, jsonStringGood, HttpMethod.Post);
+                    await MakeRequest<object>(urlGood, jsonStringGood, HttpMethod.Post);
                 }
                 catch (Exception ex)
                 {
-                    throw new Exception($"Error while posting GOOD VRA Item Fulfillment. {ex.Message}", ex);
+                    logger.LogError(ex, "GOOD VRA Item Fulfillment failed. Url: {Url}. Payload: {Payload}", urlGood, jsonStringGood);
+                    var diag = $"[diag replace={urlGood.Contains("replace=")} usedBin={isUsedBin} scannedLines={goodTO.Count(x => x.ScannedQuantity > 0)} totalLines={goodTO.Count}]";
+                    throw new Exception($"Error while posting GOOD VRA Item Fulfillment. {ex.Message} {diag}", ex);
                 }
             }
             return true;
