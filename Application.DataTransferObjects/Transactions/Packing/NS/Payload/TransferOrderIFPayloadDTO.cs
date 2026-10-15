@@ -73,7 +73,7 @@ public class TransferOrderIFPayloadDTO
                                 {
                                     InventoryStatus = new ReferenceValue
                                     {
-                                        Id = line.IsBad ? "3" : "1"
+                                        Id = InventoryStatusMap.Resolve(line.IsBad, line.IsMissing, line.TransferCategory)
                                     },
                                     Quantity = line.ScannedQuantity,
                                     // Use the header isUsedBin (same flag that decides ?replace= and filler

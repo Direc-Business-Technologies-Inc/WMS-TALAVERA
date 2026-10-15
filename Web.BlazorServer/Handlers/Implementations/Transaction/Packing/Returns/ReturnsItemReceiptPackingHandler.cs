@@ -56,11 +56,8 @@ public class ReturnsItemReceiptPackingHandler(ISender sender) : IReturnsItemRece
             })
             .ToList();
 
-        //if (!dto.Any(line => line.ScannedQuantity > 0))
-        //{
-        //    throw new InvalidOperationException("Please enter at least one quantity to fulfill.");
-        //}
-
+        // All-zero and unrecognised-category guards live in PostReturnsIFCmd so the web and
+        // mobile entry points share one set of rules.
         var result = await sender.Send(new PostReturnsIFCmd(dto));
         if (!result.Success)
         {

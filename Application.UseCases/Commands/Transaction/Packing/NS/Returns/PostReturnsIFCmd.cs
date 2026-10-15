@@ -1,4 +1,5 @@
 ﻿using Application.DataTransferObjects.Transactions.Commons.NS;
+using Application.DataTransferObjects.Transactions.Commons.NS.Payload;
 using Application.UseCases.Repositories.Bases;
 using Application.UseCases.Repositories.Integration.Others;
 using Application.UseCases.Repositories.Integration.Transaction.Packing;
@@ -44,6 +45,34 @@ public class PostReturnsIFCmdHandler(
                 {
                     line.IsTripTicketExempt = isTripTicketExempt.Value;
                 }
+            }
+
+            // Nothing scanned means there is no fulfillment to post. Posting anyway sends a
+            // zero-quantity body that NetSuite rejects with an opaque 400.
+            if (!request.Data.Any(line => line.ScannedQuantity > 0))
+            {
+                return ApiResult<bool>.Failed(
+                    "Please enter at least one quantity to fulfill. Nothing was saved.");
+            }
+
+            // Fail closed on an unrecognised transfer category. This is a header-level field, so an
+            // unmapped value (0, stale mapping) would otherwise post every line against whatever
+            // status the payload builder inferred, silently mis-stating inventory.
+            var badCategory = request.Data.FirstOrDefault(line =>
+                !line.IsBad && !line.IsMissing && !InventoryStatusMap.IsKnownTransferCategory(line.TransferCategory));
+
+            if (badCategory is not null)
+            {
+                logger.LogError(
+                    "Return {OrderNumber} line {LineSequenceNumber} has unrecognised transfer category {TransferCategory}. Save aborted.",
+                    badCategory.OrderNumber,
+                    badCategory.LineSequenceNumber,
+                    badCategory.TransferCategory);
+
+                return ApiResult<bool>.Failed(
+                    $"Return {badCategory.OrderNumber} line {badCategory.LineSequenceNumber} has an unrecognised " +
+                    $"transfer category ({badCategory.TransferCategory}). Nothing was saved. " +
+                    "Please reload the order and try again.");
             }
 
             bool result = await netSuiteApiClientService.SaveReturnsItemFulfillment(request.Data);

@@ -73,7 +73,9 @@ public class ReturnsIFPayloadDTO
                                 {
                                     InventoryStatus = new ReferenceValue
                                     {
-                                        Id = line.TransferCategory == 3 ? "1" : "3" //if transfer category is good then status is good
+                                        // Per-line condition wins over the order-level category, so an operator
+                                        // marking a line Bad on a Returns-Good order is not booked as Good.
+                                        Id = InventoryStatusMap.Resolve(line.IsBad, line.IsMissing, line.TransferCategory)
                                     },
                                     Quantity = line.ScannedQuantity,
                                     // Use the header isUsedBin (same flag that decides ?replace= and filler

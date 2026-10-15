@@ -73,7 +73,8 @@ public class VendorReturnAuthorizationIFPayloadDTO
                                 {
                                     InventoryStatus = new ReferenceValue
                                     {
-                                        Id = line.IsBad ? "3" : "1"
+                                        // VRA lines carry no transfer category, so condition drives the status.
+                                        Id = InventoryStatusMap.Resolve(line.IsBad, isMissing: false)
                                     },
                                     Quantity = line.ScannedQuantity,
                                     // Use the header isUsedBin (same flag that decides ?replace= and filler
