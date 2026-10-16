@@ -60,6 +60,7 @@ public partial class CreateTripTicketView : IAsyncDisposable
                     return;
                 }
 
+                MarkScansClean();
                 await Toast.Success("Scanned items saved sucessfully");
                 NavManager.NavigateTo("/");
             }
@@ -119,6 +120,8 @@ public partial class CreateTripTicketView : IAsyncDisposable
                 moveToScanned.isScanned = true;
 
                 ScannedItemFulfillments.Add(moveToScanned);
+
+                MarkScansDirty();
             }
             else
             {
@@ -137,6 +140,8 @@ public partial class CreateTripTicketView : IAsyncDisposable
                 getIFData!.isScanned = false;
 
                 ScannedItemFulfillments.Remove(removeToScanned);
+
+                if (ScannedItemFulfillments.Count == 0) MarkScansClean(); else MarkScansDirty();
             }
 
             await InvokeAsync(StateHasChanged);
@@ -178,6 +183,7 @@ public partial class CreateTripTicketView : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
+        MarkScansClean();
         BroadcastService.BroadcastReceived -= HandleScan;
 
         if (JsObj is not null)

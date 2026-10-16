@@ -23,7 +23,7 @@ public partial class TransferOrderGrid
     AppDataGrid<TransferOrderDataGridVM> TransferOrderDataGrid { get; set; }
     DataGridSettings DataGridSettings { get; set; }
 
-    string ActionGetPurchaseOrders { get; } = EnumHelper.GetEnumDescription(AppActions.GetAllPurchaseOrders);
+    string ActionGetPurchaseOrders { get; } = EnumHelper.GetEnumDescription(AppActions.GetAllTransferOrders);
 
     TransferOrderStatusVM? StatusFilter = null;
 

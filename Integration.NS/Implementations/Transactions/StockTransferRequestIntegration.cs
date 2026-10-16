@@ -1,4 +1,5 @@
-﻿using Application.DataTransferObjects.Transactions.Receiving;
+﻿using Application.DataTransferObjects.Others;
+using Application.DataTransferObjects.Transactions.Receiving;
 using Application.DataTransferObjects.Transactions.StockTransferRequest;
 using Application.UseCases.Repositories.Integration.Others;
 using Application.UseCases.Repositories.Integration.Transaction.StockTransferRequest;
@@ -29,14 +30,30 @@ internal class StockTransferRequestIntegration(
     {
         if (intent.Sorts.Count == 0)
             intent.Sorts.Add(DataGridSortUtilities.Descending(nameof(StockTransferRequestDataGridNSDTO.ReferenceNumber)));
-        
-        var query = builderFactory.Create()
+
+        // The purchase-category predicate (see PurchaseCategoryRules) is
+        // intentionally NOT sent to NetSuite: it resolves as a ~45s full scan
+        // (Q0=46s, Q5-without-it=1-2s, Q6-date-bound=47-48s). The remaining base
+        // predicates are selective (~1-2s), so we fetch the full base set
+        // (known-small: 25 rows in prod), apply the 3VL-equivalent predicate in
+        // memory, then sort+page here.
+        var baseRows = await FetchAllBaseRowsAsync(BuildIntercompanyBaseQuery(intent));
+
+        var filtered = baseRows.Where(PassesPurchaseCategoryFilter).ToList();
+        return SliceFilteredPage(filtered, intent);
+    }
+
+    private SuiteQLQueryBuilder BuildIntercompanyBaseQuery(DataGridIntent intent) =>
+        builderFactory.Create()
                 .Select(
+                    ("t.id", nameof(StockTransferRequestDataGridNSDTO.Id)),
                     ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(StockTransferRequestDataGridNSDTO.Date)),
                     ("TO_CHAR(t.lastmodifieddate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(StockTransferRequestDataGridNSDTO.DateLastModified)),
                     ("t.tranid", nameof(StockTransferRequestDataGridNSDTO.ReferenceNumber)),
                     ("BUILTIN.DF(t.custbody_dbti_purchase_category)", nameof(StockTransferRequestDataGridNSDTO.PurchaseCategory)),
                     ("BUILTIN.DF(t.custbody_dbti_purchase_subcategory)", nameof(StockTransferRequestDataGridNSDTO.PurchaseSubcategory)),
+                    ("t.custbody_dbti_purchase_category", nameof(StockTransferRequestDataGridNSDTO.PurchaseCategoryId)),
+                    ("t.custbody_dbti_purchase_subcategory", nameof(StockTransferRequestDataGridNSDTO.PurchaseSubcategoryId)),
                     ("CONCAT(e.firstname,CONCAT(' ',e.lastname))", nameof(StockTransferRequestDataGridNSDTO.PreparedBy)),
                     ("BUILTIN.DF(t.subsidiary)", nameof(StockTransferRequestDataGridNSDTO.Subsidiary)),
                     ("BUILTIN.DF(t.tosubsidiary)", nameof(StockTransferRequestDataGridNSDTO.ToSubsidiary)),
@@ -44,27 +61,21 @@ internal class StockTransferRequestIntegration(
                     ("BUILTIN.DF(tl.location)", nameof(StockTransferRequestDataGridNSDTO.SourceLocation)),
                     ("s.name", nameof(StockTransferRequestDataGridNSDTO.StatusName)),
                     ("s.id", nameof(StockTransferRequestDataGridNSDTO.StatusId)),
+                    ("CONCAT(re.firstname,CONCAT(' ',re.lastname))", nameof(StockTransferRequestDataGridNSDTO.RequestedBy)),
                     ("t.memo", nameof(StockTransferRequestDataGridNSDTO.Remarks))
                 )
                 .From("transaction t")
                 .Join("transactionline tl", on: "tl.transaction = t.id")
                 .LeftJoin("CUSTOMLIST_DBTI_CR_APPROVAL_STATUSES s", on: "s.id = t.custbody_dbti_custom_approval_status")
                 .LeftJoin("employee e", on: "e.id = t.custbody_dbti_prepared_by")
+                .LeftJoin("employee re", on: "re.id = t.employee")
                 .WithFilters(
                     DataGridFilterUtilities.Equal("tl.mainline", "T"),
                     DataGridFilterUtilities.Equal("t.recordtype", "intercompanytransferorder"),
-                    DataGridFilterUtilities.Equal("t.custbody_dbti_transfer_category", 2),
-                    DataGridFilterUtilities.Any(
-                    DataGridFilterUtilities.NotEqual("t.custbody_dbti_purchase_category", 3),
-                    DataGridFilterUtilities.Equal("t.custbody_dbti_purchase_subcategory ", 5))
+                    DataGridFilterUtilities.Equal("t.custbody_dbti_transfer_category", 2)
                 )
                 .WithFromOrToSubsidiaries(httpContextAccessor, "t")
-                .WithDatagridIntent(intent)
-                .Build();
-
-        var response = await query.ExecuteWithPaging<StockTransferRequestDataGridNSDTO>(netsuiteService);
-        return (response.items.Select(ConvertDataGridDTO), response.totalResults);
-    }
+                .WithDatagridIntent(intent);
 
     public async Task<(IEnumerable<StockTransferRequestDataGridDTO> Data, int Count)> GetReturnsList(DataGridIntent intent)
     {
@@ -73,6 +84,7 @@ internal class StockTransferRequestIntegration(
             intent.Sorts.Add(DataGridSortUtilities.Descending(nameof(StockTransferRequestDataGridNSDTO.ReferenceNumber)));
         var query = builderFactory.Create()
                 .Select(
+                    ("t.id", nameof(StockTransferRequestDataGridNSDTO.Id)),
                     ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(StockTransferRequestDataGridNSDTO.Date)),
                     ("TO_CHAR(t.lastmodifieddate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(StockTransferRequestDataGridNSDTO.DateLastModified)),
                     ("t.tranid", nameof(StockTransferRequestDataGridNSDTO.ReferenceNumber)),
@@ -86,12 +98,14 @@ internal class StockTransferRequestIntegration(
                     ("BUILTIN.DF(tl.location)", nameof(StockTransferRequestDataGridNSDTO.SourceLocation)),
                     ("s.name", nameof(StockTransferRequestDataGridNSDTO.StatusName)),
                     ("s.id", nameof(StockTransferRequestDataGridNSDTO.StatusId)),
+                    ("CONCAT(re.firstname,CONCAT(' ',re.lastname))", nameof(StockTransferRequestDataGridNSDTO.RequestedBy)),
                     ("t.memo", nameof(StockTransferRequestDataGridNSDTO.Remarks))
                 )
                 .From("transaction t")
                 .Join("transactionline tl", on: "tl.transaction = t.id")
                 .LeftJoin("CUSTOMLIST_DBTI_CR_APPROVAL_STATUSES s", on: "s.id = t.custbody_dbti_custom_approval_status")
                 .LeftJoin("employee e", on: "e.id = t.custbody_dbti_prepared_by")
+                .LeftJoin("employee re", on: "re.id = t.employee")
                 .WithFilters(
                     DataGridFilterUtilities.Equal("tl.mainline", "T"),
                     DataGridFilterUtilities.In("t.recordtype", new string[] { "intercompanytransferorder", "transferorder" }),
@@ -100,7 +114,7 @@ internal class StockTransferRequestIntegration(
                 .WithFromOrToSubsidiaries(httpContextAccessor, "t")
                 .WithDatagridIntent(intent)
                 .Build();
-        var response = await netsuiteService.ExecuteSuiteQLQuery<StockTransferRequestDataGridNSDTO>(query.Query, query.Limit, query.Offset);
+        var response = await query.ExecuteWithPaging<StockTransferRequestDataGridNSDTO>(netsuiteService);
         return (response.items.Select(ConvertDataGridDTO), response.totalResults);
     }
 
@@ -110,42 +124,108 @@ internal class StockTransferRequestIntegration(
         if (intent.Sorts.Count == 0)
             intent.Sorts.Add(DataGridSortUtilities.Descending(nameof(StockTransferRequestDataGridNSDTO.ReferenceNumber)));
 
-        var query = builderFactory.Create()
+        // Same rationale as ICTO above: the purchase-category OR-group is a
+        // ~45s full scan in NetSuite, the base predicates are ~1-2s.
+        var baseRows = await FetchAllBaseRowsAsync(BuildTransferOrderBaseQuery(intent));
+
+        var filtered = baseRows.Where(PassesPurchaseCategoryFilter).ToList();
+        return SliceFilteredPage(filtered, intent);
+    }
+
+    private SuiteQLQueryBuilder BuildTransferOrderBaseQuery(DataGridIntent intent) =>
+        builderFactory.Create()
                 .Select(
+                    ("t.id", nameof(StockTransferRequestDataGridNSDTO.Id)),
                     ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(StockTransferRequestDataGridNSDTO.Date)),
                     ("TO_CHAR(t.lastmodifieddate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(StockTransferRequestDataGridNSDTO.DateLastModified)),
                     ("t.tranid", nameof(StockTransferRequestDataGridNSDTO.ReferenceNumber)),
                     ("BUILTIN.DF(t.custbody_dbti_purchase_category)", nameof(StockTransferRequestDataGridNSDTO.PurchaseCategory)),
                     ("BUILTIN.DF(t.custbody_dbti_purchase_subcategory)", nameof(StockTransferRequestDataGridNSDTO.PurchaseSubcategory)),
+                    ("t.custbody_dbti_purchase_category", nameof(StockTransferRequestDataGridNSDTO.PurchaseCategoryId)),
+                    ("t.custbody_dbti_purchase_subcategory", nameof(StockTransferRequestDataGridNSDTO.PurchaseSubcategoryId)),
                     ("CONCAT(e.firstname,CONCAT(' ',e.lastname))", nameof(StockTransferRequestDataGridNSDTO.PreparedBy)),
                     ("BUILTIN.DF(t.subsidiary)", nameof(StockTransferRequestDataGridNSDTO.Subsidiary)),
-                    ("BUILTIN.DF(t.tosubsidiary)", nameof(StockTransferRequestDataGridNSDTO.ToSubsidiary)),
                     ("BUILTIN.DF(t.transferlocation)", nameof(StockTransferRequestDataGridNSDTO.DestinationLocation)),
                     ("s.name", nameof(StockTransferRequestDataGridNSDTO.StatusName)),
                     ("s.id", nameof(StockTransferRequestDataGridNSDTO.StatusId)),
                     ("BUILTIN.DF(tl.location)", nameof(StockTransferRequestDataGridNSDTO.SourceLocation)),
+                    ("CONCAT(re.firstname,CONCAT(' ',re.lastname))", nameof(StockTransferRequestDataGridNSDTO.RequestedBy)),
                     ("t.memo", nameof(StockTransferRequestDataGridNSDTO.Remarks))
                 )
                 .From("transaction t")
                 .Join("transactionline tl", on: "tl.transaction = t.id")
                 .LeftJoin("CUSTOMLIST_DBTI_CR_APPROVAL_STATUSES s", on: "s.id = t.custbody_dbti_custom_approval_status")
                 .LeftJoin("employee e", on: "e.id = t.custbody_dbti_prepared_by")
+                .LeftJoin("employee re", on: "re.id = t.employee")
                 .WithFilters(
                     DataGridFilterUtilities.Equal("tl.mainline", "T"),
                     DataGridFilterUtilities.Equal("t.recordtype", "transferorder"),
-                    DataGridFilterUtilities.Equal("t.custbody_dbti_transfer_category", 1),
-                    DataGridFilterUtilities.Any(
-                    DataGridFilterUtilities.NotEqual("t.custbody_dbti_purchase_category", 3),
-                    DataGridFilterUtilities.Equal("t.custbody_dbti_purchase_subcategory ", 5))
+                    DataGridFilterUtilities.Equal("t.custbody_dbti_transfer_category", 1)
                 )
                 .WithFromOrToSubsidiaries(httpContextAccessor, "t")
-                .WithDatagridIntent(intent)
-                .Build();
+                .WithDatagridIntent(intent);
 
-        var response = await netsuiteService.ExecuteSuiteQLQuery<StockTransferRequestDataGridNSDTO>(query.Query, query.Limit, query.Offset);
-        return (response.items.Select(ConvertDataGridDTO), response.totalResults);
+    /// <summary>
+    /// Fetches every row of the selective base set, one 1000-row page per
+    /// NetSuite call, capped at 5,000 rows. The base set is known-small in prod
+    /// (25 rows), so this is normally ONE ~1-2s call. Server-side paging is
+    /// bypassed on purpose: NetSuite would page the UNFILTERED base set, but
+    /// the grid must page the FILTERED set (see SliceFilteredPage).
+    /// </summary>
+    private async Task<List<StockTransferRequestDataGridNSDTO>> FetchAllBaseRowsAsync(SuiteQLQueryBuilder baseBuilder)
+    {
+        const int PageSize = 1000;
+        const int MaxRows = 5000;
+
+        var all = new List<StockTransferRequestDataGridNSDTO>();
+        var query = baseBuilder.Build();
+
+        for (int offset = 0; offset < MaxRows; offset += PageSize)
+        {
+            var response = await netsuiteService.ExecuteSuiteQLQuery<StockTransferRequestDataGridNSDTO>(
+                query.Query, PageSize, offset);
+            all.AddRange(response.items);
+            if (response.items.Count < PageSize) break;
+        }
+
+        return all;
     }
 
+    /// <summary>
+    /// Orders the filtered set per the grid intent and slices the requested
+    /// page. Sort keys mirror the server-side mapping (ReferenceNumber default;
+    /// Date + ReferenceNumber from STRDataGrid), so page contents are stable.
+    /// Beyond the fetch cap this degrades gracefully: pages are sliced from
+    /// what was fetched rather than failing the grid.
+    /// </summary>
+    private static (IEnumerable<StockTransferRequestDataGridDTO> Data, int Count) SliceFilteredPage(
+        List<StockTransferRequestDataGridNSDTO> filtered, DataGridIntent intent)
+    {
+        IEnumerable<StockTransferRequestDataGridNSDTO> ordered = filtered;
+        var sorts = intent.Sorts.Count > 0
+            ? intent.Sorts
+            : [DataGridSortUtilities.Descending(nameof(StockTransferRequestDataGridNSDTO.ReferenceNumber))];
+
+        foreach (var sort in sorts.AsEnumerable().Reverse())
+        {
+            Func<StockTransferRequestDataGridNSDTO, IComparable> key = sort.Property switch
+            {
+                nameof(StockTransferRequestDataGridNSDTO.Date) => r => r.Date,
+                nameof(StockTransferRequestDataGridNSDTO.DateLastModified) => r => r.DateLastModified,
+                nameof(StockTransferRequestDataGridNSDTO.StatusName) => r => r.StatusName,
+                nameof(StockTransferRequestDataGridNSDTO.StatusId) => r => r.StatusId,
+                _ => r => r.ReferenceNumber,
+            };
+            ordered = sort.Direction == SortDirectionEnum.Descending
+                ? ordered.OrderByDescending(key)
+                : ordered.OrderBy(key);
+        }
+
+        var orderedList = ordered.ToList();
+        int take = intent.Take <= 0 ? 10 : intent.Take;
+        var page = orderedList.Skip(intent.Skip).Take(take).ToList();
+        return (page.Select(row => ConvertDataGridDTO(row)), orderedList.Count);
+    }
 
 
     public async Task<StockTransferRequestInfoDTO?> GetStockTransferRequest(string id)
@@ -175,12 +255,16 @@ internal class StockTransferRequestIntegration(
                     ("s.id", nameof(StockTransferRequestHeaderNSDTO.StatusId)),
                     ("t.id", nameof(StockTransferRequestHeaderNSDTO.Id)),
                     ("t.custbody_dbti_submitted_for_approval", nameof(StockTransferRequestHeaderNSDTO.SubmittedForApprovals)),
-                    ("BUILTIN.DF(t.custbody_dbti_transfer_category)", nameof(StockTransferRequestHeaderNSDTO.TransferCategoryName))
+                    ("BUILTIN.DF(t.custbody_dbti_transfer_category)", nameof(StockTransferRequestHeaderNSDTO.TransferCategoryName)),
+                    ("re.firstname", nameof(StockTransferRequestHeaderNSDTO.RequestedByFirstName)),
+                    ("re.lastname", nameof(StockTransferRequestHeaderNSDTO.RequestedByLastName)),
+                    ("t.employee", nameof(StockTransferRequestHeaderNSDTO.RequestedById))
                 )
                 .From("transaction t")
                 .Join("transactionline tl", on: "tl.transaction = t.id")
                 .LeftJoin("CUSTOMLIST_DBTI_CR_APPROVAL_STATUSES s", on: "s.id = t.custbody_dbti_custom_approval_status")
                 .LeftJoin("employee e", on: "e.id = t.custbody_dbti_prepared_by")
+                .LeftJoin("employee re", on: "re.id = t.employee")
                 //.WithSubsidiaries(httpContextAccessor, "t")
                 .WithFilters(
                     DataGridFilterUtilities.Equal("t.tranid", id),
@@ -195,7 +279,7 @@ internal class StockTransferRequestIntegration(
 
         var dto = nsdto.Adapt<StockTransferRequestInfoDTO>();
 
-        dto.Vendor = new() { Name = nsdto.VendorName, Id = nsdto.VendorId };
+        dto.Vendor = nsdto.VendorId.HasValue && nsdto.VendorId.Value > 0 ? new() { Name = nsdto.VendorName ?? string.Empty, Id = nsdto.VendorId.Value } : null;
         dto.SourceLocation = new() { Name = nsdto.SourceLocationName, Id = nsdto.SourceLocationId };
         dto.SourceLocation = new() { Name = nsdto.SourceLocationName, Id = nsdto.SourceLocationId };
         dto.DestinationLocation = new() { Name = nsdto.DestinationLocationName, Id = nsdto.DestinationLocationId };
@@ -204,6 +288,14 @@ internal class StockTransferRequestIntegration(
         dto.PurchaseCategory = new() { Name = nsdto.PurchaseCategoryName, Id = nsdto.PurchaseCategoryId };
         dto.PurchaseSubcategory = new() { Name = nsdto.PurchaseSubcategoryName, Id = nsdto.PurchaseSubcategoryId };
         dto.Status = new() { Name = nsdto.StatusName, Id = nsdto.StatusId };
+        dto.RequestedBy = nsdto.RequestedById > 0
+            ? new EmployeeNsDTO
+            {
+                NsId = nsdto.RequestedById,
+                FirstName = nsdto.RequestedByFirstName,
+                LastName = nsdto.RequestedByLastName
+            }
+            : null;
         dto.IsEditable = !nsdto.IsSubmittedForApprovals && (nsdto.StatusId == 3 || nsdto.StatusId == 2);
         dto.TransferCategory = nsdto.TransferCategoryId switch
         {
@@ -334,7 +426,21 @@ internal class StockTransferRequestIntegration(
         return true;
     }
 
-    private StockTransferRequestDataGridDTO ConvertDataGridDTO(StockTransferRequestDataGridNSDTO nsdto)
+    /// <summary>
+    /// In-memory equivalent of the pushdown predicate used by the Receiving &gt;
+    /// Purchase Orders listing — the predicate itself is NOT sent to NetSuite
+    /// because it resolves as a ~45s full scan on the TO/ICTO base set
+    /// (Q0=46s, Q5-without-it=1-2s, Q6-date-bound=47-48s; see
+    /// STR-grid-perf-fix-summary.md). The rule lives in
+    /// <see cref="PurchaseCategoryRules"/> so this grid and the PO listing
+    /// cannot disagree about which transactions are visible; only the
+    /// evaluation strategy differs, and that difference is forced by the perf
+    /// measurements.
+    /// </summary>
+    private static bool PassesPurchaseCategoryFilter(StockTransferRequestDataGridNSDTO row) =>
+        PurchaseCategoryRules.Passes(row.PurchaseCategoryId, row.PurchaseSubcategoryId);
+
+    private static StockTransferRequestDataGridDTO ConvertDataGridDTO(StockTransferRequestDataGridNSDTO nsdto)
     {
 
         var dto = nsdto.Adapt<StockTransferRequestDataGridDTO>();
@@ -376,7 +482,8 @@ internal class StockTransferRequestIntegration(
             orderStatus = "A",
             custbody_dbti_transfer_category = new { id = dto.TransferCategory.Id },
             custbody_dbti_prepared_by = dto.PreparedById,
-            custbody_dbti_return_to_vendor = dto.TransferCategory.IsReturn && dto.Vendor is not null ? new { id = dto.Vendor.Id.ToString() } : null,
+            employee = dto.RequestedBy is not null ? new { id = dto.RequestedBy.NsId.ToString() } : null,
+            custbody_dbti_return_to_vendor = dto.TransferCategory.IsReturn && dto.Vendor is not null && dto.Vendor.Id > 0 ? new { id = dto.Vendor.Id.ToString() } : null,
             custbody_dbti_purchase_category = dto.PurchaseCategory?.Id ?? null,
             custbody_dbti_purchase_subcategory = dto.PurchaseSubcategory?.Id ?? null,
             Department = new { id = "4" },

@@ -1,6 +1,7 @@
 ﻿@page "/inventorycounting/worksheet"
 @using Mobile.MAUI.Components.Base
 @using Shared.Libraries.ViewModel.InventoryCounting
+@using Shared.Libraries.ViewModel.Common
 @using static MAUI.Helpers.FormatHelper
 
 @layout CleanLayout
@@ -93,6 +94,10 @@
                             <RadzenText Text="@($"Total: {row.TotalScannedQuantity}")"
                                         TextStyle="TextStyle.Caption"
                                         Style="font-size:.6rem;color:var(--rz-text-tertiary-color);" />
+
+                            <RadzenText Text="@row.UoMName"
+                                        TextStyle="TextStyle.Subtitle2"
+                                        Style="font-size:.6rem" />
                         </RadzenStack>
 
                         <RadzenStack Gap="0"
@@ -146,6 +151,10 @@
                                                         TextStyle="TextStyle.Caption"
                                                         Style="font-size:.6rem;color:var(--rz-text-tertiary-color);" />
                                         }
+
+                                        <RadzenText Text="@row.UoMName"
+                                                    TextStyle="TextStyle.Subtitle2"
+                                                    Style="font-size:.6rem" />
                                     </RadzenStack>
 
                                     <RadzenStack Gap="0"
@@ -188,6 +197,10 @@
                                                         TextStyle="TextStyle.Caption"
                                                         Style="font-size:.6rem;color:var(--rz-text-tertiary-color);" />
                                         }
+
+                                        <RadzenText Text="@row.UoMName"
+                                                    TextStyle="TextStyle.Subtitle2"
+                                                    Style="font-size:.6rem" />
                                     </RadzenStack>
 
                                     <RadzenStack Gap="0"
@@ -290,6 +303,23 @@
                                      AlignItems="AlignItems.Center"
                                      class="scan-action-item">
                             <RadzenButton class="rz-border-radius-5"
+                                          Icon="edit_note"
+                                          ButtonStyle="@(ShowManualEntry ? ButtonStyle.Success : ButtonStyle.Base)"
+                                          Size="ButtonSize.Small"
+                                          Click="@(args => ToggleManualEntry())"
+                                          Disabled="@(ActionSaveScan?.Busy == true)" />
+
+                            <RadzenText TextStyle="TextStyle.Caption"
+                                        class="scan-action-label rz-m-0">
+                                Manual
+                            </RadzenText>
+                        </RadzenStack>
+
+                        <RadzenStack Gap="4px"
+                                     Orientation="Orientation.Vertical"
+                                     AlignItems="AlignItems.Center"
+                                     class="scan-action-item">
+                            <RadzenButton class="rz-border-radius-5"
                                           Icon="@(ShowAllScannedItems ? "view_list" : "list_alt")"
                                           ButtonStyle="@(ShowAllScannedItems ? ButtonStyle.Info : ButtonStyle.Base)"
                                           Size="ButtonSize.Small"
@@ -320,6 +350,41 @@
                         </RadzenStack>
 
                     </RadzenStack>
+
+                    @if (ShowManualEntry)
+                    {
+                        <RadzenStack Gap="8px"
+                                     Orientation="Orientation.Vertical"
+                                     class="rz-mt-1 manual-entry-area">
+
+                            <RadzenText Text="Manual Entry"
+                                        TextStyle="TextStyle.Caption"
+                                        class="rz-m-0" />
+
+                            <RadzenDropDown TValue="InventoryItemVM"
+                                            Data="@Data"
+                                            TextProperty="MaterialName"
+                                            @bind-Value="@ManualItem"
+                                            Placeholder="Select item"
+                                            AllowFiltering="true"
+                                            FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                                            Style="width:100%;"
+                                            Disabled="@(ActionSaveScan?.Busy == true || ActionGetInventoryItems?.Busy == true)" />
+
+                            <RadzenNumeric TValue="decimal"
+                                           @bind-Value="@ManualQuantity"
+                                           Placeholder="Quantity"
+                                           Style="width:100%;"
+                                           Disabled="@(ActionSaveScan?.Busy == true || ActionGetInventoryItems?.Busy == true)" />
+
+                            <RadzenButton Text="Add"
+                                          Icon="add"
+                                          ButtonStyle="ButtonStyle.Success"
+                                          Size="ButtonSize.Small"
+                                          Click="@(async () => await AddManualItem())"
+                                          Disabled="@(ActionSaveScan?.Busy == true || ActionGetInventoryItems?.Busy == true)" />
+                        </RadzenStack>
+                    }
                 }
 
             </RadzenStack>

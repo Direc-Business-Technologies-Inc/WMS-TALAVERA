@@ -29,14 +29,42 @@ public class TransferOrderIFPayloadDTO
                 {
                     if (line.ScannedQuantity == 0)
                     {
-                        return new OrderLineItem
+                        // On bin-tracked locations the transform URL carries ?replace=item.inventoryDetail.inventoryAssignment,
+                        // and NetSuite rejects the request unless the body's item entries carry the sub-resource consistently.
+                        // Zero-qty filler lines therefore get an EMPTY assignment so the replace target exists on every line.
+                        var filler = new OrderLineItem
                         {
                             OrderLine = line.LineSequenceNumber,
                             isReceived = false
                         };
+
+                        if (isUsedBin)
+                        {
+                            filler.InventoryDetail = new InventoryDetail
+                            {
+                                InventoryAssignment = new InventoryAssignment
+                                {
+                                    Items = []
+                                }
+                            };
+                        }
+
+                        return filler;
                     }
                     else
                     {
+                        // Legacy working shape (pre-2026-07): non-bin locations send no inventoryDetail and let NetSuite auto-manage it.
+                        // Bin-tracked locations need the explicit REST-shaped detail plus ?replace= on the transform URL.
+                        if (!isUsedBin)
+                        {
+                            return new OrderLineItem
+                            {
+                                OrderLine = line.LineSequenceNumber,
+                                isReceived = true,
+                                Quantity = line.ScannedQuantity
+                            };
+                        }
+
                         var assignment = new InventoryAssignment
                         {
                             Items =
@@ -45,10 +73,13 @@ public class TransferOrderIFPayloadDTO
                                 {
                                     InventoryStatus = new ReferenceValue
                                     {
-                                        Id = line.IsBad ? "3" : "1"
+                                        Id = InventoryStatusMap.Resolve(line.IsBad, line.IsMissing, line.TransferCategory)
                                     },
                                     Quantity = line.ScannedQuantity,
-                                    BinNumber = !line.IsLocationUsedBin ? null :
+                                    // Use the header isUsedBin (same flag that decides ?replace= and filler
+                                    // shape) so a stale per-line flag can never null the bin on one line
+                                    // while the transform still demands inventoryDetail.
+                                    BinNumber = !isUsedBin ? null :
                                         line.NetsuiteMaterialVendorAssignedBin != 0
                                         ? new ReferenceValue
                                         {
@@ -113,10 +144,7 @@ public class TransferOrderIFPayloadDTO
 
                         var inventoryDetail = new InventoryDetail
                         {
-                            InventoryAssignmentList = new InventoryAssignmentList
-                            {
-                                InventoryAssignment = assignment
-                            }
+                            InventoryAssignment = assignment
                         };
 
                         return new OrderLineItem

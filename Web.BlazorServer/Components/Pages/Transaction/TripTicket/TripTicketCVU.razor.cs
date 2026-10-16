@@ -52,8 +52,6 @@ partial class TripTicketCVU
     readonly string ActionGetLocations = EnumHelper.GetEnumDescription(AppActions.GetTripTicketLocations);
     readonly string ActionGetTruckPlateNumbers = EnumHelper.GetEnumDescription(AppActions.GetTripTicketTruckPlateNumbers);
 
-    private readonly SemaphoreSlim _concurrencySemaphore = new SemaphoreSlim(2, 2);
-
     AppTable<ItemFulfillmentVM> FulfillmentLinesTable { get; set; } = default!;
     DataGridSettings FulfillmentLinesTableSettings { get; set; } = new();
     List<TripTicketVM> ParentTripTickets { get; set; } = new();
@@ -344,25 +342,15 @@ partial class TripTicketCVU
 
     async Task<(IEnumerable<SubsidiaryVM>, int)> SubsidiaryProvider(DataGridIntent intent)
     {
+        var result = await subsidiaryHandler.GetSubsidiariesAsync(intent);
 
-        await _concurrencySemaphore.WaitAsync();
-
-        try
+        var subsidiaries = result.Data.Select(x => new SubsidiaryVM
         {
-            var result = await subsidiaryHandler.GetSubsidiariesAsync(intent);
+            NetsuiteSubsidiaryInternalId = x.Id,
+            SubsidiaryName = x.Name,
+        });
 
-            var subsidiaries = result.Data.Select(x => new SubsidiaryVM
-            {
-                NetsuiteSubsidiaryInternalId = x.Id,
-                SubsidiaryName = x.Name,
-            });
-
-            return (subsidiaries.ToList(), result.Count);
-        }
-        finally
-        {
-            _concurrencySemaphore.Release();
-        }
+        return (subsidiaries.ToList(), result.Count);
     }
 
     public async Task OnToSubsidiaryChanged(List<SubsidiaryVM>? value)
@@ -424,25 +412,15 @@ partial class TripTicketCVU
 
     async Task<(IEnumerable<LocationVM>, int)> DestinationsProvider(DataGridIntent intent)
     {
+        var result = await locationHandler.GetLocationsAsync(intent);
 
-        await _concurrencySemaphore.WaitAsync();
-
-        try
+        var location = result.Data.Select(x => new LocationVM
         {
-            var result = await locationHandler.GetLocationsAsync(intent);
+            NetsuiteLocationInternalId = x.Id,
+            LocationName = x.Name,
+        });
 
-            var location = result.Data.Select(x => new LocationVM
-            {
-                NetsuiteLocationInternalId = x.Id,
-                LocationName = x.Name,
-            });
-
-            return (location.ToList(), result.Count);
-        }
-        finally
-        {
-            _concurrencySemaphore.Release();
-        }
+        return (location.ToList(), result.Count);
     }
 
     public async Task OnDestinationChanged(List<LocationVM>? value)

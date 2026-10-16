@@ -4,7 +4,9 @@ namespace Web.BlazorServer.ViewModels.Transaction.SupplierReturn;
 
 public class SupplierReturnDataGridVM
 {
+    /// <summary>NetSuite internal id of the transaction. Used to build the printout URL, not shown as a column.</summary>
     [QuickDataGridIgnore]
+    public int Id { get; set; }
     [QuickDataGridTitle("Vendor")]
     public string VendorName { get; set; } = string.Empty;
     [QuickDataGridTitle("Document Number")]

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Components;
 using Shared.Entities;
 using Shared.Libraries.Utilities;
 using Web.BlazorServer.Components.Custom;
+using Web.BlazorServer.Components.Shared.Others;
 using Web.BlazorServer.Handlers.Repositories.Transaction.SupplierReturn;
 using Web.BlazorServer.ViewModels.Transaction.SupplierReturn;
 
@@ -47,5 +48,9 @@ public partial class SupplierReturnsDataGrid
         if (RowAction.HasDelegate)
             await RowAction.InvokeAsync(data);
     }
+
+    // Every Returns to Supplier grid row is sourced from the NetSuite transaction table, so a row
+    // that is present is by definition printable. NetSuitePrint returns null for a defensive id <= 0.
+    static string? PrintUrl(SupplierReturnDataGridVM data) => NetSuitePrint.VendorReturn(data.Id);
 
 }

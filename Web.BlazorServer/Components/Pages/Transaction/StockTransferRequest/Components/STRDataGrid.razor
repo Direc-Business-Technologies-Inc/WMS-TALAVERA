@@ -5,7 +5,7 @@
 
 @inherits BaseComponent
 
-<AppDataGrid @ref="@DataGrid" Id="@TableId" TItem="StockTransferRequestDataGridVM" DataGetter="@LoadDataAsync" GridSettings="@DataGridSettings" @bind-GridSettingsLoaded="@GridSettingsLoaded" ActionName="@ActionGetStockTransferRequests">
+<AppDataGrid @ref="@DataGrid" Id="@TableId" TItem="StockTransferRequestDataGridVM" DataGetter="@LoadDataAsync" GridSettings="@DataGridSettings" @bind-GridSettingsLoaded="@GridSettingsLoaded" ActionName="@ActionName">
     <HeaderTemplate>
         <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center" Gap="8px">
             <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Start" AlignItems="AlignItems.Center" Gap="8px">
@@ -80,15 +80,22 @@
                               Type="@typeof(string)"
                               Title="Prepared By" />
         <RadzenDataGridColumn TItem="StockTransferRequestDataGridVM"
+                              Property="@nameof(StockTransferRequestDataGridVM.RequestedBy)"
+                              Type="@typeof(string)"
+                              Title="Requested By" />
+        <RadzenDataGridColumn TItem="StockTransferRequestDataGridVM"
                               Property="@nameof(StockTransferRequestDataGridVM.Remarks)"
                               Type="@typeof(string)"
                               Title="Remarks" />
         <RadzenDataGridColumn TItem="StockTransferRequestDataGridVM"
                               Frozen
                               FrozenPosition="FrozenColumnPosition.Right"
-                              Width="35px">
+                              Width="55px">
             <Template>
-                <RadzenButton Icon="arrow_right_alt" Size="ButtonSize.ExtraSmall" Click="() => ViewSTR(context)" />
+                <RadzenStack Orientation="Orientation.Horizontal" Gap="4px" JustifyContent="JustifyContent.End">
+                    <AppPrintLink Url="@PrintUrl(context)" Size="ButtonSize.ExtraSmall" />
+                    <RadzenButton Icon="arrow_right_alt" Size="ButtonSize.ExtraSmall" Click="() => ViewSTR(context)" />
+                </RadzenStack>
             </Template>
         </RadzenDataGridColumn>
     </GridColumns>

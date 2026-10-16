@@ -16,6 +16,6 @@ public class GetItemsQryHandler(IItemsIntegration itemsIntegration) : IRequestHa
 {
     public async Task<(IEnumerable<ItemsDTO> data, int count)> Handle(GetItemsQry request, CancellationToken cancellationToken)
     {
-        return await itemsIntegration.GetItemsDataGridAsync(request.Intent);
+        return await itemsIntegration.GetItemsDataGridAsync(request.Intent, cancellationToken);
     }
 }

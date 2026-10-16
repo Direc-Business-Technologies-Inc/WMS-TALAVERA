@@ -104,9 +104,7 @@
                                      JustifyContent="JustifyContent.End"
                                      AlignItems="AlignItems.Center"
                                      Gap="8px">
-                            <RadzenButton Icon="print" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Visible="@ReadOnly">
-                                <RadzenLink Path="@PrintableURL" Text="Print" target="_blank" Icon="print" />
-                            </RadzenButton>
+                            <AppPrintLink Url="@PrintableURL" Visible="@ReadOnly" />
                             <RadzenButton Disabled="@(Model.Location is null)" Visible="@IsEditable" Text="Scan Barcodes" Icon="barcode" Click="OpenBarcodeDialog" ButtonType="ButtonType.Button" Size="ButtonSize.Small" />
                             <RadzenButton ButtonType="ButtonType.Button" Icon="add" Visible="@IsEditable" Disabled="@(Model.Location is null)" Size="ButtonSize.Small" Click="OpenItemDialog" ButtonStyle="ButtonStyle.Success" />
                             <RadzenButton Icon="settings" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@OpenTableSettings" />
@@ -125,10 +123,7 @@
                         </RadzenDataGridColumn>
                         <RadzenDataGridColumn TItem="SupplierReturnLineVM" Title="Preferred Vendor" Property="@nameof(SupplierReturnLineVM.Vendor)">
                             <Template Context="data">
-                                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center">
-                                    <RadzenText Visible="@(!IsEditable)" TextStyle="TextStyle.Body2" Text="@(data.Vendor?.Name ?? "Not set")" />
-                                    <QuickVirtualizedDropdown Disabled="IsDisabled" @bind-Value:get="@data.Vendor" @bind-Value:set="@(val => LineVendorSet(data, val))" Visible="@IsEditable" TItem="VendorVM" DataGetter="@VendorProvider" FilterTarget="@nameof(VendorVM.Name)" TextProperty="@nameof(VendorVM.Name)" AllowClear="false" AllowFiltering />
-                                </RadzenStack>
+                                <RadzenText TextStyle="TextStyle.Body2" Text="@(data.Vendor?.Name ?? "Not set")" />
                             </Template>
                         </RadzenDataGridColumn>
                         <RadzenDataGridColumn TItem="SupplierReturnLineVM" Title="Available Quantity" Property="@nameof(SupplierReturnLineVM.QuantityOnHandByUoM)" Type="typeof(decimal)" FormatString="{0:#,##0.##}" />

@@ -160,7 +160,11 @@ public partial class UserManagementCVU
         {
             AppBusyService.SetBusy(ActionGetEmployees, true);
 
-            var response = await UsersHandler.GetAllEmployeesAsync(new DataGridIntent { Take = int.MaxValue });
+            // NetSuite SuiteQL caps a page at 1000 rows. int.MaxValue here was sent as
+            // ?limit=2147483647 and rejected with 400 INVALID_PARAMETER, which emptied
+            // the employee dropdown and blocked user creation. Do not raise above 1000;
+            // this matches the ceiling already used by STRForm/SupplierReturnForm.
+            var response = await UsersHandler.GetAllEmployeesAsync(new DataGridIntent { Take = 1000 });
             Employees = response.data ?? [];
 
         }, AppActionOptionPresets.Loading(ActionGetEmployees));

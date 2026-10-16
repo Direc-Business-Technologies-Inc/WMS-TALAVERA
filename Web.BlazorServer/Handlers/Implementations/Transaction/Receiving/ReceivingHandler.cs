@@ -1,6 +1,7 @@
 ﻿using Application.DataTransferObjects.Transactions.Receiving;
 using Application.UseCases.Commands.Transaction.Receiving;
 using Application.UseCases.Queries.Transaction.Receiving;
+using Application.DataTransferObjects.Others.NS;
 using Azure;
 using Mapster;
 using MediatR;
@@ -45,6 +46,8 @@ public class ReceivingHandler(
             Date = x.Date,
             DeliveryDate = x.DeliveryDate,
             VendorName = x.VendorName,
+            PurchaseCategory = x.PurchaseCategory,
+            PurchaseSubcategory = x.PurchaseSubcategory,
             Remarks = x.Memo
         });
 
@@ -85,7 +88,7 @@ public class ReceivingHandler(
             Location = x.Location,
             TransferLocation = x.TransferLocation,
             SourceSubsidiary = x.SourceSubsidiary,
-            DesctinationSubsidiary = x.DestinationSubsidiary, 
+            DestinationSubsidiary = x.DestinationSubsidiary, 
         });
 
         return (x, Count);
@@ -123,9 +126,21 @@ public class ReceivingHandler(
     {
         GetTransferOrderLinesQry qry = new(transferOrderId, intent);
 
-        var (rawData, count) = await Sender.Send(qry);
+        try
+        {
+            var (rawData, count) = await Sender.Send(qry);
 
-        return (rawData.Adapt<IEnumerable<TransferOrderLineVM>>(), count);
+            return (rawData.Adapt<IEnumerable<TransferOrderLineVM>>(), count);
+        }
+        catch (NetSuiteOffsetCorrectedException<IEnumerable<ReceivingLineDTO>> ex)
+        {
+            // The integration already recovered the legal page below us; translate
+            // the row type to this layer's VM and keep the corrected skip flowing
+            // so the grid can reposition its pager.
+            var adapted = ex.Rows.Adapt<IEnumerable<TransferOrderLineVM>>();
+            throw new NetSuiteOffsetCorrectedException<IEnumerable<TransferOrderLineVM>>(
+                adapted, ex.TotalResults, ex.CorrectedSkip, (Exception)ex.InnerException!);
+        }
     }
 
 

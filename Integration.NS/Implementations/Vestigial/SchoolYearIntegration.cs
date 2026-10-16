@@ -4,7 +4,7 @@ using Shared.Entities;
 
 namespace Integration.NS.Implementations.Vestigial
 {
-    internal class SchoolYearIntegration : ISchoolYearIntegration
+    public class SchoolYearIntegration : ISchoolYearIntegration
     {
         public Task<(IEnumerable<SchoolYearSAPDTO> Data, int Count)> GetAllSchoolYear(DataGridIntent intent)
         {

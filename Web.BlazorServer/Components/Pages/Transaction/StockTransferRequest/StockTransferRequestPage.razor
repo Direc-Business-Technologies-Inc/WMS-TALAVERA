@@ -21,13 +21,22 @@
     <RadzenTabs @bind-SelectedIndex="@SelectedTab" @bind-SelectedIndex:after="@TabChanged">
         <Tabs>
             <RadzenTabsItem Text="Transfer Orders">
-                <STRDataGrid TableId="str_to_datagrid" DataGetter="@(async (intent) => await strHandler.GetTransferOrdersList(intent))" OnAddClicked="CreateTO" ShowToSubsidiary="false"/>
+                @if (Mounted[0])
+                {
+                    <STRDataGrid TableId="str_to_datagrid" ActionName="str_to_list" DataGetter="@(async (intent) => await strHandler.GetTransferOrdersList(intent))" OnAddClicked="CreateTO" ShowToSubsidiary="false"/>
+                }
             </RadzenTabsItem>
             <RadzenTabsItem Text="Intercompany Transfer Orders">
-                <STRDataGrid TableId="str_icto_datagrid" DataGetter="@(async (intent) => await strHandler.GetInterCompanyTransferOrdersList(intent))" OnAddClicked="CreateICTO" />
+                @if (Mounted[1])
+                {
+                    <STRDataGrid TableId="str_icto_datagrid" ActionName="str_icto_list" DataGetter="@(async (intent) => await strHandler.GetInterCompanyTransferOrdersList(intent))" OnAddClicked="CreateICTO" />
+                }
             </RadzenTabsItem>
             <RadzenTabsItem Text="Returns">
-                <STRDataGrid TableId="str_returns_datagrid" DataGetter="@(async (intent) => await strHandler.GetReturnsList(intent))" OnAddClicked="CreateReturns" ShowSubPurchaseCategory="false" ShowTransferCategory="true"/>
+                @if (Mounted[2])
+                {
+                    <STRDataGrid TableId="str_returns_datagrid" ActionName="str_returns_list" DataGetter="@(async (intent) => await strHandler.GetReturnsList(intent))" OnAddClicked="CreateReturns" ShowSubPurchaseCategory="false" ShowTransferCategory="true"/>
+                }
             </RadzenTabsItem>
         </Tabs>
     </RadzenTabs>
@@ -41,13 +50,17 @@
     int SelectedTab = 0;
     readonly string[] tabs = { "transferorder", "intercompany", "returns" };
 
+    readonly bool[] Mounted = [false, false, false];
+
     protected override void OnParametersSet()
     {
         SelectedTab = Array.IndexOf(tabs, Tab?.ToLowerInvariant() ?? null) switch { -1 => 0, var i => i };
+        Mounted[SelectedTab] = true;
     }
 
     void TabChanged()
     {
+        Mounted[SelectedTab] = true;
         NavManager.NavigateTo($"{STRRoutes.Root}?tab={tabs[SelectedTab]}");
     }
 

@@ -17,6 +17,6 @@ public class GetLocationSubLocationsQryHandler(ILocationIntegration locationInte
 {
     public async Task<(IEnumerable<LocationDTO> Data, int Count)> Handle(GetLocationSubLocationsQry request, CancellationToken cancellationToken)
     {
-        return await locationIntegration.GetSublocationsOfLocationAsync(request.intent, request.location);
+        return await locationIntegration.GetSublocationsOfLocationAsync(request.intent, request.location, cancellationToken);
     }
 }

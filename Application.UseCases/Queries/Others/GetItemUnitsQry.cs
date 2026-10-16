@@ -17,6 +17,6 @@ public class GetItemUnitsQryHandler(IItemsIntegration integration)
 {
     public async Task<(IEnumerable<ItemUnitDTO> Data, int Count)> Handle(GetItemUnitsQry request, CancellationToken cancellationToken)
     {
-        return await integration.GetItemUnits(request.itemId, request.Intent);
+        return await integration.GetItemUnits(request.itemId, request.Intent, cancellationToken);
     }
 }

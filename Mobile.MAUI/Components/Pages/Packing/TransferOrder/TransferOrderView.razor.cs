@@ -32,7 +32,7 @@ public partial class TransferOrderView : IAsyncDisposable
             TaskAsync = async () =>
             {
                 await InvokeAsync(StateHasChanged);
-                var res = await Client.Get<List<TransferOrderVM>>("/Packing/TransferOrder/PendingFulfillment", new { NetsuiteUserSubsidiaryInternalId = UserSubsidiaryId, NetsuiteUserInternalId = UserId });
+                var res = await Client.Post<List<TransferOrderVM>>("/Packing/TransferOrder/PendingFulfillment", new { NetsuiteUserSubsidiaryInternalId = UserSubsidiaryId, NetsuiteUserInternalId = UserId });
                 return res;
             },
             OnSuccess = async (result) =>

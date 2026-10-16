@@ -11,6 +11,8 @@ public class PurchaseOrderDataGridDTO
     public int Id { get; set; }
     public string ReferenceNumber { get; set; } = string.Empty;
     public string VendorName { get; set; } = string.Empty;
+    public string PurchaseCategory { get; set; } = string.Empty;
+    public string PurchaseSubcategory { get; set; } = string.Empty;
     public string Memo { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;
     public string StatusId { get; set; } = string.Empty;

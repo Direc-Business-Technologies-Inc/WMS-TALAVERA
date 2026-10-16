@@ -12,12 +12,15 @@ using Application.DataTransferObjects.Transactions.TripTicket.NS.Payload;
 using Application.UseCases.Repositories.Integration.Others;
 using Database.Libraries.Repositories;
 using Integration.NS.Entities;
+using Integration.NS.Exceptions;
+using Integration.NS.Resilience;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using System.ComponentModel;
 using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -39,9 +42,9 @@ namespace Integration.NS.Services
 
         private static readonly string AccountId = Environment.GetEnvironmentVariable("ACCOUNT_ID") ?? string.Empty;
 
-        //private static readonly string ItemFulfillmentUrl = $"https://{AccountId}.suitetalk.api.netsuite.com/services/rest/record/v1/{{0}}/{{1}}/!transform/itemFulfillment?replace=item.inventoryDetail.inventoryAssignment";
-        private static readonly string ItemFulfillmentUrl = $"https://{AccountId}.suitetalk.api.netsuite.com/services/rest/record/v1/{{0}}/{{1}}/!transform/itemFulfillment";
-        private static readonly string ItemFulfillmentUrlNotUsedBin = $"https://{AccountId}.suitetalk.api.netsuite.com/services/rest/record/v1/{{0}}/{{1}}/!transform/itemFulfillment";
+        private static readonly string ItemFulfillmentUrl = $"https://{AccountId}.suitetalk.api.netsuite.com/services/rest/record/v1/{{0}}/{{1}}/!transform/itemFulfillment?replace=item.inventoryDetail.inventoryAssignment";
+        private static readonly string ItemFulfillmentUrlNotUsedBin = $"https://{AccountId}.suitetalk.api.netsuite.com/services/rest/record/v1/{{0}}/{{1}}/!transform/itemFulfillment?replace=item.inventoryDetail.inventoryAssignment";
+        private static readonly string ItemFulfillmentUrlNoReplace = $"https://{AccountId}.suitetalk.api.netsuite.com/services/rest/record/v1/{{0}}/{{1}}/!transform/itemFulfillment";
 
         private static readonly string PatchItemFulfillmentUrl = $"https://{AccountId}.suitetalk.api.netsuite.com/services/rest/record/v1/itemFulfillment/{{0}}";
 
@@ -53,11 +56,11 @@ namespace Integration.NS.Services
 
         private static readonly string ClientCredentialsCertificateId = Environment.GetEnvironmentVariable("NETSUITE_CERTIFICATE_ID") ?? string.Empty;
 
-        private static readonly string ItemReceiptRestletUrl = $"https://{AccountId}.restlets.api.netsuite.com/app/site/hosting/restlet.nl?script=1853&deploy=1";
+        private static string ItemReceiptRestletUrl = $"https://{AccountId}.restlets.api.netsuite.com/app/site/hosting/restlet.nl?script=1853&deploy=1";
 
-        private static readonly string TripTicketRestletUrl = $"https://{AccountId}.restlets.api.netsuite.com/app/site/hosting/restlet.nl?script=1862&deploy=1";
+        private static string TripTicketRestletUrl = $"https://{AccountId}.restlets.api.netsuite.com/app/site/hosting/restlet.nl?script=1862&deploy=1";
 
-        private static readonly string InventoryWorksheetRestletUrl = $"https://{AccountId}.restlets.api.netsuite.com/app/site/hosting/restlet.nl?script=1878&deploy=1";
+        private static string InventoryWorksheetRestletUrl = $"https://{AccountId}.restlets.api.netsuite.com/app/site/hosting/restlet.nl?script=1878&deploy=1";
 
         private static readonly string ApiConsumerKey = Environment.GetEnvironmentVariable("NETSUITE_CONSUMER_KEY") ?? string.Empty;
 
@@ -70,7 +73,111 @@ namespace Integration.NS.Services
 
         private static string TokenEndPointUrl = $"{Oauth2ApiRoot}/token";
 
-        private static readonly HttpClient _httpClient = new HttpClient();
+        private static HttpClient _httpClient = CreateHttpClient();
+
+        /// <summary>
+        /// The RSA private key is imported once per process and reused for every
+        /// JWT client assertion. Reading/parsing the key file on each token
+        /// refresh was wasted work (Req 3.2).
+        /// </summary>
+        private static readonly Lazy<RSA> _rsaKey = new(LoadPrivateKey, LazyThreadSafetyMode.ExecutionAndPublication);
+
+        private static HttpClient CreateHttpClient()
+        {
+            return new HttpClient
+            {
+                // NetSuite's server-side cutoff is 15 minutes; stay well below it
+                // so a hung call fails fast instead of pinning a permit (Req 3.3).
+                Timeout = TimeSpan.FromSeconds(GetHttpTimeoutSeconds())
+            };
+        }
+
+        internal static double GetHttpTimeoutSeconds()
+        {
+            var raw = Environment.GetEnvironmentVariable("NETSUITE_HTTP_TIMEOUT_SECONDS");
+            return double.TryParse(raw, out var seconds) && seconds > 0 ? seconds : 100;
+        }
+
+        /// <summary>
+        /// Maximum simultaneous NetSuite requests per process. Defaults to 2 so
+        /// two hosts cannot exceed the account concurrency limit of 5; an
+        /// explicit environment value is honoured with a floor of 1.
+        /// </summary>
+        internal static int GetMaxInFlightPerProcess()
+        {
+            var raw = Environment.GetEnvironmentVariable("NETSUITE_MAX_INFLIGHT_PER_PROCESS");
+            return int.TryParse(raw, out var value) ? Math.Max(1, value) : 2;
+        }
+
+        /// <summary>
+        /// Test seam: replaces the shared <see cref="HttpClient"/>. Production
+        /// behaviour is untouched when never called.
+        /// </summary>
+        internal static void OverrideHttpClientForTests(HttpClient client)
+        {
+            _httpClient = client;
+        }
+
+        /// <summary>
+        /// Test seam: points request roots at a fake (e.g. WireMock). Only the
+        /// roots tests need are overridable; <see cref="ResetUrlRootsForTests"/>
+        /// restores production values.
+        /// </summary>
+        internal static void OverrideUrlRootsForTests(
+            string? suiteQlRoot = null,
+            string? recordApiRoot = null,
+            string? itemReceiptRestlet = null,
+            string? tripTicketRestlet = null,
+            string? inventoryWorksheetRestlet = null)
+        {
+            if (suiteQlRoot is not null) SuiteQLRoot = suiteQlRoot;
+            if (recordApiRoot is not null) RecordApiRoot = recordApiRoot;
+            if (itemReceiptRestlet is not null) ItemReceiptRestletUrl = itemReceiptRestlet;
+            if (tripTicketRestlet is not null) TripTicketRestletUrl = tripTicketRestlet;
+            if (inventoryWorksheetRestlet is not null) InventoryWorksheetRestletUrl = inventoryWorksheetRestlet;
+        }
+
+        internal static void ResetUrlRootsForTests()
+        {
+            SuiteQLRoot = $"{RestApiRoot}/query/v1/suiteql";
+            RecordApiRoot = $"{RestApiRoot}/record/v1";
+            ItemReceiptRestletUrl = $"https://{AccountId}.restlets.api.netsuite.com/app/site/hosting/restlet.nl?script=1853&deploy=1";
+            TripTicketRestletUrl = $"https://{AccountId}.restlets.api.netsuite.com/app/site/hosting/restlet.nl?script=1862&deploy=1";
+            InventoryWorksheetRestletUrl = $"https://{AccountId}.restlets.api.netsuite.com/app/site/hosting/restlet.nl?script=1878&deploy=1";
+        }
+
+        /// <summary>
+        /// Test seam: rebuilds the shared HttpClient at production defaults so
+        /// suites that override it (WireMock-created clients, short-timeout
+        /// stubs) cannot leak their stubs into order-dependent tests that assert
+        /// on the shared client's configuration.
+        /// </summary>
+        internal static void ResetHttpClientForTests()
+        {
+            _httpClient = CreateHttpClient();
+        }
+
+        private static RSA LoadPrivateKey()
+        {
+            string privateKeyPem = File.ReadAllText(Environment.GetEnvironmentVariable("PRIVATEKEY_PATH") ?? string.Empty);
+            // Remove headers and footers
+            privateKeyPem = privateKeyPem.Replace("-----BEGIN PRIVATE KEY-----", "")
+                                         .Replace("-----END PRIVATE KEY-----", "")
+                                         .Replace("\n", "")
+                                         .Replace("\r", "");
+            // Decode the Base64 key
+            byte[] privateKeyRaw = Convert.FromBase64String(privateKeyPem);
+            var rsa = RSACng.Create();
+            rsa.KeySize = 3072;
+            rsa.ImportPkcs8PrivateKey(privateKeyRaw, out _);
+            // Ensure the key size is at least 3072 bits
+            if (rsa.KeySize < 3072)
+            {
+                throw new Exception("RSA key size must be at least 3072 bits for NetSuite OAuth.");
+            }
+
+            return rsa;
+        }
 
         private static string _accessToken;
         private static DateTime _tokenExpiryTime;
@@ -119,13 +226,24 @@ namespace Integration.NS.Services
             }
         }
 
-        public async Task<string> GetAccessToken()
+        public async Task<string> GetAccessToken(CancellationToken ct = default)
         {
+            return await GetAccessToken((request, cancellationToken) =>
+                _httpClient.SendAsync(request, cancellationToken), ct);
+        }
 
+        /// <summary>
+        /// Token acquisition with an injectable sender so the refresh flow can be
+        /// exercised in unit tests. This method intentionally does NOT set
+        /// <c>_tokenExpiryTime</c>: expiry is owned exclusively by
+        /// <see cref="GetValidAccessToken"/> after a successful refresh (Req 3.1).
+        /// </summary>
+        internal async Task<string> GetAccessToken(
+            Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> sendAsync,
+            CancellationToken ct = default)
+        {
             var url = Oauth2ApiRoot + "/token";
             string clientAssertion = GetJwtToken();
-
-            _tokenExpiryTime = DateTime.UtcNow.AddMinutes(30);
 
             var requestParams = new List<KeyValuePair<string, string>>()
             {
@@ -138,8 +256,8 @@ namespace Integration.NS.Services
 
             httpRequest.Content = new FormUrlEncodedContent(requestParams);
 
-            var httpResponse = await _httpClient.SendAsync(httpRequest);
-            string res = await httpResponse.Content.ReadAsStringAsync();
+            var httpResponse = await sendAsync(httpRequest, ct);
+            string res = await httpResponse.Content.ReadAsStringAsync(ct);
             if (httpResponse.IsSuccessStatusCode)
             {
                 var responseJson = await httpResponse.Content.ReadAsStringAsync();
@@ -161,22 +279,8 @@ namespace Integration.NS.Services
             {
                 return tokenText; // Return the existing token if it's still valid.
             }
-            string privateKeyPem = File.ReadAllText(Environment.GetEnvironmentVariable("PRIVATEKEY_PATH") ?? string.Empty);
-            // Remove headers and footers
-            privateKeyPem = privateKeyPem.Replace("-----BEGIN PRIVATE KEY-----", "")
-                                         .Replace("-----END PRIVATE KEY-----", "")
-                                         .Replace("\n", "")
-                                         .Replace("\r", "");
-            // Decode the Base64 key
-            byte[] privateKeyRaw = Convert.FromBase64String(privateKeyPem);
-            var rsa = RSACng.Create();
-            rsa.KeySize = 3072;
-            rsa.ImportPkcs8PrivateKey(privateKeyRaw, out _);
-            // Ensure the key size is at least 3072 bits
-            if (rsa.KeySize < 3072)
-            {
-                throw new Exception("RSA key size must be at least 3072 bits for NetSuite OAuth.");
-            }
+            // Use the cached RSA key (imported once per process).
+            var rsa = _rsaKey.Value;
             // Use RSA-PSS (PS256) instead of RS256
             var rsaSecurityKey = new RsaSecurityKey(rsa)
             {
@@ -201,13 +305,23 @@ namespace Integration.NS.Services
             return tokenHandler.WriteToken(token);
         }
 
+        /// <summary>
+        /// Normalises a SuiteQL statement for transport: strips comments first,
+        /// then collapses every whitespace run (newlines included) to a single
+        /// space. The order is load-bearing — folding newlines first would turn
+        /// each <c>--</c> line comment in a script into a comment swallowing the
+        /// entire remainder of the statement, which NetSuite reports as 400
+        /// "end of input ... no_root_node" with no offending token named.
+        /// See <see cref="Helpers.SuiteQLText.StripComments"/>.
+        /// </summary>
         string FormatQuery(string query)
         {
-            return Regex.Replace(query, @"\s+", " ").Trim();
+            return Regex.Replace(Helpers.SuiteQLText.StripComments(query), @"\s+", " ").Trim();
         }
 
         private static readonly SemaphoreSlim _tokenSemaphore = new(1, 1);
-        private static readonly SemaphoreSlim _requestSemaphore = new(4, 4);
+        private static readonly SemaphoreSlim _requestSemaphore =
+            new(GetMaxInFlightPerProcess(), GetMaxInFlightPerProcess());
 
         //public async Task<T> MakeRequest<T>(string url, string? reqBody, HttpMethod method)
         //{
@@ -250,84 +364,26 @@ namespace Integration.NS.Services
         public async Task<T> MakeRequest<T>(
         string url,
         string? reqBody,
-        HttpMethod method)
+        HttpMethod method,
+        NetSuiteRequestKind? kind = null,
+        NetSuiteRetryProfile profile = NetSuiteRetryProfile.Interactive,
+        CancellationToken ct = default)
         {
-            var accessToken = await GetValidAccessToken();
+            var accessToken = await GetValidAccessToken(ct);
 
-            // Limit concurrent calls to NetSuite.
-            await _requestSemaphore.WaitAsync();
+            var requestKind = kind ?? NetSuiteRequestClassifier.Classify(url, method);
+            var pipeline = NetSuitePipelines.For(profile, requestKind);
+
+            // Limit concurrent calls to NetSuite. The retry pipeline executes
+            // inside the permit hold (D5) so a 429 storm cannot starve the
+            // limiter by re-acquiring between attempts.
+            await _requestSemaphore.WaitAsync(ct);
 
             try
             {
-                using var httpRequest =
-                    new HttpRequestMessage(method, url);
-
-                httpRequest.Headers.Authorization =
-                    new AuthenticationHeaderValue(
-                        "Bearer",
-                        accessToken);
-
-                httpRequest.Headers.Add(
-                    "Prefer",
-                    "transient");
-
-                if (!string.IsNullOrEmpty(reqBody))
-                {
-                    httpRequest.Content = new StringContent(
-                        reqBody,
-                        Encoding.UTF8,
-                        "application/json");
-                }
-
-                using var httpResponse =
-                    await _httpClient.SendAsync(httpRequest);
-
-                var responseJson =
-                    await httpResponse.Content.ReadAsStringAsync();
-
-                if (httpResponse.IsSuccessStatusCode)
-                {
-                    if (string.IsNullOrEmpty(responseJson))
-                        return default!;
-
-                    var response =
-                        JsonSerializer.Deserialize<T>(
-                            responseJson,
-                            JsonSerializerRequestOption);
-
-                    return response
-                        ?? throw new Exception(
-                            "Bad response from NetSuite API");
-                }
-
-                // Parse the error from the string already read above; a second
-                // ReadFromJsonAsync content read can throw JsonException and mask
-                // the real status code (G2/G3).
-                string? displayString = null;
-
-                try
-                {
-                    displayString =
-                        JsonSerializer.Deserialize<NetSuiteErrorResponse>(
-                            responseJson,
-                            JsonSerializerRequestOption)?.DisplayString;
-                }
-                catch (JsonException)
-                {
-                    // Unrecognized body — fall back to the detail chain below.
-                }
-
-                var detail = !string.IsNullOrWhiteSpace(displayString)
-                    ? displayString
-                    : GetNetSuiteErrorDetail(responseJson);
-
-                LogNonSuccessResponse(httpResponse, method, url, reqBody, responseJson);
-
-                throw new Exception(
-                    BuildNetSuiteErrorMessage(
-                        httpResponse,
-                        detail,
-                        responseJson));
+                return await pipeline.ExecuteAsync(
+                    pipelineCt => SendAndHandleOAuth2<T>(url, reqBody, method, accessToken, pipelineCt),
+                    ct);
             }
             finally
             {
@@ -335,7 +391,120 @@ namespace Integration.NS.Services
             }
         }
 
-        private async Task<string> GetValidAccessToken()
+        private async ValueTask<T> SendAndHandleOAuth2<T>(
+            string url,
+            string? reqBody,
+            HttpMethod method,
+            string accessToken,
+            CancellationToken ct = default)
+        {
+            using var httpRequest =
+                new HttpRequestMessage(method, url);
+
+            httpRequest.Headers.Authorization =
+                new AuthenticationHeaderValue(
+                    "Bearer",
+                    accessToken);
+
+            httpRequest.Headers.Add(
+                "Prefer",
+                "transient");
+
+            if (!string.IsNullOrEmpty(reqBody))
+            {
+                httpRequest.Content = new StringContent(
+                    reqBody,
+                    Encoding.UTF8,
+                    "application/json");
+            }
+
+            using var httpResponse =
+                await SendRequestAsync(httpRequest, ct);
+
+            var responseJson =
+                await httpResponse.Content.ReadAsStringAsync(ct);
+
+            if (httpResponse.IsSuccessStatusCode)
+            {
+                if (string.IsNullOrEmpty(responseJson))
+                    return default!;
+
+                var response =
+                    JsonSerializer.Deserialize<T>(
+                        responseJson,
+                        JsonSerializerRequestOption);
+
+                return response
+                    ?? throw new Exception(
+                        "Bad response from NetSuite API");
+            }
+
+            // Parse the error from the string already read above; a second
+            // ReadFromJsonAsync content read can throw JsonException and mask
+            // the real status code (G2/G3).
+            string? displayString = null;
+
+            try
+            {
+                displayString =
+                    JsonSerializer.Deserialize<NetSuiteErrorResponse>(
+                        responseJson,
+                        JsonSerializerRequestOption)?.DisplayString;
+            }
+            catch (JsonException)
+            {
+                // Unrecognized body — fall back to the detail chain below.
+            }
+
+            var detail = !string.IsNullOrWhiteSpace(displayString)
+                ? displayString
+                : GetNetSuiteErrorDetail(responseJson);
+
+            LogNonSuccessResponse(httpResponse, method, url, reqBody, responseJson);
+
+            throw NetSuiteExceptionFactory.CreateForStatus(
+                httpResponse.StatusCode,
+                BuildNetSuiteErrorMessage(
+                    httpResponse,
+                    detail,
+                    responseJson),
+                detail,
+                reqBody);
+        }
+
+        /// <summary>
+        /// Sends a request, mapping transport/network failures to
+        /// <see cref="NetSuiteTransientException"/> so the retry policy can treat
+        /// them uniformly with 429/5xx responses (Req 4.1).
+        /// Cancellation requested via <paramref name="ct"/> is never mapped or
+        /// retried: it propagates as <see cref="OperationCanceledException"/>
+        /// so Blazor navigation-away simply stops updating (Req 3.1, 3.3).
+        /// </summary>
+        private static async Task<HttpResponseMessage> SendRequestAsync(HttpRequestMessage request, CancellationToken ct = default)
+        {
+            try
+            {
+                return await _httpClient.SendAsync(request, ct);
+            }
+            catch (OperationCanceledException ex) when (ct.IsCancellationRequested)
+            {
+                throw new OperationCanceledException("NetSuite request was cancelled.", ex, ct);
+            }
+            catch (HttpRequestException ex)
+            {
+                throw NetSuiteExceptionFactory.CreateForNetworkError(
+                    $"NetSuite request failed: {ex.Message}",
+                    ex);
+            }
+            catch (TaskCanceledException ex)
+            {
+                throw NetSuiteExceptionFactory.CreateForNetworkError(
+                    $"NetSuite request timed out: {ex.Message}",
+                    ex);
+            }
+        }
+
+        private async Task<string> GetValidAccessToken(CancellationToken ct = default)
         {
             // Fast path — most requests should come through here.
             if (_accessToken != null &&
@@ -345,7 +514,7 @@ namespace Integration.NS.Services
             }
 
             // Only one request can refresh the token at a time.
-            await _tokenSemaphore.WaitAsync();
+            await _tokenSemaphore.WaitAsync(ct);
 
             try
             {
@@ -359,7 +528,7 @@ namespace Integration.NS.Services
                     return _accessToken;
                 }
 
-                var newToken = await GetAccessToken();
+                var newToken = await GetAccessToken(ct);
 
                 _accessToken = newToken;
 
@@ -377,12 +546,18 @@ namespace Integration.NS.Services
         }
 
 
-        async Task<T> MakeRequest<T>(string url, string? reqBody = null)
+        async Task<T> MakeRequest<T>(string url, string? reqBody = null, CancellationToken ct = default)
         {
-            return await MakeRequest<T>(url, reqBody, HttpMethod.Post);
+            return await MakeRequest<T>(url, reqBody, HttpMethod.Post, ct: ct);
         }
 
-        public async Task<T> MakeRequestOAuth1<T>(string url, string? reqBody, HttpMethod method)
+        public async Task<T> MakeRequestOAuth1<T>(
+            string url,
+            string? reqBody,
+            HttpMethod method,
+            NetSuiteRequestKind? kind = null,
+            NetSuiteRetryProfile profile = NetSuiteRetryProfile.Interactive,
+            CancellationToken ct = default)
         {
             string consumerKey = Environment.GetEnvironmentVariable("OAUTH1_CONSUMER_KEY") ?? "";
             string consumerSecret = Environment.GetEnvironmentVariable("OAUTH1_CONSUMER_SECRET") ?? "";
@@ -461,6 +636,32 @@ namespace Integration.NS.Services
                 $"oauth_version=\"1.0\", " +
                 $"oauth_signature=\"{Uri.EscapeDataString(signature)}\"";
 
+            var requestKind = kind ?? NetSuiteRequestClassifier.Classify(url, method);
+            var pipeline = NetSuitePipelines.For(profile, requestKind);
+
+            // Defense-in-depth: the OAuth1 path shares the same limiter as the
+            // OAuth2 path (two separate semaphores would sum back over budget).
+            await _requestSemaphore.WaitAsync(ct);
+
+            try
+            {
+                return await pipeline.ExecuteAsync(
+                    pipelineCt => SendAndHandleOAuth1<T>(url, reqBody, method, authorizationHeader, pipelineCt),
+                    ct);
+            }
+            finally
+            {
+                _requestSemaphore.Release();
+            }
+        }
+
+        private async ValueTask<T> SendAndHandleOAuth1<T>(
+            string url,
+            string? reqBody,
+            HttpMethod method,
+            string authorizationHeader,
+            CancellationToken ct = default)
+        {
             using var request = new HttpRequestMessage(method, url);
 
             request.Headers.TryAddWithoutValidation(
@@ -475,13 +676,13 @@ namespace Integration.NS.Services
                     "application/json");
             }
 
-            var httpResponse = await _httpClient.SendAsync(request);
+            using var httpResponse = await SendRequestAsync(request, ct);
 
-            var responseJson = await httpResponse.Content.ReadAsStringAsync();
+            var responseJson = await httpResponse.Content.ReadAsStringAsync(ct);
             if (httpResponse.IsSuccessStatusCode)
             {
                 if (string.IsNullOrEmpty(responseJson))
-                    return default(T);
+                    return default!;
 
                 return System.Text.Json.JsonSerializer.Deserialize<T>(responseJson);
             }
@@ -490,11 +691,14 @@ namespace Integration.NS.Services
 
             LogNonSuccessResponse(httpResponse, method, url, reqBody, responseJson);
 
-            throw new Exception(
+            throw NetSuiteExceptionFactory.CreateForStatus(
+                httpResponse.StatusCode,
                 BuildNetSuiteErrorMessage(
                     httpResponse,
                     errorDetail,
-                    responseJson));
+                    responseJson),
+                errorDetail,
+                reqBody);
         }
 
         private static string? GetNetSuiteErrorDetail(string responseJson)
@@ -607,7 +811,7 @@ namespace Integration.NS.Services
         /// parsed error when available, otherwise a raw-body excerpt of at most
         /// 2000 characters.
         /// </summary>
-        private static string BuildNetSuiteErrorMessage(
+        internal static string BuildNetSuiteErrorMessage(
             HttpResponseMessage response,
             string? detail,
             string responseBody)
@@ -616,19 +820,30 @@ namespace Integration.NS.Services
                 $"NetSuite {(int)response.StatusCode} " +
                 $"{response.ReasonPhrase ?? response.StatusCode.ToString()}";
 
-            if (!string.IsNullOrWhiteSpace(detail))
+            // A parsed detail shorter than 10 characters (e.g. "(0)") carries
+            // no actionable information; append the raw-body excerpt so the
+            // real NetSuite error stays visible without log access.
+            if (!string.IsNullOrWhiteSpace(detail) && detail.Length >= 10)
                 return $"{statusLine}: {detail}";
+
+            var bodyExcerpt = string.Empty;
+
+            if (!string.IsNullOrWhiteSpace(responseBody))
+            {
+                const int maxBodyExcerpt = 2000;
+
+                bodyExcerpt = responseBody.Length <= maxBodyExcerpt
+                    ? responseBody
+                    : responseBody[..maxBodyExcerpt];
+            }
+
+            if (!string.IsNullOrWhiteSpace(detail))
+                return $"{statusLine}: {detail} | raw body: {bodyExcerpt}";
 
             if (string.IsNullOrWhiteSpace(responseBody))
                 return $"{statusLine}: empty response body";
 
-            const int maxBodyExcerpt = 2000;
-
-            var body = responseBody.Length <= maxBodyExcerpt
-                ? responseBody
-                : responseBody[..maxBodyExcerpt];
-
-            return $"{statusLine}: {body}";
+            return $"{statusLine}: {bodyExcerpt}";
         }
 
         /// <summary>
@@ -657,7 +872,8 @@ namespace Integration.NS.Services
             string queryName,
             Dictionary<string, string>? parameters = null,
             int limit = 0,
-            int offset = 0)
+            int offset = 0,
+            CancellationToken ct = default)
         {
             var url = SuiteQLRoot;
 
@@ -673,31 +889,21 @@ namespace Integration.NS.Services
                 throw new Exception($"SQL query '{queryName}' not found.");
             }
 
-            if (parameters != null)
-            {
-                foreach (var parameter in parameters)
-                {
-                    query = query.Replace(
-                        $"@{parameter.Key}",
-                        $"'{parameter.Value.Replace("'", "''")}'");
-
-                    query = query.Replace(
-                        $"{{{parameter.Key}}}",
-                        parameter.Value);
-                }
-            }
+            // Parameter substitution rules (including the {key} raw-splice guard)
+            // live in SuiteQLText — shared with SuiteQLScriptResolver.
+            query = Helpers.SuiteQLText.SubstituteScriptParameters(query, parameters);
 
             var jsonBody = System.Text.Json.JsonSerializer.Serialize(new
             {
                 q = FormatQuery(query)
             });
 
-            var result = await MakeRequest<NetSuiteResponse<T>>(url, jsonBody, HttpMethod.Post);
+            var result = await MakeRequest<NetSuiteResponse<T>>(url, jsonBody, HttpMethod.Post, ct: ct);
 
             return result.items;
         }
 
-        public async Task<NetSuiteResponse<T>> ExecuteSuiteQLQuery<T>(string query, int? limit = null, int? offset = null)
+        public async Task<NetSuiteResponse<T>> ExecuteSuiteQLQuery<T>(string query, int? limit = null, int? offset = null, CancellationToken ct = default)
         {
             var url = SuiteQLRoot;
             if (limit.HasValue) url += $"?limit={limit.Value}" + (offset.HasValue ? $"&offset={offset.Value}" : "");
@@ -707,7 +913,7 @@ namespace Integration.NS.Services
 
             var jsonBody = JsonSerializer.Serialize(new { q = query });
 
-            return await MakeRequest<NetSuiteResponse<T>>(url, jsonBody, HttpMethod.Post);
+            return await MakeRequest<NetSuiteResponse<T>>(url, jsonBody, HttpMethod.Post, ct: ct);
         }
 
         #region Receiving
@@ -723,7 +929,7 @@ namespace Integration.NS.Services
             {
                 try
                 {
-                    var payloadBad = PurchaseOrderIRPayloadDTO.CreateForItemReceipt(badPO, userId, 2, remarks);
+                    var payloadBad = PurchaseOrderIRPayloadDTO.CreateForItemReceipt(Data, userId, 2, remarks);
 
                     var jsonStringBad = JsonSerializer.Serialize(payloadBad, JsonSerializerOption);
 
@@ -741,7 +947,7 @@ namespace Integration.NS.Services
             {
                 try
                 {
-                    var payloadGood = PurchaseOrderIRPayloadDTO.CreateForItemReceipt(goodPO, userId, 1, remarks);
+                    var payloadGood = PurchaseOrderIRPayloadDTO.CreateForItemReceipt(Data, userId, 1, remarks);
 
                     var jsonStringGood = JsonSerializer.Serialize(payloadGood, JsonSerializerOption);
 
@@ -867,31 +1073,118 @@ namespace Integration.NS.Services
         #endregion
 
         #region Itemfulfillment
+
+        /// <summary>
+        /// The packing line queries (NS_TO_x_Packing_Get_Items etc.) join one transaction
+        /// line to the item's preferred bin and the preferred vendor's bin assignment.
+        /// Either join multiplies the row when the item has several preferred bins at the
+        /// location or the vendor has several assignment records there, and the mobile
+        /// posts every row back. Two body entries with the same orderLine are invalid for
+        /// the !transform/itemFulfillment POST: under ?replace=item.inventoryDetail.inventoryAssignment
+        /// the zero-qty filler copy's EMPTY assignment collides with the scanned copy's
+        /// assignment and NetSuite rejects with "Please configure the inventory detail in
+        /// line N of the item list" naming the scanned line. Collapse each (line, quality)
+        /// pair to one row, preferring the row the operator actually scanned; good/bad
+        /// split scans of one line (same LineSequenceNumber, different IsBad) are
+        /// legitimate and are kept. GroupBy preserves first-appearance order, so the
+        /// posted body order (and the line-N decoder below) stays aligned.
+        /// </summary>
+        internal static List<T> DeduplicateFulfillmentLines<T>(
+            List<T> lines,
+            Func<T, int> lineSequenceNumber,
+            Func<T, bool> isBad,
+            Func<T, decimal> scannedQuantity)
+        {
+            return lines
+                .GroupBy(x => (lineSequenceNumber(x), isBad(x)))
+                .Select(g => g
+                    .OrderByDescending(x => scannedQuantity(x) > 0)
+                    .ThenByDescending(scannedQuantity)
+                    .First())
+                .ToList();
+        }
+
+        /// <summary>
+        /// True when a posted line must carry a bin. Only bin-tracked locations require one.
+        /// </summary>
+        /// <remarks>
+        /// Both bin ids reach the WMS through LEFT JOINs in the packing scripts, so a
+        /// non-bin-tracked location resolves them to 0 by construction. An ungated check
+        /// therefore rejects a legitimate save and tells the operator the location is
+        /// bin-tracked when it is not - e.g. SELLING AREA - CAUAYAN, where usebins = 'F'.
+        /// Gate on the same header-level isUsedBin that drives binNumber and the ?replace=
+        /// URL, never per-line: a per-line gate would pass validation while the transform
+        /// still demands inventoryDetail for the whole save.
+        /// </remarks>
+        internal static bool RequiresBin(bool isUsedBin, decimal scannedQuantity, int vendorAssignedBin, int preferredBin) =>
+            isUsedBin && scannedQuantity > 0 && vendorAssignedBin == 0 && preferredBin == 0;
+
         public async Task<bool> SaveTOItemFulfillment(List<PostTransferOrderDTO> Data)
         {
+            Data = DeduplicateFulfillmentLines(Data, x => x.LineSequenceNumber, x => x.IsBad, x => x.ScannedQuantity);
+
             var orderId = Data.Select(x => x.NetsuiteOrderInternalId).FirstOrDefault();
-            var isUsedBin = Data.Select(x => x.IsLocationUsedBin).FirstOrDefault();
+            // Use Any (not First): one stale non-bin line must not downgrade a
+            // bin-tracked fulfillment to the legacy no-detail shape.
+            var isUsedBin = Data.Any(x => x.IsLocationUsedBin);
+            var mixedBinFlags = Data.Select(x => x.IsLocationUsedBin).Distinct().Count() > 1;
             var isTripTicketExempt = Data.FirstOrDefault()?.IsTripTicketExempt == true;
             var itemFulfillmentStatus = isTripTicketExempt ? "C" : "B";
             var printLabel = true; // Packing labels are required regardless of trip-ticket exemption.
 
-            string url = string.Format(isUsedBin ? ItemFulfillmentUrl : ItemFulfillmentUrlNotUsedBin, "transferOrder", orderId);
-
             var badTO = Data.Where(x => x.IsBad).ToList();
+
+            if (mixedBinFlags)
+            {
+                var flagSample = string.Join("; ", Data.Take(10).Select((line, i) => $"pos{i + 1}/WMS{line.LineSequenceNumber}/{line.MaterialCode} usedBin={line.IsLocationUsedBin} ({line.LocationUsedBin})"));
+                throw new Exception($"Cannot post BAD TO Item Fulfillment: mixed bin-tracked flags in one save (location '{Data.FirstOrDefault()?.LocationName}'). Reload the order so every line resolves the same location, then retry. Sample: {flagSample}.");
+            }
 
             if (badTO.Any(x => x.ScannedQuantity > 0))
             {
+                // NetSuite rejects inventoryDetail without binNumber at bin-tracked locations ("configure the inventory detail in line N").
+                // Fail here, naming the offending items and their item-list positions, instead of surfacing a cryptic 400.
+                var badMissingBin = new List<string>();
+                for (var i = 0; i < badTO.Count; i++)
+                {
+                    var line = badTO[i];
+                    if (RequiresBin(isUsedBin, line.ScannedQuantity, line.NetsuiteMaterialVendorAssignedBin, line.NetsuiteMaterialPrefferedBinId))
+                    {
+                        badMissingBin.Add($"item-list line {i + 1} (WMS line {line.LineSequenceNumber}) {line.MaterialCode} - {line.MaterialName}");
+                    }
+                }
+
+                if (badMissingBin.Any())
+                {
+                    throw new Exception($"Cannot post BAD TO Item Fulfillment: location '{Data.FirstOrDefault()?.LocationName}' is bin-tracked but no bin is resolved for: {string.Join("; ", badMissingBin)}. Reload the order; if the bin is still missing, ask Master Data to set a Vendor Bin Assignment or a preferred bin for these items.");
+                }
+
+                // replace + explicit inventoryDetail only for bin-tracked locations; non-bin posts run the legacy shape (no detail, no replace).
+                var url = string.Format(isUsedBin ? ItemFulfillmentUrl : ItemFulfillmentUrlNoReplace, "transferOrder", orderId);
+
+                string? jsonStringBad = null;
                 try
                 {
                     var payloadBad = TransferOrderIFPayloadDTO.CreateForItemFulfillment(badTO, itemFulfillmentStatus, printLabel, isUsedBin);
 
-                    var jsonStringBad = JsonSerializer.Serialize(payloadBad, JsonSerializerOption);
+                    jsonStringBad = JsonSerializer.Serialize(payloadBad, JsonSerializerOption);
 
                     await MakeRequest<object>(url, jsonStringBad, HttpMethod.Post);
                 }
                 catch (Exception ex)
                 {
-                    throw new Exception($"Error while posting BAD TO Item Fulfillment. {ex.Message}", ex);
+                    logger.LogError(ex, "BAD TO Item Fulfillment failed. Url: {Url}. Payload: {Payload}", url, jsonStringBad);
+                    var diag = $"[diag replace={url.Contains("replace=")} usedBin={isUsedBin} scannedLines={badTO.Count(x => x.ScannedQuantity > 0)} totalLines={badTO.Count}]";
+
+                    // Decode NetSuite's "line N of the item list" into the actual DTO row so field tests identify the offender without server logs.
+                    var nsLineMatch = Regex.Match(ex.Message, @"line (\d+) of the item list");
+                    if (nsLineMatch.Success && int.TryParse(nsLineMatch.Groups[1].Value, out var nsLine) && nsLine >= 1 && nsLine <= badTO.Count)
+                    {
+                        var offender = badTO[nsLine - 1];
+                        diag += $" | line{nsLine}=WMSLine {offender.LineSequenceNumber} {offender.MaterialCode} - {offender.MaterialName} vendorBin={offender.NetsuiteMaterialVendorAssignedBin} preferredBin={offender.NetsuiteMaterialPrefferedBinId} qty={offender.ScannedQuantity}";
+                    }
+
+                    throw new Exception($"Error while posting BAD TO Item Fulfillment. {ex.Message} {diag}", ex);
                 }
             }
 
@@ -899,17 +1192,50 @@ namespace Integration.NS.Services
 
             if (goodTO.Any())
             {
+                // NetSuite rejects inventoryDetail without binNumber at bin-tracked locations ("configure the inventory detail in line N").
+                // Fail here, naming the offending items and their item-list positions, instead of surfacing a cryptic 400.
+                var goodMissingBin = new List<string>();
+                for (var i = 0; i < goodTO.Count; i++)
+                {
+                    var line = goodTO[i];
+                    if (RequiresBin(isUsedBin, line.ScannedQuantity, line.NetsuiteMaterialVendorAssignedBin, line.NetsuiteMaterialPrefferedBinId))
+                    {
+                        goodMissingBin.Add($"item-list line {i + 1} (WMS line {line.LineSequenceNumber}) {line.MaterialCode} - {line.MaterialName}");
+                    }
+                }
+
+                if (goodMissingBin.Any())
+                {
+                    throw new Exception($"Cannot post GOOD TO Item Fulfillment: location '{Data.FirstOrDefault()?.LocationName}' is bin-tracked but no bin is resolved for: {string.Join("; ", goodMissingBin)}. Reload the order; if the bin is still missing, ask Master Data to set a Vendor Bin Assignment or a preferred bin for these items.");
+                }
+
+                // replace + explicit inventoryDetail only when the location is bin-tracked AND the bucket carries scanned lines.
+                var usedBinWithScan = isUsedBin && goodTO.Any(x => x.ScannedQuantity > 0);
+                var url = string.Format(usedBinWithScan ? ItemFulfillmentUrl : ItemFulfillmentUrlNoReplace, "transferOrder", orderId);
+
+                string? jsonStringGood = null;
                 try
                 {
                     var payloadGood = TransferOrderIFPayloadDTO.CreateForItemFulfillment(goodTO, itemFulfillmentStatus, printLabel, isUsedBin);
 
-                    var jsonStringGood = JsonSerializer.Serialize(payloadGood, JsonSerializerOption);
+                    jsonStringGood = JsonSerializer.Serialize(payloadGood, JsonSerializerOption);
 
                     await MakeRequest<object>(url, jsonStringGood, HttpMethod.Post);
                 }
                 catch (Exception ex)
                 {
-                    throw new Exception($"Error while posting GOOD TO Item Fulfillment. {ex.Message}", ex);
+                    logger.LogError(ex, "GOOD TO Item Fulfillment failed. Url: {Url}. Payload: {Payload}", url, jsonStringGood);
+                    var diag = $"[diag replace={url.Contains("replace=")} usedBin={isUsedBin} scannedLines={goodTO.Count(x => x.ScannedQuantity > 0)} totalLines={goodTO.Count}]";
+
+                    // Decode NetSuite's "line N of the item list" into the actual DTO row so field tests identify the offender without server logs.
+                    var nsLineMatch = Regex.Match(ex.Message, @"line (\d+) of the item list");
+                    if (nsLineMatch.Success && int.TryParse(nsLineMatch.Groups[1].Value, out var nsLine) && nsLine >= 1 && nsLine <= goodTO.Count)
+                    {
+                        var offender = goodTO[nsLine - 1];
+                        diag += $" | line{nsLine}=WMSLine {offender.LineSequenceNumber} {offender.MaterialCode} - {offender.MaterialName} vendorBin={offender.NetsuiteMaterialVendorAssignedBin} preferredBin={offender.NetsuiteMaterialPrefferedBinId} qty={offender.ScannedQuantity}";
+                    }
+
+                    throw new Exception($"Error while posting GOOD TO Item Fulfillment. {ex.Message} {diag}", ex);
                 }
             }
             return true;
@@ -917,25 +1243,70 @@ namespace Integration.NS.Services
 
         public async Task<bool> SaveReturnsItemFulfillment(List<PostReturnsDTO> Data)
         {
+            Data = DeduplicateFulfillmentLines(Data, x => x.LineSequenceNumber, x => x.IsBad, x => x.ScannedQuantity);
+
             var orderId = Data.Select(x => x.NetsuiteOrderInternalId).FirstOrDefault();
-            var isUsedBin = Data.Select(x => x.IsLocationUsedBin).FirstOrDefault();
+            // Use Any (not First): one stale non-bin line must not downgrade a
+            // bin-tracked fulfillment to the legacy no-detail shape.
+            var isUsedBin = Data.Any(x => x.IsLocationUsedBin);
+            var mixedBinFlags = Data.Select(x => x.IsLocationUsedBin).Distinct().Count() > 1;
             var isTripTicketExempt = Data.FirstOrDefault()?.IsTripTicketExempt == true;
             var itemFulfillmentStatus = isTripTicketExempt ? "C" : "B";
             var printLabel = true; // Packing labels are required regardless of trip-ticket exemption.
 
-            string url = string.Format(isUsedBin ? ItemFulfillmentUrl : ItemFulfillmentUrlNotUsedBin, "transferOrder", orderId);
+            // isUsedBin is an OR across lines, so one stale non-bin line would otherwise
+            // decide the payload shape for the whole save and silently drop inventoryDetail
+            // from every other line. Fail loud instead, matching SaveTOItemFulfillment.
+            if (mixedBinFlags)
+            {
+                var flagSample = string.Join("; ", Data.Take(10).Select((line, i) => $"pos{i + 1}/WMS{line.LineSequenceNumber}/{line.MaterialCode} usedBin={line.IsLocationUsedBin} ({line.LocationUsedBin})"));
+                throw new Exception($"Cannot post Returns Item Fulfillment: mixed bin-tracked flags in one save (location '{Data.FirstOrDefault()?.LocationName}'). Reload the order so every line resolves the same location, then retry. Sample: {flagSample}.");
+            }
 
+            // NetSuite rejects inventoryDetail without binNumber at bin-tracked locations ("configure the inventory detail in line N").
+            // Fail here, naming the offending items and their item-list positions, instead of surfacing a cryptic 400.
+            var returnsMissingBin = new List<string>();
+            for (var i = 0; i < Data.Count; i++)
+            {
+                var line = Data[i];
+                if (RequiresBin(isUsedBin, line.ScannedQuantity, line.NetsuiteMaterialVendorAssignedBin, line.NetsuiteMaterialPrefferedBinId))
+                {
+                    returnsMissingBin.Add($"item-list line {i + 1} (WMS line {line.LineSequenceNumber}) {line.MaterialCode} - {line.MaterialName}");
+                }
+            }
+
+            if (returnsMissingBin.Any())
+            {
+                throw new Exception($"Cannot post Returns Item Fulfillment: location '{Data.FirstOrDefault()?.LocationName}' is bin-tracked but no bin is resolved for: {string.Join("; ", returnsMissingBin)}. Reload the order; if the bin is still missing, ask Master Data to set a Vendor Bin Assignment or a preferred bin for these items.");
+            }
+
+            // replace + explicit inventoryDetail only when the location is bin-tracked AND the payload carries scanned lines; otherwise legacy shape.
+            var returnsUsedBinWithScan = isUsedBin && Data.Any(x => x.ScannedQuantity > 0);
+            string url = string.Format(returnsUsedBinWithScan ? ItemFulfillmentUrl : ItemFulfillmentUrlNoReplace, "transferOrder", orderId);
+
+            string? jsonStringGood = null;
             try
             {
                 ReturnsIFPayloadDTO payloadGood = ReturnsIFPayloadDTO.CreateForItemFulfillment(Data, itemFulfillmentStatus, printLabel, isUsedBin);
 
-                var jsonStringGood = JsonSerializer.Serialize(payloadGood, JsonSerializerOption);
+                jsonStringGood = JsonSerializer.Serialize(payloadGood, JsonSerializerOption);
 
                 await MakeRequest<object>(url, jsonStringGood, HttpMethod.Post);
             }
             catch (Exception ex)
             {
-                throw new Exception($"Error while posting Returns Item Fulfillment. {ex.Message}", ex);
+                logger.LogError(ex, "Returns Item Fulfillment failed. Url: {Url}. Payload: {Payload}", url, jsonStringGood);
+                var diag = $"[diag replace={url.Contains("replace=")} usedBin={isUsedBin} scannedLines={Data.Count(x => x.ScannedQuantity > 0)} totalLines={Data.Count}]";
+
+                // Decode NetSuite's "line N of the item list" into the actual DTO row so field tests identify the offender without server logs.
+                var nsLineMatch = Regex.Match(ex.Message, @"line (\d+) of the item list");
+                if (nsLineMatch.Success && int.TryParse(nsLineMatch.Groups[1].Value, out var nsLine) && nsLine >= 1 && nsLine <= Data.Count)
+                {
+                    var offender = Data[nsLine - 1];
+                    diag += $" | line{nsLine}=WMSLine {offender.LineSequenceNumber} {offender.MaterialCode} - {offender.MaterialName} vendorBin={offender.NetsuiteMaterialVendorAssignedBin} preferredBin={offender.NetsuiteMaterialPrefferedBinId} qty={offender.ScannedQuantity}";
+                }
+
+                throw new Exception($"Error while posting Returns Item Fulfillment. {ex.Message} {diag}", ex);
             }
 
             return true;
@@ -943,30 +1314,75 @@ namespace Integration.NS.Services
 
         public async Task<bool> SaveVRAItemFulfillment(List<PostVendorReturnAuthorizationDTO> Data)
         {
+            Data = DeduplicateFulfillmentLines(Data, x => x.LineSequenceNumber, x => x.IsBad, x => x.ScannedQuantity);
+
             var orderId = Data.Select(x => x.NetsuiteOrderInternalId).FirstOrDefault();
-            var isUsedBin = Data.Select(x => x.IsLocationUsedBin).FirstOrDefault();
+            // Use Any (not First): one stale non-bin line must not downgrade a
+            // bin-tracked fulfillment to the legacy no-detail shape.
+            var isUsedBin = Data.Any(x => x.IsLocationUsedBin);
+            var mixedBinFlags = Data.Select(x => x.IsLocationUsedBin).Distinct().Count() > 1;
             var isTripTicketExempt = Data.FirstOrDefault()?.IsTripTicketExempt == true;
             var itemFulfillmentStatus = isTripTicketExempt ? "C" : "B";
             var printLabel = true; // Packing labels are required regardless of trip-ticket exemption.
 
+            // isUsedBin is an OR across lines, so one stale non-bin line would otherwise
+            // decide the payload shape for the whole save and silently drop inventoryDetail
+            // from every other line. Fail loud instead, matching SaveTOItemFulfillment.
+            if (mixedBinFlags)
+            {
+                var flagSample = string.Join("; ", Data.Take(10).Select((line, i) => $"pos{i + 1}/WMS{line.LineSequenceNumber}/{line.MaterialCode} usedBin={line.IsLocationUsedBin} ({line.LocationUsedBin})"));
+                throw new Exception($"Cannot post VRA Item Fulfillment: mixed bin-tracked flags in one save (location '{Data.FirstOrDefault()?.LocationName}'). Reload the order so every line resolves the same location, then retry. Sample: {flagSample}.");
+            }
+
             //string url = string.Format(isUsedBin ? ItemFulfillmentUrl : ItemFulfillmentUrlNotUsedBin, "vendorReturnAuthorization", orderId);
-            string url = string.Format(ItemFulfillmentUrlNotUsedBin, "vendorReturnAuthorization", orderId);
+            // Drop ?replace= per bucket when that bucket carries no inventoryDetail, otherwise NetSuite rejects the transform with INVALID_PARAMETER.
 
             var badTO = Data.Where(x => x.IsBad).ToList();
 
             if (badTO.Any(x => x.ScannedQuantity > 0))
             {
+                // NetSuite rejects inventoryDetail without binNumber at bin-tracked locations ("configure the inventory detail in line N").
+                var badVraMissingBin = new List<string>();
+                for (var i = 0; i < badTO.Count; i++)
+                {
+                    var line = badTO[i];
+                    if (RequiresBin(isUsedBin, line.ScannedQuantity, line.NetsuiteMaterialVendorAssignedBin, line.NetsuiteMaterialPrefferedBinId))
+                    {
+                        badVraMissingBin.Add($"item-list line {i + 1} (WMS line {line.LineSequenceNumber}) {line.MaterialCode} - {line.MaterialName}");
+                    }
+                }
+
+                if (badVraMissingBin.Any())
+                {
+                    throw new Exception($"Cannot post BAD VRA Item Fulfillment: location '{Data.FirstOrDefault()?.LocationName}' is bin-tracked but no bin is resolved for: {string.Join("; ", badVraMissingBin)}. Reload the order; if the bin is still missing, ask Master Data to set a Vendor Bin Assignment or a preferred bin for these items.");
+                }
+
+                // Every posted bad line has scanned qty; replace + detail only for bin-tracked locations.
+                var urlBad = string.Format(isUsedBin ? ItemFulfillmentUrl : ItemFulfillmentUrlNoReplace, "vendorReturnAuthorization", orderId);
+
+                string? jsonStringBad = null;
                 try
                 {
                     var payloadBad = VendorReturnAuthorizationIFPayloadDTO.CreateForItemFulfillment(badTO, itemFulfillmentStatus, printLabel, isUsedBin);
 
-                    var jsonStringBad = JsonSerializer.Serialize(payloadBad, JsonSerializerOption);
+                    jsonStringBad = JsonSerializer.Serialize(payloadBad, JsonSerializerOption);
 
-                    await MakeRequest<object>(url, jsonStringBad, HttpMethod.Post);
+                    await MakeRequest<object>(urlBad, jsonStringBad, HttpMethod.Post);
                 }
                 catch (Exception ex)
                 {
-                    throw new Exception($"Error while posting BAD VRA Item Fulfillment. {ex.Message}", ex);
+                    logger.LogError(ex, "BAD VRA Item Fulfillment failed. Url: {Url}. Payload: {Payload}", urlBad, jsonStringBad);
+                    var diag = $"[diag replace={urlBad.Contains("replace=")} usedBin={isUsedBin} scannedLines={badTO.Count(x => x.ScannedQuantity > 0)} totalLines={badTO.Count}]";
+
+                    // Decode NetSuite's "line N of the item list" into the actual DTO row so field tests identify the offender without server logs.
+                    var nsLineMatch = Regex.Match(ex.Message, @"line (\d+) of the item list");
+                    if (nsLineMatch.Success && int.TryParse(nsLineMatch.Groups[1].Value, out var nsLine) && nsLine >= 1 && nsLine <= badTO.Count)
+                    {
+                        var offender = badTO[nsLine - 1];
+                        diag += $" | line{nsLine}=WMSLine {offender.LineSequenceNumber} {offender.MaterialCode} - {offender.MaterialName} vendorBin={offender.NetsuiteMaterialVendorAssignedBin} preferredBin={offender.NetsuiteMaterialPrefferedBinId} qty={offender.ScannedQuantity}";
+                    }
+
+                    throw new Exception($"Error while posting BAD VRA Item Fulfillment. {ex.Message} {diag}", ex);
                 }
             }
 
@@ -974,17 +1390,49 @@ namespace Integration.NS.Services
 
             if (goodTO.Any())
             {
+                // NetSuite rejects inventoryDetail without binNumber at bin-tracked locations ("configure the inventory detail in line N").
+                var goodVraMissingBin = new List<string>();
+                for (var i = 0; i < goodTO.Count; i++)
+                {
+                    var line = goodTO[i];
+                    if (RequiresBin(isUsedBin, line.ScannedQuantity, line.NetsuiteMaterialVendorAssignedBin, line.NetsuiteMaterialPrefferedBinId))
+                    {
+                        goodVraMissingBin.Add($"item-list line {i + 1} (WMS line {line.LineSequenceNumber}) {line.MaterialCode} - {line.MaterialName}");
+                    }
+                }
+
+                if (goodVraMissingBin.Any())
+                {
+                    throw new Exception($"Cannot post GOOD VRA Item Fulfillment: location '{Data.FirstOrDefault()?.LocationName}' is bin-tracked but no bin is resolved for: {string.Join("; ", goodVraMissingBin)}. Reload the order; if the bin is still missing, ask Master Data to set a Vendor Bin Assignment or a preferred bin for these items.");
+                }
+
+                // replace + explicit inventoryDetail only when the location is bin-tracked AND the bucket carries scanned lines.
+                var goodUsedBinWithScan = isUsedBin && goodTO.Any(x => x.ScannedQuantity > 0);
+                var urlGood = string.Format(goodUsedBinWithScan ? ItemFulfillmentUrl : ItemFulfillmentUrlNoReplace, "vendorReturnAuthorization", orderId);
+
+                string? jsonStringGood = null;
                 try
                 {
                     var payloadGood = VendorReturnAuthorizationIFPayloadDTO.CreateForItemFulfillment(goodTO, itemFulfillmentStatus, printLabel, isUsedBin);
 
-                    var jsonStringGood = JsonSerializer.Serialize(payloadGood, JsonSerializerOption);
+                    jsonStringGood = JsonSerializer.Serialize(payloadGood, JsonSerializerOption);
 
-                    await MakeRequest<object>(url, jsonStringGood, HttpMethod.Post);
+                    await MakeRequest<object>(urlGood, jsonStringGood, HttpMethod.Post);
                 }
                 catch (Exception ex)
                 {
-                    throw new Exception($"Error while posting GOOD VRA Item Fulfillment. {ex.Message}", ex);
+                    logger.LogError(ex, "GOOD VRA Item Fulfillment failed. Url: {Url}. Payload: {Payload}", urlGood, jsonStringGood);
+                    var diag = $"[diag replace={urlGood.Contains("replace=")} usedBin={isUsedBin} scannedLines={goodTO.Count(x => x.ScannedQuantity > 0)} totalLines={goodTO.Count}]";
+
+                    // Decode NetSuite's "line N of the item list" into the actual DTO row so field tests identify the offender without server logs.
+                    var nsLineMatch = Regex.Match(ex.Message, @"line (\d+) of the item list");
+                    if (nsLineMatch.Success && int.TryParse(nsLineMatch.Groups[1].Value, out var nsLine) && nsLine >= 1 && nsLine <= goodTO.Count)
+                    {
+                        var offender = goodTO[nsLine - 1];
+                        diag += $" | line{nsLine}=WMSLine {offender.LineSequenceNumber} {offender.MaterialCode} - {offender.MaterialName} vendorBin={offender.NetsuiteMaterialVendorAssignedBin} preferredBin={offender.NetsuiteMaterialPrefferedBinId} qty={offender.ScannedQuantity}";
+                    }
+
+                    throw new Exception($"Error while posting GOOD VRA Item Fulfillment. {ex.Message} {diag}", ex);
                 }
             }
             return true;

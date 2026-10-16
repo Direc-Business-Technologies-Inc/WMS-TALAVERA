@@ -15,6 +15,11 @@ public partial class BaseComponent
     [Inject] public PrinterApiClientService PrinterApiClient { get; set; } = default!;
     [Inject] public ActionFactoryService ActionFactory { get; set; } = default!;
     [Inject] public RoleService RoleService { get; set; } = default!;
+    [Inject] public UnsaveChangesHandlerService UnsaveChangesHandler { get; set; } = default!;
     [Inject] protected IJSRuntime Js { get; set; } = default!;
+
+    protected void MarkScansDirty() => UnsaveChangesHandler.MarkAsDirty();
+
+    protected void MarkScansClean() => UnsaveChangesHandler.MarkAsClean();
 
 }

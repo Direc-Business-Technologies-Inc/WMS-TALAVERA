@@ -42,7 +42,16 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
     PurchaseOrderLineVM? BadSelectedLine;
     PurchaseOrderLineVM? MissingSelectedLine;
 
-    int ScanCount { get; set; }
+    private int _scanCount;
+    int ScanCount
+    {
+        get => _scanCount;
+        set
+        {
+            _scanCount = value;
+            if (value > 0) MarkScansDirty();
+        }
+    }
     int ActiveTabIndex { get; set; } = 0;
 
     bool SaveBtnDisabled => ScanCount == 0;
@@ -223,6 +232,7 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
                     return;
                 }
 
+                MarkScansClean();
                 await Toast.Success("Scanned items saved successfully");
 
                 NavManager.NavigateTo("/receiving");
@@ -1216,6 +1226,7 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
+        MarkScansClean();
         BroadcastService.BroadcastReceived -= HandleItemScan;
 
         if (JsObj is not null)

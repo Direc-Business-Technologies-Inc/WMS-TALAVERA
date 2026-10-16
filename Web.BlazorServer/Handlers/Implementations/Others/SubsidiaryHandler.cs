@@ -12,21 +12,21 @@ namespace Web.BlazorServer.Handlers.Implementations.Others;
 
 public class SubsidiaryHandler(IHttpContextAccessor contextAccessor, ISender sender) : ISubsidiaryHandler
 {
-    public async Task<(IEnumerable<SubsidiaryVM> Data, int Count)> GetSubsidiariesAsync(DataGridIntent intent)
+    public async Task<(IEnumerable<SubsidiaryVM> Data, int Count)> GetSubsidiariesAsync(DataGridIntent intent, CancellationToken ct = default)
     {
         GetSubsidiariesQry qry = new(intent);
-        (var data, int count) = await sender.Send(qry);
+        (var data, int count) = await sender.Send(qry, ct);
         return (data.Adapt<IEnumerable<SubsidiaryVM>>(), count);
     }
-    public async Task<SubsidiaryVM?> GetSubsidiaryAsync(int id)
+    public async Task<SubsidiaryVM?> GetSubsidiaryAsync(int id, CancellationToken ct = default)
     {
         GetSubsidiaryQry qry = new(id);
-        var data = await sender.Send(qry);
+        var data = await sender.Send(qry, ct);
         if (data is null) return null;
 
         return data.Adapt<SubsidiaryVM>();
     }
-    public async Task<(IEnumerable<SubsidiaryVM> Data, int Count)> GetCurrentUserSubsidiariesAsync(DataGridIntent intent)
+    public async Task<(IEnumerable<SubsidiaryVM> Data, int Count)> GetCurrentUserSubsidiariesAsync(DataGridIntent intent, CancellationToken ct = default)
     {
         var newIntent = intent.Adapt<DataGridIntent>();
 
@@ -38,31 +38,31 @@ public class SubsidiaryHandler(IHttpContextAccessor contextAccessor, ISender sen
         );
 
         GetSubsidiariesQry qry = new(newIntent);
-        (var data, int count) = await sender.Send(qry);
+        (var data, int count) = await sender.Send(qry, ct);
         return (data.Adapt<IEnumerable<SubsidiaryVM>>(), count);
     }
 
-    public async Task<(IEnumerable<SubsidiaryVM> Data, int Count)> GetSubsidiariesByVendorAsync(DataGridIntent intent, int vendorId)
+    public async Task<(IEnumerable<SubsidiaryVM> Data, int Count)> GetSubsidiariesByVendorAsync(DataGridIntent intent, int vendorId, CancellationToken ct = default)
     {
         GetSubsidiariesByVendorQry qry = new(intent, vendorId);
-        (var data, int count) = await sender.Send(qry);
+        (var data, int count) = await sender.Send(qry, ct);
         return (data.Adapt<IEnumerable<SubsidiaryVM>>(), count);
     }
-    public async Task<(IEnumerable<SubsidiaryVM> Data, int Count)> GetSubsidiariesByCustomerAsync(DataGridIntent intent, int customerId)
+    public async Task<(IEnumerable<SubsidiaryVM> Data, int Count)> GetSubsidiariesByCustomerAsync(DataGridIntent intent, int customerId, CancellationToken ct = default)
     {
         GetSubsidiariesByCustomerQry query = new(intent, customerId);
-        (var data, int count) = await sender.Send(query);
+        (var data, int count) = await sender.Send(query, ct);
         return (data.Adapt<IEnumerable<SubsidiaryVM>>(), count);
     }
 
-    public async Task<(IEnumerable<PurchaseCategoryVM> Data, int Count)> GetPurchaseCategoriesAsync(DataGridIntent intent)
+    public async Task<(IEnumerable<PurchaseCategoryVM> Data, int Count)> GetPurchaseCategoriesAsync(DataGridIntent intent, CancellationToken ct = default)
     {
         GetPurchaseCategoriesQry query = new(intent);
-        (var data, int count) = await sender.Send(query);
+        (var data, int count) = await sender.Send(query, ct);
         return (data.Adapt<IEnumerable<PurchaseCategoryVM>>(), count);
     }
 
-    public async Task<(IEnumerable<PurchaseSubcategoryVM> Data, int Count)> GetPurchaseSubCategoriesAsync(PurchaseCategoryVM category, DataGridIntent intent)
+    public async Task<(IEnumerable<PurchaseSubcategoryVM> Data, int Count)> GetPurchaseSubCategoriesAsync(PurchaseCategoryVM category, DataGridIntent intent, CancellationToken ct = default)
     {
         var newIntent = intent.Adapt<DataGridIntent>();
         newIntent.Filters.Add(
@@ -71,7 +71,7 @@ public class SubsidiaryHandler(IHttpContextAccessor contextAccessor, ISender sen
         newIntent.Take = 10;
 
         GetPurchaseSubcategoriesQry query = new(newIntent);
-        (var data, int count) = await sender.Send(query);
+        (var data, int count) = await sender.Send(query, ct);
 
         //if (category.Id == 3)
         //{

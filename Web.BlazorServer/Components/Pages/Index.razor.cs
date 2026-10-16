@@ -38,7 +38,7 @@ public partial class Index
         Authenticated = AuthenticationService.IsAuthenticated();
 
         if (Authenticated)
-            NavManager.NavigateTo("/dashboard", true);
+              NavManager.NavigateTo("/dashboard", true);
     }
 
     protected override async Task CancelEditing()

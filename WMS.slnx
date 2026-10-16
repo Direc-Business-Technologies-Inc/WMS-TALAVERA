@@ -33,4 +33,7 @@
   <Folder Name="/src/presentation/api/">
     <Project Path="Api.CoreWebAPI/Api.CoreWebAPI.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="Integration.NS.Tests/Integration.NS.Tests.csproj" />
+  </Folder>
 </Solution>

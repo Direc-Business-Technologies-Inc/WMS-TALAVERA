@@ -136,6 +136,7 @@ public class SupplierReturnIntegration(
             intent.Sorts.Add(DataGridSortUtilities.Descending(nameof(SupplierReturnDataGridDTO.ReferenceNumber)));
         var query = builderFactory.Create()
                 .Select(
+                    ("t.id", nameof(SupplierReturnDataGridDTO.Id)),
                     ("BUILTIN.DF(t.entity)", nameof(SupplierReturnDataGridDTO.VendorName)),
                     ("BUILTIN.DF(t.custbody_dbti_return_category)", nameof(SupplierReturnDataGridDTO.CategoryName)),
                     ("CONCAT(e.firstname,CONCAT(' ',e.lastname))", nameof(SupplierReturnDataGridDTO.PreparedBy)),
@@ -159,7 +160,7 @@ public class SupplierReturnIntegration(
                 .WithDatagridIntent(intent)
                 .Build();
 
-         var response = await netsuiteService.ExecuteSuiteQLQuery<SupplierReturnDataGridDTO>(query.Query, query.Limit, query.Offset);
+        var response = await query.ExecuteWithPaging<SupplierReturnDataGridDTO>(netsuiteService);
         return (response.items, response.totalResults);
     }
 

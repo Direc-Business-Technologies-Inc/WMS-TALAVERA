@@ -17,7 +17,7 @@ public class DepartmentIntegration(
     IHttpContextAccessor httpContextAccessor,
     SuiteQLQueryBuilderFactoryService builderFactory) : IDepartmentIntegration
 {
-    public async Task<(IEnumerable<DepartmentDTO>, int)> GetDepartmentsList(DataGridIntent intent)
+    public async Task<(IEnumerable<DepartmentDTO>, int)> GetDepartmentsList(DataGridIntent intent, CancellationToken ct = default)
     {
         var query = builderFactory.Create()
             .Select(
@@ -31,7 +31,7 @@ public class DepartmentIntegration(
             .WithSubsidiaries(httpContextAccessor, "dsm")
             .Build();
 
-        var response = await query.ExecuteWithPaging<DepartmentDTO>(netsuiteService);
+        var response = await query.ExecuteWithPaging<DepartmentDTO>(netsuiteService, ct);
 
         return (response.items, response.totalResults);
     }

@@ -15,11 +15,16 @@ namespace Web.BlazorServer.Components.Custom;
 ///     requires a collection-typed Value.
 /// </summary>
 /// <typeparam name="TItem"></typeparam>
-public partial class QuickVirtualizedMultiDropdown<TItem> : BaseComponent where TItem : class
+public partial class QuickVirtualizedMultiDropdown<TItem> : BaseComponent, IAsyncDisposable where TItem : class
 {
     [Parameter] public List<TItem>? Value { get; set; } = null;
     [Parameter] public EventCallback<List<TItem>> ValueChanged { get; set; }
     [Parameter][EditorRequired] public required DataProvider DataGetter { get; set; }
+    /// <summary>
+    /// Optional cancellation-aware provider, preferred over
+    /// <see cref="DataGetter"/> when supplied (Req 3.1).
+    /// </summary>
+    [Parameter] public Func<DataGridIntent, CancellationToken, Task<(IEnumerable<TItem> Data, int Count)>>? CancellableDataGetter { get; set; }
     [Parameter] public string? ActionName { get; set; } = null;
     [Parameter] public string? FilterTarget { get; set; } = null;
     [Parameter] public string? TextProperty { get; set; } = null;
@@ -42,6 +47,7 @@ public partial class QuickVirtualizedMultiDropdown<TItem> : BaseComponent where 
     private RadzenDropDown<List<TItem>> Dropdown { get; set; } = default!;
     private List<TItem>? Data { get; set; } = null;
     private readonly Guid FallbackGuid = Guid.NewGuid();
+    private CancellationTokenSource? _loadCts;
     private string ActionString => ActionName is not null ? $"{ActionName}({IdString})" : IdString;
     private bool IsBusy => AppBusyService.IsBusy(ActionString);
     public string IdString => Id != null ? Id : Dropdown.UniqueID?.ToString() ?? FallbackGuid.ToString();
@@ -49,36 +55,53 @@ public partial class QuickVirtualizedMultiDropdown<TItem> : BaseComponent where 
     item.GetType().GetProperty(property)?.GetValue(item);
     async Task LoadDataAsync(LoadDataArgs args)
     {
-        var action = await AppActionFactory.RunLoadingAsync(async () =>
+        _loadCts?.Cancel();
+        _loadCts?.Dispose();
+        _loadCts = new CancellationTokenSource();
+        var ct = _loadCts.Token;
+        var cancellableGetter = CancellableDataGetter;
+
+        try
         {
-            AppBusyService.SetBusy(ActionString, true);
-
-            var DatagridAdapter = new DataGridIntentAdapter(args);
-            DatagridAdapter.AdaptToPagination();
-            if (DatagridAdapter.QueryIntent.Take <= 0)
-                DatagridAdapter.QueryIntent.Take = DEFAULT_TAKE_AMOUNT;
-
-            if (!(string.IsNullOrEmpty(args.Filter) || string.IsNullOrEmpty(FilterTarget)))
+            var action = await AppActionFactory.RunLoadingAsync(async () =>
             {
-                DatagridAdapter.QueryIntent.Filters.Add(new()
+                AppBusyService.SetBusy(ActionString, true);
+
+                var DatagridAdapter = new DataGridIntentAdapter(args);
+                DatagridAdapter.AdaptToPagination();
+                if (DatagridAdapter.QueryIntent.Take <= 0)
+                    DatagridAdapter.QueryIntent.Take = DEFAULT_TAKE_AMOUNT;
+
+                if (!(string.IsNullOrEmpty(args.Filter) || string.IsNullOrEmpty(FilterTarget)))
                 {
-                    LogicalOperator = LogicalOperatorEnum.AND,
-                    Property = FilterTarget,
-                    Value = args.Filter,
-                    ComparisonOperator = FilterOperator
-                });
-            }
+                    DatagridAdapter.QueryIntent.Filters.Add(new()
+                    {
+                        LogicalOperator = LogicalOperatorEnum.AND,
+                        Property = FilterTarget,
+                        Value = args.Filter,
+                        ComparisonOperator = FilterOperator
+                    });
+                }
 
-            var res = await DataGetter(DatagridAdapter.QueryIntent);
+                var res = cancellableGetter is not null
+                    ? await cancellableGetter(DatagridAdapter.QueryIntent, ct)
+                    : await DataGetter(DatagridAdapter.QueryIntent);
 
-            AppBusyService.SetBusy(ActionString, true);
+                ct.ThrowIfCancellationRequested();
 
-            return res;
-        }, ActionString);
+                AppBusyService.SetBusy(ActionString, true);
 
-        action.OnSuccess((res) =>
-        {
-            var fetched = res.Data.ToList();
+                return res;
+            }, ActionString);
+
+            if (action.IsCancelled || ct.IsCancellationRequested)
+                return;
+
+            action.OnSuccess((res) =>
+            {
+                if (ct.IsCancellationRequested)
+                    return Task.CompletedTask;
+                var fetched = res.Data.ToList();
             var keyProperty = ValueProperty ?? TextProperty;
 
             if (Value is { Count: > 0 })
@@ -115,6 +138,11 @@ public partial class QuickVirtualizedMultiDropdown<TItem> : BaseComponent where 
             DataCount = res.Count;
             return Task.CompletedTask;
         });
+        }
+        catch (OperationCanceledException)
+        {
+            // Navigation-away / superseded load: stop silently (Req 3.3, 5.2).
+        }
     }
 
     private static bool StructurallyEqual(object a, object b)
@@ -133,6 +161,15 @@ public partial class QuickVirtualizedMultiDropdown<TItem> : BaseComponent where 
     }
 
     public void Reset() => Dropdown.Reset();
+
+    public async ValueTask DisposeAsync()
+    {
+        _loadCts?.Cancel();
+        _loadCts?.Dispose();
+        _loadCts = null;
+        GC.SuppressFinalize(this);
+        await Task.CompletedTask;
+    }
 
     public delegate Task<(IEnumerable<TItem> Data, int Count)> DataProvider(DataGridIntent intent);
 }

@@ -52,7 +52,16 @@ public partial class TOxItemFulfillmentItemView : IAsyncDisposable
     TOxItemFulfillmentLineVM? BadSelectedLine;
     //TOxItemFulfillmentLineVM? LastScanned => IFItems.OrderByDescending(x => x.ScanCount).FirstOrDefault();
 
-    int ScanCount { get; set; }
+    private int _scanCount;
+    int ScanCount
+    {
+        get => _scanCount;
+        set
+        {
+            _scanCount = value;
+            if (value > 0) MarkScansDirty();
+        }
+    }
     bool SaveBtnDisabled => ScanCount == 0;
     int ActiveTabIndex { get; set; } = 0;
 
@@ -204,6 +213,7 @@ public partial class TOxItemFulfillmentItemView : IAsyncDisposable
                     return;
                 }
 
+                MarkScansClean();
                 await Toast.Success("Scanned items saved sucessfully");
                 NavManager.NavigateTo("/receiving");
             }
@@ -1184,6 +1194,7 @@ public partial class TOxItemFulfillmentItemView : IAsyncDisposable
     }
     public async ValueTask DisposeAsync()
     {
+        MarkScansClean();
         BroadcastService.BroadcastReceived -= HandleItemScan;
 
         if (JsObj is not null)

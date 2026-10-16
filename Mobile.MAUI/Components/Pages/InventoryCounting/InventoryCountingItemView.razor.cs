@@ -33,7 +33,16 @@ public partial class InventoryCountingItemView : IAsyncDisposable
     InventoryCountingLineVM? BadSelectedLine;
     InventoryCountingLineVM? LastScanned;
 
-    int ScanCount { get; set; }
+    private int _scanCount;
+    int ScanCount
+    {
+        get => _scanCount;
+        set
+        {
+            _scanCount = value;
+            if (value > 0) MarkScansDirty();
+        }
+    }
     int ActiveTabIndex { get; set; } = 0;
 
     bool SaveBtnDisabled => ScanCount == 0;
@@ -141,6 +150,7 @@ public partial class InventoryCountingItemView : IAsyncDisposable
             },
             OnSuccess = async (result) =>
             {
+                MarkScansClean();
                 await Toast.Success("Scanned items saved sucessfully");
                 NavManager.NavigateTo("/inventorycounting");
             }
@@ -662,6 +672,7 @@ public partial class InventoryCountingItemView : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
+        MarkScansClean();
         BroadcastService.BroadcastReceived -= HandleItemScan;
 
         if (JsObj is not null)

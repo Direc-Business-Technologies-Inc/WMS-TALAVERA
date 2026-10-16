@@ -26,8 +26,6 @@ public class AuthenticationController(
     ISender Sender)
     : ControllerBase
 {
-    private static readonly SemaphoreSlim _netsuiteSemaphore = new(3);
-
     [HttpGet]
     public async Task<IActionResult> Get()
     {
@@ -77,27 +75,18 @@ public class AuthenticationController(
 
         if (loginResponse.User?.EmployeeNs is not null) //claims for ns
         {
-            await _netsuiteSemaphore.WaitAsync();
+            var nsIdentity = await nsIdentityIntegration.GetNetsuiteIdentityAsync(loginResponse.User.EmployeeNs.NsId);
+            var userLocations = await locationIntegration.GetUserAllowedLocations(new DataGridIntent { Take = -1 }, loginResponse.User.EmployeeNs.NsId);
 
-            try
+            int[] userLocationIds = userLocations.data.Any() ? [.. userLocations.data.Select(x => x.Id)] : [-1];
+            claims.Add(new Claim("com.direcbusiness.wms.nsEmployeeId", loginResponse.User.EmployeeNs.NsId.ToString()));
+
+            if (nsIdentity is not null)
             {
-                var nsIdentity = await nsIdentityIntegration.GetNetsuiteIdentityAsync(loginResponse.User.EmployeeNs.NsId);
-                var userLocations = await locationIntegration.GetUserAllowedLocations(new DataGridIntent { Take = -1 }, loginResponse.User.EmployeeNs.NsId);
-
-                int[] userLocationIds = userLocations.data.Any() ? [.. userLocations.data.Select(x => x.Id)] : [-1];
-                claims.Add(new Claim("com.direcbusiness.wms.nsEmployeeId", loginResponse.User.EmployeeNs.NsId.ToString()));
-
-                if (nsIdentity is not null)
-                {
-                    claims.Add(new Claim("com.direcbusiness.wms.nsEmployeeName", nsIdentity.EmployeeFullName));
-                    claims.Add(new Claim("com.direcbusiness.wms.nsSubsidiary", nsIdentity.SubsidiaryID.ToString()));
-                    claims.Add(new Claim("com.direcbusiness.wms.nsAllowedLocations", JsonSerializer.Serialize(userLocationIds)));
-                    claims.Add(new Claim("com.direcbusiness.wms.nsAllowedSubsidiaries", JsonSerializer.Serialize(new int[] { nsIdentity.SubsidiaryID })));
-                }
-            }
-            finally
-            {
-            _netsuiteSemaphore.Release();
+                claims.Add(new Claim("com.direcbusiness.wms.nsEmployeeName", nsIdentity.EmployeeFullName));
+                claims.Add(new Claim("com.direcbusiness.wms.nsSubsidiary", nsIdentity.SubsidiaryID.ToString()));
+                claims.Add(new Claim("com.direcbusiness.wms.nsAllowedLocations", JsonSerializer.Serialize(userLocationIds)));
+                claims.Add(new Claim("com.direcbusiness.wms.nsAllowedSubsidiaries", JsonSerializer.Serialize(new int[] { nsIdentity.SubsidiaryID })));
             }
         }
 

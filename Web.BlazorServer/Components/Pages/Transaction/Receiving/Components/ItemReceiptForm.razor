@@ -88,12 +88,28 @@
                                  JustifyContent="JustifyContent.End"
                                  AlignItems="AlignItems.Center"
                                  Gap="8px">
-                        <RadzenButton Disabled="Disabled" Text="Scan Barcodes" Icon="barcode" Click="OpenBarcodeDialog" ButtonType="ButtonType.Button" Size="ButtonSize.Small" />
+                        <SelectAllHeader Value="@GetIsReceivedHeaderState()"
+                                         OnChange="@ToggleAllIsReceived"
+                                         Disabled="@Disabled"
+                                         ShowCheckbox="false" />
+                        <RadzenButton Disabled="@Disabled"
+                            Text="Scan Barcodes"
+                            Icon="barcode"
+                            Click="OpenBarcodeDialog"
+                            ButtonType="ButtonType.Button"
+                            Size="ButtonSize.Small" />
                         <RadzenButton Icon="settings" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@OpenTableSettings" />
                     </RadzenStack>
                 </HeaderTemplate>
                 <Columns>
-                    <RadzenDataGridColumn TItem="ItemReceiptLineVM" Width="30px">
+                    <RadzenDataGridColumn TItem="ItemReceiptLineVM" Width="30px" Filterable="false" Sortable="false" Pickable="false">
+                        <HeaderTemplate>
+                            <SelectAllHeader Value="@GetIsReceivedHeaderState()"
+                                             OnChange="@ToggleAllIsReceived"
+                                             Disabled="@Disabled"
+                                             ShowButton="false"
+                                             CheckboxName="item_receipt_lines_select_all" />
+                        </HeaderTemplate>
                         <Template Context="data">
                             <RadzenCheckBox @bind-Value="data.IsReceived" Disabled="@(data.IsComplete || Disabled)" />
                         </Template>
@@ -165,6 +181,7 @@
 
 
 @code {
+    
     async Task OpenBarcodeDialog()
     {
         bool? save = await DialogService.OpenAsync(

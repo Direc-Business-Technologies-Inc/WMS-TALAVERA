@@ -10,9 +10,9 @@ namespace Application.UseCases.Repositories.Integration.Others;
 
 public interface ISubsidiaryIntegration
 {
-    Task<(IEnumerable<SubsidiaryDTO> Data, int Count)> GetSubsidiariesAsync(DataGridIntent intent);
-    Task<(IEnumerable<SubsidiaryDTO> Data, int Count)> GetSubsidiariesByVendorAsync(DataGridIntent intent, int vendorId);
-    Task<(IEnumerable<SubsidiaryDTO> Data, int Count)> GetSubsidiariesByCustomerAsync(DataGridIntent intent, int customerId);
-    Task<IEnumerable<SubsidiaryDTO>> GetChildSubsidiariesAsync(int subsidiaryId);
-    Task<SubsidiaryDTO?> GetSubsidiaryAsync(int subsidiaryid);
+    Task<(IEnumerable<SubsidiaryDTO> Data, int Count)> GetSubsidiariesAsync(DataGridIntent intent, CancellationToken ct = default);
+    Task<(IEnumerable<SubsidiaryDTO> Data, int Count)> GetSubsidiariesByVendorAsync(DataGridIntent intent, int vendorId, CancellationToken ct = default);
+    Task<(IEnumerable<SubsidiaryDTO> Data, int Count)> GetSubsidiariesByCustomerAsync(DataGridIntent intent, int customerId, CancellationToken ct = default);
+    Task<IEnumerable<SubsidiaryDTO>> GetChildSubsidiariesAsync(int subsidiaryId, CancellationToken ct = default);
+    Task<SubsidiaryDTO?> GetSubsidiaryAsync(int subsidiaryid, CancellationToken ct = default);
 }

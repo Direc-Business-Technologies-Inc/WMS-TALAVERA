@@ -10,7 +10,7 @@ public partial class ModulesNavigation
         var authst = await AuthStateProvider.GetAuthenticationStateAsync();
         if (!await AuthState.Authenticated())
         {
-            NavManager.NavigateTo("/login", forceLoad: true, replace: true);
+            NavManager.NavigateTo("/login", forceLoad: false, replace: true);
         }
     }
 
@@ -20,22 +20,22 @@ public partial class ModulesNavigation
         switch (module)
         {
             case ModuleNavigation.Receiving:
-                NavManager.NavigateTo("/receiving", true, true);
+                NavManager.NavigateTo("/receiving", false, true);
                 break;
             case ModuleNavigation.Packing:
-                NavManager.NavigateTo("/packing", true, true);
+                NavManager.NavigateTo("/packing", false, true);
                 break;
             case ModuleNavigation.TripTicket:
-                NavManager.NavigateTo("/tripticket/create", true, true);
+                NavManager.NavigateTo("/tripticket/create", false, true);
                 break;
             case ModuleNavigation.InventoryCounting:
-                NavManager.NavigateTo("/inventorycounting", true, true);
+                NavManager.NavigateTo("/inventorycounting", false, true);
                 break;
             case ModuleNavigation.InventoryWorksheet:
-                NavManager.NavigateTo("/inventorycounting/worksheet", true, true);
+                NavManager.NavigateTo("/inventorycounting/worksheet", false, true);
                 break;
             default:
-                NavManager.NavigateTo("/", true, true);
+                NavManager.NavigateTo("/", false, true);
                 break;
         }
     }

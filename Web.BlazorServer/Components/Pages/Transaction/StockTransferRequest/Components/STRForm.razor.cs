@@ -8,6 +8,8 @@ using Shared.Libraries.Utilities;
 using Web.BlazorServer.Components.Custom;
 using Web.BlazorServer.Components.Pages.Transaction.Others.BarcodeScanning;
 using Web.BlazorServer.Components.Shared.Abstraction;
+using Web.BlazorServer.Components.Shared.Others;
+using Web.BlazorServer.Handlers.Repositories.Administration.User;
 using Web.BlazorServer.Handlers.Repositories.Others;
 using Web.BlazorServer.Handlers.Repositories.Transaction.StockTransferRequest;
 using Web.BlazorServer.Helpers;
@@ -39,6 +41,7 @@ public partial class STRForm
     [Inject] IVendorHandler VendorHandler { get; set; } = default!;
     [Inject] IItemsHandler ItemsHandler { get; set; } = default!;
     [Inject] IHttpContextAccessor httpContextAccessor { get; set; } = default!;
+    [Inject] IUserManagementHandler UserManagementHandler { get; set; } = default!;
 
     AppTable<StockTransferRequestLineVM> LinesTable = default!;
     DataGridSettings TableSettings { get; set; } = new();
@@ -47,6 +50,7 @@ public partial class STRForm
     readonly string ActionGetSubsidiaries = "Get Subsidiaries";
     readonly string ActionGetVendors = "Get Vendors";
     readonly string ActionGetItemUnits = "Get Item Units";
+    readonly string ActionGetEmployees = "Get Employees";
 
     private QuickVirtualizedDropdown<LocationVM>? SourceLocationDropdown { get; set; }
     private QuickVirtualizedDropdown<LocationVM>? DestinationLocationDropdown { get; set; }
@@ -58,14 +62,9 @@ public partial class STRForm
 
     private List<ItemsVM> Items = new();
 
-    private readonly SemaphoreSlim _concurrencySemaphore = new SemaphoreSlim(2, 2);
-
     private BarcodeStore BarcodeStore = new();
 
     bool DefaultSubsidiaryLoading = false;
-
-    const string PRINTABLE_URL_INTERCOMPANY = "https://11608969.extforms.netsuite.com/app/site/hosting/scriptlet.nl?script=1671&deploy=1&compid=11608969&ns-at=AAEJ7tMQ9evIwFEEUifIBokQgQ0jhowAItpfjv5Smu7B76K41lU&recordType=tranferOrder&isPickingTicket=true";
-    const string PRINTABLE_URL_TO = "https://11608969.extforms.netsuite.com/app/site/hosting/scriptlet.nl?script=1671&deploy=1&compid=11608969&ns-at=AAEJ7tMQ9evIwFEEUifIBokQgQ0jhowAItpfjv5Smu7B76K41lU&recordType=tranferOrder&isPickingTicket=true";
 
     public string ReferenceString => string.IsNullOrEmpty(Model.ReferenceNumber) ?
         ReadOnly ? "N/A" : "Auto-Generated" :
@@ -125,6 +124,12 @@ public partial class STRForm
             return;
         }
 
+        if (Model.RequestedBy is null)
+        {
+            ToastService.Error("Please select a Requested By employee", "Error");
+            return;
+        }
+
         // Return categories no longer require a header Preferred Vendor; the
         // per-line check above is the vendor capture requirement.
 
@@ -167,11 +172,8 @@ public partial class STRForm
     {
         if (Model.Subsidiary is null) return ([], 0);
 
-        await _concurrencySemaphore.WaitAsync();
-        
         var result = await LocationHandler.GetLocationsBySubsidiaryAsync(intent, Model.Subsidiary.Id);
 
-        _concurrencySemaphore.Release();
         return result;
     }
 
@@ -189,8 +191,6 @@ public partial class STRForm
             Take = 1000
         };
 
-        await _concurrencySemaphore.WaitAsync();
-
         int location = Model.SourceLocation.Id;
 
         var result = location == 0 ?
@@ -199,7 +199,6 @@ public partial class STRForm
 
         Items = result.Data.ToList();
 
-        _concurrencySemaphore.Release();
         return result;
     }
 
@@ -207,25 +206,16 @@ public partial class STRForm
     {
         if (Model.ToSubsidiary is null) return ([], 0);
 
-        await _concurrencySemaphore.WaitAsync();
-
-        try
+        if (Model.IsIntercompany)
         {
-            if (Model.IsIntercompany)
-            {
-                return await LocationHandler.GetLocationsBySubsidiaryAsync(
-                    intent,
-                    Model.ToSubsidiary.Id);
-            }
-
             return await LocationHandler.GetLocationsBySubsidiaryAsync(
-                    intent,
-                    Model.Subsidiary.Id);
+                intent,
+                Model.ToSubsidiary.Id);
         }
-        finally
-        {
-            _concurrencySemaphore.Release();
-        }
+
+        return await LocationHandler.GetLocationsBySubsidiaryAsync(
+                intent,
+                Model.Subsidiary.Id);
     }
 
     /// <summary>
@@ -247,58 +237,40 @@ public partial class STRForm
 
         if (subsidiary is null) return ([], 0);
 
-        await _concurrencySemaphore.WaitAsync();
-
-        try
-        {
-            return await VendorHandler.GetTradeVendorsListBySubsidiaryAsync(intent, subsidiary.Id);
-        }
-        finally
-        {
-            _concurrencySemaphore.Release();
-        }
+        return await VendorHandler.GetTradeVendorsListBySubsidiaryAsync(intent, subsidiary.Id);
     }
 
     async Task<(IEnumerable<SubsidiaryVM>, int)> SubsidiaryProvider(DataGridIntent intent)
     {
-
-        await _concurrencySemaphore.WaitAsync();
-
         var result = await SubsidiaryHandler.GetSubsidiariesAsync(intent);
 
-        _concurrencySemaphore.Release();
         return result;
     }
 
     async Task<(IEnumerable<SubsidiaryVM>, int)> ToSubsidiaryProvider(DataGridIntent intent)
     {
-
-        await _concurrencySemaphore.WaitAsync();
-
         var result = await SubsidiaryHandler.GetSubsidiariesAsync(intent);
 
-        _concurrencySemaphore.Release();
         return result;
+    }
+
+    async Task<(IEnumerable<EmployeeNsVM>, int)> EmployeeProvider(DataGridIntent intent)
+    {
+        return await UserManagementHandler.GetAllEmployeesAsync(intent);
     }
 
     async Task<(IEnumerable<PurchaseCategoryVM>, int)> PurchaseCategoryProvider(DataGridIntent intent)
     {
-        await _concurrencySemaphore.WaitAsync();
-
         var result = await SubsidiaryHandler.GetPurchaseCategoriesAsync(intent);
 
-        _concurrencySemaphore.Release();
         return result;
     }
 
     async Task<(IEnumerable<PurchaseSubcategoryVM>, int)> PurchaseSubcategoryProvider(DataGridIntent intent)
     {
-        await _concurrencySemaphore.WaitAsync();
-
         if (Model.PurchaseCategory is null) return ([], 0);
         var result = await SubsidiaryHandler.GetPurchaseSubCategoriesAsync(Model.PurchaseCategory, intent);
 
-        _concurrencySemaphore.Release();
         return result;
     }
 
@@ -313,11 +285,8 @@ public partial class STRForm
 
     async Task<(IEnumerable<ItemUnitVM>, int)> ItemUnitProvider(int itemId, DataGridIntent intent)
     {
-
-        await _concurrencySemaphore.WaitAsync();
         var result = await ItemsHandler.GetItemUnits(itemId, intent);
 
-        _concurrencySemaphore.Release();
         return result;
     }
 
@@ -625,7 +594,10 @@ public partial class STRForm
         await InvokeAsync(StateHasChanged);
     }
 
-    string PrintableURL => Model.Category.IsInterCompany ? $"{PRINTABLE_URL_INTERCOMPANY}&recordId={Model.Id}" : $"{PRINTABLE_URL_TO}&recordId={Model.Id}";
+    // Transfer Order and Intercompany Transfer Order resolve to the same printout scriptlet,
+// so a single builder covers both. Previously this branched on IsInterCompany between two
+// byte-identical constants.
+string? PrintableURL => NetSuitePrint.TransferOrder(Model.Id);
 
     void Return()
     {

@@ -146,6 +146,22 @@ partial class ItemReceiptForm
 
     private IList<ItemReceiptLineVM> selectedItems = new List<ItemReceiptLineVM>();
 
+    bool? GetIsReceivedHeaderState()
+    {
+        var eligible = Data.Lines.Where(l => !l.IsComplete).ToList();
+        return SelectAllHeader.Compute(eligible.Count, eligible.Count(l => l.IsReceived));
+    }
+
+    async Task ToggleAllIsReceived(bool? value)
+    {
+        bool select = value == true;
+        foreach (var line in Data.Lines.Where(l => !l.IsComplete))
+            line.IsReceived = select;
+        if (EditContext is not null)
+            EditContext.NotifyFieldChanged(new FieldIdentifier(Data, nameof(Data.Lines)));
+        await InvokeAsync(StateHasChanged);
+    }
+
     async Task OnRowClick(DataGridRowMouseEventArgs<ItemReceiptLineVM> args)
     {
         if (selectedItems.Contains(args.Data))

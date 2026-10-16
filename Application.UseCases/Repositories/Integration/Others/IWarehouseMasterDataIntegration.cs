@@ -5,5 +5,5 @@ namespace Application.UseCases.Repositories.Integration.Others;
 
 public interface IWarehouseMasterDataIntegration
 {
-    Task<(IEnumerable<WarehouseSelectionSAPDTO> Data, int Count)> GetWarehouseAsync(DataGridIntent intent);
+    Task<(IEnumerable<WarehouseSelectionSAPDTO> Data, int Count)> GetWarehouseAsync(DataGridIntent intent, CancellationToken ct = default);
 }

@@ -11,7 +11,7 @@ namespace Integration.NS.Implementations.Others;
 
 public class WarehouseMasterDataIntegration : IWarehouseMasterDataIntegration
 {
-    public Task<(IEnumerable<WarehouseSelectionSAPDTO> Data, int Count)> GetWarehouseAsync(DataGridIntent intent)
+    public Task<(IEnumerable<WarehouseSelectionSAPDTO> Data, int Count)> GetWarehouseAsync(DataGridIntent intent, CancellationToken ct = default)
     {
         throw new NotImplementedException();
     }

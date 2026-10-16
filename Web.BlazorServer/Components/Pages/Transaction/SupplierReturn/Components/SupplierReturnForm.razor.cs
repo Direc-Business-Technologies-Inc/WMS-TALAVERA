@@ -8,6 +8,7 @@ using Shared.Libraries.Utilities;
 using Web.BlazorServer.Components.Custom;
 using Web.BlazorServer.Components.Pages.Transaction.Others.BarcodeScanning;
 using Web.BlazorServer.Components.Shared.Abstraction;
+using Web.BlazorServer.Components.Shared.Others;
 using Web.BlazorServer.Handlers.Implementations.Others;
 using Web.BlazorServer.Handlers.Repositories.Others;
 using Web.BlazorServer.Handlers.Repositories.Transaction.SupplierReturn;
@@ -49,8 +50,6 @@ public partial class SupplierReturnForm
 
     private List<ItemsVM> Items = new();
 
-    private readonly SemaphoreSlim _concurrencySemaphore = new SemaphoreSlim(2, 2);
-
     QuickVirtualizedDropdown<LocationVM> LocationDropdown { get; set; } = default!;
     QuickVirtualizedDropdown<SubsidiaryVM> SubsidiaryDropdown { get; set; } = default!;
     QuickVirtualizedDropdown<PurchaseSubcategoryVM> PurchaseSubcategoryDropdown { get; set; } = default!;
@@ -68,8 +67,6 @@ public partial class SupplierReturnForm
     const string VendorSearchProperty = nameof(VendorVM.ReferenceNumber);
 
     readonly List<AppFilterDescriptor> ItemFilters = [];
-
-    const string PRINTABLE_URL = "https://11608969.extforms.netsuite.com/app/site/hosting/scriptlet.nl?script=1671&deploy=1&compid=11608969&ns-at=AAEJ7tMQ9evIwFEEUifIBokQgQ0jhowAItpfjv5Smu7B76K41lU&recordType=vendorreturnauthorization&transactionDefault=true";
 
     protected override void OnParametersSet()
     {
@@ -101,8 +98,6 @@ public partial class SupplierReturnForm
             Take = 1000
         };
 
-        await _concurrencySemaphore.WaitAsync();
-
         int location = Model.Location.Id;
 
         var result = location == 0 ?
@@ -111,7 +106,6 @@ public partial class SupplierReturnForm
 
         Items = result.Data.ToList();
 
-        _concurrencySemaphore.Release();
         return result;
     }
 
@@ -358,7 +352,7 @@ public partial class SupplierReturnForm
         await InvokeAsync(StateHasChanged);
     }
 
-    string PrintableURL => $"{PRINTABLE_URL}&recordId={Model.Id}";
+    string? PrintableURL => NetSuitePrint.VendorReturn(Model.Id);
     async Task LineUoMSet(SupplierReturnLineVM line, ItemUnitVM? uom)
     {
         var oldcr = line.UoM?.ConversionRate ?? 1;  

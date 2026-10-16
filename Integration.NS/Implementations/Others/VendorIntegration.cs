@@ -19,7 +19,7 @@ public class VendorIntegration(
 {
     const int TRADE_VENDOR_CATEGORY_ID = 5;
     const int NONTRADE_VENDOR_CATEGORY_ID = 6;
-    public async Task<(IEnumerable<VendorDTO> Data, int Count)> GetVendorsListAsync(DataGridIntent intent)
+    public async Task<(IEnumerable<VendorDTO> Data, int Count)> GetVendorsListAsync(DataGridIntent intent, CancellationToken ct = default)
     {
         var query = builderFactory.Create()
             .Select(
@@ -35,10 +35,10 @@ public class VendorIntegration(
             .WithDatagridIntent(intent)
             .Build();
 
-        var result = await query.ExecuteWithPaging<VendorNSDTO>(netsuiteService);
+        var result = await query.ExecuteWithPaging<VendorNSDTO>(netsuiteService, ct);
         return (result.items.Select(ConvertNSDTO), result.totalResults);
     }
-    public async Task<(IEnumerable<VendorDTO> Data, int Count)> GetVendorsBySubsidiaryListAsync(DataGridIntent intent, int subsidiary)
+    public async Task<(IEnumerable<VendorDTO> Data, int Count)> GetVendorsBySubsidiaryListAsync(DataGridIntent intent, int subsidiary, CancellationToken ct = default)
     {
         var query = builderFactory.Create()
             .Select(
@@ -56,19 +56,19 @@ public class VendorIntegration(
             .WithDatagridIntent(intent)
             .Build();
 
-        var result = await query.ExecuteWithPaging<VendorNSDTO>(netsuiteService);
+        var result = await query.ExecuteWithPaging<VendorNSDTO>(netsuiteService, ct);
         return (result.items.Select(ConvertNSDTO), result.totalResults);
     }
 
-    public Task<(IEnumerable<VendorDTO> Data, int Count)> GetTradeVendorsListAsync(DataGridIntent intent)
+    public Task<(IEnumerable<VendorDTO> Data, int Count)> GetTradeVendorsListAsync(DataGridIntent intent, CancellationToken ct = default)
     {
         var newIntent = intent.Adapt<DataGridIntent>(); // do not modify original intent
         newIntent.Filters.Add(DataGridFilterUtilities.Equal(nameof(VendorNSDTO.CategoryId), TRADE_VENDOR_CATEGORY_ID));
 
-        return GetVendorsListAsync(newIntent);
+        return GetVendorsListAsync(newIntent, ct);
     }
 
-    public Task<(IEnumerable<VendorDTO> Data, int Count)> GetTradeVendorsBySubsidiaryListAsync(DataGridIntent intent, int subsidiary)
+    public Task<(IEnumerable<VendorDTO> Data, int Count)> GetTradeVendorsBySubsidiaryListAsync(DataGridIntent intent, int subsidiary, CancellationToken ct = default)
     {
         var newIntent = intent.Adapt<DataGridIntent>();
         newIntent.Filters.Add(
@@ -76,18 +76,18 @@ public class VendorIntegration(
                 nameof(VendorNSDTO.CategoryId), 
                 TRADE_VENDOR_CATEGORY_ID));
 
-        return GetVendorsBySubsidiaryListAsync(newIntent, subsidiary);
+        return GetVendorsBySubsidiaryListAsync(newIntent, subsidiary, ct);
     }
 
-    public Task<(IEnumerable<VendorDTO> Data, int Count)> GetNonTradeVendorsListAsync(DataGridIntent intent)
+    public Task<(IEnumerable<VendorDTO> Data, int Count)> GetNonTradeVendorsListAsync(DataGridIntent intent, CancellationToken ct = default)
     {
         var newIntent = intent.Adapt<DataGridIntent>(); // do not modify original intent
         newIntent.Filters.Add(DataGridFilterUtilities.Equal(nameof(VendorNSDTO.CategoryId), NONTRADE_VENDOR_CATEGORY_ID));
 
-        return GetVendorsListAsync(newIntent);
+        return GetVendorsListAsync(newIntent, ct);
     }
 
-    public Task<(IEnumerable<VendorDTO> Data, int Count)> GetNonTradeVendorsBySubsidiaryListAsync(DataGridIntent intent, int subsidiary)
+    public Task<(IEnumerable<VendorDTO> Data, int Count)> GetNonTradeVendorsBySubsidiaryListAsync(DataGridIntent intent, int subsidiary, CancellationToken ct = default)
     {
         var newIntent = intent.Adapt<DataGridIntent>();
         newIntent.Filters.Add(
@@ -95,7 +95,7 @@ public class VendorIntegration(
                 nameof(VendorNSDTO.CategoryId),
                 NONTRADE_VENDOR_CATEGORY_ID));
 
-        return GetVendorsBySubsidiaryListAsync(newIntent, subsidiary);
+        return GetVendorsBySubsidiaryListAsync(newIntent, subsidiary, ct);
     }
 
 

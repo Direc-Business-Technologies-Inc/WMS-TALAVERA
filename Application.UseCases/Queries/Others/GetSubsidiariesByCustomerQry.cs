@@ -18,6 +18,6 @@ public class GetSubsidiariesByCustomerQryHandler(
 {
     public async Task<(IEnumerable<SubsidiaryDTO>, int)> Handle(GetSubsidiariesByCustomerQry request, CancellationToken cancellationToken)
     {
-        return await integration.GetSubsidiariesByCustomerAsync(request.Intent, request.customerId);
+        return await integration.GetSubsidiariesByCustomerAsync(request.Intent, request.customerId, cancellationToken);
     }
 }

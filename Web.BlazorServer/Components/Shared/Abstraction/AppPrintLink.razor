@@ -1,0 +1,22 @@
+@* Opens a NetSuite printout in a new browser tab. Renders nothing when no URL is supplied,
+   so grid rows for documents that cannot be printed simply omit the control.
+   Icon-only by design: the label lives in the tooltip so the control stays compact in a grid row. *@
+
+<RadzenButton Size="@Size"
+              ButtonStyle="ButtonStyle.Light"
+              Visible="@CanPrint"
+              title="Print">
+    <RadzenLink Path="@Url" Icon="print" target="_blank" title="Print" aria-label="Print" />
+</RadzenButton>
+
+@code {
+    /// <summary>Fully resolved printout URL, or null when the document cannot be printed.</summary>
+    [Parameter] public string? Url { get; set; }
+
+    [Parameter] public ButtonSize Size { get; set; } = ButtonSize.Small;
+
+    /// <summary>Caller-side gate, e.g. ReadOnly on a form. Combined with the URL check.</summary>
+    [Parameter] public bool Visible { get; set; } = true;
+
+    bool CanPrint => Visible && !string.IsNullOrWhiteSpace(Url);
+}
