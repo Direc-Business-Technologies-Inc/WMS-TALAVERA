@@ -80,7 +80,7 @@ internal class ReturnPackingIntegration(
             .Build();
 
         var response = await netsuiteService.ExecuteSuiteQLQuery<ReturnPackingHeaderNSDTO>(query.Query, query.Limit, query.Offset);
-        var nsdto = response.items.FirstOrDefault();
+        var nsdto = response.items?.FirstOrDefault();
 
         return nsdto is null ? null : MapInfoDto(nsdto);
     }
@@ -107,7 +107,7 @@ internal class ReturnPackingIntegration(
             .Build();
 
         var response = await netsuiteService.ExecuteSuiteQLQuery<TripTicketExemptionNSDTO>(query.Query, query.Limit, query.Offset);
-        var row = response.items.FirstOrDefault();
+        var row = response.items?.FirstOrDefault();
 
         return row is null ? null : row.ExemptionId != 0;
     }
@@ -146,7 +146,8 @@ internal class ReturnPackingIntegration(
                 ("q.LocationItemQuantityAvailable", nameof(ReturnPackingLineNSDTO.QuantityAvailable)),
                 ("q.LineQuantity", nameof(ReturnPackingLineNSDTO.QuantityPlanned)),
                 ("q.LineQuantityPacked", nameof(ReturnPackingLineNSDTO.QuantityReceived)),
-                ("q.LineQuantityBackOrdered", nameof(ReturnPackingLineNSDTO.QuantityBackOrdered))
+                ("q.LineQuantityBackOrdered", nameof(ReturnPackingLineNSDTO.QuantityBackOrdered)),
+                ("q.TransferCategory", nameof(ReturnPackingLineNSDTO.TransferCategory))
             )
             .From($"({mobileLineQuery}) q")
             .WithDatagridIntent(intent)
@@ -214,6 +215,9 @@ internal class ReturnPackingIntegration(
             QuantityPlanned = nsdto.QuantityPlanned,
             QuantityReceived = nsdto.QuantityReceived,
             QuantityBackOrdered = nsdto.QuantityBackOrdered,
+            // Header-level field projected onto every line: the category is a property of the
+            // order, not the item, and the packing guard in PostReturnsIFCmd reads it per line.
+            TransferCategory = nsdto.TransferCategory,
         };
     }
 

@@ -140,7 +140,7 @@ internal class StockTransferRequestPackingIntegration(
             .Build();
 
         var response = await netsuiteService.ExecuteSuiteQLQuery<StrPackingHeaderNSDTO>(query.Query, query.Limit, query.Offset);
-        var nsdto = response.items.FirstOrDefault();
+        var nsdto = response.items?.FirstOrDefault();
 
         return nsdto is null ? null : MapInfoDto(nsdto);
     }
@@ -167,7 +167,7 @@ internal class StockTransferRequestPackingIntegration(
             .Build();
 
         var response = await netsuiteService.ExecuteSuiteQLQuery<TripTicketExemptionNSDTO>(query.Query, query.Limit, query.Offset);
-        var row = response.items.FirstOrDefault();
+        var row = response.items?.FirstOrDefault();
 
         return row is null ? null : row.ExemptionId != 0;
     }
