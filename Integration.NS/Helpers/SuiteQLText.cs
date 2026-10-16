@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.RegularExpressions;
 
 namespace Integration.NS.Helpers;
@@ -85,6 +86,90 @@ internal static partial class SuiteQLText
         }
 
         return candidate;
+    }
+
+    /// <summary>
+    /// Removes SQL comments (<c>--</c> to end of line, and <c>/* */</c> blocks)
+    /// so a script survives <see cref="Services.NetSuiteApiClientService"/>'s
+    /// whitespace collapse. Must run BEFORE newlines are folded into spaces.
+    /// <para>
+    /// Why this exists: every SuiteQL statement is flattened with
+    /// <c>Regex.Replace(query, @"\s+", " ")</c> before it is sent. A line comment
+    /// in a multi-line script therefore becomes a comment that runs to the end of
+    /// the whole statement, silently discarding the remaining joins, the WHERE
+    /// clause and the closing parenthesis of any derived table. NetSuite then
+    /// answers 400 INVALID_PARAMETER with
+    /// <c>"end of input ... no_root_node"</c>, which names no offending token and
+    /// points at nothing. That is how the three packing line scripts shipped
+    /// broken: they were the only scripts in NSScripts carrying <c>--</c>
+    /// comments.
+    /// </para>
+    /// <para>
+    /// The scan is string-literal aware, matching the literal handling in
+    /// <c>SuiteQLAssert.StripLiterals</c>: a doubled quote (<c>''</c>) inside a
+    /// literal is consumed as an escape and does not close it. Without this,
+    /// data or a TO_CHAR format containing <c>--</c> would be truncated. Newlines
+    /// terminating a line comment are preserved so the following statement is
+    /// not joined onto the comment.
+    /// </para>
+    /// </summary>
+    public static string StripComments(string query)
+    {
+        if (string.IsNullOrEmpty(query)) return query;
+        if (!query.Contains("--", StringComparison.Ordinal) &&
+            !query.Contains("/*", StringComparison.Ordinal)) return query;
+
+        var stripped = new StringBuilder(query.Length);
+        var inLiteral = false;
+
+        for (var i = 0; i < query.Length; i++)
+        {
+            var ch = query[i];
+
+            if (inLiteral)
+            {
+                stripped.Append(ch);
+                if (ch == '\'')
+                {
+                    if (i + 1 < query.Length && query[i + 1] == '\'')
+                    {
+                        stripped.Append('\'');
+                        i++; // doubled quote is an escape, not a terminator
+                    }
+                    else
+                    {
+                        inLiteral = false;
+                    }
+                }
+                continue;
+            }
+
+            if (ch == '\'')
+            {
+                inLiteral = true;
+                stripped.Append(ch);
+                continue;
+            }
+
+            if (ch == '-' && i + 1 < query.Length && query[i + 1] == '-')
+            {
+                while (i < query.Length && query[i] != '\n') i++;
+                if (i < query.Length) stripped.Append('\n');
+                continue;
+            }
+
+            if (ch == '/' && i + 1 < query.Length && query[i + 1] == '*')
+            {
+                i += 2;
+                while (i + 1 < query.Length && !(query[i] == '*' && query[i + 1] == '/')) i++;
+                i = Math.Min(i + 1, query.Length - 1);
+                continue;
+            }
+
+            stripped.Append(ch);
+        }
+
+return stripped.ToString();
     }
 
     [GeneratedRegex(@"^\d+(\s*,\s*\d+)*$")]

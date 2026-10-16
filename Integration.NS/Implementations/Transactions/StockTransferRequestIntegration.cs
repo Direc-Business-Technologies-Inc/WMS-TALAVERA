@@ -31,12 +31,12 @@ internal class StockTransferRequestIntegration(
         if (intent.Sorts.Count == 0)
             intent.Sorts.Add(DataGridSortUtilities.Descending(nameof(StockTransferRequestDataGridNSDTO.ReferenceNumber)));
 
-        // The legacy SuiteQL predicate (purchase_category != 3 OR
-        // purchase_subcategory = 5) is intentionally NOT sent to NetSuite: it
-        // resolves as a ~45s full scan (Q0=46s, Q5-without-it=1-2s,
-        // Q6-date-bound=47-48s). The remaining base predicates are selective
-        // (~1-2s), so we fetch the full base set (known-small: 25 rows in prod),
-        // apply the 3VL-equivalent predicate in memory, then sort+page here.
+        // The purchase-category predicate (see PurchaseCategoryRules) is
+        // intentionally NOT sent to NetSuite: it resolves as a ~45s full scan
+        // (Q0=46s, Q5-without-it=1-2s, Q6-date-bound=47-48s). The remaining base
+        // predicates are selective (~1-2s), so we fetch the full base set
+        // (known-small: 25 rows in prod), apply the 3VL-equivalent predicate in
+        // memory, then sort+page here.
         var baseRows = await FetchAllBaseRowsAsync(BuildIntercompanyBaseQuery(intent));
 
         var filtered = baseRows.Where(PassesPurchaseCategoryFilter).ToList();
@@ -427,18 +427,18 @@ internal class StockTransferRequestIntegration(
     }
 
     /// <summary>
-    /// In-memory equivalent of the legacy SuiteQL predicate
-    /// <c>(purchase_category != 3 OR purchase_subcategory = 5)</c>, which was
-    /// removed from the TO/ICTO grid queries because NetSuite resolves that
-    /// OR-group as a ~45s full scan (Q0=46s, Q5-without-it=1-2s, Q6-date-bound=47-48s).
-    /// NULL semantics mirror SQL three-valued logic exactly: <c>NULL != 3</c>
-    /// is UNKNOWN (not TRUE — C#'s lifted <c>!=</c> would wrongly return true
-    /// for null, so the HasValue guard is load-bearing), and <c>NULL = 5</c> is
-    /// UNKNOWN (C# <c>==</c> on null already yields false, matching SQL here).
+    /// In-memory equivalent of the pushdown predicate used by the Receiving &gt;
+    /// Purchase Orders listing — the predicate itself is NOT sent to NetSuite
+    /// because it resolves as a ~45s full scan on the TO/ICTO base set
+    /// (Q0=46s, Q5-without-it=1-2s, Q6-date-bound=47-48s; see
+    /// STR-grid-perf-fix-summary.md). The rule lives in
+    /// <see cref="PurchaseCategoryRules"/> so this grid and the PO listing
+    /// cannot disagree about which transactions are visible; only the
+    /// evaluation strategy differs, and that difference is forced by the perf
+    /// measurements.
     /// </summary>
     private static bool PassesPurchaseCategoryFilter(StockTransferRequestDataGridNSDTO row) =>
-        (row.PurchaseCategoryId.HasValue && row.PurchaseCategoryId.Value != 3)
-        || row.PurchaseSubcategoryId == 5;
+        PurchaseCategoryRules.Passes(row.PurchaseCategoryId, row.PurchaseSubcategoryId);
 
     private static StockTransferRequestDataGridDTO ConvertDataGridDTO(StockTransferRequestDataGridNSDTO nsdto)
     {

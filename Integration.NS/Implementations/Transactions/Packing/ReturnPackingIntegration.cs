@@ -112,6 +112,22 @@ internal class ReturnPackingIntegration(
         return row is null ? null : row.ExemptionId != 0;
     }
 
+    /// <summary>
+    /// Loads packing lines for one return by wrapping the
+    /// NS_TO_x_Return_x_Packing_Get_Items script as a derived table.
+    /// <para>
+    /// Shape notes for the script (kept here, not in the .sql, because a
+    /// <c>--</c> comment in a script is silently fatal — see
+    /// <c>SuiteQLText.StripComments</c>):
+    /// the ibq and ba derived tables each collapse to one row per
+    /// (item, location) and (item, subsidiary, location) via GROUP BY on a
+    /// MIN(). Without those GROUP BYs they fan a single transaction line out
+    /// into several rows when the item has multiple preferred bins at the
+    /// location, or the preferred vendor has multiple bin-assignment records
+    /// there. The mobile app posts every row back, and two body entries with
+    /// the same orderLine are invalid for the !transform/itemFulfillment POST.
+    /// </para>
+    /// </summary>
     public async Task<(IEnumerable<ReturnsLineDTO> Data, int Count)> GetPackingReturnLines(string id, DataGridIntent intent)
     {
         var mobileLineQuery = sqlQuery.ResolveSuiteQLScript(

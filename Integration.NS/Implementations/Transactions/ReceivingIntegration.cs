@@ -43,9 +43,16 @@ public class ReceivingIntegration(
     /// in NetSuite breaks these silently). Rule (colleague-confirmed 2026-10-13):
     /// Trade (category 1) passes untouched; Non-Trade (category 3) is narrowed
     /// to Office Supplies (4), Store Supplies (5), Uniforms (9).
+    ///
+    /// The rule itself now lives in <see cref="PurchaseCategoryRules"/> and is
+    /// shared with the STR Transfer Order / Intercompany grids, which evaluate
+    /// the identical rule in memory rather than pushing it down (that OR-group
+    /// is a ~45s full scan on their base set). The string projection below is
+    /// only here because SuiteQL IN-lists are emitted as quoted literals.
     /// </summary>
-    private const int NonTradePurchaseCategoryId = 3;
-    private static readonly string[] NonTradeSubcategoryIds = ["4", "5", "9"];
+    private const int NonTradePurchaseCategoryId = PurchaseCategoryRules.NonTradeCategoryId;
+    private static readonly string[] NonTradeSubcategoryIds =
+        [.. PurchaseCategoryRules.NonTradeWhitelistedSubcategoryIds.Select(id => id.ToString())];
 
     /// <summary>
     /// Maps grid property names to the underlying SuiteQL expressions for the

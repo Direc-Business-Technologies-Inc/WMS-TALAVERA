@@ -7,8 +7,8 @@
 
 **Where to enforce:** the tests in `Integration.NS.Tests/Implementations/Transactions/`
 (`GetItemReceiptItemFulfillmentLinesQueryShapeTests`, `GetBarcodeDataPreferredVendorTests`)
-and `Integration.NS.Tests/Services/` (`SuiteQLLiteralEscapingTests`, `SuiteQLLimitTests`)
-assert the shapes. New fragile queries get the same treatment.
+and `Integration.NS.Tests/Services/` (`SuiteQLLiteralEscapingTests`, `SuiteQLLimitTests`,
+`SuiteQLTextCommentTests`) assert the shapes. New fragile queries get the same treatment.
 
 ## Rule 1 — No outer-alias references inside subqueries or derived tables
 
@@ -110,6 +110,70 @@ SELECT id AS Id, name AS Name, custrecord_x AS X FROM location
 and `NSScriptsWellFormedTests`, which scans the real `NSScripts/*.sql` files —
 the resolver tests substitute against fakes and never validated the shipped
 scripts, which is how this shipped twice.
+
+## Rule 7 — No SQL comments in a named script
+
+Every SuiteQL statement is flattened before it leaves the process.
+`NetSuiteApiClientService.FormatQuery` applies `Regex.Replace(query, @"\s+", " ")`,
+which folds newlines into spaces. A `--` line comment in a multi-line script
+therefore stops meaning "comment until the next newline" and starts meaning
+"comment until the end of the statement", silently deleting every remaining join,
+the `WHERE` clause, and the closing parenthesis of any derived table.
+
+NetSuite answers with an error that names no offending token:
+
+```text
+400 [INVALID_PARAMETER] ... Failed to parse SQL [...]: end of input, state:96(10102) near:  (0,0, token code:0)
+no_root_node(-1000) near: no root node(0,0, token code:0)
+```
+
+`end of input` + `no_root_node` means "I reached the end of the statement and
+never found a parse root" — the signature of a comment having eaten the
+remainder. Do not read it as a bad column or a bad join; it is neither.
+
+```sql
+-- REJECTED (a -- comment anywhere in a named script):
+SELECT q.itemid AS ItemCode
+FROM item i
+JOIN transactionline tl ON i.id = tl.item
+-- one row per (item, location) via GROUP BY on a MIN()
+LEFT JOIN bin b ON b.id = tl.item
+WHERE tl.transactionlinetype = 'SHIPPING' AND t.tranid = @tranid
+
+-- ACCEPTED (same query, no comment; rationale lives in the consuming C#):
+SELECT q.itemid AS ItemCode
+FROM item i
+JOIN transactionline tl ON i.id = tl.item
+LEFT JOIN bin b ON b.id = tl.item
+WHERE tl.transactionlinetype = 'SHIPPING' AND t.tranid = @tranid
+```
+
+**Comments are now stripped, not merely forbidden.** `SuiteQLText.StripComments`
+removes `--` and `/* */` before the collapse, so a comment can no longer break a
+query. The rule remains because stripping makes commented-out SQL **vanish
+silently** — you will get no error telling you the clause you thought you were
+testing is not running. Keep query rationale in the XML doc of the method that
+consumes the script, and never comment out SQL in a script you intend to run.
+
+**Incidents:**
+
+- 2026-10-16 — `NS_TO_x_Packing_Get_Items.sql`, `NS_TO_x_Return_x_Packing_Get_Items.sql`
+  and `NS_VendorReturnAuthorization_Get_Items.sql` each carried a `--` explanation
+  block from the October preferred-bin / item-fulfillment dedup work. The three
+  packing line grids failed with `end of input ... no_root_node`. They were the only
+  scripts in `NSScripts` with comments, which is why nothing else broke. Web and
+  mobile were both affected (`FormatQuery` runs on both call paths).
+  Change record: `.opencode/docs/suiteql-comment-stripping-fix.md`.
+
+**Ruled out — do not re-investigate:** `ORDER BY` inside a `LEFT JOIN`ed derived
+table is accepted by NetSuite. It was removed while diagnosing the above incident
+and restored on 2026-10-16; the query succeeds either way. It is a no-op for the
+join result, but it is not a parse error.
+
+**Enforced by:** `SuiteQLAssert.HasComment`, plus
+`SuiteQLTextCommentTests.No_shipping_script_carries_a_sql_comment`, which scans the
+real `NSScripts/*.sql`. Coverage currently extends to `.sql` files only — see the
+open items in the change record.
 
 ## Adding a new rule
 

@@ -53,12 +53,6 @@ JOIN subsidiary s ON t.subsidiary = s.id
 JOIN location loc ON tl.location = loc.id
 JOIN unitstypeuom uom ON tl.units = uom.internalid
 
--- One row per (vendor, location) / (item, location): without GROUP BY these joins fan
--- out one transaction line into several rows when the vendor has multiple
--- bin-assignment records or the item has multiple preferred bins at the location, and
--- the duplicated orderLine breaks the itemFulfillment transform at save time.
--- ba also matches the line location so a bin assigned at another location never
--- resolves onto this line.
 LEFT JOIN (
 	SELECT
 		custrecord_dbti_vba_vendor,

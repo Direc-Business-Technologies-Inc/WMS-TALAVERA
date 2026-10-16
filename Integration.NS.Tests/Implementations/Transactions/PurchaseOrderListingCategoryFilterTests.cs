@@ -1,4 +1,5 @@
 using Integration.NS.Implementations.Transactions;
+using Integration.NS.Helpers;
 using Integration.NS.Services;
 using Integration.NS.Tests.Fakes;
 using Microsoft.AspNetCore.Http;
@@ -51,6 +52,44 @@ public class PurchaseOrderListingCategoryFilterTests
         Assert.Contains(
             "(t.custbody_dbti_purchase_category != 3 OR t.custbody_dbti_purchase_subcategory IN ('4', '5', '9'))",
             where);
+    }
+
+    /// <summary>
+    /// 2026-10-15: the pushdown IN-list is derived from the shared
+    /// <c>PurchaseCategoryRules</c> whitelist rather than hardcoded, so the PO
+    /// listing and the STR grids cannot drift apart again. This asserts the two
+    /// paths agree on the exact same subcategory set.
+    /// </summary>
+    [Fact]
+    public async Task Purchase_order_pushdown_in_list_matches_the_shared_whitelist()
+    {
+        var (sut, client) = CreateCapturing();
+
+        await sut.GetPurchaseOrdersListAsync(new DataGridIntent { Take = 10 });
+
+        Assert.NotNull(client.LastQuery);
+
+        var expected = string.Join(
+            ", ",
+            PurchaseCategoryRules.NonTradeWhitelistedSubcategoryIds
+                .Select(id => $"'{id}'"));
+
+        Assert.Contains($"IN ({expected})", client.LastQuery);
+    }
+
+    /// <summary>
+    /// Same rule, same constant — the two consumers must agree on the
+    /// Non-Trade category id as well as the subcategory whitelist.
+    /// </summary>
+    [Fact]
+    public async Task Purchase_order_pushdown_category_id_matches_the_shared_rule()
+    {
+        var (sut, client) = CreateCapturing();
+
+        await sut.GetPurchaseOrdersListAsync(new DataGridIntent { Take = 10 });
+
+        Assert.NotNull(client.LastQuery);
+        Assert.Contains($"!= {PurchaseCategoryRules.NonTradeCategoryId}", client.LastQuery);
     }
 
     [Fact]

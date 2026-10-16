@@ -5,6 +5,7 @@ using Integration.NS.DataTransferObjects.StockTransferRequest;
 using Integration.NS.Implementations.Transactions;
 using Integration.NS.Services;
 using Integration.NS.Tests.Fakes;
+using Integration.NS.Tests.Helpers;
 using Microsoft.AspNetCore.Http;
 using Shared.Entities;
 using Shared.Libraries.Utilities;
@@ -302,12 +303,16 @@ public class StockTransferRequestIntegrationTests
     }
 
     // ---------------------------------------------------------------------
-    // PERF 2026-10-09 — the purchase-category OR-group
-    // (purchase_category != 3 OR purchase_subcategory = 5) resolved in NetSuite
-    // as a ~45s full scan (Q0=46s, Q5-without-it=1-2s, Q6-date-bound=47-48s).
+    // PERF 2026-10-09 — the purchase-category predicate
+    // (purchase_category != 3 OR purchase_subcategory IN (4, 5, 9)) resolved in
+    // NetSuite as a ~45s full scan (Q0=46s, Q5-without-it=1-2s, Q6-date-bound=47-48s).
     // It is therefore NOT sent to NetSuite; the equivalent predicate runs in
     // memory over the selective base set. NULL semantics mirror SQL 3VL:
     // NULL != 3 is UNKNOWN (kept only if the other arm is TRUE).
+    //
+    // 2026-10-15 — the whitelist widened from [5] to [4, 5, 9] to match the
+    // Receiving > Purchase Orders listing, which had already been widened and
+    // from which this grid had silently drifted.
     // ---------------------------------------------------------------------
     [Fact]
     public async Task Transfer_order_list_query_omits_purchase_category_or_group()
@@ -369,9 +374,9 @@ public class StockTransferRequestIntegrationTests
         var (sut, client) = CreateCapturing();
         client.NextItems =
         [
-            GridRow("TO-1", 1, 1),   // cat != 3 -> keep
-            GridRow("TO-2", 3, 5),   // cat = 3 but sub = 5 -> keep
-            GridRow("TO-3", 3, 7),   // neither arm -> drop
+            GridRow("TO-1", 1, 1),   // trade -> keep
+            GridRow("TO-2", 3, 5),   // non-trade, store supplies -> keep
+            GridRow("TO-3", 3, 7),   // non-trade, non-whitelisted sub -> drop
             GridRow("TO-4", null, 5),// NULL != 3 unknown, sub = 5 true -> keep
             GridRow("TO-5", null, null), // both unknown -> drop
         ];
@@ -380,6 +385,54 @@ public class StockTransferRequestIntegrationTests
 
         Assert.Equal(3, count);
         Assert.Equal(["TO-1", "TO-2", "TO-4"], data.Select(d => d.ReferenceNumber).Order());
+    }
+
+    /// <summary>
+    /// 2026-10-15 fix: the non-trade whitelist widened from [5] to [4, 5, 9],
+    /// matching the Receiving &gt; Purchase Orders listing. Non-trade Office
+    /// Supplies and Uniforms STRs were previously invisible on this grid.
+    /// </summary>
+    [Fact]
+    public async Task Transfer_order_list_keeps_every_non_trade_whitelisted_subcategory()
+    {
+        var (sut, client) = CreateCapturing();
+        client.NextItems =
+        [
+            GridRow("TO-OFFICE", 3, 4),   // office supplies -> now visible
+            GridRow("TO-STORE", 3, 5),   // store supplies -> visible before too
+            GridRow("TO-UNIFORM", 3, 9),  // uniforms -> now visible
+            GridRow("TO-OTHER", 3, 7),   // still hidden
+        ];
+
+        var (data, count) = await sut.GetTransferOrderList(new DataGridIntent { Take = 10 });
+
+        Assert.Equal(3, count);
+        Assert.Equal(
+            ["TO-OFFICE", "TO-STORE", "TO-UNIFORM"],
+            data.Select(d => d.ReferenceNumber).Order());
+    }
+
+    /// <summary>
+    /// End-to-end run of the SHARED truth table through the actual integration
+    /// method. This is what proves the in-memory path is wired to the shared
+    /// rule and to the right DTO properties, rather than merely agreeing with it
+    /// by coincidence.
+    /// </summary>
+    [Fact]
+    public async Task Transfer_order_list_matches_the_shared_purchase_category_truth_table()
+    {
+        var (sut, client) = CreateCapturing();
+        var cases = PurchaseCategoryRuleTestCases.All;
+        client.NextItems = [.. cases.Select((c, i) => GridRow(
+            PurchaseCategoryRuleTestCases.ReferenceNumbers[i], c.CategoryId, c.SubcategoryId))];
+
+        var (data, count) = await sut.GetTransferOrderList(new DataGridIntent { Take = 100 });
+
+        var expected = PurchaseCategoryRuleTestCases.ReferenceNumbers
+            .Where((_, i) => cases[i].ExpectedToPass);
+
+        Assert.Equal(expected.Count(), count);
+        Assert.Equal(expected.Order(), data.Select(d => d.ReferenceNumber).Order());
     }
 
     [Fact]
@@ -397,6 +450,27 @@ public class StockTransferRequestIntegrationTests
         Assert.Equal(1, count);
         Assert.Single(data);
         Assert.Equal("ICTO-1", data.Single().ReferenceNumber);
+    }
+
+    /// <summary>
+    /// The ICTO grid shares <c>PassesPurchaseCategoryFilter</c> with the TO
+    /// grid, so the widened whitelist must apply to it identically.
+    /// </summary>
+    [Fact]
+    public async Task Intercompany_list_keeps_every_non_trade_whitelisted_subcategory()
+    {
+        var (sut, client) = CreateCapturing();
+        client.NextItems =
+        [
+            GridRow("ICTO-OFFICE", 3, 4),
+            GridRow("ICTO-UNIFORM", 3, 9),
+            GridRow("ICTO-OTHER", 3, 7),
+        ];
+
+        var (data, count) = await sut.GetIntercompanyTransferOrderList(new DataGridIntent { Take = 10 });
+
+        Assert.Equal(2, count);
+        Assert.Equal(["ICTO-OFFICE", "ICTO-UNIFORM"], data.Select(d => d.ReferenceNumber).Order());
     }
 
     [Fact]

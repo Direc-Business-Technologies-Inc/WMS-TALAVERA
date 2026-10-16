@@ -47,6 +47,22 @@ public static partial class SuiteQLAssert
         => WellFormed(query.Query, query.Limit, query.Offset);
 
     /// <summary>
+    /// True when the query carries a SQL comment (<c>--</c> or <c>/*</c>) outside
+    /// a string literal. Comments are stripped before transport
+    /// (<c>SuiteQLText.StripComments</c>), so this is a shape warning for stored
+    /// scripts rather than a runtime failure — a comment in a shipped .sql means
+    /// the rationale is one refactor away from being silently dropped. Literals
+    /// are excluded, so a TO_CHAR format or a barcode value may still contain
+    /// these characters safely.
+    /// </summary>
+    public static bool HasComment(string query)
+    {
+        var (outsideLiterals, _) = StripLiterals(query);
+        return outsideLiterals.Contains("--", StringComparison.Ordinal)
+            || outsideLiterals.Contains("/*", StringComparison.Ordinal);
+    }
+
+    /// <summary>
     /// Limits must be omitted (null → NetSuite default page) or within
     /// 1..1000 (Rule 3 of .opencode/docs/SuiteQL-Shape-Rules.md).
     /// </summary>

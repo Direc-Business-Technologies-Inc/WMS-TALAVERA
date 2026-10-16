@@ -54,10 +54,6 @@ JOIN subsidiary s ON t.subsidiary = s.id
 JOIN location loc ON tl.location = loc.id
 JOIN unitstypeuom uom ON tl.units = uom.internalid
 
--- One row per (item, location) / (item, subsidiary, location): without GROUP BY these
--- joins fan out one transaction line into several rows when the item has multiple
--- preferred bins at the location or the vendor has multiple bin-assignment records,
--- and the duplicated orderLine breaks the itemFulfillment transform at save time.
 LEFT JOIN (
     SELECT
         ibq.item,

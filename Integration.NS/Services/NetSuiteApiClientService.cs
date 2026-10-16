@@ -305,9 +305,18 @@ namespace Integration.NS.Services
             return tokenHandler.WriteToken(token);
         }
 
+        /// <summary>
+        /// Normalises a SuiteQL statement for transport: strips comments first,
+        /// then collapses every whitespace run (newlines included) to a single
+        /// space. The order is load-bearing — folding newlines first would turn
+        /// each <c>--</c> line comment in a script into a comment swallowing the
+        /// entire remainder of the statement, which NetSuite reports as 400
+        /// "end of input ... no_root_node" with no offending token named.
+        /// See <see cref="Helpers.SuiteQLText.StripComments"/>.
+        /// </summary>
         string FormatQuery(string query)
         {
-            return Regex.Replace(query, @"\s+", " ").Trim();
+            return Regex.Replace(Helpers.SuiteQLText.StripComments(query), @"\s+", " ").Trim();
         }
 
         private static readonly SemaphoreSlim _tokenSemaphore = new(1, 1);

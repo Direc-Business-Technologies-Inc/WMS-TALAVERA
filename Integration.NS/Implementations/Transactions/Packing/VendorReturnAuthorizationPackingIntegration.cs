@@ -112,6 +112,24 @@ internal class VendorReturnAuthorizationPackingIntegration(
         return row is null ? null : row.ExemptionId != 0;
     }
 
+    /// <summary>
+    /// Loads packing lines for one vendor return authorization by wrapping the
+    /// NS_VendorReturnAuthorization_Get_Items script as a derived table.
+    /// <para>
+    /// Shape notes for the script (kept here, not in the .sql, because a
+    /// <c>--</c> comment in a script is silently fatal — see
+    /// <c>SuiteQLText.StripComments</c>):
+    /// the ba and ibq derived tables each collapse to one row per
+    /// (vendor, location) and (item, location) via GROUP BY on a MIN().
+    /// Without those GROUP BYs they fan a single transaction line out into
+    /// several rows when the vendor has multiple bin-assignment records, or
+    /// the item has multiple preferred bins at the location. The mobile app
+    /// posts every row back, and two body entries with the same orderLine are
+    /// invalid for the !transform/itemFulfillment POST. The ba join also
+    /// matches the line location, so a bin assigned at another location never
+    /// resolves onto the line.
+    /// </para>
+    /// </summary>
     public async Task<(IEnumerable<VendorReturnAuthorizationLineDTO> Data, int Count)> GetPackingVendorReturnAuthorizationLines(string id, DataGridIntent intent)
     {
         var mobileLineQuery = sqlQuery.ResolveSuiteQLScript(
