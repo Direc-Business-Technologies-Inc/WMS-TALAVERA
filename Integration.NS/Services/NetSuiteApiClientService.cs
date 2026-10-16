@@ -1119,9 +1119,66 @@ namespace Integration.NS.Services
         internal static bool RequiresBin(bool isUsedBin, decimal scannedQuantity, int vendorAssignedBin, int preferredBin) =>
             isUsedBin && scannedQuantity > 0 && vendorAssignedBin == 0 && preferredBin == 0;
 
+        /// <summary>
+        /// A TO line that is closed or has no remaining open quantity is absent
+        /// from the item sublist of the <c>!transform/itemFulfillment</c>
+        /// response, so addressing it (a scanned entry OR a zero-qty filler)
+        /// is an invalid insert on a static sublist and NetSuite rejects the
+        /// whole save. Remaining is <c>LineQuantity - QuantityAlreadyShipped</c>
+        /// (transactionline.quantityshiprecv), the correct open quantity on a
+        /// partially fulfilled order - not the quantitypacked-based figure.
+        /// </summary>
+        internal static bool IsClosedFulfillmentLine(PostTransferOrderDTO line) =>
+            line.IsLineClosed || line.RemainingQuantity <= 0;
+
+        /// <summary>
+        /// Scans beyond the line's remaining open quantity cannot be fulfilled:
+        /// after an earlier partial fulfillment only <c>LineQuantity -
+        /// QuantityAlreadyShipped</c> is still shippable. Returns one descriptor
+        /// per offending line, naming the WMS line, material and the ordered /
+        /// remaining figures, so the caller can fail with an actionable message
+        /// before the first NetSuite call.
+        /// </summary>
+        internal static List<string> FindScansExceedingRemaining(List<PostTransferOrderDTO> lines)
+        {
+            var offenders = new List<string>();
+
+            for (var i = 0; i < lines.Count; i++)
+            {
+                var line = lines[i];
+                if (line.ScannedQuantity <= 0) continue;
+
+                var remaining = line.RemainingQuantity;
+                if (line.ScannedQuantity > remaining)
+                {
+                    offenders.Add(
+                        $"item-list line {i + 1} (WMS line {line.LineSequenceNumber}) {line.MaterialCode} - {line.MaterialName}: scanned {line.ScannedQuantity}, ordered {line.LineQuantity}, remaining {remaining}");
+                }
+            }
+
+            return offenders;
+        }
+
         public async Task<bool> SaveTOItemFulfillment(List<PostTransferOrderDTO> Data)
         {
             Data = DeduplicateFulfillmentLines(Data, x => x.LineSequenceNumber, x => x.IsBad, x => x.ScannedQuantity);
+
+            // Partially fulfilled orders expose only their OPEN lines on the transform's
+            // item sublist; a closed line has no sublist line to address and any orderLine
+            // reference for it (scanned entry or zero-qty filler) is an invalid insert on a
+            // static sublist that fails the entire save. Strip closed / fully-shipped lines
+            // before bucketing so the payload builder only ever receives postable lines.
+            Data = Data.Where(x => !IsClosedFulfillmentLine(x)).ToList();
+
+            // Reject scans beyond the remaining open quantity before the first NetSuite
+            // call: on a partially fulfilled order quantitypacked is not the open quantity,
+            // so surface the WMS line and the real ordered/remaining figures to the operator
+            // instead of a cryptic NetSuite 400 mid-post.
+            var overRemaining = FindScansExceedingRemaining(Data);
+            if (overRemaining.Count > 0)
+            {
+                throw new Exception($"Cannot post TO Item Fulfillment: scanned quantity exceeds the remaining quantity for: {string.Join("; ", overRemaining)}. Reload the order and rescan the affected line(s).");
+            }
 
             var orderId = Data.Select(x => x.NetsuiteOrderInternalId).FirstOrDefault();
             // Use Any (not First): one stale non-bin line must not downgrade a

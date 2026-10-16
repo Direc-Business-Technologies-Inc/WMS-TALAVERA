@@ -25,9 +25,16 @@ public partial class TransferOrderItemView : IAsyncDisposable
     List<TransferOrderLineVM> GoodTOItems = [];
     List<TransferOrderLineVM> BadTOItems = [];
 
+    // Closed / fully-shipped lines: display-only, never scannable. A closed
+    // orderLine is exactly what crashes the !transform/itemFulfillment save, so
+    // these are kept off GoodTOItems/BadTOItems (and therefore out of ItemRequest
+    // and every scan handler).
+    List<TransferOrderLineVM> DoneTOItems = [];
+
 
     List<TransferOrderLineVM> FilteredGoodTOItems = [];
     List<TransferOrderLineVM> FilteredBadTOItems = [];
+    List<TransferOrderLineVM> FilteredDoneTOItems = [];
 
     TransferOrderLineVM? LastScanned;
     List<ItemBarcodesPerUoMVM> ItemBarcodes = [];
@@ -81,7 +88,10 @@ public partial class TransferOrderItemView : IAsyncDisposable
             },
             OnSuccess = async (result) =>
             {
-                GoodTOItems = result.Data.Select(line => new TransferOrderLineVM
+                var source = result.Data ?? [];
+                var openLines = source.Where(line => !line.IsCompleted).ToList();
+
+                GoodTOItems = openLines.Select(line => new TransferOrderLineVM
                 {
                     NetsuiteOrderInternalId = line.NetsuiteOrderInternalId,
                     OrderNumber = line.OrderNumber,
@@ -120,6 +130,9 @@ public partial class TransferOrderItemView : IAsyncDisposable
                     LineQuantityPacked = line.LineQuantityPacked,
                     LineQuantityBackOrdered = line.LineQuantityBackOrdered,
 
+                    IsClosed = line.IsClosed,
+                    QuantityAlreadyShipped = line.QuantityAlreadyShipped,
+
                     NetsuiteUoMInternalId = line.NetsuiteUoMInternalId,
                     UoMName = line.UoMName,
                     UoMRate = line.UoMRate,
@@ -130,7 +143,7 @@ public partial class TransferOrderItemView : IAsyncDisposable
                     IsBad = false,
                 }).ToList() ?? [];
 
-                BadTOItems = result.Data.Select(line => new TransferOrderLineVM
+                BadTOItems = openLines.Select(line => new TransferOrderLineVM
                 {
                     NetsuiteOrderInternalId = line.NetsuiteOrderInternalId,
                     OrderNumber = line.OrderNumber,
@@ -169,6 +182,9 @@ public partial class TransferOrderItemView : IAsyncDisposable
                     LineQuantity = line.LineQuantity,
                     LineQuantityPacked = line.LineQuantityPacked,
 
+                    IsClosed = line.IsClosed,
+                    QuantityAlreadyShipped = line.QuantityAlreadyShipped,
+
                     NetsuiteUoMInternalId = line.NetsuiteUoMInternalId,
                     UoMName = line.UoMName,
                     UoMRate = line.UoMRate,
@@ -177,6 +193,53 @@ public partial class TransferOrderItemView : IAsyncDisposable
                     ScannedQuantity = 0,
                     ScannedWeight = 0,
                     IsBad = true,
+                }).ToList() ?? [];
+
+                // Closed / fully-shipped lines: read-only DONE list. Excluded from
+                // GoodTOItems/BadTOItems so ItemRequest and every scan handler skip them.
+                DoneTOItems = source.Where(line => line.IsCompleted).Select(line => new TransferOrderLineVM
+                {
+                    NetsuiteOrderInternalId = line.NetsuiteOrderInternalId,
+                    OrderNumber = line.OrderNumber,
+                    OrderType = line.OrderType,
+                    OrderStatus = line.OrderStatus,
+
+                    NetsuiteFromLocationInternalId = line.NetsuiteFromLocationInternalId,
+                    NetsuiteToLocationInternalId = line.NetsuiteToLocationInternalId,
+
+                    NetsuiteFromSubsidiaryInternalId = line.NetsuiteFromSubsidiaryInternalId,
+                    NetsuiteSubsidiaryDefaultBOInternalId = line.NetsuiteSubsidiaryDefaultBOInternalId,
+                    NetsuiteToSubsidiaryInternalId = line.NetsuiteToSubsidiaryInternalId,
+
+                    LocationName = line.LocationName,
+                    LocationUsedBin = line.LocationUsedBin,
+
+                    LineSequenceNumber = line.LineSequenceNumber,
+                    TransactionLineType = line.TransactionLineType,
+
+                    NetsuiteMaterialInternalId = line.NetsuiteMaterialInternalId,
+                    MaterialCode = line.MaterialCode,
+                    MaterialName = line.MaterialName,
+                    MaterialWeight = line.MaterialWeight,
+
+                    NetsuiteMaterialPrefferedBinId = line.NetsuiteMaterialPrefferedBinId,
+                    NetsuiteMaterialVendorAssignedBin = line.NetsuiteMaterialVendorAssignedBin,
+
+                    LineQuantity = line.LineQuantity,
+                    LineQuantityPacked = line.LineQuantityPacked,
+                    LineQuantityBackOrdered = line.LineQuantityBackOrdered,
+
+                    IsClosed = line.IsClosed,
+                    QuantityAlreadyShipped = line.QuantityAlreadyShipped,
+
+                    NetsuiteUoMInternalId = line.NetsuiteUoMInternalId,
+                    UoMName = line.UoMName,
+                    UoMRate = line.UoMRate,
+
+                    ScanCount = 0,
+                    ScannedQuantity = 0,
+                    ScannedWeight = 0,
+                    IsBad = false,
                 }).ToList() ?? [];
 
                 ApplySearch();
@@ -274,6 +337,7 @@ public partial class TransferOrderItemView : IAsyncDisposable
         {
             FilteredGoodTOItems = GoodTOItems.ToList();
             FilteredBadTOItems = BadTOItems.ToList();
+            FilteredDoneTOItems = DoneTOItems.ToList();
             return;
         }
 
@@ -284,6 +348,10 @@ public partial class TransferOrderItemView : IAsyncDisposable
             .ToList();
 
         FilteredBadTOItems = BadTOItems
+            .Where(row => MatchesSearch(row, search))
+            .ToList();
+
+        FilteredDoneTOItems = DoneTOItems
             .Where(row => MatchesSearch(row, search))
             .ToList();
     }
@@ -479,7 +547,7 @@ public partial class TransferOrderItemView : IAsyncDisposable
             var badlineTotal = badLine.ScannedQuantity;
             var goodLineTotal = goodLine.ScannedQuantity;
 
-            var isOverScan = badlineTotal + goodLineTotal >= goodLine.NSLineQuantityPacked;
+            var isOverScan = badlineTotal + goodLineTotal >= goodLine.NSLineQuantityRemaining;
 
             if (isOverScan)
             {
@@ -489,7 +557,11 @@ public partial class TransferOrderItemView : IAsyncDisposable
 
             var scanQty = barcode.UoMRate / goodLine.UoMRate;
 
-            var remainingQty = goodLine.NSLineQuantityPacked - (goodLine.ScannedQuantity + (badLine?.ScannedQuantity ?? 0));
+            // Remaining open quantity on a partially fulfilled order is
+            // LineQuantity - QuantityAlreadyShipped; NSLineQuantityPacked is based on
+            // quantitypacked and understates the remaining qty after an earlier partial
+            // fulfillment, wrongly blocking valid scans.
+            var remainingQty = goodLine.NSLineQuantityRemaining - (goodLine.ScannedQuantity + (badLine?.ScannedQuantity ?? 0));
 
             bool isExceed = scanQty > remainingQty;
 
@@ -608,6 +680,9 @@ public partial class TransferOrderItemView : IAsyncDisposable
 
                 LineQuantity = x.LineQuantity,
                 LineQuantityPacked = x.LineQuantityPacked,
+
+                IsClosed = x.IsClosed,
+                QuantityAlreadyShipped = x.QuantityAlreadyShipped,
 
                 NetsuiteUoMInternalId = x.NetsuiteUoMInternalId,
                 UoMName = x.UoMName,
@@ -972,6 +1047,7 @@ public partial class TransferOrderItemView : IAsyncDisposable
         // Snapshot current scanned state before refreshing
         var scannedState = GoodTOItems
             .Concat(BadTOItems)
+            .Concat(DoneTOItems)
             .GroupBy(x => new
             {
                 x.LineSequenceNumber,
@@ -990,8 +1066,9 @@ public partial class TransferOrderItemView : IAsyncDisposable
         // Reload PO items
         await ActionFactory.ExecuteAppActionAsync(ActionGetTOItems);
 
-        // Restore scanned state
-        foreach (var item in GoodTOItems.Concat(BadTOItems))
+        // Restore scanned state (including DONE lines, so a line that moved to
+        // DONE across the reload keeps its snapshot entry).
+        foreach (var item in GoodTOItems.Concat(BadTOItems).Concat(DoneTOItems))
         {
             var key = new
             {

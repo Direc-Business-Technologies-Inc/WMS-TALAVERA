@@ -145,6 +145,33 @@
                             </RadzenDataList>
                         </RadzenTabsItem>
 
+                        <RadzenTabsItem Text="@($"Done ({DoneTOItems.Count})")">
+                            @* Fully shipped / closed lines. Read-only: these orderLines are
+                               absent from the transform's item sublist, so they must never be
+                               scanned or posted. *@
+                            <RadzenDataList TItem="TransferOrderLineVM" Data="FilteredDoneTOItems" Style="margin-bottom:200px">
+                                <Template Context="row">
+                                    <RadzenStack Style="position:relative;overflow:clip !important;" class="rz-p-2" Orientation="Orientation.Horizontal">
+                                        <RadzenStack Gap="4px">
+                                            <RadzenText Text="@row.MaterialName" TextStyle="TextStyle.Subtitle2" Style="font-size:.75rem" />
+                                            <RadzenText Text="@row.LocationName" TextStyle="TextStyle.Subtitle2" Style="font-size:.6rem" />
+                                            <RadzenText Text="@row.UoMName" TextStyle="TextStyle.Subtitle2" Style="font-size:.6rem" />
+                                            <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="Fully shipped" />
+                                        </RadzenStack>
+
+                                        <RadzenStack Gap="0" Style="position:absolute;right:0;top:0;width:max-content;height:100%;overflow:clip" AlignItems="AlignItems.End">
+                                            <RadzenStack Style="flex-grow:1;"
+                                                         class="dynamic-qty-box rz-background-color-base-200">
+                                                <RadzenText Text="@FormatQuantity(row.QuantityAlreadyShipped)"
+                                                            Style="font-size:1.25rem;font-weight:500;"
+                                                            class="dynamic-qty-text" />
+                                            </RadzenStack>
+                                        </RadzenStack>
+                                    </RadzenStack>
+                                </Template>
+                            </RadzenDataList>
+                        </RadzenTabsItem>
+
                         @if (HasBackorderItems)
                         {
                             <RadzenTabsItem Text="BackOrdered">

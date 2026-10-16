@@ -32,4 +32,22 @@ public class TransferOrderLineVM : TransactionVM
                     : (NetsuiteMaterialVendorAssignedBin != 0
                         ? VendorAssignedBinQuantityAvailableBad
                         : PreferredBinQuantityAvailableBad) / UoMRate;
+
+    // NetSuite 'T'/'F' closed flag on the transaction line (mirrors
+    // LocationUsedBin, which keeps the raw 'T'/'F' string rather than a bool).
+    public string IsClosed { get; set; } = string.Empty;
+
+    // NetSuite-maintained cumulative shipped/received quantity
+    // (transactionline.quantityshiprecv). On a partially fulfilled order the
+    // open quantity is LineQuantity - QuantityAlreadyShipped, NOT the
+    // quantitypacked-based NSLineQuantityPacked.
+    public decimal QuantityAlreadyShipped { get; set; }
+
+    public decimal NSLineQuantityRemaining => LineQuantity - QuantityAlreadyShipped;
+
+    public bool IsLineClosed => string.Equals(IsClosed, "T", StringComparison.OrdinalIgnoreCase);
+
+    // Closed or fully shipped: no remaining quantity to pack, so the line is
+    // routed to the read-only DONE list and never scanned.
+    public bool IsCompleted => IsLineClosed || NSLineQuantityRemaining <= 0;
 }

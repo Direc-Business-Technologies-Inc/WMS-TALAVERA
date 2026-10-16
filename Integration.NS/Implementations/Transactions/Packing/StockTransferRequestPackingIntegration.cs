@@ -207,7 +207,9 @@ internal class StockTransferRequestPackingIntegration(
                 ("q.LocationItemQuantityAvailable", nameof(StrPackingLineNSDTO.QuantityAvailable)),
                 ("(q.LineQuantity / q.UoMRate)", nameof(StrPackingLineNSDTO.QuantityPlanned)),
                 ("(q.LineQuantityPacked / q.UoMRate)", nameof(StrPackingLineNSDTO.QuantityReceived)),
-                ("(q.LineQuantityBackOrdered / q.UoMRate)", nameof(StrPackingLineNSDTO.QuantityBackOrdered))
+                ("(q.LineQuantityBackOrdered / q.UoMRate)", nameof(StrPackingLineNSDTO.QuantityBackOrdered)),
+                ("q.IsClosed", nameof(StrPackingLineNSDTO.IsClosed)),
+                ("(q.QuantityAlreadyShipped / q.UoMRate)", nameof(StrPackingLineNSDTO.QuantityAlreadyShipped))
             )
             .From($"({mobileLineQuery}) q")
             .WithDatagridIntent(intent)
@@ -274,6 +276,8 @@ internal class StockTransferRequestPackingIntegration(
             QuantityPlanned = nsdto.QuantityPlanned,
             QuantityReceived = nsdto.QuantityReceived,
             QuantityBackOrdered = nsdto.QuantityBackOrdered,
+            IsClosed = nsdto.IsClosed,
+            QuantityAlreadyShipped = nsdto.QuantityAlreadyShipped,
         };
     }
 }

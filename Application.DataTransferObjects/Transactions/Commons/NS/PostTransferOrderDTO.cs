@@ -37,6 +37,17 @@ public class PostTransferOrderDTO : TransactionDTO
     public bool IsBad { get; set; }
     public bool IsMissing { get; set; }
 
+    // NetSuite 'T'/'F' closed flag on the transaction line (transactionline.isclosed).
+    public string IsClosed { get; set; } = string.Empty;
+
+    // NetSuite-maintained cumulative shipped/received quantity
+    // (transactionline.quantityshiprecv). Remaining = LineQuantity - QuantityAlreadyShipped.
+    public decimal QuantityAlreadyShipped { get; set; }
+
+    public bool IsLineClosed => string.Equals(IsClosed, "T", StringComparison.OrdinalIgnoreCase);
+
+    public decimal RemainingQuantity => LineQuantity - QuantityAlreadyShipped;
+
     public bool AlreadyFulfilled { get; set; }
     public bool OverScanned { get; set; }
 }
