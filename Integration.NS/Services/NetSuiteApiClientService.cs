@@ -1104,6 +1104,21 @@ namespace Integration.NS.Services
                 .ToList();
         }
 
+        /// <summary>
+        /// True when a posted line must carry a bin. Only bin-tracked locations require one.
+        /// </summary>
+        /// <remarks>
+        /// Both bin ids reach the WMS through LEFT JOINs in the packing scripts, so a
+        /// non-bin-tracked location resolves them to 0 by construction. An ungated check
+        /// therefore rejects a legitimate save and tells the operator the location is
+        /// bin-tracked when it is not - e.g. SELLING AREA - CAUAYAN, where usebins = 'F'.
+        /// Gate on the same header-level isUsedBin that drives binNumber and the ?replace=
+        /// URL, never per-line: a per-line gate would pass validation while the transform
+        /// still demands inventoryDetail for the whole save.
+        /// </remarks>
+        internal static bool RequiresBin(bool isUsedBin, decimal scannedQuantity, int vendorAssignedBin, int preferredBin) =>
+            isUsedBin && scannedQuantity > 0 && vendorAssignedBin == 0 && preferredBin == 0;
+
         public async Task<bool> SaveTOItemFulfillment(List<PostTransferOrderDTO> Data)
         {
             Data = DeduplicateFulfillmentLines(Data, x => x.LineSequenceNumber, x => x.IsBad, x => x.ScannedQuantity);
@@ -1133,7 +1148,7 @@ namespace Integration.NS.Services
                 for (var i = 0; i < badTO.Count; i++)
                 {
                     var line = badTO[i];
-                    if (line.ScannedQuantity > 0 && line.NetsuiteMaterialVendorAssignedBin == 0 && line.NetsuiteMaterialPrefferedBinId == 0)
+                    if (RequiresBin(isUsedBin, line.ScannedQuantity, line.NetsuiteMaterialVendorAssignedBin, line.NetsuiteMaterialPrefferedBinId))
                     {
                         badMissingBin.Add($"item-list line {i + 1} (WMS line {line.LineSequenceNumber}) {line.MaterialCode} - {line.MaterialName}");
                     }
@@ -1141,7 +1156,7 @@ namespace Integration.NS.Services
 
                 if (badMissingBin.Any())
                 {
-                    throw new Exception($"Cannot post BAD TO Item Fulfillment: location '{Data.FirstOrDefault()?.LocationName}' is bin-tracked but no bin is resolved for: {string.Join("; ", badMissingBin)}. Assign a bin to these items before saving.");
+                    throw new Exception($"Cannot post BAD TO Item Fulfillment: location '{Data.FirstOrDefault()?.LocationName}' is bin-tracked but no bin is resolved for: {string.Join("; ", badMissingBin)}. Reload the order; if the bin is still missing, ask Master Data to set a Vendor Bin Assignment or a preferred bin for these items.");
                 }
 
                 // replace + explicit inventoryDetail only for bin-tracked locations; non-bin posts run the legacy shape (no detail, no replace).
@@ -1183,7 +1198,7 @@ namespace Integration.NS.Services
                 for (var i = 0; i < goodTO.Count; i++)
                 {
                     var line = goodTO[i];
-                    if (line.ScannedQuantity > 0 && line.NetsuiteMaterialVendorAssignedBin == 0 && line.NetsuiteMaterialPrefferedBinId == 0)
+                    if (RequiresBin(isUsedBin, line.ScannedQuantity, line.NetsuiteMaterialVendorAssignedBin, line.NetsuiteMaterialPrefferedBinId))
                     {
                         goodMissingBin.Add($"item-list line {i + 1} (WMS line {line.LineSequenceNumber}) {line.MaterialCode} - {line.MaterialName}");
                     }
@@ -1191,7 +1206,7 @@ namespace Integration.NS.Services
 
                 if (goodMissingBin.Any())
                 {
-                    throw new Exception($"Cannot post GOOD TO Item Fulfillment: location '{Data.FirstOrDefault()?.LocationName}' is bin-tracked but no bin is resolved for: {string.Join("; ", goodMissingBin)}. Assign a bin to these items before saving.");
+                    throw new Exception($"Cannot post GOOD TO Item Fulfillment: location '{Data.FirstOrDefault()?.LocationName}' is bin-tracked but no bin is resolved for: {string.Join("; ", goodMissingBin)}. Reload the order; if the bin is still missing, ask Master Data to set a Vendor Bin Assignment or a preferred bin for these items.");
                 }
 
                 // replace + explicit inventoryDetail only when the location is bin-tracked AND the bucket carries scanned lines.
@@ -1234,9 +1249,19 @@ namespace Integration.NS.Services
             // Use Any (not First): one stale non-bin line must not downgrade a
             // bin-tracked fulfillment to the legacy no-detail shape.
             var isUsedBin = Data.Any(x => x.IsLocationUsedBin);
+            var mixedBinFlags = Data.Select(x => x.IsLocationUsedBin).Distinct().Count() > 1;
             var isTripTicketExempt = Data.FirstOrDefault()?.IsTripTicketExempt == true;
             var itemFulfillmentStatus = isTripTicketExempt ? "C" : "B";
             var printLabel = true; // Packing labels are required regardless of trip-ticket exemption.
+
+            // isUsedBin is an OR across lines, so one stale non-bin line would otherwise
+            // decide the payload shape for the whole save and silently drop inventoryDetail
+            // from every other line. Fail loud instead, matching SaveTOItemFulfillment.
+            if (mixedBinFlags)
+            {
+                var flagSample = string.Join("; ", Data.Take(10).Select((line, i) => $"pos{i + 1}/WMS{line.LineSequenceNumber}/{line.MaterialCode} usedBin={line.IsLocationUsedBin} ({line.LocationUsedBin})"));
+                throw new Exception($"Cannot post Returns Item Fulfillment: mixed bin-tracked flags in one save (location '{Data.FirstOrDefault()?.LocationName}'). Reload the order so every line resolves the same location, then retry. Sample: {flagSample}.");
+            }
 
             // NetSuite rejects inventoryDetail without binNumber at bin-tracked locations ("configure the inventory detail in line N").
             // Fail here, naming the offending items and their item-list positions, instead of surfacing a cryptic 400.
@@ -1244,7 +1269,7 @@ namespace Integration.NS.Services
             for (var i = 0; i < Data.Count; i++)
             {
                 var line = Data[i];
-                if (line.ScannedQuantity > 0 && line.NetsuiteMaterialVendorAssignedBin == 0 && line.NetsuiteMaterialPrefferedBinId == 0)
+                if (RequiresBin(isUsedBin, line.ScannedQuantity, line.NetsuiteMaterialVendorAssignedBin, line.NetsuiteMaterialPrefferedBinId))
                 {
                     returnsMissingBin.Add($"item-list line {i + 1} (WMS line {line.LineSequenceNumber}) {line.MaterialCode} - {line.MaterialName}");
                 }
@@ -1252,7 +1277,7 @@ namespace Integration.NS.Services
 
             if (returnsMissingBin.Any())
             {
-                throw new Exception($"Cannot post Returns Item Fulfillment: location '{Data.FirstOrDefault()?.LocationName}' is bin-tracked but no bin is resolved for: {string.Join("; ", returnsMissingBin)}. Assign a bin to these items before saving.");
+                throw new Exception($"Cannot post Returns Item Fulfillment: location '{Data.FirstOrDefault()?.LocationName}' is bin-tracked but no bin is resolved for: {string.Join("; ", returnsMissingBin)}. Reload the order; if the bin is still missing, ask Master Data to set a Vendor Bin Assignment or a preferred bin for these items.");
             }
 
             // replace + explicit inventoryDetail only when the location is bin-tracked AND the payload carries scanned lines; otherwise legacy shape.
@@ -1295,9 +1320,19 @@ namespace Integration.NS.Services
             // Use Any (not First): one stale non-bin line must not downgrade a
             // bin-tracked fulfillment to the legacy no-detail shape.
             var isUsedBin = Data.Any(x => x.IsLocationUsedBin);
+            var mixedBinFlags = Data.Select(x => x.IsLocationUsedBin).Distinct().Count() > 1;
             var isTripTicketExempt = Data.FirstOrDefault()?.IsTripTicketExempt == true;
             var itemFulfillmentStatus = isTripTicketExempt ? "C" : "B";
             var printLabel = true; // Packing labels are required regardless of trip-ticket exemption.
+
+            // isUsedBin is an OR across lines, so one stale non-bin line would otherwise
+            // decide the payload shape for the whole save and silently drop inventoryDetail
+            // from every other line. Fail loud instead, matching SaveTOItemFulfillment.
+            if (mixedBinFlags)
+            {
+                var flagSample = string.Join("; ", Data.Take(10).Select((line, i) => $"pos{i + 1}/WMS{line.LineSequenceNumber}/{line.MaterialCode} usedBin={line.IsLocationUsedBin} ({line.LocationUsedBin})"));
+                throw new Exception($"Cannot post VRA Item Fulfillment: mixed bin-tracked flags in one save (location '{Data.FirstOrDefault()?.LocationName}'). Reload the order so every line resolves the same location, then retry. Sample: {flagSample}.");
+            }
 
             //string url = string.Format(isUsedBin ? ItemFulfillmentUrl : ItemFulfillmentUrlNotUsedBin, "vendorReturnAuthorization", orderId);
             // Drop ?replace= per bucket when that bucket carries no inventoryDetail, otherwise NetSuite rejects the transform with INVALID_PARAMETER.
@@ -1311,7 +1346,7 @@ namespace Integration.NS.Services
                 for (var i = 0; i < badTO.Count; i++)
                 {
                     var line = badTO[i];
-                    if (line.ScannedQuantity > 0 && line.NetsuiteMaterialVendorAssignedBin == 0 && line.NetsuiteMaterialPrefferedBinId == 0)
+                    if (RequiresBin(isUsedBin, line.ScannedQuantity, line.NetsuiteMaterialVendorAssignedBin, line.NetsuiteMaterialPrefferedBinId))
                     {
                         badVraMissingBin.Add($"item-list line {i + 1} (WMS line {line.LineSequenceNumber}) {line.MaterialCode} - {line.MaterialName}");
                     }
@@ -1319,7 +1354,7 @@ namespace Integration.NS.Services
 
                 if (badVraMissingBin.Any())
                 {
-                    throw new Exception($"Cannot post BAD VRA Item Fulfillment: location '{Data.FirstOrDefault()?.LocationName}' is bin-tracked but no bin is resolved for: {string.Join("; ", badVraMissingBin)}. Assign a bin to these items before saving.");
+                    throw new Exception($"Cannot post BAD VRA Item Fulfillment: location '{Data.FirstOrDefault()?.LocationName}' is bin-tracked but no bin is resolved for: {string.Join("; ", badVraMissingBin)}. Reload the order; if the bin is still missing, ask Master Data to set a Vendor Bin Assignment or a preferred bin for these items.");
                 }
 
                 // Every posted bad line has scanned qty; replace + detail only for bin-tracked locations.
@@ -1360,7 +1395,7 @@ namespace Integration.NS.Services
                 for (var i = 0; i < goodTO.Count; i++)
                 {
                     var line = goodTO[i];
-                    if (line.ScannedQuantity > 0 && line.NetsuiteMaterialVendorAssignedBin == 0 && line.NetsuiteMaterialPrefferedBinId == 0)
+                    if (RequiresBin(isUsedBin, line.ScannedQuantity, line.NetsuiteMaterialVendorAssignedBin, line.NetsuiteMaterialPrefferedBinId))
                     {
                         goodVraMissingBin.Add($"item-list line {i + 1} (WMS line {line.LineSequenceNumber}) {line.MaterialCode} - {line.MaterialName}");
                     }
@@ -1368,7 +1403,7 @@ namespace Integration.NS.Services
 
                 if (goodVraMissingBin.Any())
                 {
-                    throw new Exception($"Cannot post GOOD VRA Item Fulfillment: location '{Data.FirstOrDefault()?.LocationName}' is bin-tracked but no bin is resolved for: {string.Join("; ", goodVraMissingBin)}. Assign a bin to these items before saving.");
+                    throw new Exception($"Cannot post GOOD VRA Item Fulfillment: location '{Data.FirstOrDefault()?.LocationName}' is bin-tracked but no bin is resolved for: {string.Join("; ", goodVraMissingBin)}. Reload the order; if the bin is still missing, ask Master Data to set a Vendor Bin Assignment or a preferred bin for these items.");
                 }
 
                 // replace + explicit inventoryDetail only when the location is bin-tracked AND the bucket carries scanned lines.

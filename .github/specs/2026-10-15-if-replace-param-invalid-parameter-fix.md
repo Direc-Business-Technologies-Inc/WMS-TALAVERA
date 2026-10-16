@@ -4,7 +4,7 @@ Date: 2026-10-15
 Status: Replace fix VERIFIED in field (one transaction passed); bin guard deployed but refuted; residual `line N` failure traced to SQL fan-out duplicate `orderLine` — dedupe + query fix in source, awaiting client verification
 Mode: Bugfix / Follow-up
 Scope: Packing module — Item Fulfillment (STR, Returns packing, RTS / Vendor Return Authorization)
-Related: [Mobile auth logout + IF sublist RCA](2026-10-14-mobile-auth-logout-and-if-sublist-rca.md); `.opencode/docs/mobile-netsuite-4xx-catalog.md`
+Related: [Mobile auth logout + IF sublist RCA](2026-10-14-mobile-auth-logout-and-if-sublist-rca.md); `.opencode/docs/mobile-netsuite-4xx-catalog.md`; **superseded in part by [2026-10-16 packing bin guard fix](2026-10-16-packing-bin-guard-false-positive-fix.md)**
 Changed files:
 - `Integration.NS/Services/NetSuiteApiClientService.cs`
 - `Application.DataTransferObjects/Transactions/Packing/NS/Payload/TransferOrderIFPayloadDTO.cs`
@@ -326,7 +326,7 @@ Per the 2026-10-14 RCA: BAD posts before GOOD with no compensation. A failed GOO
 | 3 | Empty assignment on filler lines at used-bin (3 payload builders) | **Done — verified in field (Transaction A passed)** |
 | 4 | Payload + URL logging in fulfillment catch blocks | **Done** |
 | 5 | On-device `[diag …]` markers | **Done — keep until all flows sign off** |
-| 6 | Pre-save bin-resolution guard with named items (catalog 1a) | **Done — awaiting client verification** |
+| 6 | Pre-save bin-resolution guard with named items (catalog 1a) | **Done — refuted in field 2026-10-16, narrowed in [2026-10-16 bin-guard fix](2026-10-16-packing-bin-guard-false-positive-fix.md): the guard was not gated on the location's bin-tracked flag, so it also blocked non-bin-tracked locations** |
 | 7 | Bin data remediation for the flagged items (assign bins in WMS item master) | Open — data, not code |
 | 8 | Auto-resolve missing bins from the TO's own inventory detail (SuiteQL) | Deferred — bigger change, better UX |
 | 9 | Dedupe `orderLine` in IF builders (catalog 1b) | **Done — `DeduplicateFulfillmentLines` in the 3 fulfillment methods (5 posts), 6 unit tests; supersedes the BAD-only `badDupes` guard, now removed** |
