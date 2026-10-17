@@ -45,6 +45,7 @@ internal class StockTransferRequestPackingIntegration(
             .From("transaction t")
             .Join("transactionline tl", on: "tl.transaction = t.id")
             .LeftJoin("transferorderstatus s", on: "s.id = t.status")
+            .InnerJoin(SuiteQLFragments.PendingPackingLines(), on: SuiteQLFragments.PendingPackingLinesJoinPredicate)
             .WithFilters(
                 Equal("tl.mainline", "T"),
                 Any(
@@ -131,6 +132,7 @@ internal class StockTransferRequestPackingIntegration(
             )
             .From("transaction t")
             .Join("transactionline tl", on: "tl.transaction = t.id")
+            .InnerJoin(SuiteQLFragments.PendingPackingLines(), on: SuiteQLFragments.PendingPackingLinesJoinPredicate)
             .LeftJoin("employee e", "t.custbody_dbti_prepared_by = e.id")
             .LeftJoin("customrecord_dbti_trip_ticket_exemption tte", "tte.custrecord_dbti_tte_from_location = tl.location AND tte.custrecord_dbti_tte_to_location = t.transferlocation AND tte.isinactive = 'F'")
             .WithFilters(
@@ -220,6 +222,14 @@ internal class StockTransferRequestPackingIntegration(
         return (response.items.Select(MapLineDto), response.totalResults);
     }
 
+    /// <summary>
+    /// Order-state predicates for the packing screens. The "still has quantity to pack"
+    /// half of the filter is not here — it is the <see cref="SuiteQLFragments.PendingPackingLines"/>
+    /// inner join, because it needs a derived table rather than a column comparison. Both must
+    /// be applied together: these predicates alone let a fully packed order back onto the list
+    /// until the Trip Ticket ships it (<c>ordpicked</c> tracks picking, and status stays in
+    /// B/D/E while the fulfillment is merely Packed).
+    /// </summary>
     private static AppFilterDescriptor[] PackingStockTransferRequestFilters()
     {
         return

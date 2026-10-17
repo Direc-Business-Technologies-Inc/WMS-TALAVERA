@@ -8,6 +8,13 @@ SELECT
 	
 FROM
 	transaction t
+JOIN
+	(SELECT opk.transaction AS packtran
+	 FROM transactionline opk
+	 WHERE opk.mainline = 'F'
+	   AND opk.isclosed = 'F'
+	   AND ABS(opk.quantity) - ABS(opk.quantitypacked) > 0
+	 GROUP BY opk.transaction) openpk ON openpk.packtran = t.id
 
 WHERE
     t.recordtype IN ('intercompanytransferorder', 'transferorder')

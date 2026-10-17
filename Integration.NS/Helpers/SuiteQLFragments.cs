@@ -20,6 +20,65 @@ internal static class SuiteQLFragments
         "tte.custrecord_dbti_tte_from_location = tl.location AND tte.custrecord_dbti_tte_to_location = t.transferlocation AND tte.isinactive = 'F'";
 
     /// <summary>
+    ///     Alias for the derived table returned by <see cref="PendingPackingLines"/>. Append it
+    ///     as the join alias, e.g. <c>$"{SuiteQLFragments.PendingPackingLines()} {SuiteQLFragments.PendingPackingLinesAlias} ON ..."</c>.
+    /// </summary>
+    public const string PendingPackingLinesAlias = "openpk";
+
+    /// <summary>
+    ///     Derived table listing every transaction that still has at least one item line with
+    ///     quantity left to pack, aliased <see cref="PendingPackingLinesAlias"/>. <b>Inner-join it
+    ///     on the transaction id</b> — an order whose every open line is fully packed has no row
+    ///     here and drops out of the result set.
+    ///     <para>
+    ///     Why this exists: the packing screens used to filter on <c>t.ordpicked = 'F'</c> and
+    ///     <c>t.status IN ('B','D','E')</c> alone. <c>ordpicked</c> tracks <i>picking</i>, not
+    ///     <i>fulfilling</i>, and the transfer-order status only leaves the B/D/E set when the
+    ///     Trip Ticket ships the item fulfillment. The WMS posts packing fulfillments with
+    ///     shipStatus <c>B</c> (Packed, not Shipped), so between packing and shipping a fully
+    ///     packed order still matched the filter and re-appeared on the list with all its lines
+    ///     — which invited operators to pack it again.
+    ///     </para>
+    ///     <para>
+    ///     Why a derived-table join and not <c>EXISTS (... WHERE tl2.transaction = t.id)</c>:
+    ///     correlation from a subquery into the outer query's aliases is rejected by NetSuite
+    ///     with 400 INVALID_PARAMETER "Invalid or unsupported search" — Rule 1 of
+    ///     .opencode/docs/SuiteQL-Shape-Rules.md. Resolving the correlation in the join
+    ///     predicate is the proven shape (same as the preferred-bin join).
+    ///     </para>
+    ///     <para>
+    ///     Quantity comparisons use ABS on both sides: transfer-order and VRA lines carry
+    ///     negative quantities for the return direction, and the existing packing line scripts
+    ///     already read <c>ABS(tl.quantity)</c> as the ordered quantity.
+    ///     </para>
+    /// </summary>
+    /// <param name="packedQuantityColumn">
+    ///     The transactionline column holding the packed quantity for the order type being
+    ///     filtered: <c>quantitypacked</c> for transfer orders, <c>quantityshiprecv</c> for
+    ///     vendor return authorizations (the column their packing line script reads).
+    /// </param>
+    public static string PendingPackingLines(string packedQuantityColumn = "quantitypacked")
+    {
+        return $"""
+             (SELECT opk.transaction AS packtran
+              FROM transactionline opk
+              WHERE opk.mainline = 'F'
+                AND opk.isclosed = 'F'
+                AND ABS(opk.quantity) - ABS(opk.{packedQuantityColumn}) > 0
+              GROUP BY opk.transaction) {PendingPackingLinesAlias}
+             """;
+    }
+
+    /// <summary>
+    ///     Join predicate pairing <see cref="PendingPackingLines"/> with the driving transaction
+    ///     alias <c>t</c>. Pass it to <c>SuiteQLQueryBuilder.InnerJoin</c> alongside
+    ///     <see cref="PendingPackingLines"/>; the hand-written pending-fulfillment scripts spell
+    ///     the equivalent <c>JOIN ... ON</c> clause inline to keep the correlation in the join
+    ///     predicate (Rule 1).
+    /// </summary>
+    public const string PendingPackingLinesJoinPredicate = PendingPackingLinesAlias + ".packtran = t.id";
+
+    /// <summary>
     ///     Derived table yielding the preferred bin number per item + location.
     ///     <para>
     ///     Aggregated with MIN because NetSuite does not enforce a single preferredbin
