@@ -919,8 +919,34 @@ namespace Integration.NS.Services
         #region Receiving
         public async Task<bool> SavePOItemReceipt(List<PostPurchaseOrderDTO> Data, int userId, string remarks)
         {
-
             var orderId = Data.Select(x => x.NetsuiteOrderInternalId).FirstOrDefault();
+
+            // A PO line that is already fully received is absent from the transform's item
+            // sublist, so any orderLine reference for it - the scanned entry or the zero-qty
+            // filler the payload builder emits - is an invalid insert and NetSuite rejects the
+            // whole save. Strip such lines before bucketing so the payload builder only ever
+            // receives postable lines, mirroring SaveTOItemFulfillment.
+            var scannedButClosed = Data.Where(x => x.ScannedQuantity > 0 && IsClosedPOLine(x)).ToList();
+            Data = Data.Where(x => !IsClosedPOLine(x)).ToList();
+
+            // A stale client that scanned only already-received lines must not be told the post
+            // succeeded: nothing is left to receive, so fail with the offending lines named.
+            if (scannedButClosed.Any() && !Data.Any(x => x.ScannedQuantity > 0))
+            {
+                var detail = string.Join("; ", scannedButClosed.Select(x =>
+                    $"line {x.LineSequenceNumber} ({x.MaterialCode}) - scanned {x.ScannedQuantity}, remaining {PORemainingDisplayQuantity(x)}"));
+                throw new Exception($"Cannot post PO Item Receipt for order {orderId}: the scanned line(s) are already fully received ({detail}). Reload the order and rescan the affected line(s); see the receipts already posted against this purchase order in NetSuite.");
+            }
+
+            // Reject scans beyond the remaining open quantity before the first NetSuite call: on
+            // a partially received order the recorded quantity is not the open quantity, so
+            // surface the WMS line and the real ordered/remaining figures to the operator instead
+            // of a cryptic NetSuite 400 mid-post.
+            var overRemaining = FindPOScansExceedingRemaining(Data);
+            if (overRemaining.Count > 0)
+            {
+                throw new Exception($"Cannot post PO Item Receipt: scanned quantity exceeds the remaining quantity for: {string.Join("; ", overRemaining)}. Reload the order and rescan the affected line(s).");
+            }
 
             // replace + explicit inventoryDetail only for bin-tracked locations; non-bin
             // posts keep the plain transform. Without ?replace=item.inventoryDetail.inventoryAssignment
@@ -987,6 +1013,63 @@ namespace Integration.NS.Services
                 isUsedBin ? ItemReceiptUrl + "?replace=item.inventoryDetail.inventoryAssignment" : ItemReceiptUrl,
                 "purchaseOrder",
                 orderId);
+
+        /// <summary>
+        /// A PO line with no remaining open quantity is absent from the item sublist of the
+        /// <c>!transform/itemReceipt</c> response, so addressing it (a scanned entry OR a
+        /// zero-qty filler) is an invalid insert on a static sublist and NetSuite rejects the
+        /// whole save with "Please configure the inventory detail in line N". The item-receipt
+        /// transform has the same shape as the itemFulfillment one guarded by
+        /// <see cref="IsClosedFulfillmentLine"/>, and takes the same remedy.
+        /// </summary>
+        /// <remarks>
+        /// Remaining is <c>LineQuantity - LineQuantityReceived</c> (transactionline.
+        /// quantityshiprecv), the open quantity on a partially received order. It deliberately
+        /// does NOT consult a per-line closed flag: a fully received purchase-order line still
+        /// reports isclosed = F (verified via SuiteQL on PO-THM00100000216-TR, 2026-10-17, where
+        /// all 18 lines had qty == recvd and isclosed = F), so the flag alone would let the
+        /// failing post through.
+        /// </remarks>
+        internal static bool IsClosedPOLine(PostPurchaseOrderDTO line) =>
+            line.LineQuantity - line.LineQuantityReceived <= 0;
+
+        /// <summary>
+        /// Remaining open quantity in the operator's display UoM, which is what
+        /// <c>ScannedQuantity</c> is expressed in. PO quantities arrive in the item's stock UoM,
+        /// so the base-unit remainder is divided by the line's UoM rate.
+        /// </summary>
+        internal static decimal PORemainingDisplayQuantity(PostPurchaseOrderDTO line)
+        {
+            var rate = line.UoMRate > 0 ? line.UoMRate : 1m;
+            return (line.LineQuantity - line.LineQuantityReceived) / rate;
+        }
+
+        /// <summary>
+        /// Scans beyond the line's remaining open quantity cannot be received: after an earlier
+        /// partial receipt only <c>LineQuantity - LineQuantityReceived</c> is still open. Returns
+        /// one descriptor per offending line, naming the item-list line, material and the ordered
+        /// / remaining figures, so the caller can fail with an actionable message before the first
+        /// NetSuite call.
+        /// </summary>
+        internal static List<string> FindPOScansExceedingRemaining(List<PostPurchaseOrderDTO> lines)
+        {
+            var offenders = new List<string>();
+
+            for (var i = 0; i < lines.Count; i++)
+            {
+                var line = lines[i];
+                if (line.ScannedQuantity <= 0) continue;
+
+                var remaining = PORemainingDisplayQuantity(line);
+                if (line.ScannedQuantity > remaining)
+                {
+                    offenders.Add(
+                        $"item-list line {i + 1} (WMS line {line.LineSequenceNumber}) {line.MaterialCode} - {line.MaterialName}: scanned {line.ScannedQuantity}, ordered {line.LineQuantity}, remaining {remaining}");
+                }
+            }
+
+            return offenders;
+        }
 
         public async Task<bool> SaveTOItemReceipt(List<PostTransferOrderDTO> Data, int TONetsuiteOrderInternalId, int userId, string remarks)
         {
