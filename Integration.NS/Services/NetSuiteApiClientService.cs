@@ -964,6 +964,13 @@ namespace Integration.NS.Services
 
         public async Task<bool> SaveTOItemReceipt(List<PostTransferOrderDTO> Data, int TONetsuiteOrderInternalId, int userId, string remarks)
         {
+            // The receiving line query fans one TO line into several rows when the item has
+            // multiple preferred bins at the location or the vendor has multiple bin-assignment
+            // records there, and the mobile posts every row. Collapse the fan-out here so each
+            // orderLine appears once per (quality, missing) bucket — the restlet contract
+            // requires a unique orderLine in the body.
+            Data = DeduplicateReceivingLines(Data, x => x.LineSequenceNumber, x => x.IsBad, x => x.IsMissing, x => x.ScannedQuantity);
+
             var IFOrderId = Data.Select(x => x.NetsuiteOrderInternalId).FirstOrDefault();
 
             string url = ItemReceiptRestletUrl;
@@ -1097,6 +1104,37 @@ namespace Integration.NS.Services
         {
             return lines
                 .GroupBy(x => (lineSequenceNumber(x), isBad(x)))
+                .Select(g => g
+                    .OrderByDescending(x => scannedQuantity(x) > 0)
+                    .ThenByDescending(scannedQuantity)
+                    .First())
+                .ToList();
+        }
+
+        /// <summary>
+        /// Receiving counterpart of <see cref="DeduplicateFulfillmentLines"/>. The receiving
+        /// line queries (NS_TO_Get_Itemfulfillment_Items.sql and siblings) join the item's
+        /// preferred bin and the preferred vendor's bin assignment; either join fans one
+        /// transaction line into several rows when the item has multiple preferred bins at
+        /// the location or the vendor has multiple assignment records there, and the mobile
+        /// posts every row. TransferOrderIRRestletPayloadDTO.CreateForItemReceiptRestlet maps
+        /// each row 1:1 into lines[], so the duplicate orderLine breaks the restlet save.
+        /// Collapse each (orderLine, quality, missing) triple to one row, preferring the row
+        /// the operator actually scanned.
+        /// Unlike <see cref="DeduplicateFulfillmentLines"/> this key MUST include IsMissing:
+        /// a partially-scanned line legitimately produces BOTH a good entry and a missing
+        /// entry with the same orderLine and the same IsBad, and they must survive into their
+        /// separate good/missing buckets. GroupBy preserves first-appearance order.
+        /// </summary>
+        internal static List<T> DeduplicateReceivingLines<T>(
+            List<T> lines,
+            Func<T, int> lineSequenceNumber,
+            Func<T, bool> isBad,
+            Func<T, bool> isMissing,
+            Func<T, decimal> scannedQuantity)
+        {
+            return lines
+                .GroupBy(x => (lineSequenceNumber(x), isBad(x), isMissing(x)))
                 .Select(g => g
                     .OrderByDescending(x => scannedQuantity(x) > 0)
                     .ThenByDescending(scannedQuantity)
