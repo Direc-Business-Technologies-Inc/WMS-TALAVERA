@@ -921,23 +921,32 @@ namespace Integration.NS.Services
         {
 
             var orderId = Data.Select(x => x.NetsuiteOrderInternalId).FirstOrDefault();
-            string url = string.Format(ItemReceiptUrl, "purchaseOrder", orderId);
+
+            // replace + explicit inventoryDetail only for bin-tracked locations; non-bin
+            // posts keep the plain transform. Without ?replace=item.inventoryDetail.inventoryAssignment
+            // NetSuite ignores the inventoryDetail carried in the body and auto-generates an
+            // empty assignment, failing bin-tracked lines with "Please configure the inventory detail in line N".
+            var isUsedBin = Data.Any(x => x.IsLocationUsedBin);
+            string url = BuildPOItemReceiptUrl(isUsedBin, orderId);
 
             var badPO = Data.Where(x => x.IsBad && x.ScannedQuantity > 0).ToList();
 
             if (badPO.Any())
             {
+                string? jsonStringBad = null;
                 try
                 {
                     var payloadBad = PurchaseOrderIRPayloadDTO.CreateForItemReceipt(Data, userId, 2, remarks);
 
-                    var jsonStringBad = JsonSerializer.Serialize(payloadBad, JsonSerializerOption);
+                    jsonStringBad = JsonSerializer.Serialize(payloadBad, JsonSerializerOption);
 
                     await MakeRequest<object>(url, jsonStringBad, HttpMethod.Post);
                 }
                 catch (Exception ex)
                 {
-                    throw new Exception($"Error while posting BAD PO Item Receipt. {ex.Message}", ex);
+                    logger.LogError(ex, "BAD PO Item Receipt failed. Url: {Url}. Payload: {Payload}", url, jsonStringBad);
+                    var diag = $"[diag replace={url.Contains("replace=")} usedBin={isUsedBin} scannedLines={badPO.Count(x => x.ScannedQuantity > 0)} totalLines={Data.Count}]";
+                    throw new Exception($"Error while posting BAD PO Item Receipt. {ex.Message} {diag}", ex);
                 }
             }
 
@@ -945,22 +954,39 @@ namespace Integration.NS.Services
 
             if (goodPO.Any())
             {
+                string? jsonStringGood = null;
                 try
                 {
                     var payloadGood = PurchaseOrderIRPayloadDTO.CreateForItemReceipt(Data, userId, 1, remarks);
 
-                    var jsonStringGood = JsonSerializer.Serialize(payloadGood, JsonSerializerOption);
+                    jsonStringGood = JsonSerializer.Serialize(payloadGood, JsonSerializerOption);
 
                     await MakeRequest<object>(url, jsonStringGood, HttpMethod.Post);
                 }
                 catch (Exception ex)
                 {
-                    throw new Exception($"Error while posting GOOD PO Item Receipt. {ex.Message}", ex);
+                    logger.LogError(ex, "GOOD PO Item Receipt failed. Url: {Url}. Payload: {Payload}", url, jsonStringGood);
+                    var diag = $"[diag replace={url.Contains("replace=")} usedBin={isUsedBin} scannedLines={goodPO.Count(x => x.ScannedQuantity > 0)} totalLines={Data.Count}]";
+                    throw new Exception($"Error while posting GOOD PO Item Receipt. {ex.Message} {diag}", ex);
                 }
             }
 
             return true;
         }
+
+        /// <summary>
+        /// The PO item receipt <c>!transform</c> URL. A bin-tracked location must declare
+        /// <c>?replace=item.inventoryDetail.inventoryAssignment</c> so NetSuite replaces its
+        /// pre-generated (empty) inventory assignment with the bin the payload carries;
+        /// without it the body's <c>inventoryDetail</c> is ignored and the save is rejected
+        /// with "Please configure the inventory detail in line N". Non-bin locations need no
+        /// detail, so they keep the plain transform - the same split the Returns receipt uses.
+        /// </summary>
+        internal static string BuildPOItemReceiptUrl(bool isUsedBin, int orderId) =>
+            string.Format(
+                isUsedBin ? ItemReceiptUrl + "?replace=item.inventoryDetail.inventoryAssignment" : ItemReceiptUrl,
+                "purchaseOrder",
+                orderId);
 
         public async Task<bool> SaveTOItemReceipt(List<PostTransferOrderDTO> Data, int TONetsuiteOrderInternalId, int userId, string remarks)
         {
