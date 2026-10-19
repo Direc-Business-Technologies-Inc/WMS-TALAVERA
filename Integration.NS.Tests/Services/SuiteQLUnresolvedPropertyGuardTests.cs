@@ -109,4 +109,58 @@ public class SuiteQLUnresolvedPropertyGuardTests
 
         Assert.Contains("WHERE custrecord_unmapped_column = 'x'", query.Query);
     }
+
+    [Fact]
+    public void Build_GridFilterGroupWithNoProperty_StillAppliesItsChildren()
+    {
+        // The ItemDataGrid search box builds an OR-group that carries only a
+        // LogicalOperator and children (no Property of its own). Resolving the
+        // group's own empty Property dropped the entire group, so the search
+        // silently unfiltered and the grid kept showing the prior rows.
+        var query = Factory.Create()
+            .Select(("i.itemid", "ItemNumber"), ("i.displayname", "Name"))
+            .From("item i")
+            .WithDatagridIntent(new DataGridIntent
+            {
+                Take = 10,
+                Filters =
+                {
+                    DataGridFilterUtilities.Any(
+                        DataGridFilterUtilities.Contains("ItemNumber", "abc"),
+                        DataGridFilterUtilities.Contains("Name", "abc"))
+                }
+            })
+            .Build();
+
+        Assert.Contains("LOWER(i.itemid) LIKE LOWER('%abc%')", query.Query);
+        Assert.Contains("LOWER(i.displayname) LIKE LOWER('%abc%')", query.Query);
+        Assert.Contains(" OR ", query.Query);
+    }
+
+    [Fact]
+    public void Build_GridFilterGroup_DropsUnresolvedChildWithoutMalformedSql()
+    {
+        // A child that resolves to nothing must be dropped before the group is
+        // joined; otherwise string.Join emits an empty segment and the predicate
+        // becomes "(a OR )", which NetSuite rejects.
+        var query = Factory.Create()
+            .Select(("i.itemid", "ItemNumber"))
+            .From("item i")
+            .WithDatagridIntent(new DataGridIntent
+            {
+                Take = 10,
+                Filters =
+                {
+                    DataGridFilterUtilities.Any(
+                        DataGridFilterUtilities.Contains("ItemNumber", "abc"),
+                        DataGridFilterUtilities.Contains("NotARealColumn", "x"))
+                }
+            })
+            .Build();
+
+        Assert.Contains("LOWER(i.itemid) LIKE LOWER('%abc%')", query.Query);
+        Assert.DoesNotContain("( OR", query.Query);
+        Assert.DoesNotContain("OR )", query.Query);
+        Assert.DoesNotContain("()", query.Query);
+    }
 }

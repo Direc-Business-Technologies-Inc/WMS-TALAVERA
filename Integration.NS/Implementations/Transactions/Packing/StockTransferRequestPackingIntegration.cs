@@ -45,6 +45,7 @@ internal class StockTransferRequestPackingIntegration(
             .From("transaction t")
             .Join("transactionline tl", on: "tl.transaction = t.id")
             .LeftJoin("transferorderstatus s", on: "s.id = t.status")
+            .InnerJoin(SuiteQLFragments.PendingPackingLines(), on: SuiteQLFragments.PendingPackingLinesJoinPredicate)
             .WithFilters(
                 Equal("tl.mainline", "T"),
                 Any(
@@ -131,6 +132,7 @@ internal class StockTransferRequestPackingIntegration(
             )
             .From("transaction t")
             .Join("transactionline tl", on: "tl.transaction = t.id")
+            .InnerJoin(SuiteQLFragments.PendingPackingLines(), on: SuiteQLFragments.PendingPackingLinesJoinPredicate)
             .LeftJoin("employee e", "t.custbody_dbti_prepared_by = e.id")
             .LeftJoin("customrecord_dbti_trip_ticket_exemption tte", "tte.custrecord_dbti_tte_from_location = tl.location AND tte.custrecord_dbti_tte_to_location = t.transferlocation AND tte.isinactive = 'F'")
             .WithFilters(
@@ -140,7 +142,7 @@ internal class StockTransferRequestPackingIntegration(
             .Build();
 
         var response = await netsuiteService.ExecuteSuiteQLQuery<StrPackingHeaderNSDTO>(query.Query, query.Limit, query.Offset);
-        var nsdto = response.items.FirstOrDefault();
+        var nsdto = response.items?.FirstOrDefault();
 
         return nsdto is null ? null : MapInfoDto(nsdto);
     }
@@ -167,7 +169,7 @@ internal class StockTransferRequestPackingIntegration(
             .Build();
 
         var response = await netsuiteService.ExecuteSuiteQLQuery<TripTicketExemptionNSDTO>(query.Query, query.Limit, query.Offset);
-        var row = response.items.FirstOrDefault();
+        var row = response.items?.FirstOrDefault();
 
         return row is null ? null : row.ExemptionId != 0;
     }
@@ -207,7 +209,9 @@ internal class StockTransferRequestPackingIntegration(
                 ("q.LocationItemQuantityAvailable", nameof(StrPackingLineNSDTO.QuantityAvailable)),
                 ("(q.LineQuantity / q.UoMRate)", nameof(StrPackingLineNSDTO.QuantityPlanned)),
                 ("(q.LineQuantityPacked / q.UoMRate)", nameof(StrPackingLineNSDTO.QuantityReceived)),
-                ("(q.LineQuantityBackOrdered / q.UoMRate)", nameof(StrPackingLineNSDTO.QuantityBackOrdered))
+                ("(q.LineQuantityBackOrdered / q.UoMRate)", nameof(StrPackingLineNSDTO.QuantityBackOrdered)),
+                ("q.IsClosed", nameof(StrPackingLineNSDTO.IsClosed)),
+                ("(q.QuantityAlreadyShipped / q.UoMRate)", nameof(StrPackingLineNSDTO.QuantityAlreadyShipped))
             )
             .From($"({mobileLineQuery}) q")
             .WithDatagridIntent(intent)
@@ -218,6 +222,14 @@ internal class StockTransferRequestPackingIntegration(
         return (response.items.Select(MapLineDto), response.totalResults);
     }
 
+    /// <summary>
+    /// Order-state predicates for the packing screens. The "still has quantity to pack"
+    /// half of the filter is not here — it is the <see cref="SuiteQLFragments.PendingPackingLines"/>
+    /// inner join, because it needs a derived table rather than a column comparison. Both must
+    /// be applied together: these predicates alone let a fully packed order back onto the list
+    /// until the Trip Ticket ships it (<c>ordpicked</c> tracks picking, and status stays in
+    /// B/D/E while the fulfillment is merely Packed).
+    /// </summary>
     private static AppFilterDescriptor[] PackingStockTransferRequestFilters()
     {
         return
@@ -274,6 +286,8 @@ internal class StockTransferRequestPackingIntegration(
             QuantityPlanned = nsdto.QuantityPlanned,
             QuantityReceived = nsdto.QuantityReceived,
             QuantityBackOrdered = nsdto.QuantityBackOrdered,
+            IsClosed = nsdto.IsClosed,
+            QuantityAlreadyShipped = nsdto.QuantityAlreadyShipped,
         };
     }
 }

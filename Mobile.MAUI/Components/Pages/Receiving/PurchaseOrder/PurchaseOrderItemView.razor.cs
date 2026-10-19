@@ -4,6 +4,7 @@ using Mobile.MAUI.Services;
 using Mobile.MAUI.ViewModel;
 using Shared.Libraries.ViewModel;
 using Shared.Libraries.ViewModel.Authentication;
+using Shared.Libraries.ViewModel.Common;
 using Shared.Libraries.ViewModel.PurchaseOrder;
 using System.Text.Json;
 using static Mobile.MAUI.Components.Reusables.WeightOptionDialog;
@@ -199,6 +200,13 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
             OnSuccess = async (result) =>
             {
                 ItemBarcodes = result.Data ?? [];
+
+                await InvokeAsync(StateHasChanged);
+            },
+
+            OnFailure = async (result) =>
+            {
+                await Toast.Error($"Failed to load item barcodes: {result.ErrorMessage}");
 
                 await InvokeAsync(StateHasChanged);
             }
@@ -501,11 +509,7 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
                 return;
             }
 
-            var barcode = ItemBarcodes.FirstOrDefault(x =>
-                !string.IsNullOrWhiteSpace(x.MaterialBarcode) &&
-                x.MaterialBarcode.Equals(
-                    scanned,
-                    StringComparison.OrdinalIgnoreCase));
+            var barcode = await ResolveBarcodeAsync(scanned);
 
             if (barcode is null)
             {
@@ -666,16 +670,16 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
 
     async Task SaveScan()
     {
+        // Post every OPEN line, not just the scanned ones. The PO !transform/itemReceipt seeds
+        // its item sublist from the whole set of open lines, so a body carrying only the scanned
+        // entries addresses a partial sublist and NetSuite rejects the save ("configure the
+        // inventory detail in line N"). GoodPOItems already holds every open line; the unscanned
+        // ones travel as detail-free fillers (isReceived=false) exactly as the Returns receipt
+        // does. Scanned bad rows are appended so a line scanned only as bad is still received.
+        // Over-scans are left to the server's remaining-quantity guard, which names the line.
         POItems = GoodPOItems
-            .Where(g =>
-            {
-                var badQty = BadPOItems.FirstOrDefault(b =>
-                    b.LineSequenceNumber == g.LineSequenceNumber)?.ScannedQuantity ?? 0;
-
-                return g.ScannedQuantity > 0 &&
-                       g.ScannedQuantity + badQty <= g.NSLineQuantityReceived;
-            })
-            .Concat(BadPOItems.Where(x => x.ScannedQuantity > 0))
+            .Where(g => g.NSLineQuantityReceived != 0)
+            .Concat(BadPOItems.Where(x => x.ScannedQuantity > 0 && x.NSLineQuantityReceived != 0))
             .Select(x => new PurchaseOrderLineVM
             {
                 NetsuiteOrderInternalId = x.NetsuiteOrderInternalId,
@@ -803,6 +807,71 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
         ChangeWeight = await GetWeightAsync("", "");
     }
 
+    /// <summary>
+    /// Resolves a scanned barcode for this view. Prefers the barcode list
+    /// preloaded for the document; when that list is empty (the load failed or
+    /// has not finished) it retries the load once; when the list simply does not
+    /// contain the scan it falls back to the authoritative per-barcode lookup.
+    /// Returns null only when NetSuite knows no such barcode.
+    /// </summary>
+    private async Task<ItemBarcodesPerUoMVM?> ResolveBarcodeAsync(string scanned)
+    {
+        var cached = FindCachedBarcode(scanned);
+
+        if (cached is not null)
+        {
+            return cached;
+        }
+
+        if (ItemBarcodes.Count == 0)
+        {
+            ItemRequest = GoodPOItems
+                .Select(i => new BarcodeRequestVM
+                {
+                    NetsuiteMaterialInternalId = i.NetsuiteMaterialInternalId
+                })
+                .ToList();
+
+            await ActionFactory.ExecuteAppActionAsync(ActionGetItemBarcodes);
+
+            cached = FindCachedBarcode(scanned);
+
+            if (cached is not null)
+            {
+                return cached;
+            }
+        }
+
+        var res = await Client.Post<InventoryItemVM>("/Item/PerBarcode", new { Barcode = scanned });
+
+        if (res?.Data is null)
+        {
+            return null;
+        }
+
+        var resolved = new ItemBarcodesPerUoMVM
+        {
+            NetsuiteMaterialInternalId = res.Data.NetsuiteMaterialInternalId,
+            MaterialCode = res.Data.MaterialCode,
+            MaterialName = res.Data.MaterialName,
+            MaterialWeight = res.Data.MaterialWeight,
+            UoMName = res.Data.UoMName,
+            UoMRate = res.Data.UoMRate,
+            MaterialBarcode = scanned,
+        };
+
+        ItemBarcodes.Add(resolved);
+
+        return resolved;
+    }
+
+    private ItemBarcodesPerUoMVM? FindCachedBarcode(string scanned)
+    {
+        return ItemBarcodes.FirstOrDefault(x =>
+            !string.IsNullOrWhiteSpace(x.MaterialBarcode) &&
+            x.MaterialBarcode.Equals(scanned, StringComparison.OrdinalIgnoreCase));
+    }
+
     async Task MoveScan(string scanned)
     {
         try
@@ -810,11 +879,7 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
             PurchaseOrderLineVM? badLine;
             PurchaseOrderLineVM? goodLine;
 
-            var barcode = ItemBarcodes.FirstOrDefault(x =>
-                !string.IsNullOrWhiteSpace(x.MaterialBarcode) &&
-                x.MaterialBarcode.Equals(
-                    scanned,
-                    StringComparison.OrdinalIgnoreCase));
+            var barcode = await ResolveBarcodeAsync(scanned);
 
             if (barcode is null)
             {
@@ -1004,11 +1069,7 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
             PurchaseOrderLineVM? badLine;
             PurchaseOrderLineVM? goodLine;
 
-            var barcode = ItemBarcodes.FirstOrDefault(x =>
-                !string.IsNullOrWhiteSpace(x.MaterialBarcode) &&
-                x.MaterialBarcode.Equals(
-                    scanned,
-                    StringComparison.OrdinalIgnoreCase));
+            var barcode = await ResolveBarcodeAsync(scanned);
 
             if (barcode is null)
             {

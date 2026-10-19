@@ -42,8 +42,19 @@ NetSuite rejects the correlated form with `400 [INVALID_PARAMETER] ... Search er
   (`SuiteQLFragments.PreferredVendorForLocation`).
 
 **The proven shape:** `LEFT JOIN (derived table) alias ON alias.col = driving.col` —
- the preferred-bin (`pb`) join in `ReceivingIntegration.GetItemReceiptLinesAsync` runs
- this every day in production.
+   the preferred-bin (`pb`) join in `ReceivingIntegration.GetItemReceiptLinesAsync` runs
+   this every day in production. An `INNER JOIN` onto a derived table serves the same
+   purpose when the derived table is an *existence* test: `SuiteQLFragments.PendingPackingLines`
+   (transactions that still have an open line with quantity left to pack) is inner-joined
+   on the transaction id, so a fully packed order drops out of the packing lists. Write it
+   this way, not as `EXISTS (... WHERE sub.transaction = t.id)`.
+
+**A "still has work to do" gate cannot be expressed as an order-state predicate.** Both
+   order-state columns available on `transaction` — `ordpicked` (picking) and `status`
+   (the order workflow) — move on their own schedules. A packing screen that filters on
+   them alone keeps offering orders that are already fulfilled, because fulfillment is a
+   *line* state (`transactionline.quantitypacked` / `quantityshiprecv`) and packing is a
+   separate step from shipping. Gate on remaining line quantity instead.
 
 ## Rule 2 — Escape every string value interpolated into SQL
 

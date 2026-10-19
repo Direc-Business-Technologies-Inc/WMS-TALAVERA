@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Web;
 using Radzen;
 using Shared.Entities;
 using Web.BlazorServer.Components.Shared.Abstraction;
@@ -28,6 +29,8 @@ partial class ItemDataGrid : IAsyncDisposable
     private List<ItemsVM> SelectedItems { get; set; } = [];
     private string? SearchText { get; set; }
     private CancellationTokenSource? _loadCts;
+    private CancellationTokenSource? _searchDebounce;
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         await base.OnAfterRenderAsync(firstRender);
@@ -130,17 +133,75 @@ partial class ItemDataGrid : IAsyncDisposable
     }
     }
 
-    async Task OnSearchChanged(object? value)
+    // RadzenTextBox splats unmatched attributes straight onto its <input>, so
+    // these handlers fire per keystroke / key press regardless of the
+    // component's own value pipeline. Do NOT set Immediate: it binds oninput
+    // itself and would shadow this handler. One-way Value + @oninput is the
+    // same pattern the mobile search boxes use.
+    void OnSearchInput(ChangeEventArgs e)
     {
-        SearchText = value?.ToString();
+        SearchText = e.Value?.ToString();
 
-        await DataGrid.ReloadDataAsync();
+        _searchDebounce?.Cancel();
+        _searchDebounce?.Dispose();
+        _searchDebounce = new CancellationTokenSource();
+
+        _ = RunDebouncedSearchAsync(_searchDebounce.Token);
+    }
+
+    // Enter commits the search immediately instead of waiting out the debounce.
+    // (Radzen's onchange path also fires on Enter, but it only writes its own
+    // Value - the search itself is driven from here.)
+    async Task OnSearchKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key != "Enter") return;
+
+        CancelPendingSearch();
+
+        await RunSearch();
+    }
+
+    async Task RunDebouncedSearchAsync(CancellationToken ct)
+    {
+        try
+        {
+            await Task.Delay(400, ct);
+
+            if (ct.IsCancellationRequested) return;
+
+            await InvokeAsync(RunSearch);
+        }
+        catch (OperationCanceledException)
+        {
+            // Superseded by a newer keystroke - stay silent.
+        }
     }
 
     async Task ClearSearch()
     {
         SearchText = null;
 
+        CancelPendingSearch();
+
+        await RunSearch();
+    }
+
+    void CancelPendingSearch()
+    {
+        _searchDebounce?.Cancel();
+        _searchDebounce?.Dispose();
+        _searchDebounce = null;
+    }
+
+    async Task RunSearch()
+    {
+        SearchText = SearchText?.Trim();
+
+        // ReloadDataAsync (AppDataGrid.razor.cs) calls DataGetter directly and
+        // therefore bypasses the IsBusy drop guard at AppDataGrid.razor.cs:108-112.
+        // Reload() does not, so a search issued while the previous query is
+        // still in flight would be silently discarded. Supersede is handled by
+        // _loadCts instead.
         await DataGrid.ReloadDataAsync();
     }
 
@@ -217,6 +278,9 @@ partial class ItemDataGrid : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
+        _searchDebounce?.Cancel();
+        _searchDebounce?.Dispose();
+        _searchDebounce = null;
         _loadCts?.Cancel();
         _loadCts?.Dispose();
         _loadCts = null;

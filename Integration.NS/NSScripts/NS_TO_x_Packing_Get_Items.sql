@@ -41,6 +41,9 @@ SELECT
     tl.quantitypacked AS LineQuantityPacked,
     tl.quantitybackordered AS LineQuantityBackOrdered,
 
+    tl.isclosed AS IsClosed,
+    tl.quantityshiprecv AS QuantityAlreadyShipped,
+
     tl.units AS NetsuiteUoMInternalId,
     uom.unitname AS UoMName,
     uom.conversionrate AS UoMRate,

@@ -24,7 +24,8 @@ public class PurchaseOrderIRPayloadDTO
         List<PostPurchaseOrderDTO> lines,
         int userId,
         int receivingCategory,
-        string remarks
+        string remarks,
+        bool isUsedBin
         )
     {
         bool isGoodPost = receivingCategory == 1;
@@ -41,20 +42,56 @@ public class PurchaseOrderIRPayloadDTO
                 // same LineSequenceNumber; NetSuite rejects duplicate orderLine entries.
                 Items = lines.GroupBy(line => line.LineSequenceNumber).Select(group =>
                 {
-                    var line = (isGoodPost
-                            ? group.FirstOrDefault(x => !x.IsBad)
-                            : group.FirstOrDefault(x => x.IsBad))
-                        ?? group.First();
+                    // The receiving query can fan one PO line into several rows (an item with
+                    // several preferred bins at the location, or a vendor with several bin
+                    // assignments). The operator scans into exactly one of them, so prefer the
+                    // scanned row when collapsing the group - the same tie-break the fulfillment
+                    // path applies through DeduplicateFulfillmentLines - and only fall back to the
+                    // whole group when the bucket has no row of the requested quality.
+                    var postBucket = isGoodPost
+                        ? group.Where(x => !x.IsBad)
+                        : group.Where(x => x.IsBad);
+
+                    var line = postBucket
+                            .OrderByDescending(x => x.ScannedQuantity > 0)
+                            .ThenByDescending(x => x.ScannedQuantity)
+                            .FirstOrDefault()
+                        ?? group
+                            .OrderByDescending(x => x.ScannedQuantity > 0)
+                            .ThenByDescending(x => x.ScannedQuantity)
+                            .First();
 
                     bool isReceived = line.ScannedQuantity > 0 && (isGoodPost ? !line.IsBad : line.IsBad);
 
                     if (!isReceived)
                     {
-                        return new OrderLineItem
+                        // On bin-tracked locations the transform URL carries
+                        // ?replace=item.inventoryDetail.inventoryAssignment, and NetSuite rejects the
+                        // whole save unless the body's item entries carry that sub-resource
+                        // consistently. The mobile posts every open line - the unscanned ones as
+                        // zero-qty fillers - so without this an order scanned only in part fails with
+                        // [INVALID_PARAMETER] "Resource or sub-resource 'InventoryDetail' ... was not
+                        // found in the request body". Fillers therefore get an EMPTY assignment, the
+                        // same shape the fulfillment builders emit (TransferOrderIFPayloadDTO) and
+                        // the same one the field test accepted.
+                        var filler = new OrderLineItem
                         {
                             OrderLine = line.LineSequenceNumber,
                             isReceived = false
                         };
+
+                        if (isUsedBin)
+                        {
+                            filler.InventoryDetail = new InventoryDetail
+                            {
+                                InventoryAssignment = new InventoryAssignment
+                                {
+                                    Items = []
+                                }
+                            };
+                        }
+
+                        return filler;
                     }
 
                     return new OrderLineItem

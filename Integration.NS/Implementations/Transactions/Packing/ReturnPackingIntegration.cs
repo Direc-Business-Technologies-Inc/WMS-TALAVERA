@@ -41,6 +41,7 @@ internal class ReturnPackingIntegration(
             .From("transaction t")
             .Join("transactionline tl", on: "tl.transaction = t.id")
             .LeftJoin("transferorderstatus s", on: "s.id = t.status")
+            .InnerJoin(SuiteQLFragments.PendingPackingLines(), on: SuiteQLFragments.PendingPackingLinesJoinPredicate)
             .WithFilters(
                 Equal("tl.mainline", "T"),
                 Equal("t.subsidiary", subsidiaryId))
@@ -71,6 +72,7 @@ internal class ReturnPackingIntegration(
             )
             .From("transaction t")
             .Join("transactionline tl", on: "tl.transaction = t.id")
+            .InnerJoin(SuiteQLFragments.PendingPackingLines(), on: SuiteQLFragments.PendingPackingLinesJoinPredicate)
             .LeftJoin("employee e", "t.custbody_dbti_prepared_by = e.id")
             .LeftJoin("customrecord_dbti_trip_ticket_exemption tte", "tte.custrecord_dbti_tte_from_location = tl.location AND tte.custrecord_dbti_tte_to_location = t.transferlocation AND tte.isinactive = 'F'")
             .WithFilters(
@@ -80,7 +82,7 @@ internal class ReturnPackingIntegration(
             .Build();
 
         var response = await netsuiteService.ExecuteSuiteQLQuery<ReturnPackingHeaderNSDTO>(query.Query, query.Limit, query.Offset);
-        var nsdto = response.items.FirstOrDefault();
+        var nsdto = response.items?.FirstOrDefault();
 
         return nsdto is null ? null : MapInfoDto(nsdto);
     }
@@ -107,7 +109,7 @@ internal class ReturnPackingIntegration(
             .Build();
 
         var response = await netsuiteService.ExecuteSuiteQLQuery<TripTicketExemptionNSDTO>(query.Query, query.Limit, query.Offset);
-        var row = response.items.FirstOrDefault();
+        var row = response.items?.FirstOrDefault();
 
         return row is null ? null : row.ExemptionId != 0;
     }
@@ -146,7 +148,8 @@ internal class ReturnPackingIntegration(
                 ("q.LocationItemQuantityAvailable", nameof(ReturnPackingLineNSDTO.QuantityAvailable)),
                 ("q.LineQuantity", nameof(ReturnPackingLineNSDTO.QuantityPlanned)),
                 ("q.LineQuantityPacked", nameof(ReturnPackingLineNSDTO.QuantityReceived)),
-                ("q.LineQuantityBackOrdered", nameof(ReturnPackingLineNSDTO.QuantityBackOrdered))
+                ("q.LineQuantityBackOrdered", nameof(ReturnPackingLineNSDTO.QuantityBackOrdered)),
+                ("q.TransferCategory", nameof(ReturnPackingLineNSDTO.TransferCategory))
             )
             .From($"({mobileLineQuery}) q")
             .WithDatagridIntent(intent)
@@ -214,6 +217,9 @@ internal class ReturnPackingIntegration(
             QuantityPlanned = nsdto.QuantityPlanned,
             QuantityReceived = nsdto.QuantityReceived,
             QuantityBackOrdered = nsdto.QuantityBackOrdered,
+            // Header-level field projected onto every line: the category is a property of the
+            // order, not the item, and the packing guard in PostReturnsIFCmd reads it per line.
+            TransferCategory = nsdto.TransferCategory,
         };
     }
 

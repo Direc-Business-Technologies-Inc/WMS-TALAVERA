@@ -264,6 +264,15 @@ public class SuiteQLQueryBuilder
     private string? _parseFilter(AppFilterDescriptor filter, Dictionary<string, string>? propertyMap = null)
     {
         propertyMap ??= PropertyMap;
+
+        // A group is a container: it holds no column of its own, only children.
+        // Resolve it before its Property. Otherwise a group with an empty or
+        // absent Property — e.g. the ItemDataGrid search OR-group, which sets
+        // only LogicalOperator and Filters — resolves to null, is dropped whole,
+        // and its children (valid ItemNumber/Name/Description filters) are never
+        // parsed. The grid silently unfilters and keeps showing the prior rows.
+        if (filter.Filters.Count > 0) return _parseFilterGroup(filter, propertyMap);
+
         var prop = ResolveGridProperty(filter.Property, _gridSourcedDescriptors.Contains(filter));
         if (prop is null)
         {
@@ -273,7 +282,6 @@ public class SuiteQLQueryBuilder
             return null;
         }
 
-        if (filter.Filters.Count > 0) return _parseFilterGroup(filter);
         if (filter.ComparisonOperator == null) throw new InvalidOperationException($"no comparison operator given");
         switch (filter.ComparisonOperator)
         {
@@ -395,7 +403,7 @@ public class SuiteQLQueryBuilder
         };
     }
 
-    private string _parseFilterGroup(AppFilterDescriptor filter, Dictionary<string, string>? propertyMap = null)
+    private string? _parseFilterGroup(AppFilterDescriptor filter, Dictionary<string, string>? propertyMap = null)
     {
         if (filter.LogicalOperator is null) throw new InvalidOperationException("Filter group given but no logical operator");
         string op = filter.LogicalOperator switch
@@ -405,7 +413,16 @@ public class SuiteQLQueryBuilder
             _ => " AND "
         };
 
-        return "(" + string.Join($" {op} ", filter.Filters.Select(x => _parseFilter(x, propertyMap))) + ")";
+        // Drop unresolved children before joining: a dropped child parses to
+        // null, and string.Join would emit an empty segment, producing a
+        // malformed predicate such as "( OR LOWER(x) LIKE ...)" that NetSuite
+        // rejects. An all-dropped group collapses to null like any other filter.
+        var parts = filter.Filters
+            .Select(child => _parseFilter(child, propertyMap))
+            .Where(part => part is not null)
+            .ToList();
+
+        return parts.Count == 0 ? null : "(" + string.Join($" {op} ", parts) + ")";
     }
 
     public SuiteQLQueryBuilder Distinct()

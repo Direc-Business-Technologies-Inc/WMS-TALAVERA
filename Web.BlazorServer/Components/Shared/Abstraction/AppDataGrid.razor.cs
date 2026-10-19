@@ -82,6 +82,14 @@ public partial class AppDataGrid<TItem> : BaseComponent where TItem : class
 
     #endregion Selection identity
 
+    // Paging Radzen last asked for. ClearIntent() (LoadDataAsync) swaps the
+    // intent for a fresh one whose Take/Skip fall back to DataGridIntent's
+    // defaults (10/0), so a direct ReloadDataAsync() - the sync button, or a
+    // grid's search box - would otherwise silently snap the grid back to a
+    // hardcoded page size and page 1, ignoring the user's saved grid settings.
+    private int _lastTake = 10;
+    private int _lastSkip;
+
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -178,7 +186,14 @@ public partial class AppDataGrid<TItem> : BaseComponent where TItem : class
         }
 
         if (DatagridAdapter is not null)
+        {
+            // Capture before ClearIntent, which replaces QueryIntent and drops
+            // the paging Radzen supplied in LoadDataArgs.
+            _lastTake = DatagridAdapter.QueryIntent.Take;
+            _lastSkip = DatagridAdapter.QueryIntent.Skip;
+
             DatagridAdapter.ClearIntent();
+        }
 
         await InvokeAsync(StateHasChanged);
     }
@@ -187,7 +202,20 @@ public partial class AppDataGrid<TItem> : BaseComponent where TItem : class
     {
         if (DataGetter is not null && !ClientSide)
         {
-            DatagridAdapter?.AddFilters([.. DefaultFilters]);
+            // Render the busy state before awaiting the fetch. LoadDataAsync
+            // does this (line 114); without the same call here the only
+            // StateHasChanged happens after the query returns, so IsLoading
+            // flips true and false inside a single render and the grid's
+            // loading spinner never reaches the client.
+            await InvokeAsync(StateHasChanged);
+
+            if (DatagridAdapter is not null)
+            {
+                DatagridAdapter.AddFilters([.. DefaultFilters]);
+
+                DatagridAdapter.QueryIntent.Take = _lastTake;
+                DatagridAdapter.QueryIntent.Skip = _lastSkip;
+            }
 
             DGResult = await DataGetter(DatagridAdapter is null ? new() : DatagridAdapter.QueryIntent);
 

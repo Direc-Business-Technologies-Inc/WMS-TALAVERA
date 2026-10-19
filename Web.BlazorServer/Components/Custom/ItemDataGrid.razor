@@ -9,10 +9,11 @@
                          AlignItems="AlignItems.Center"
                          Gap="4px">
 
-                <RadzenTextBox @bind-Value="@SearchText"
+                <RadzenTextBox Value="@SearchText"
+                               @oninput="@OnSearchInput"
+                               @onkeydown="@OnSearchKeyDown"
                                Placeholder="Search items..."
-                               Style="width: 250px;"
-                               Change="@OnSearchChanged" />
+                               Style="width: 250px;" />
 
                 @if (!string.IsNullOrWhiteSpace(SearchText))
                 {

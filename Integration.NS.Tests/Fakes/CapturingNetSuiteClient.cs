@@ -27,6 +27,14 @@ public sealed class CapturingNetSuiteClient : INetSuiteApiClientService
     public int CallCount { get; private set; }
     /// <summary>Thrown once by the next ExecuteSuiteQLQuery call (after the call is recorded), then cleared.</summary>
     public Exception? NextException { get; set; }
+    /// <summary>
+    /// When set, the next <see cref="ExecuteSuiteQLQuery{T}"/> returns a response whose
+    /// <c>items</c> is null instead of an array, reproducing a 2xx SuiteQL body that omits
+    /// the array entirely (error envelope, partial response). <see cref="MakeRequest{T}"/>
+    /// deserializes such a body into a non-null <see cref="NetSuiteResponse{T}"/> with a null
+    /// <c>items</c>, which is what consumers must defend against.
+    /// </summary>
+    public bool NextNullItems { get; set; }
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -44,6 +52,17 @@ public sealed class CapturingNetSuiteClient : INetSuiteApiClientService
             NextException = null;
             throw exception;
         }
+
+        if (NextNullItems)
+        {
+            NextNullItems = false;
+            return Task.FromResult(new NetSuiteResponse<T>
+            {
+                items = null!,
+                totalResults = 0
+            });
+        }
+
         var items = new List<T>();
         foreach (var next in NextItems.OfType<T>()) items.Add(next);
         if (NextResult is T typed) items.Add(typed);

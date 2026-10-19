@@ -42,6 +42,7 @@ internal class VendorReturnAuthorizationPackingIntegration(
             .Join("transactionline tl", on: "tl.transaction = t.id")
             .Join("entity e", on: "t.entity = e.id")
             .LeftJoin("VendorReturnAuthorizationStatus s", "s.id = t.status")
+            .InnerJoin(SuiteQLFragments.PendingPackingLines("quantityshiprecv"), on: SuiteQLFragments.PendingPackingLinesJoinPredicate)
             .WithFilters(
                 Equal("tl.mainline", "T"),
                 Equal("t.subsidiary", subsidiaryId))
@@ -71,6 +72,7 @@ internal class VendorReturnAuthorizationPackingIntegration(
             .From("transaction t")
             .Join("transactionline tl", on: "tl.transaction = t.id")
             .Join("entity e", on: "t.entity = e.id")
+            .InnerJoin(SuiteQLFragments.PendingPackingLines("quantityshiprecv"), on: SuiteQLFragments.PendingPackingLinesJoinPredicate)
             .LeftJoin("employee em", "t.custbody_dbti_prepared_by = em.id")
             .LeftJoin("customrecord_dbti_trip_ticket_exemption tte", "tte.custrecord_dbti_tte_from_location = tl.location AND tte.custrecord_dbti_tte_to_location = t.transferlocation AND tte.isinactive = 'F'")
             .WithFilters(
@@ -80,7 +82,7 @@ internal class VendorReturnAuthorizationPackingIntegration(
             .Build();
 
         var response = await netsuiteService.ExecuteSuiteQLQuery<VendorReturnAuthorizationPackingHeaderNSDTO>(query.Query, query.Limit, query.Offset);
-        var nsdto = response.items.FirstOrDefault();
+        var nsdto = response.items?.FirstOrDefault();
 
         return nsdto is null ? null : MapInfoDto(nsdto);
     }
@@ -107,7 +109,7 @@ internal class VendorReturnAuthorizationPackingIntegration(
             .Build();
 
         var response = await netsuiteService.ExecuteSuiteQLQuery<TripTicketExemptionNSDTO>(query.Query, query.Limit, query.Offset);
-        var row = response.items.FirstOrDefault();
+        var row = response.items?.FirstOrDefault();
 
         return row is null ? null : row.ExemptionId != 0;
     }

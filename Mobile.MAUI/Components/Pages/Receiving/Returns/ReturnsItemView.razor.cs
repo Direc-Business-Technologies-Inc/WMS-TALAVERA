@@ -4,6 +4,7 @@ using Mobile.MAUI.Services;
 using Mobile.MAUI.ViewModel;
 using Shared.Libraries.ViewModel;
 using Shared.Libraries.ViewModel.Authentication;
+using Shared.Libraries.ViewModel.Common;
 using Shared.Libraries.ViewModel.Returns;
 using System.Text.Json;
 using static Mobile.MAUI.Helpers.FormatHelper;
@@ -117,6 +118,13 @@ public partial class ReturnsItemView : IAsyncDisposable
 
                 await InvokeAsync(StateHasChanged);
             },
+
+            OnFailure = async (result) =>
+            {
+                await Toast.Error($"Failed to load item barcodes: {result.ErrorMessage}");
+
+                await InvokeAsync(StateHasChanged);
+            },
         };
 
         ActionSaveScan = new AppAction<bool>
@@ -213,9 +221,7 @@ public partial class ReturnsItemView : IAsyncDisposable
                 return;
             }
 
-            var barcode = ItemBarcodes.FirstOrDefault(x =>
-                !string.IsNullOrWhiteSpace(x.MaterialBarcode) &&
-                x.MaterialBarcode.Equals(scanned, StringComparison.OrdinalIgnoreCase));
+            var barcode = await ResolveBarcodeAsync(scanned);
 
             if (barcode is null)
             {
@@ -288,9 +294,7 @@ public partial class ReturnsItemView : IAsyncDisposable
     {
         try
         {
-            var barcode = ItemBarcodes.FirstOrDefault(x =>
-                !string.IsNullOrWhiteSpace(x.MaterialBarcode) &&
-                x.MaterialBarcode.Equals(scanned, StringComparison.OrdinalIgnoreCase));
+            var barcode = await ResolveBarcodeAsync(scanned);
 
             if (barcode is null)
             {
@@ -389,6 +393,71 @@ public partial class ReturnsItemView : IAsyncDisposable
     async void ToggleWeight()
     {
         ChangeWeight = await GetWeightAsync("", "");
+    }
+
+    /// <summary>
+    /// Resolves a scanned barcode for this view. Prefers the barcode list
+    /// preloaded for the document; when that list is empty (the load failed or
+    /// has not finished) it retries the load once; when the list simply does not
+    /// contain the scan it falls back to the authoritative per-barcode lookup.
+    /// Returns null only when NetSuite knows no such barcode.
+    /// </summary>
+    private async Task<ItemBarcodesPerUoMVM?> ResolveBarcodeAsync(string scanned)
+    {
+        var cached = FindCachedBarcode(scanned);
+
+        if (cached is not null)
+        {
+            return cached;
+        }
+
+        if (ItemBarcodes.Count == 0)
+        {
+            ItemRequest = ReturnsItems
+                .Select(i => new BarcodeRequestVM
+                {
+                    NetsuiteMaterialInternalId = i.NetsuiteMaterialInternalId
+                })
+                .ToList();
+
+            await ActionFactory.ExecuteAppActionAsync(ActionGetItemBarcodes);
+
+            cached = FindCachedBarcode(scanned);
+
+            if (cached is not null)
+            {
+                return cached;
+            }
+        }
+
+        var res = await Client.Post<InventoryItemVM>("/Item/PerBarcode", new { Barcode = scanned });
+
+        if (res?.Data is null)
+        {
+            return null;
+        }
+
+        var resolved = new ItemBarcodesPerUoMVM
+        {
+            NetsuiteMaterialInternalId = res.Data.NetsuiteMaterialInternalId,
+            MaterialCode = res.Data.MaterialCode,
+            MaterialName = res.Data.MaterialName,
+            MaterialWeight = res.Data.MaterialWeight,
+            UoMName = res.Data.UoMName,
+            UoMRate = res.Data.UoMRate,
+            MaterialBarcode = scanned,
+        };
+
+        ItemBarcodes.Add(resolved);
+
+        return resolved;
+    }
+
+    private ItemBarcodesPerUoMVM? FindCachedBarcode(string scanned)
+    {
+        return ItemBarcodes.FirstOrDefault(x =>
+            !string.IsNullOrWhiteSpace(x.MaterialBarcode) &&
+            x.MaterialBarcode.Equals(scanned, StringComparison.OrdinalIgnoreCase));
     }
 
     private async Task<decimal?> GetWeightAsync(string itemName, string uomName)

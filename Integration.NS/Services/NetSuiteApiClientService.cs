@@ -42,6 +42,21 @@ namespace Integration.NS.Services
 
         private static readonly string AccountId = Environment.GetEnvironmentVariable("ACCOUNT_ID") ?? string.Empty;
 
+        /// <summary>
+        /// Identifies the running server build. It is embedded in the receiving diagnostics
+        /// string so a field failure can be tied to the deployed assembly without a logs round
+        /// trip. The mobile build is fingerprinted by the diag's scannedLines / totalLines
+        /// counts, but only in one direction: a payload that carries unscanned fillers reports
+        /// totalLines larger than scannedLines. Equal counts are inconclusive - a fully-scanned
+        /// order reports them equal on either build - so do not treat equality as proof of a
+        /// stale client.
+        /// </summary>
+        internal static readonly string BuildStamp =
+            typeof(NetSuiteApiClientService).Assembly
+                .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
+            ?? typeof(NetSuiteApiClientService).Assembly.GetName().Version?.ToString()
+            ?? "unknown";
+
         private static readonly string ItemFulfillmentUrl = $"https://{AccountId}.suitetalk.api.netsuite.com/services/rest/record/v1/{{0}}/{{1}}/!transform/itemFulfillment?replace=item.inventoryDetail.inventoryAssignment";
         private static readonly string ItemFulfillmentUrlNotUsedBin = $"https://{AccountId}.suitetalk.api.netsuite.com/services/rest/record/v1/{{0}}/{{1}}/!transform/itemFulfillment?replace=item.inventoryDetail.inventoryAssignment";
         private static readonly string ItemFulfillmentUrlNoReplace = $"https://{AccountId}.suitetalk.api.netsuite.com/services/rest/record/v1/{{0}}/{{1}}/!transform/itemFulfillment";
@@ -919,25 +934,72 @@ namespace Integration.NS.Services
         #region Receiving
         public async Task<bool> SavePOItemReceipt(List<PostPurchaseOrderDTO> Data, int userId, string remarks)
         {
-
             var orderId = Data.Select(x => x.NetsuiteOrderInternalId).FirstOrDefault();
-            string url = string.Format(ItemReceiptUrl, "purchaseOrder", orderId);
+
+            // A PO line that is already fully received is absent from the transform's item
+            // sublist, so any orderLine reference for it - the scanned entry or the zero-qty
+            // filler the payload builder emits - is an invalid insert and NetSuite rejects the
+            // whole save. Strip such lines before bucketing so the payload builder only ever
+            // receives postable lines, mirroring SaveTOItemFulfillment.
+            var scannedButClosed = Data.Where(x => x.ScannedQuantity > 0 && IsClosedPOLine(x)).ToList();
+            Data = Data.Where(x => !IsClosedPOLine(x)).ToList();
+
+            // A stale client that scanned only already-received lines must not be told the post
+            // succeeded: nothing is left to receive, so fail with the offending lines named.
+            if (scannedButClosed.Any() && !Data.Any(x => x.ScannedQuantity > 0))
+            {
+                var detail = string.Join("; ", scannedButClosed.Select(x =>
+                    $"line {x.LineSequenceNumber} ({x.MaterialCode}) - scanned {x.ScannedQuantity}, remaining {PORemainingDisplayQuantity(x)}"));
+                throw new Exception($"Cannot post PO Item Receipt for order {orderId}: the scanned line(s) are already fully received ({detail}). Reload the order and rescan the affected line(s); see the receipts already posted against this purchase order in NetSuite.");
+            }
+
+            // Reject scans beyond the remaining open quantity before the first NetSuite call: on
+            // a partially received order the recorded quantity is not the open quantity, so
+            // surface the WMS line and the real ordered/remaining figures to the operator instead
+            // of a cryptic NetSuite 400 mid-post.
+            var overRemaining = FindPOScansExceedingRemaining(Data);
+            if (overRemaining.Count > 0)
+            {
+                throw new Exception($"Cannot post PO Item Receipt: scanned quantity exceeds the remaining quantity for: {string.Join("; ", overRemaining)}. Reload the order and rescan the affected line(s).");
+            }
+
+            // replace + explicit inventoryDetail only for bin-tracked locations; non-bin
+            // posts keep the plain transform. Without ?replace=item.inventoryDetail.inventoryAssignment
+            // NetSuite ignores the inventoryDetail carried in the body and auto-generates an
+            // empty assignment, failing bin-tracked lines with "Please configure the inventory detail in line N".
+            var isUsedBin = Data.Any(x => x.IsLocationUsedBin);
+            string url = BuildPOItemReceiptUrl(isUsedBin, orderId);
+
+            // A scanned line at a bin-tracked location whose inventoryDetail carries no binNumber
+            // is rejected by NetSuite with "configure the inventory detail in line N". Fail here,
+            // naming the WMS line, material and location, instead of surfacing that cryptic 400
+            // after the post.
+            var missingBin = FindPOMissingBinLines(Data);
+
+            if (missingBin.Count > 0)
+            {
+                throw new Exception($"Cannot post PO Item Receipt: scanned lines at bin-tracked locations have no resolved bin: {string.Join("; ", missingBin)}. Reload the order; if the bin is still missing, ask Master Data to set a Vendor Bin Assignment or a preferred bin for these items.");
+            }
 
             var badPO = Data.Where(x => x.IsBad && x.ScannedQuantity > 0).ToList();
 
             if (badPO.Any())
             {
+                string? jsonStringBad = null;
                 try
                 {
-                    var payloadBad = PurchaseOrderIRPayloadDTO.CreateForItemReceipt(Data, userId, 2, remarks);
+                    var payloadBad = PurchaseOrderIRPayloadDTO.CreateForItemReceipt(Data, userId, 2, remarks, isUsedBin);
 
-                    var jsonStringBad = JsonSerializer.Serialize(payloadBad, JsonSerializerOption);
+                    jsonStringBad = JsonSerializer.Serialize(payloadBad, JsonSerializerOption);
 
                     await MakeRequest<object>(url, jsonStringBad, HttpMethod.Post);
                 }
                 catch (Exception ex)
                 {
-                    throw new Exception($"Error while posting BAD PO Item Receipt. {ex.Message}", ex);
+                    logger.LogError(ex, "BAD PO Item Receipt failed. Url: {Url}. Payload: {Payload}", url, jsonStringBad);
+                    var diag = $"[diag replace={url.Contains("replace=")} usedBin={isUsedBin} scannedLines={badPO.Count(x => x.ScannedQuantity > 0)} totalLines={Data.Count} build={BuildStamp}]"
+                        + DecodeItemReceiptLine(ex.Message, Data, isGoodPost: false);
+                    throw new Exception($"Error while posting BAD PO Item Receipt. {ex.Message} {diag}", ex);
                 }
             }
 
@@ -945,25 +1007,171 @@ namespace Integration.NS.Services
 
             if (goodPO.Any())
             {
+                string? jsonStringGood = null;
                 try
                 {
-                    var payloadGood = PurchaseOrderIRPayloadDTO.CreateForItemReceipt(Data, userId, 1, remarks);
+                    var payloadGood = PurchaseOrderIRPayloadDTO.CreateForItemReceipt(Data, userId, 1, remarks, isUsedBin);
 
-                    var jsonStringGood = JsonSerializer.Serialize(payloadGood, JsonSerializerOption);
+                    jsonStringGood = JsonSerializer.Serialize(payloadGood, JsonSerializerOption);
 
                     await MakeRequest<object>(url, jsonStringGood, HttpMethod.Post);
                 }
                 catch (Exception ex)
                 {
-                    throw new Exception($"Error while posting GOOD PO Item Receipt. {ex.Message}", ex);
+                    logger.LogError(ex, "GOOD PO Item Receipt failed. Url: {Url}. Payload: {Payload}", url, jsonStringGood);
+                    var diag = $"[diag replace={url.Contains("replace=")} usedBin={isUsedBin} scannedLines={goodPO.Count(x => x.ScannedQuantity > 0)} totalLines={Data.Count} build={BuildStamp}]"
+                        + DecodeItemReceiptLine(ex.Message, Data, isGoodPost: true);
+                    throw new Exception($"Error while posting GOOD PO Item Receipt. {ex.Message} {diag}", ex);
                 }
             }
 
             return true;
         }
 
+        /// <summary>
+        /// The PO item receipt <c>!transform</c> URL. A bin-tracked location must declare
+        /// <c>?replace=item.inventoryDetail.inventoryAssignment</c> so NetSuite replaces its
+        /// pre-generated (empty) inventory assignment with the bin the payload carries;
+        /// without it the body's <c>inventoryDetail</c> is ignored and the save is rejected
+        /// with "Please configure the inventory detail in line N". Non-bin locations need no
+        /// detail, so they keep the plain transform - the same split the Returns receipt uses.
+        /// </summary>
+        internal static string BuildPOItemReceiptUrl(bool isUsedBin, int orderId) =>
+            string.Format(
+                isUsedBin ? ItemReceiptUrl + "?replace=item.inventoryDetail.inventoryAssignment" : ItemReceiptUrl,
+                "purchaseOrder",
+                orderId);
+
+        /// <summary>
+        /// A PO line with no remaining open quantity is absent from the item sublist of the
+        /// <c>!transform/itemReceipt</c> response, so addressing it (a scanned entry OR a
+        /// zero-qty filler) is an invalid insert on a static sublist and NetSuite rejects the
+        /// whole save with "Please configure the inventory detail in line N". The item-receipt
+        /// transform has the same shape as the itemFulfillment one guarded by
+        /// <see cref="IsClosedFulfillmentLine"/>, and takes the same remedy.
+        /// </summary>
+        /// <remarks>
+        /// Remaining is <c>LineQuantity - LineQuantityReceived</c> (transactionline.
+        /// quantityshiprecv), the open quantity on a partially received order. It deliberately
+        /// does NOT consult a per-line closed flag: a fully received purchase-order line still
+        /// reports isclosed = F (verified via SuiteQL on PO-THM00100000216-TR, 2026-10-17, where
+        /// all 18 lines had qty == recvd and isclosed = F), so the flag alone would let the
+        /// failing post through.
+        /// </remarks>
+        internal static bool IsClosedPOLine(PostPurchaseOrderDTO line) =>
+            line.LineQuantity - line.LineQuantityReceived <= 0;
+
+        /// <summary>
+        /// Remaining open quantity in the operator's display UoM, which is what
+        /// <c>ScannedQuantity</c> is expressed in. PO quantities arrive in the item's stock UoM,
+        /// so the base-unit remainder is divided by the line's UoM rate.
+        /// </summary>
+        internal static decimal PORemainingDisplayQuantity(PostPurchaseOrderDTO line)
+        {
+            var rate = line.UoMRate > 0 ? line.UoMRate : 1m;
+            return (line.LineQuantity - line.LineQuantityReceived) / rate;
+        }
+
+        /// <summary>
+        /// Scans beyond the line's remaining open quantity cannot be received: after an earlier
+        /// partial receipt only <c>LineQuantity - LineQuantityReceived</c> is still open. Returns
+        /// one descriptor per offending line, naming the item-list line, material and the ordered
+        /// / remaining figures, so the caller can fail with an actionable message before the first
+        /// NetSuite call.
+        /// </summary>
+        internal static List<string> FindPOScansExceedingRemaining(List<PostPurchaseOrderDTO> lines)
+        {
+            var offenders = new List<string>();
+
+            for (var i = 0; i < lines.Count; i++)
+            {
+                var line = lines[i];
+                if (line.ScannedQuantity <= 0) continue;
+
+                var remaining = PORemainingDisplayQuantity(line);
+                if (line.ScannedQuantity > remaining)
+                {
+                    offenders.Add(
+                        $"item-list line {i + 1} (WMS line {line.LineSequenceNumber}) {line.MaterialCode} - {line.MaterialName}: scanned {line.ScannedQuantity}, ordered {line.LineQuantity}, remaining {remaining}");
+                }
+            }
+
+            return offenders;
+        }
+
+        /// <summary>
+        /// Names every scanned line that will post to a bin-tracked location without a
+        /// resolvable bin. A purchase order can carry lines at different locations, so the bin
+        /// requirement is judged on the line's own <see cref="PostPurchaseOrderDTO.IsLocationUsedBin"/>,
+        /// never on an order-level flag - otherwise a non-bin line on a mixed-location PO is
+        /// falsely rejected. The grouping mirrors the payload builder: one representative per
+        /// (line, quality) bucket, because the good and bad posts are separate NetSuite calls
+        /// and each can fail on its own row.
+        /// </summary>
+        internal static List<string> FindPOMissingBinLines(List<PostPurchaseOrderDTO> lines) =>
+            lines
+                .Where(x => x.ScannedQuantity > 0)
+                .GroupBy(x => (x.LineSequenceNumber, x.IsBad))
+                .Select(g => g
+                    .OrderByDescending(x => x.ScannedQuantity > 0)
+                    .ThenByDescending(x => x.ScannedQuantity)
+                    .First())
+                .Where(x => RequiresBin(x.IsLocationUsedBin, x.ScannedQuantity, x.VendorBinAssignmentId, x.NetsuiteMaterialPrefferedBinId))
+                .Select(x => $"WMS line {x.LineSequenceNumber} ({x.MaterialCode} - {x.MaterialName}) at {x.LocationName}")
+                .ToList();
+
+        /// <summary>
+        /// Decodes NetSuite's "line N of the item list" rejection into the offending DTO row so a
+        /// field failure identifies the item without a server-logs round trip, mirroring the item
+        /// fulfillment decoder. Returns an empty string when the message does not carry the marker.
+        /// </summary>
+        /// <remarks>
+        /// The index is 1-based and addresses the payload's <c>item.items</c> sublist, which the
+        /// builder produces by grouping the WHOLE list by LineSequenceNumber in first-appearance
+        /// order (one entry per group), so the caller must pass the same list it handed to
+        /// <c>CreateForItemReceipt</c> - not the good/bad bucket. The per-group representative and
+        /// the tie-break below are kept identical to that builder; indexing the raw, ungrouped
+        /// list would drift on a fanned-out or good/bad split line.
+        /// </remarks>
+        internal static string DecodeItemReceiptLine(string message, List<PostPurchaseOrderDTO> lines, bool isGoodPost)
+        {
+            var match = Regex.Match(message, @"line (\d+) of the item list");
+            if (!match.Success || !int.TryParse(match.Groups[1].Value, out var itemListLine)) return string.Empty;
+
+            var postable = lines
+                .GroupBy(x => x.LineSequenceNumber)
+                .Select(group =>
+                {
+                    var postBucket = isGoodPost
+                        ? group.Where(x => !x.IsBad)
+                        : group.Where(x => x.IsBad);
+
+                    return postBucket
+                            .OrderByDescending(x => x.ScannedQuantity > 0)
+                            .ThenByDescending(x => x.ScannedQuantity)
+                            .FirstOrDefault()
+                        ?? group
+                            .OrderByDescending(x => x.ScannedQuantity > 0)
+                            .ThenByDescending(x => x.ScannedQuantity)
+                            .First();
+                })
+                .ToList();
+
+            if (itemListLine < 1 || itemListLine > postable.Count) return string.Empty;
+
+            var offender = postable[itemListLine - 1];
+            return $" | line{itemListLine}=WMSLine {offender.LineSequenceNumber} {offender.MaterialCode} - {offender.MaterialName} usedBin={offender.IsLocationUsedBin} vendorBin={offender.VendorBinAssignmentId} preferredBin={offender.NetsuiteMaterialPrefferedBinId} qty={offender.ScannedQuantity}";
+        }
+
         public async Task<bool> SaveTOItemReceipt(List<PostTransferOrderDTO> Data, int TONetsuiteOrderInternalId, int userId, string remarks)
         {
+            // The receiving line query fans one TO line into several rows when the item has
+            // multiple preferred bins at the location or the vendor has multiple bin-assignment
+            // records there, and the mobile posts every row. Collapse the fan-out here so each
+            // orderLine appears once per (quality, missing) bucket — the restlet contract
+            // requires a unique orderLine in the body.
+            Data = DeduplicateReceivingLines(Data, x => x.LineSequenceNumber, x => x.IsBad, x => x.IsMissing, x => x.ScannedQuantity);
+
             var IFOrderId = Data.Select(x => x.NetsuiteOrderInternalId).FirstOrDefault();
 
             string url = ItemReceiptRestletUrl;
@@ -1105,23 +1313,144 @@ namespace Integration.NS.Services
         }
 
         /// <summary>
+        /// Receiving counterpart of <see cref="DeduplicateFulfillmentLines"/>. The receiving
+        /// line queries (NS_TO_Get_Itemfulfillment_Items.sql and siblings) join the item's
+        /// preferred bin and the preferred vendor's bin assignment; either join fans one
+        /// transaction line into several rows when the item has multiple preferred bins at
+        /// the location or the vendor has multiple assignment records there, and the mobile
+        /// posts every row. TransferOrderIRRestletPayloadDTO.CreateForItemReceiptRestlet maps
+        /// each row 1:1 into lines[], so the duplicate orderLine breaks the restlet save.
+        /// Collapse each (orderLine, quality, missing) triple to one row, preferring the row
+        /// the operator actually scanned.
+        /// Unlike <see cref="DeduplicateFulfillmentLines"/> this key MUST include IsMissing:
+        /// a partially-scanned line legitimately produces BOTH a good entry and a missing
+        /// entry with the same orderLine and the same IsBad, and they must survive into their
+        /// separate good/missing buckets. GroupBy preserves first-appearance order.
+        /// </summary>
+        internal static List<T> DeduplicateReceivingLines<T>(
+            List<T> lines,
+            Func<T, int> lineSequenceNumber,
+            Func<T, bool> isBad,
+            Func<T, bool> isMissing,
+            Func<T, decimal> scannedQuantity)
+        {
+            return lines
+                .GroupBy(x => (lineSequenceNumber(x), isBad(x), isMissing(x)))
+                .Select(g => g
+                    .OrderByDescending(x => scannedQuantity(x) > 0)
+                    .ThenByDescending(scannedQuantity)
+                    .First())
+                .ToList();
+        }
+
+        /// <summary>
         /// True when a posted line must carry a bin. Only bin-tracked locations require one.
         /// </summary>
         /// <remarks>
-        /// Both bin ids reach the WMS through LEFT JOINs in the packing scripts, so a
-        /// non-bin-tracked location resolves them to 0 by construction. An ungated check
-        /// therefore rejects a legitimate save and tells the operator the location is
-        /// bin-tracked when it is not - e.g. SELLING AREA - CAUAYAN, where usebins = 'F'.
-        /// Gate on the same header-level isUsedBin that drives binNumber and the ?replace=
-        /// URL, never per-line: a per-line gate would pass validation while the transform
-        /// still demands inventoryDetail for the whole save.
+        /// Callers pass the flag that applies to the line being posted. The transfer-order paths
+        /// pass the order-level flag because an order has one location; the purchase-order paths
+        /// pass the line's own flag because a PO can carry lines at different locations. Both bin
+        /// ids reach the WMS through LEFT JOINs in the queries, so a non-bin-tracked location
+        /// resolves them to 0 by construction - hence the flag gate, which keeps a legitimate
+        /// save from being told the location is bin-tracked when it is not (e.g. SELLING AREA -
+        /// CAUAYAN, where usebins = 'F'). Passed per line, it also avoids falsely rejecting a
+        /// non-bin line on a mixed-location PO.
         /// </remarks>
         internal static bool RequiresBin(bool isUsedBin, decimal scannedQuantity, int vendorAssignedBin, int preferredBin) =>
             isUsedBin && scannedQuantity > 0 && vendorAssignedBin == 0 && preferredBin == 0;
 
+        /// <summary>
+        /// A TO line that is closed or has no remaining open quantity is absent
+        /// from the item sublist of the <c>!transform/itemFulfillment</c>
+        /// response, so addressing it (a scanned entry OR a zero-qty filler)
+        /// is an invalid insert on a static sublist and NetSuite rejects the
+        /// whole save. Remaining is <c>LineQuantity - QuantityAlreadyShipped</c>
+        /// (transactionline.quantityshiprecv), the correct open quantity on a
+        /// partially fulfilled order - not the quantitypacked-based figure.
+        /// </summary>
+        internal static bool IsClosedFulfillmentLine(PostTransferOrderDTO line) =>
+            line.IsLineClosed || line.RemainingQuantity <= 0;
+
+        /// <summary>
+        /// Scans beyond the line's remaining open quantity cannot be fulfilled:
+        /// after an earlier partial fulfillment only <c>LineQuantity -
+        /// QuantityAlreadyShipped</c> is still shippable. Returns one descriptor
+        /// per offending line, naming the WMS line, material and the ordered /
+        /// remaining figures, so the caller can fail with an actionable message
+        /// before the first NetSuite call.
+        /// </summary>
+        internal static List<string> FindScansExceedingRemaining(List<PostTransferOrderDTO> lines)
+        {
+            var offenders = new List<string>();
+
+            for (var i = 0; i < lines.Count; i++)
+            {
+                var line = lines[i];
+                if (line.ScannedQuantity <= 0) continue;
+
+                var remaining = line.RemainingQuantity;
+                if (line.ScannedQuantity > remaining)
+                {
+                    offenders.Add(
+                        $"item-list line {i + 1} (WMS line {line.LineSequenceNumber}) {line.MaterialCode} - {line.MaterialName}: scanned {line.ScannedQuantity}, ordered {line.LineQuantity}, remaining {remaining}");
+                }
+            }
+
+            return offenders;
+        }
+
+        /// <summary>
+        /// Decodes a transfer-order itemFulfillment rejection into the offending DTO row so a
+        /// field failure names the item without a server-logs round trip. NetSuite emits two
+        /// phrasings: "line N of the item list" (an inventoryDetail without a bin, where N is
+        /// the position in the payload's item sublist) and "Please configure the inventory
+        /// detail for &lt;item name&gt;." (no position). The second is resolved by MaterialName
+        /// / MaterialCode; the item name may itself contain '.', so the capture runs to the end
+        /// of the message and is trimmed of the trailing sentence period rather than stopping
+        /// at the first dot.
+        /// </summary>
+        internal static string DecodeTOItemFulfillmentLine(string message, List<PostTransferOrderDTO> lines)
+        {
+            var nsLineMatch = Regex.Match(message, @"line (\d+) of the item list");
+            if (nsLineMatch.Success && int.TryParse(nsLineMatch.Groups[1].Value, out var nsLine) && nsLine >= 1 && nsLine <= lines.Count)
+            {
+                var offender = lines[nsLine - 1];
+                return $" | line{nsLine}=WMSLine {offender.LineSequenceNumber} {offender.MaterialCode} - {offender.MaterialName} vendorBin={offender.NetsuiteMaterialVendorAssignedBin} preferredBin={offender.NetsuiteMaterialPrefferedBinId} qty={offender.ScannedQuantity}";
+            }
+
+            var itemMatch = Regex.Match(message, @"inventory detail for (.+?)\s*$");
+            if (!itemMatch.Success) return string.Empty;
+
+            var itemName = itemMatch.Groups[1].Value.TrimEnd('.', ' ');
+            var matched = lines.FirstOrDefault(x =>
+                string.Equals(x.MaterialName, itemName, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(x.MaterialCode, itemName, StringComparison.OrdinalIgnoreCase));
+
+            return matched is null
+                ? $" | item=\"{itemName}\" (not matched to a posted line)"
+                : $" | item={matched.MaterialCode} - {matched.MaterialName} WMSLine {matched.LineSequenceNumber} vendorBin={matched.NetsuiteMaterialVendorAssignedBin} preferredBin={matched.NetsuiteMaterialPrefferedBinId} qty={matched.ScannedQuantity}";
+        }
+
         public async Task<bool> SaveTOItemFulfillment(List<PostTransferOrderDTO> Data)
         {
             Data = DeduplicateFulfillmentLines(Data, x => x.LineSequenceNumber, x => x.IsBad, x => x.ScannedQuantity);
+
+            // Partially fulfilled orders expose only their OPEN lines on the transform's
+            // item sublist; a closed line has no sublist line to address and any orderLine
+            // reference for it (scanned entry or zero-qty filler) is an invalid insert on a
+            // static sublist that fails the entire save. Strip closed / fully-shipped lines
+            // before bucketing so the payload builder only ever receives postable lines.
+            Data = Data.Where(x => !IsClosedFulfillmentLine(x)).ToList();
+
+            // Reject scans beyond the remaining open quantity before the first NetSuite
+            // call: on a partially fulfilled order quantitypacked is not the open quantity,
+            // so surface the WMS line and the real ordered/remaining figures to the operator
+            // instead of a cryptic NetSuite 400 mid-post.
+            var overRemaining = FindScansExceedingRemaining(Data);
+            if (overRemaining.Count > 0)
+            {
+                throw new Exception($"Cannot post TO Item Fulfillment: scanned quantity exceeds the remaining quantity for: {string.Join("; ", overRemaining)}. Reload the order and rescan the affected line(s).");
+            }
 
             var orderId = Data.Select(x => x.NetsuiteOrderInternalId).FirstOrDefault();
             // Use Any (not First): one stale non-bin line must not downgrade a
@@ -1174,15 +1503,8 @@ namespace Integration.NS.Services
                 catch (Exception ex)
                 {
                     logger.LogError(ex, "BAD TO Item Fulfillment failed. Url: {Url}. Payload: {Payload}", url, jsonStringBad);
-                    var diag = $"[diag replace={url.Contains("replace=")} usedBin={isUsedBin} scannedLines={badTO.Count(x => x.ScannedQuantity > 0)} totalLines={badTO.Count}]";
-
-                    // Decode NetSuite's "line N of the item list" into the actual DTO row so field tests identify the offender without server logs.
-                    var nsLineMatch = Regex.Match(ex.Message, @"line (\d+) of the item list");
-                    if (nsLineMatch.Success && int.TryParse(nsLineMatch.Groups[1].Value, out var nsLine) && nsLine >= 1 && nsLine <= badTO.Count)
-                    {
-                        var offender = badTO[nsLine - 1];
-                        diag += $" | line{nsLine}=WMSLine {offender.LineSequenceNumber} {offender.MaterialCode} - {offender.MaterialName} vendorBin={offender.NetsuiteMaterialVendorAssignedBin} preferredBin={offender.NetsuiteMaterialPrefferedBinId} qty={offender.ScannedQuantity}";
-                    }
+                    var diag = $"[diag replace={url.Contains("replace=")} usedBin={isUsedBin} scannedLines={badTO.Count(x => x.ScannedQuantity > 0)} totalLines={badTO.Count}]"
+                        + DecodeTOItemFulfillmentLine(ex.Message, badTO);
 
                     throw new Exception($"Error while posting BAD TO Item Fulfillment. {ex.Message} {diag}", ex);
                 }
@@ -1225,15 +1547,8 @@ namespace Integration.NS.Services
                 catch (Exception ex)
                 {
                     logger.LogError(ex, "GOOD TO Item Fulfillment failed. Url: {Url}. Payload: {Payload}", url, jsonStringGood);
-                    var diag = $"[diag replace={url.Contains("replace=")} usedBin={isUsedBin} scannedLines={goodTO.Count(x => x.ScannedQuantity > 0)} totalLines={goodTO.Count}]";
-
-                    // Decode NetSuite's "line N of the item list" into the actual DTO row so field tests identify the offender without server logs.
-                    var nsLineMatch = Regex.Match(ex.Message, @"line (\d+) of the item list");
-                    if (nsLineMatch.Success && int.TryParse(nsLineMatch.Groups[1].Value, out var nsLine) && nsLine >= 1 && nsLine <= goodTO.Count)
-                    {
-                        var offender = goodTO[nsLine - 1];
-                        diag += $" | line{nsLine}=WMSLine {offender.LineSequenceNumber} {offender.MaterialCode} - {offender.MaterialName} vendorBin={offender.NetsuiteMaterialVendorAssignedBin} preferredBin={offender.NetsuiteMaterialPrefferedBinId} qty={offender.ScannedQuantity}";
-                    }
+                    var diag = $"[diag replace={url.Contains("replace=")} usedBin={isUsedBin} scannedLines={goodTO.Count(x => x.ScannedQuantity > 0)} totalLines={goodTO.Count}]"
+                        + DecodeTOItemFulfillmentLine(ex.Message, goodTO);
 
                     throw new Exception($"Error while posting GOOD TO Item Fulfillment. {ex.Message} {diag}", ex);
                 }

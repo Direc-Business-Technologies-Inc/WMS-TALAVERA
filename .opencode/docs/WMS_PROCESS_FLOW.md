@@ -290,13 +290,20 @@ Used only by `MarketingDocumentDEM` / `ReceivingDocumentDEM`. **STR/ITR do not u
 ⚠ Despite the names, `PackingItemReceiptCreatePage` **creates an Item Fulfillment**.
 
 **Candidate filter** (`StockTransferRequestPackingIntegration.cs:204-213`):
-```csharp
-In("t.recordtype", ["intercompanytransferorder", "transferorder"]),
-In("t.custbody_dbti_transfer_category", ["1", "2"]),
-Equal("t.ordpicked", "F"),
-In("t.status", ["B", "D", "E"])   // Pending Receipt / Partially Received / Pending Billing
-```
-plus `Equal("t.subsidiary", subsidiaryId)`.
+   ```csharp
+   In("t.recordtype", ["intercompanytransferorder", "transferorder"]),
+   In("t.custbody_dbti_transfer_category", ["1", "2"]),
+   Equal("t.ordpicked", "F"),
+   In("t.status", ["B", "D", "E"])   // Pending Receipt / Partially Received / Pending Billing
+   ```
+   plus `Equal("t.subsidiary", subsidiaryId)`.
+
+   ⚠ Plus an **inner join** onto `SuiteQLFragments.PendingPackingLines` — every
+   transaction with at least one open line where ordered > packed. `ordpicked`
+   tracks *picking*, not *fulfilling*, and status stays in B/D/E while the
+   fulfillment is only Packed, so without this a fully packed order re-appears
+   on the list until the Trip Ticket ships it. Returns uses the same gate over
+   category `3`/`4`; VRA uses it over `quantityshiprecv`.
 
 **Steps:**
 

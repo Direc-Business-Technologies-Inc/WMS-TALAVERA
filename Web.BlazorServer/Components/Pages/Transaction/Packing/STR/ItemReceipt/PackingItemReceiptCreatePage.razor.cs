@@ -73,6 +73,7 @@ partial class PackingItemReceiptCreatePage
 
         action.OnSuccess(() =>
         {
+            ToastService.Success("Packing item fulfillment posted successfully.");
             NavManager.NavigateTo($"{PackingRoutes.Root}?tab=stocktransferrequest", true);
             return Task.CompletedTask;
         });

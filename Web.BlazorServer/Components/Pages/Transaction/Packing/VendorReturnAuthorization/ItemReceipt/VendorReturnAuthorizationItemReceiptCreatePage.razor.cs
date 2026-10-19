@@ -74,6 +74,7 @@ public partial class VendorReturnAuthorizationItemReceiptCreatePage
 
         action.OnSuccess(() =>
         {
+            ToastService.Success("Vendor return authorization item fulfillment posted successfully.");
             NavManager.NavigateTo($"{PackingRoutes.Root}?tab=vendorreturnauthorization", true);
             return Task.CompletedTask;
         });
