@@ -108,7 +108,7 @@ all-zero guard** in the IF path.
 
 | Mobile entry | API route | Handler and NetSuite call |
 |---|---|---|
-| `Receiving/PurchaseOrder/PurchaseOrderItemView` then `POST /Receiving/PurchaseOrder/SaveScan` | `Controllers/Receiving/PurchaseOrderController.cs` | `PostPurchaseOrderIRCmd` then `SavePOItemReceipt` then `POST .../purchaseOrder/{id}/!transform/itemReceipt` (no replace) |
+| `Receiving/PurchaseOrder/PurchaseOrderItemView` then `POST /Receiving/PurchaseOrder/SaveScan` | `Controllers/Receiving/PurchaseOrderController.cs` | `PostPurchaseOrderIRCmd` then `SavePOItemReceipt` then `POST .../purchaseOrder/{id}/!transform/itemReceipt` (+`?replace=item.inventoryDetail.inventoryAssignment` at bin-tracked locations) |
 | `Receiving/TransferOrder` views then `POST /Receiving/TransferOrder/SaveScan` | `Controllers/Receiving/TransferOrderController.cs` | `PostTransferOrderIRCmd` then `SaveTOItemReceipt` then Restlet `script=1853` |
 | `Receiving/Returns` views then `POST /Receiving/Returns/SaveScan` | `Controllers/Receiving/ReturnsController.cs` | `PostReturnsIRCmd` then `SaveReturnsItemReceipt` then `POST .../transferOrder/{id}/!transform/itemReceipt?replace=...` |
 
@@ -145,6 +145,24 @@ PO, TO-Restlet, and Returns forward the mobile-supplied `UserId` unchecked.
 
 Guard status: PO dedupes, Returns does not; **no bin-presence, no `UserId > 0`,
 no IF-homogeneity check** anywhere in this path.
+
+### 2e. `replace=` resource missing from the body (fillers)
+
+`[INVALID_PARAMETER] Resource or sub-resource 'InventoryDetail' from the query
+parameter replace was not found in the request body`. Whenever the transform URL
+carries `?replace=item.inventoryDetail.inventoryAssignment`, NetSuite requires
+that sub-resource on **every** `item.items[]` entry. Zero-qty filler lines
+(`{orderLine, itemreceive:false}`) emitted without `inventoryDetail` therefore
+reject the whole save — the same failure class as packing case 1c/1a. Hit a
+**partially scanned** bin-tracked PO (diag `scannedLines=31 totalLines=52`); a
+fully scanned order (no fillers) passed, so it looked intermittent.
+
+**Fixed and field-verified 2026-10-19:** PO fillers at bin-tracked locations now
+carry an empty assignment (`inventoryAssignment.items: []`), gated on the same
+`isUsedBin` that builds the `?replace=` URL; Returns fillers carry it
+unconditionally (its `?replace=` is unconditional). Spec:
+`.github/specs/2026-10-19-po-item-receipt-filler-inventory-detail-fix.md`.
+**Not yet exercised:** a partial Returns scan.
 
 ---
 

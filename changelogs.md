@@ -5,6 +5,206 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https:-/keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.13] - 2026-10-19
+### Fixed
+- (Item Selection → STR / ITR / Supplier Return / Inventory Adjustment) The item
+  picker's search box accepted input but the grid never narrowed — it returned
+  the same rows as the unfiltered list. The search builds an OR-group of
+  `ItemNumber` / `Name` / `Description` `Contains` filters with
+  `LogicalOperator = OR` and **no `Property` of its own**, and
+  `SuiteQLQueryBuilder._parseFilter` resolved a filter's own `Property` *before*
+  checking whether it was a group. The empty group property resolved to nothing,
+  so the whole group was dropped (log: `Dropped grid filter on unmapped property
+  ''`) and its children were never parsed; the effective `WHERE` equaled the
+  unfiltered load's.
+- `_parseFilter` now resolves a group (a container with only children) before its
+  own `Property`, so an empty/absent group property can no longer discard it.
+  `_parseFilterGroup` also drops unresolved children before joining, so a
+  partially-resolved group can no longer emit malformed SQL such as `( OR … )`;
+  an all-dropped group collapses to null like any other dropped filter.
+- Ruled out during the investigation: the grid-result cache (its key serializes
+  the full `DataGridIntent`, search term included, so a new term is a cache miss)
+  and the input event wiring (`RadzenTextBox` 9.0.8 splats `@oninput` onto the
+  `<input>` when `Immediate=false`).
+
+### Added
+- `SuiteQLUnresolvedPropertyGuardTests` +2 cases: an OR-group with no `Property`
+  still applies its children; a group mixing a resolvable and an unresolvable
+  child keeps the resolvable predicate and emits no malformed SQL.
+
+### Operational
+- Server/query-builder only: deploys with the API; no mobile rollout needed (the
+  mobile search boxes build their own filters and were never affected).
+- Verified: `dotnet build Integration.NS` → 0 errors; filter/query test sweep →
+  109/109 passed.
+- **Client-confirmed 2026-10-19 (web):** searching an impossible term returns
+  "No records", a real term narrows the grid, and the `Dropped grid filter on
+  unmapped property ''` warning no longer logs.
+- Spec: `.github/specs/2026-10-19-item-search-or-group-filter-dropped-fix.md`.
+
+---
+
+## [0.12.12] - 2026-10-19
+### Fixed
+- (Receiving → PO Item Receipt) A **partially scanned** purchase order at a
+  bin-tracked location failed the last step with `[INVALID_PARAMETER] Resource
+  or sub-resource 'InventoryDetail' from the query parameter replace was not
+  found in the request body` (`[diag replace=True usedBin=True scannedLines=31
+  totalLines=52]`). This is the same failure the 2026-10-15 spec traced on the
+  `itemFulfillment` transform, now reproduced on `itemReceipt`.
+- **Root cause — the `?replace=` fix and the "post every open line" mobile
+  change were incoherent together.** On a bin-tracked location the URL declares
+  `replace=item.inventoryDetail.inventoryAssignment`, so NetSuite requires that
+  sub-resource on **every** entry in `item.items[]`. The mobile posts all open
+  lines (Req 2.1), the unscanned ones as zero-qty fillers — and
+  `PurchaseOrderIRPayloadDTO` emitted those fillers as
+  `{orderLine, itemreceive:false}` with **no** `inventoryDetail`. The body
+  carried the sub-resource on 31/52 entries and NetSuite rejected the whole
+  transform. A fully scanned order (no fillers) still passed, which is why the
+  failure looked intermittent.
+- `PurchaseOrderIRPayloadDTO.CreateForItemReceipt` now takes `isUsedBin` and,
+  when the location is bin-tracked, gives fillers an **empty assignment**
+  (`inventoryAssignment.items: []`) — the same field-proven shape the
+  fulfillment builders emit. `SavePOItemReceipt` passes the same
+  `Data.Any(x => x.IsLocationUsedBin)` flag that builds the `?replace=` URL, so
+  body and URL cannot drift. Non-bin PO posts are unchanged.
+- The **same latent defect** existed in the Returns Item Receipt builder:
+  `SaveReturnsItemReceipt` always posts with an unconditional `?replace=`, and
+  `ReturnsIRPayloadDTO` emitted detail-free fillers. Returns fillers now carry
+  the empty assignment unconditionally (a partial returns scan would have
+  failed identically). No signature change.
+- Corrected the 2026-10-19 PO line-fan-out spec, which had chosen to leave PO
+  fillers detail-free on the (now refuted) assumption that the `itemReceipt`
+  transform tolerates a detail-free filler.
+
+### Added
+- `PurchaseOrderIRPayloadDTOTests.Bin_tracked_orders_cover_every_entry_with_inventory_detail`
+  (theory, GOOD + BAD): a partially scanned bin-tracked order emits
+  `inventoryDetail` on every entry — the scanned line and the empty-assignment
+  filler.
+- `PurchaseOrderIRPayloadDTOTests.Non_bin_orders_leave_filler_lines_without_inventory_detail`:
+  the non-bin filler shape is unchanged.
+
+### Operational
+- **Client-confirmed working on 2026-10-19:** the partially scanned bin-tracked PO that
+  failed with the INVALID_PARAMETER replace error now posts. Server-side only: the API
+  redeploy was sufficient, **no mobile rollout needed** (the APK already posted every
+  open line — `totalLines=52 > scannedLines=31` in the failing diag).
+- The Returns Item Receipt filler (same remedy, unconditional) ships in source; a partial
+  returns scan has not yet been exercised, so treat Returns parity as unverified until it is.
+- Spec: `.github/specs/2026-10-19-po-item-receipt-filler-inventory-detail-fix.md`.
+
+---
+
+## [0.12.11] - 2026-10-19
+### Fixed
+- (Packing → STR, Web Item Receipt) Fulfilling a **partially fulfilled**
+  transfer order from the web STR Item Receipt page failed the last step with
+  `Error while posting GOOD TO Item Fulfillment` →
+  `Please configure the inventory detail for <item>`
+  (`[diag replace=True usedBin=True scannedLines=3 totalLines=561]`). The web
+  handler populated neither `IsClosed` nor `QuantityAlreadyShipped`, so the
+  server guard (`IsClosedFulfillmentLine` / `FindScansExceedingRemaining`) was
+  inert on the web path; the web pre-filter also used the packed-based
+  remaining, so closed lines survived and were emitted as `orderLine`
+  references and zero-qty fillers for lines the transform no longer contains.
+- Remaining is now `LineQuantity − QuantityAlreadyShipped`, matching the two
+  existing authorities (mobile `TransferOrderLineVM.NSLineQuantityRemaining`
+  and `PostTransferOrderDTO.RemainingQuantity`), and closed / fully-shipped
+  lines are excluded before mapping via `IsCompleted`. `IsClosed` and
+  `QuantityAlreadyShipped` are carried onto the DTO, re-arming the server
+  guard as defence-in-depth for stale clients and manually closed lines.
+- `DecodeTOItemFulfillmentLine` now resolves both NetSuite phrasings — `line N
+  of the item list` and `inventory detail for <item>.` — in the GOOD and BAD
+  TO catch blocks, so a failure names the offending item even when the message
+  carries no line index.
+
+### Added
+- `NetSuiteApiClientServiceTOFulfillmentDiagnosticsTests` (5 cases): both
+  phrasings, a dotted item name (`DEL MONTE P/A SLICED 1.5TINS 432G`),
+  resolution by `MaterialCode`, unmatched-name reporting, and a message with
+  neither marker.
+
+### Operational
+- **Client-confirmed successful on 2026-10-19:** the originally failing
+  partially fulfilled TO now saves from the web STR Item Receipt page, and no
+  `orderLine` for a closed line survives into the GOOD post.
+- Handler/server-side only: deploys with the API; no mobile rollout is needed.
+  **Not separately exercised:** an ordinary open TO at a bin-tracked location,
+  and a TO with `UoMRate < 1` (the now-armed over-scan guard compares
+  display-UoM scanned quantity against stock-UoM remaining — the same
+  assumption the mobile path has used since 2026-10-16).
+- Spec: `.github/specs/2026-10-19-web-str-packing-closed-line-guard-missing-fix.md`.
+
+---
+
+## [0.12.10] - 2026-10-19
+### Fixed
+- (Receiving → PO Item Receipt) An open purchase order at a bin-tracked
+  location failed the last step with `Please configure the inventory detail in
+  line 1 of the item list` (`[diag replace=True usedBin=True scannedLines=1
+  totalLines=1]`, and again with `scannedLines=20 totalLines=20`). This is the
+  same NetSuite text as the two 2026-10-17 PO fixes but a third route to it:
+  the PO line query, the mobile's line selection, and a missing pre-flight
+  guard.
+- **Root cause — the PO line query fanned a line out and could resolve the
+  wrong bin.** `NS_PurchaseOrder_Get_Items.sql` joined
+  `customrecord_dbti_vendor_bin_assignment` on the vendor alone (no item,
+  subsidiary or location, no grouping), so a vendor with N bin-assignment
+  records multiplied every PO line into N rows and could return a bin
+  belonging to a different item/location. The preferred-bin subquery was
+  ungrouped too. Both now GROUP BY and take `MIN`, mirroring the transfer-order
+  queries (`NS_TO_Get_Itemfulfillment_Items.sql`,
+  `NS_TO_x_Packing_Get_Items.sql`); the vendor subquery is scoped through
+  `itemvendor` (`preferredvendor = 'T'`) by item, subsidiary and location.
+- The mobile `PurchaseOrderItemView.SaveScan` posted only the scanned lines, so
+  the payload's item sublist was a partial subset of the transform's open
+  lines. It now posts every open line, sending the unscanned ones as
+  detail-free fillers (`isReceived: false`) — the shape the production Returns
+  receipt uses (Req 2.1 of the 2026-10-08 mobile PO line-selection spec). The
+  itemReceipt transform tolerates these fillers, so the transfer-order
+  empty-assignment shape was deliberately **not** ported.
+- `PurchaseOrderIRPayloadDTO.CreateForItemReceipt` now prefers the scanned row
+  when a line still repeats, instead of trusting query row order (the same
+  tie-break `DeduplicateFulfillmentLines` applies).
+- `SavePOItemReceipt` gained the missing-bin pre-flight guard the transfer-order
+  path already had: at a bin-tracked location a scanned line with no resolvable
+  vendor or preferred bin now fails before the NetSuite call, naming the WMS
+  line, material and location, rather than surfacing the cryptic 400. It judges
+  each line on its own `IsLocationUsedBin` (a PO can mix locations) and each
+  good/bad bucket separately (the two posts are separate NetSuite calls).
+- **Confirmed business rules (2026-10-19):** the vendor bin is resolved from the
+  item's preferred vendor regardless of which vendor the PO was raised against,
+  and when no vendor bin exists at the location the line falls back to the
+  item's preferred bin. The SQL and payload therefore stay as described above.
+- **Diagnostics.** Both PO catch blocks now emit `build={BuildStamp}` and a
+  decoded `lineN=WMSLine … usedBin=… vendorBin=… preferredBin=… qty=…` segment
+  via the new `DecodeItemReceiptLine`, which indexes the same sublist the
+  payload builder emits. The counters fingerprint the mobile build only in one
+  direction: `totalLines > scannedLines` proves the payload carries unscanned
+  fillers, but equality is inconclusive (a fully-scanned order reports equal on
+  either build).
+
+### Operational
+- The SQL and server changes deploy by redeploying the API; the mobile
+  change (post every open line) needs an APK rollout. The counters fingerprint
+  the build in one direction only: `totalLines > scannedLines` proves the
+  payload carries unscanned fillers, but equality is inconclusive (a
+  fully-scanned order reports equal on either build).
+- **Client-confirmed successful on 2026-10-19 (API and APK deployed):** the
+  previously failing open PO at a bin-tracked location now posts and the mobile
+  Item Receipt completes. Where a guard fires, the diagnostic `lineN=…` segment
+  names the offending WMS line, material and location.
+- Verified to compile: `dotnet build Integration.NS` and `dotnet build
+  Mobile.MAUI/Mobile.MAUI.csproj -f net9.0-android` → 0 errors. Filtered PO test
+  run → 53/53 passed.
+- **Not separately exercised:** a vendor with several bin assignments / an item
+  with several preferred bins (expected: one line per PO line), and a
+  mixed-location PO (its non-bin lines must not be blocked by the guard).
+- Spec: `.github/specs/2026-10-19-po-item-receipt-line-fanout-and-fillers-fix.md`.
+
+---
+
 ## [0.12.9] - 2026-10-17
 ### Fixed
 - (Receiving → Mobile) Operators received a false "Unknown barcode" toast while

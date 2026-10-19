@@ -1,7 +1,7 @@
 # Fix: Web STR Packing Item Receipt ignores closed lines (missing guard fields)
 
 Date: 2026-10-19
-Status: Fix in source, build clean (Web.BlazorServer + Api.CoreWebAPI), 423/423 tests green — **awaiting client verification on the original failing TO**
+Status: Fix in source, build clean (Web.BlazorServer + Api.CoreWebAPI), 423/423 tests green — **client-verified 2026-10-19: the original failing TO now saves from the web STR Item Receipt page**
 Mode: Bugfix — web counterpart of the mobile TO closed-line guard
 Scope: Packing module — web STR Item Receipt (`PackingItemReceiptCreatePage` → `ItemReceiptPackingHandler` → `PostTransferOrderIFCmd` → `SaveTOItemFulfillment` → `transferOrder/{id}/!transform/itemFulfillment`), plus the shared TO fulfillment diagnostics decoder
 Related:
@@ -165,7 +165,7 @@ The behavioural check that matters most is (1): destructure the logged payload a
 ## Residual Risk
 
 1. **Medium — the sibling web VRA/Returns packing path has the same gap and is untouched.** `VendorReturnAuthorizationItemReceiptPackingHandler.cs:49` uses the identical packed-based pre-filter, and its `PostVendorReturnAuthorizationDTO` has **no** `IsClosed` / `QuantityAlreadyShipped` fields at all, so its guard cannot be armed without a DTO change. It routes to `SaveVRAItemFulfillment`, so it does not produce this exact toast. Tracked as separate work; not fixed here.
-2. **Medium — no live verification, and the failing order's state is unconfirmed.** The code gaps are objective, but I could not confirm the reporting order was "Partially Fulfilled" nor reproduce `totalLines=561` from source. The matrix is derived, not observed.
+2. **Low — client-reported verification; not reproduced in this session.** The client confirmed on 2026-10-19 that the original failing TO now saves, but this session could not reproduce `totalLines=561` or destructure the posted payload. The code gaps are objective; the behaviour matrix remains derived, not observed.
 3. **Low — the web handler itself has no unit test.** There is no `Web.BlazorServer` test project; the handler change is covered only indirectly (server guard tests + the new decoder tests). A handler test with a fake `ISender` would lock the payload assertion.
 4. **Low — a pre-existing stock-vs-display unit assumption is now live on web.** `FindScansExceedingRemaining` compares `ScannedQuantity` (display UoM) against `RemainingQuantity` (stock UoM). It was inert on web before (remaining was `LineQuantity − 0`); now it can fire. The mobile path has shared this assumption since 2026-10-16 without a reported false rejection, so it is expected benign, but a TO with `UoMRate < 1` is unverified.
 5. **Low — the item-name decoder depends on `MaterialName` formatting.** A localized or trimmed name would fail to match; the fallback reports the raw name rather than dropping it.
@@ -179,14 +179,14 @@ The behavioural check that matters most is (1): destructure the logged payload a
 | 3 | `DecodeTOItemFulfillmentLine` + wire both TO catch blocks | **Done** |
 | 4 | Decoder regression suite (5 cases) | **Done** |
 | 5 | `graphify update .` | **Done** |
-| 6 | Verify the original failing TO saves; destructure the payload | **Open — client** |
+| 6 | Verify the original failing TO saves; destructure the payload | **Done — client-confirmed 2026-10-19** |
 | 7 | Verify an open and a partially fulfilled TO are unchanged | **Open — client** |
 | 8 | File and fix the VRA/Returns web packing gap (DTO + handler) | Open — recommended |
 | 9 | Add a `Web.BlazorServer` handler test (fake `ISender`) | Open — recommended |
 
 ## Validation Limits
 
-- **No live NetSuite verification.** Conclusions rest on source reading; the behaviour matrix is derived.
-- **The failing order's fulfilment state is unconfirmed** — the single link between the code gaps and the observed 400.
+- **Live verification is client-reported** (2026-10-19); this session could not reproduce the failing order or destructure the payload. The behaviour matrix is derived from source reading.
+- **The failing order's fulfilment state was inferred** from the reported `scannedLines=3 totalLines=561`, not observed.
 - **The web handler change is not unit-tested** (no test project); the server guard and decoder are.
 - **Scope is the web STR Item Receipt path only.** The VRA/Returns web packing path remains unguarded (residual risk 1).

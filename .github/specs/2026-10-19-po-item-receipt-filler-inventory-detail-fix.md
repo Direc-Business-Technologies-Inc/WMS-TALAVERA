@@ -1,7 +1,7 @@
 # Fix: PO Item Receipt fillers omit `inventoryDetail` under `?replace=` (INVALID_PARAMETER on partial scans)
 
 Date: 2026-10-19
-Status: Fix in source, builds clean (`Integration.NS.Tests`), payload + full suite green — **awaiting client verification**
+Status: **VERIFIED in field on 2026-10-19** — the originally failing partially scanned PO Item Receipt now posts. Fix in source, builds clean (`Integration.NS.Tests`), payload + full suite green
 Mode: Bugfix / RCA / Follow-up to [2026-10-17 PO `?replace=` fix](2026-10-17-po-item-receipt-missing-inventory-assignment-replace.md) and [2026-10-19 PO line fan-out & fillers fix](2026-10-19-po-item-receipt-line-fanout-and-fillers-fix.md)
 Scope: Receiving module — GOOD/BAD PO Item Receipt (`SavePOItemReceipt` → `purchaseOrder/{id}/!transform/itemReceipt`) payload builder, and the latent identical defect in the Returns Item Receipt builder
 Related:
@@ -113,9 +113,9 @@ regardless of bin tracking. No signature change.
 
 | Location | Scanned line | Filler line (qty 0) | URL | Status |
 |---|---|---|---|---|
-| Bin-tracked | `+ inventoryDetail.inventoryAssignment[status, qty, binNumber]` | `+ inventoryDetail.inventoryAssignment.items: []` | `?replace=…inventoryAssignment` | **Awaiting client repro** |
+| Bin-tracked | `+ inventoryDetail.inventoryAssignment[status, qty, binNumber]` | `+ inventoryDetail.inventoryAssignment.items: []` | `?replace=…inventoryAssignment` | **Verified — PO posts** |
 | Not bin-tracked | `+ inventoryDetail.inventoryAssignment[status, qty, binNumber:null]` | `{orderLine, itemreceive:false}` (no detail) | plain transform | unchanged from today |
-| Returns (any) | `+ inventoryDetail.inventoryAssignment[...]` | `+ inventoryDetail.inventoryAssignment.items: []` | `?replace=…inventoryAssignment` | **Awaiting client repro** |
+| Returns (any) | `+ inventoryDetail.inventoryAssignment[...]` | `+ inventoryDetail.inventoryAssignment.items: []` | `?replace=…inventoryAssignment` | Fixed; a partial returns scan not yet exercised |
 
 ## Tests
 
@@ -129,18 +129,23 @@ regardless of bin tracking. No signature change.
   `NetSuiteApiClientServiceTokenTests.HttpClient_has_explicit_timeout_of_100_seconds_by_default`, a
   known timing-sensitive test that passes in isolation (same behaviour on the pristine tree).
 
+## Field Result
+
+**Confirmed 2026-10-19:** the partially scanned bin-tracked PO that produced
+`[INVALID_PARAMETER] Resource or sub-resource 'InventoryDetail' … scannedLines=31 totalLines=52`
+now posts successfully. The empty-assignment filler is accepted by the `itemReceipt` transform,
+closing this error class for the PO receipt path. The Returns Item Receipt filler (same remedy,
+unconditional) is in source but has not yet been exercised by a partial returns scan.
+
 ## Verification Plan
 
-Must be confirmed on the client; no NetSuite sandbox was available in this session.
+Confirmed item below; the rest remain optional sanity checks for a future cycle.
 
-1. **A partially scanned bin-tracked PO** (the field case: `totalLines > scannedLines`) — must post,
-   and the receipt must land in the resolved bin.
+1. ~~**A partially scanned bin-tracked PO** (the field case: `totalLines > scannedLines`) — must
+   post, and the receipt must land in the resolved bin.~~ **DONE — posts.**
 2. **A fully scanned bin-tracked PO** — must still post (no regression).
 3. **A non-bin PO** — must still post with the plain transform (unchanged shape).
-4. **A partially scanned returns receipt** — must post (latent defect closed).
-5. **Any remaining failure** — the diag must carry `build=…`; a body-level
-   `INVALID_PARAMETER … not found in the request body` with `replace=True` means a filler still
-   escaped coverage.
+4. **A partially scanned returns receipt** — should post (latent defect closed) — not yet exercised.
 
 ## Decisions and Alternatives Rejected
 
@@ -153,9 +158,10 @@ Must be confirmed on the client; no NetSuite sandbox was available in this sessi
 
 ## Residual Risk
 
-1. **Medium — not verified live.** The remedy is field-proven on `itemFulfillment` (2026-10-15
-   Transaction A passed with `items: []`), but `itemReceipt` acceptance of the empty filler
-   assignment is inferred from the same transform family, not observed.
+1. **Resolved for PO — the PO receipt is verified in field (2026-10-19).** The remedy (empty
+   assignment on fillers) was field-proven on `itemFulfillment` (2026-10-15) and is now confirmed
+   live on `itemReceipt`. **Returns** uses the same shape but its replace param is unconditional
+   and a partial returns scan has not been exercised — exercise it before assuming parity.
 2. **Low — BAD-before-GOOD with no compensation** (pre-existing, unchanged). A failed GOOD post can
    leave the PO half-received; reconcile in NetSuite before re-testing.
 3. **Low — the `[diag …]` markers stay** until the receiving flows sign off.
@@ -164,10 +170,10 @@ Must be confirmed on the client; no NetSuite sandbox was available in this sessi
 
 | # | Action | Status |
 |---|---|---|
-| 1 | Empty-assignment filler coverage in `PurchaseOrderIRPayloadDTO` | **Done** |
-| 2 | Pass the URL's `isUsedBin` into the PO builder | **Done** |
-| 3 | Empty-assignment filler coverage in `ReturnsIRPayloadDTO` | **Done** |
+| 1 | Empty-assignment filler coverage in `PurchaseOrderIRPayloadDTO` | **Done — verified in field** |
+| 2 | Pass the URL's `isUsedBin` into the PO builder | **Done — verified in field** |
+| 3 | Empty-assignment filler coverage in `ReturnsIRPayloadDTO` | **Done** (partial returns scan not yet exercised) |
 | 4 | Regression tests (bin-tracked full coverage, non-bin unchanged) | **Done** |
-| 5 | Verify a partially scanned bin-tracked PO posts, in the correct bin | Open — client |
-| 6 | Verify a partially scanned returns receipt posts | Open — client |
+| 5 | Verify a partially scanned bin-tracked PO posts, in the correct bin | **Done — 2026-10-19, posts** |
+| 6 | Verify a partially scanned returns receipt posts | Open — client (parity check) |
 | 7 | Correct the 2026-10-19 spec's "itemReceipt tolerates detail-free filler" assumption | **Done** — correction note added |
