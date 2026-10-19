@@ -1399,6 +1399,38 @@ namespace Integration.NS.Services
             return offenders;
         }
 
+        /// <summary>
+        /// Decodes a transfer-order itemFulfillment rejection into the offending DTO row so a
+        /// field failure names the item without a server-logs round trip. NetSuite emits two
+        /// phrasings: "line N of the item list" (an inventoryDetail without a bin, where N is
+        /// the position in the payload's item sublist) and "Please configure the inventory
+        /// detail for &lt;item name&gt;." (no position). The second is resolved by MaterialName
+        /// / MaterialCode; the item name may itself contain '.', so the capture runs to the end
+        /// of the message and is trimmed of the trailing sentence period rather than stopping
+        /// at the first dot.
+        /// </summary>
+        internal static string DecodeTOItemFulfillmentLine(string message, List<PostTransferOrderDTO> lines)
+        {
+            var nsLineMatch = Regex.Match(message, @"line (\d+) of the item list");
+            if (nsLineMatch.Success && int.TryParse(nsLineMatch.Groups[1].Value, out var nsLine) && nsLine >= 1 && nsLine <= lines.Count)
+            {
+                var offender = lines[nsLine - 1];
+                return $" | line{nsLine}=WMSLine {offender.LineSequenceNumber} {offender.MaterialCode} - {offender.MaterialName} vendorBin={offender.NetsuiteMaterialVendorAssignedBin} preferredBin={offender.NetsuiteMaterialPrefferedBinId} qty={offender.ScannedQuantity}";
+            }
+
+            var itemMatch = Regex.Match(message, @"inventory detail for (.+?)\s*$");
+            if (!itemMatch.Success) return string.Empty;
+
+            var itemName = itemMatch.Groups[1].Value.TrimEnd('.', ' ');
+            var matched = lines.FirstOrDefault(x =>
+                string.Equals(x.MaterialName, itemName, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(x.MaterialCode, itemName, StringComparison.OrdinalIgnoreCase));
+
+            return matched is null
+                ? $" | item=\"{itemName}\" (not matched to a posted line)"
+                : $" | item={matched.MaterialCode} - {matched.MaterialName} WMSLine {matched.LineSequenceNumber} vendorBin={matched.NetsuiteMaterialVendorAssignedBin} preferredBin={matched.NetsuiteMaterialPrefferedBinId} qty={matched.ScannedQuantity}";
+        }
+
         public async Task<bool> SaveTOItemFulfillment(List<PostTransferOrderDTO> Data)
         {
             Data = DeduplicateFulfillmentLines(Data, x => x.LineSequenceNumber, x => x.IsBad, x => x.ScannedQuantity);
@@ -1471,15 +1503,8 @@ namespace Integration.NS.Services
                 catch (Exception ex)
                 {
                     logger.LogError(ex, "BAD TO Item Fulfillment failed. Url: {Url}. Payload: {Payload}", url, jsonStringBad);
-                    var diag = $"[diag replace={url.Contains("replace=")} usedBin={isUsedBin} scannedLines={badTO.Count(x => x.ScannedQuantity > 0)} totalLines={badTO.Count}]";
-
-                    // Decode NetSuite's "line N of the item list" into the actual DTO row so field tests identify the offender without server logs.
-                    var nsLineMatch = Regex.Match(ex.Message, @"line (\d+) of the item list");
-                    if (nsLineMatch.Success && int.TryParse(nsLineMatch.Groups[1].Value, out var nsLine) && nsLine >= 1 && nsLine <= badTO.Count)
-                    {
-                        var offender = badTO[nsLine - 1];
-                        diag += $" | line{nsLine}=WMSLine {offender.LineSequenceNumber} {offender.MaterialCode} - {offender.MaterialName} vendorBin={offender.NetsuiteMaterialVendorAssignedBin} preferredBin={offender.NetsuiteMaterialPrefferedBinId} qty={offender.ScannedQuantity}";
-                    }
+                    var diag = $"[diag replace={url.Contains("replace=")} usedBin={isUsedBin} scannedLines={badTO.Count(x => x.ScannedQuantity > 0)} totalLines={badTO.Count}]"
+                        + DecodeTOItemFulfillmentLine(ex.Message, badTO);
 
                     throw new Exception($"Error while posting BAD TO Item Fulfillment. {ex.Message} {diag}", ex);
                 }
@@ -1522,15 +1547,8 @@ namespace Integration.NS.Services
                 catch (Exception ex)
                 {
                     logger.LogError(ex, "GOOD TO Item Fulfillment failed. Url: {Url}. Payload: {Payload}", url, jsonStringGood);
-                    var diag = $"[diag replace={url.Contains("replace=")} usedBin={isUsedBin} scannedLines={goodTO.Count(x => x.ScannedQuantity > 0)} totalLines={goodTO.Count}]";
-
-                    // Decode NetSuite's "line N of the item list" into the actual DTO row so field tests identify the offender without server logs.
-                    var nsLineMatch = Regex.Match(ex.Message, @"line (\d+) of the item list");
-                    if (nsLineMatch.Success && int.TryParse(nsLineMatch.Groups[1].Value, out var nsLine) && nsLine >= 1 && nsLine <= goodTO.Count)
-                    {
-                        var offender = goodTO[nsLine - 1];
-                        diag += $" | line{nsLine}=WMSLine {offender.LineSequenceNumber} {offender.MaterialCode} - {offender.MaterialName} vendorBin={offender.NetsuiteMaterialVendorAssignedBin} preferredBin={offender.NetsuiteMaterialPrefferedBinId} qty={offender.ScannedQuantity}";
-                    }
+                    var diag = $"[diag replace={url.Contains("replace=")} usedBin={isUsedBin} scannedLines={goodTO.Count(x => x.ScannedQuantity > 0)} totalLines={goodTO.Count}]"
+                        + DecodeTOItemFulfillmentLine(ex.Message, goodTO);
 
                     throw new Exception($"Error while posting GOOD TO Item Fulfillment. {ex.Message} {diag}", ex);
                 }
