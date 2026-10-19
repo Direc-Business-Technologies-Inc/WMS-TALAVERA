@@ -303,4 +303,35 @@ public class PurchaseOrderIRPayloadDTOTests
         AssertNotReceived(LineEntry(document, 1), 1);
         AssertNotReceived(LineEntry(document, 2), 2);
     }
+
+    // Regression - the receiving query fans one PO line into several rows when the item
+    // has more than one preferred bin at the location or the vendor has several bin
+    // assignments. Only one of those rows carries the operator's scan; the payload must
+    // receive THAT row, not an unscanned duplicate that would silently drop the receipt
+    // (or emit a null bin and trip NetSuite's "configure the inventory detail").
+    [Fact]
+    public void Fanned_out_line_receives_the_scanned_duplicate_and_its_bin()
+    {
+        var lines = new List<PostPurchaseOrderDTO>
+        {
+            Line(1, isBad: false, scannedQuantity: 0, isLocationUsedBin: true, vendorBinAssignmentId: 0, preferredBinId: 0),
+            Line(1, isBad: false, scannedQuantity: 4, isLocationUsedBin: true, vendorBinAssignmentId: 55, preferredBinId: 0)
+        };
+
+        using var document = Serialize(lines, 1);
+
+        Assert.Equal(1, Items(document).Count);
+
+        var received = LineEntry(document, 1);
+        Assert.True(received.GetProperty("itemreceive").GetBoolean());
+        Assert.Equal(4m, received.GetProperty("quantity").GetDecimal());
+
+        var binNumber = received
+            .GetProperty("inventoryDetail")
+            .GetProperty("inventoryAssignment")
+            .GetProperty("items")[0]
+            .GetProperty("binNumber");
+
+        Assert.Equal("55", binNumber.GetProperty("id").GetString());
+    }
 }

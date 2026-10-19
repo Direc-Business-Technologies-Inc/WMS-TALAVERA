@@ -670,16 +670,16 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
 
     async Task SaveScan()
     {
+        // Post every OPEN line, not just the scanned ones. The PO !transform/itemReceipt seeds
+        // its item sublist from the whole set of open lines, so a body carrying only the scanned
+        // entries addresses a partial sublist and NetSuite rejects the save ("configure the
+        // inventory detail in line N"). GoodPOItems already holds every open line; the unscanned
+        // ones travel as detail-free fillers (isReceived=false) exactly as the Returns receipt
+        // does. Scanned bad rows are appended so a line scanned only as bad is still received.
+        // Over-scans are left to the server's remaining-quantity guard, which names the line.
         POItems = GoodPOItems
-            .Where(g =>
-            {
-                var badQty = BadPOItems.FirstOrDefault(b =>
-                    b.LineSequenceNumber == g.LineSequenceNumber)?.ScannedQuantity ?? 0;
-
-                return g.ScannedQuantity > 0 &&
-                       g.ScannedQuantity + badQty <= g.NSLineQuantityReceived;
-            })
-            .Concat(BadPOItems.Where(x => x.ScannedQuantity > 0))
+            .Where(g => g.NSLineQuantityReceived != 0)
+            .Concat(BadPOItems.Where(x => x.ScannedQuantity > 0 && x.NSLineQuantityReceived != 0))
             .Select(x => new PurchaseOrderLineVM
             {
                 NetsuiteOrderInternalId = x.NetsuiteOrderInternalId,

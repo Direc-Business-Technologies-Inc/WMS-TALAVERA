@@ -42,6 +42,21 @@ namespace Integration.NS.Services
 
         private static readonly string AccountId = Environment.GetEnvironmentVariable("ACCOUNT_ID") ?? string.Empty;
 
+        /// <summary>
+        /// Identifies the running server build. It is embedded in the receiving diagnostics
+        /// string so a field failure can be tied to the deployed assembly without a logs round
+        /// trip. The mobile build is fingerprinted by the diag's scannedLines / totalLines
+        /// counts, but only in one direction: a payload that carries unscanned fillers reports
+        /// totalLines larger than scannedLines. Equal counts are inconclusive - a fully-scanned
+        /// order reports them equal on either build - so do not treat equality as proof of a
+        /// stale client.
+        /// </summary>
+        internal static readonly string BuildStamp =
+            typeof(NetSuiteApiClientService).Assembly
+                .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
+            ?? typeof(NetSuiteApiClientService).Assembly.GetName().Version?.ToString()
+            ?? "unknown";
+
         private static readonly string ItemFulfillmentUrl = $"https://{AccountId}.suitetalk.api.netsuite.com/services/rest/record/v1/{{0}}/{{1}}/!transform/itemFulfillment?replace=item.inventoryDetail.inventoryAssignment";
         private static readonly string ItemFulfillmentUrlNotUsedBin = $"https://{AccountId}.suitetalk.api.netsuite.com/services/rest/record/v1/{{0}}/{{1}}/!transform/itemFulfillment?replace=item.inventoryDetail.inventoryAssignment";
         private static readonly string ItemFulfillmentUrlNoReplace = $"https://{AccountId}.suitetalk.api.netsuite.com/services/rest/record/v1/{{0}}/{{1}}/!transform/itemFulfillment";
@@ -955,6 +970,17 @@ namespace Integration.NS.Services
             var isUsedBin = Data.Any(x => x.IsLocationUsedBin);
             string url = BuildPOItemReceiptUrl(isUsedBin, orderId);
 
+            // A scanned line at a bin-tracked location whose inventoryDetail carries no binNumber
+            // is rejected by NetSuite with "configure the inventory detail in line N". Fail here,
+            // naming the WMS line, material and location, instead of surfacing that cryptic 400
+            // after the post.
+            var missingBin = FindPOMissingBinLines(Data);
+
+            if (missingBin.Count > 0)
+            {
+                throw new Exception($"Cannot post PO Item Receipt: scanned lines at bin-tracked locations have no resolved bin: {string.Join("; ", missingBin)}. Reload the order; if the bin is still missing, ask Master Data to set a Vendor Bin Assignment or a preferred bin for these items.");
+            }
+
             var badPO = Data.Where(x => x.IsBad && x.ScannedQuantity > 0).ToList();
 
             if (badPO.Any())
@@ -971,7 +997,8 @@ namespace Integration.NS.Services
                 catch (Exception ex)
                 {
                     logger.LogError(ex, "BAD PO Item Receipt failed. Url: {Url}. Payload: {Payload}", url, jsonStringBad);
-                    var diag = $"[diag replace={url.Contains("replace=")} usedBin={isUsedBin} scannedLines={badPO.Count(x => x.ScannedQuantity > 0)} totalLines={Data.Count}]";
+                    var diag = $"[diag replace={url.Contains("replace=")} usedBin={isUsedBin} scannedLines={badPO.Count(x => x.ScannedQuantity > 0)} totalLines={Data.Count} build={BuildStamp}]"
+                        + DecodeItemReceiptLine(ex.Message, Data, isGoodPost: false);
                     throw new Exception($"Error while posting BAD PO Item Receipt. {ex.Message} {diag}", ex);
                 }
             }
@@ -992,7 +1019,8 @@ namespace Integration.NS.Services
                 catch (Exception ex)
                 {
                     logger.LogError(ex, "GOOD PO Item Receipt failed. Url: {Url}. Payload: {Payload}", url, jsonStringGood);
-                    var diag = $"[diag replace={url.Contains("replace=")} usedBin={isUsedBin} scannedLines={goodPO.Count(x => x.ScannedQuantity > 0)} totalLines={Data.Count}]";
+                    var diag = $"[diag replace={url.Contains("replace=")} usedBin={isUsedBin} scannedLines={goodPO.Count(x => x.ScannedQuantity > 0)} totalLines={Data.Count} build={BuildStamp}]"
+                        + DecodeItemReceiptLine(ex.Message, Data, isGoodPost: true);
                     throw new Exception($"Error while posting GOOD PO Item Receipt. {ex.Message} {diag}", ex);
                 }
             }
@@ -1069,6 +1097,70 @@ namespace Integration.NS.Services
             }
 
             return offenders;
+        }
+
+        /// <summary>
+        /// Names every scanned line that will post to a bin-tracked location without a
+        /// resolvable bin. A purchase order can carry lines at different locations, so the bin
+        /// requirement is judged on the line's own <see cref="PostPurchaseOrderDTO.IsLocationUsedBin"/>,
+        /// never on an order-level flag - otherwise a non-bin line on a mixed-location PO is
+        /// falsely rejected. The grouping mirrors the payload builder: one representative per
+        /// (line, quality) bucket, because the good and bad posts are separate NetSuite calls
+        /// and each can fail on its own row.
+        /// </summary>
+        internal static List<string> FindPOMissingBinLines(List<PostPurchaseOrderDTO> lines) =>
+            lines
+                .Where(x => x.ScannedQuantity > 0)
+                .GroupBy(x => (x.LineSequenceNumber, x.IsBad))
+                .Select(g => g
+                    .OrderByDescending(x => x.ScannedQuantity > 0)
+                    .ThenByDescending(x => x.ScannedQuantity)
+                    .First())
+                .Where(x => RequiresBin(x.IsLocationUsedBin, x.ScannedQuantity, x.VendorBinAssignmentId, x.NetsuiteMaterialPrefferedBinId))
+                .Select(x => $"WMS line {x.LineSequenceNumber} ({x.MaterialCode} - {x.MaterialName}) at {x.LocationName}")
+                .ToList();
+
+        /// <summary>
+        /// Decodes NetSuite's "line N of the item list" rejection into the offending DTO row so a
+        /// field failure identifies the item without a server-logs round trip, mirroring the item
+        /// fulfillment decoder. Returns an empty string when the message does not carry the marker.
+        /// </summary>
+        /// <remarks>
+        /// The index is 1-based and addresses the payload's <c>item.items</c> sublist, which the
+        /// builder produces by grouping the WHOLE list by LineSequenceNumber in first-appearance
+        /// order (one entry per group), so the caller must pass the same list it handed to
+        /// <c>CreateForItemReceipt</c> - not the good/bad bucket. The per-group representative and
+        /// the tie-break below are kept identical to that builder; indexing the raw, ungrouped
+        /// list would drift on a fanned-out or good/bad split line.
+        /// </remarks>
+        internal static string DecodeItemReceiptLine(string message, List<PostPurchaseOrderDTO> lines, bool isGoodPost)
+        {
+            var match = Regex.Match(message, @"line (\d+) of the item list");
+            if (!match.Success || !int.TryParse(match.Groups[1].Value, out var itemListLine)) return string.Empty;
+
+            var postable = lines
+                .GroupBy(x => x.LineSequenceNumber)
+                .Select(group =>
+                {
+                    var postBucket = isGoodPost
+                        ? group.Where(x => !x.IsBad)
+                        : group.Where(x => x.IsBad);
+
+                    return postBucket
+                            .OrderByDescending(x => x.ScannedQuantity > 0)
+                            .ThenByDescending(x => x.ScannedQuantity)
+                            .FirstOrDefault()
+                        ?? group
+                            .OrderByDescending(x => x.ScannedQuantity > 0)
+                            .ThenByDescending(x => x.ScannedQuantity)
+                            .First();
+                })
+                .ToList();
+
+            if (itemListLine < 1 || itemListLine > postable.Count) return string.Empty;
+
+            var offender = postable[itemListLine - 1];
+            return $" | line{itemListLine}=WMSLine {offender.LineSequenceNumber} {offender.MaterialCode} - {offender.MaterialName} usedBin={offender.IsLocationUsedBin} vendorBin={offender.VendorBinAssignmentId} preferredBin={offender.NetsuiteMaterialPrefferedBinId} qty={offender.ScannedQuantity}";
         }
 
         public async Task<bool> SaveTOItemReceipt(List<PostTransferOrderDTO> Data, int TONetsuiteOrderInternalId, int userId, string remarks)
@@ -1255,13 +1347,14 @@ namespace Integration.NS.Services
         /// True when a posted line must carry a bin. Only bin-tracked locations require one.
         /// </summary>
         /// <remarks>
-        /// Both bin ids reach the WMS through LEFT JOINs in the packing scripts, so a
-        /// non-bin-tracked location resolves them to 0 by construction. An ungated check
-        /// therefore rejects a legitimate save and tells the operator the location is
-        /// bin-tracked when it is not - e.g. SELLING AREA - CAUAYAN, where usebins = 'F'.
-        /// Gate on the same header-level isUsedBin that drives binNumber and the ?replace=
-        /// URL, never per-line: a per-line gate would pass validation while the transform
-        /// still demands inventoryDetail for the whole save.
+        /// Callers pass the flag that applies to the line being posted. The transfer-order paths
+        /// pass the order-level flag because an order has one location; the purchase-order paths
+        /// pass the line's own flag because a PO can carry lines at different locations. Both bin
+        /// ids reach the WMS through LEFT JOINs in the queries, so a non-bin-tracked location
+        /// resolves them to 0 by construction - hence the flag gate, which keeps a legitimate
+        /// save from being told the location is bin-tracked when it is not (e.g. SELLING AREA -
+        /// CAUAYAN, where usebins = 'F'). Passed per line, it also avoids falsely rejecting a
+        /// non-bin line on a mixed-location PO.
         /// </remarks>
         internal static bool RequiresBin(bool isUsedBin, decimal scannedQuantity, int vendorAssignedBin, int preferredBin) =>
             isUsedBin && scannedQuantity > 0 && vendorAssignedBin == 0 && preferredBin == 0;
