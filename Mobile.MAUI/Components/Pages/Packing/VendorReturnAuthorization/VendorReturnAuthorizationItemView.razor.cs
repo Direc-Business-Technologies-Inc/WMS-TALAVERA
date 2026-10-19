@@ -16,8 +16,6 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
     [Parameter]
     public string OrderNumber { get; set; }
 
-    private IJSObjectReference JsObj { get; set; }
-
     AppAction<List<VendorReturnAuthorizationLineVM>> ActionGetVRAItems { get; set; }
     AppAction<List<ItemBarcodesPerUoMVM>> ActionGetItemBarcodes { get; set; }
     AppAction ActionUpdateStartTime { get; set; }
@@ -228,12 +226,6 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
             }).ToList();
 
             await ActionFactory.ExecuteAppActionAsync(ActionGetItemBarcodes);
-        }
-
-        if (GoodVRAItems.Count > 0 && JsObj is null)
-        {
-            JsObj = await Js.InvokeAsync<IJSObjectReference>("import", "./js/IntersectionObserver.js");
-            await InitLastScannedPanel(JsObj);
         }
     }
 
@@ -530,8 +522,6 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
 
                 LastScanned = goodLine;
             }
-
-            await RevealLastScanned();
 
             ScanCount++;
             //ChangeWeight = null; // reset the ChangeWeight after each scan
@@ -1005,28 +995,6 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
     {
         MarkScansClean();
         BroadcastService.BroadcastReceived -= HandleItemScan;
-
-        if (JsObj is not null)
-        {
-            try
-            {
-                DisposeLastScannedPanel();
-                await JsObj.InvokeVoidAsync("Dispose");
-            }
-            catch
-            {
-                // ignore cleanup errors
-            }
-
-            try
-            {
-                await JsObj.DisposeAsync();
-            }
-            finally
-            {
-                JsObj = null;
-            }
-        }
     }
 
     #region Button States

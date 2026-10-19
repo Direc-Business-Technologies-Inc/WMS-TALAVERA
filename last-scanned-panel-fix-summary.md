@@ -3,6 +3,7 @@
 **Date:** 2026-10-19
 **Branch:** *not created yet* — see Notes
 **Issue:** On mobile Packing, the "Last Scanned" panel did not appear when an item was scanned. It stayed hidden until **Save** was pressed, and when it did appear it slid down slowly.
+**Final behaviour (per client):** the panel is pinned at the top and stays visible. It must never hide on its own.
 
 ## Root causes
 
@@ -13,38 +14,38 @@ Two separate bugs, both in our code. **Not** a network or connection issue — n
 
 ## Fix
 
-- **Shows on scan.** The scan handler now calls `RevealLastScanned()` the moment an item is scanned, so the panel drops down immediately.
-- **Hides on scroll.** A passive scroll listener hides it again once the user scrolls past 80px, so it never sits on top of the item list.
-- **Smooth animation.** The panel now animates `transform` instead of `top`. Transforms are handled by the graphics card and cost no layout, so the slide is smooth on cheap devices.
-- **Shared logic.** Implemented once in `BaseComponent` instead of copy-pasted into six pages.
+The client asked for the panel to be simply pinned at the top, so the whole show/hide mechanism was deleted rather than patched:
+
+- **Removed the JavaScript entirely.** `ObserveRecentScanned`, `ShowLastScanned`, `ObserveLastScannedScroll` and `UnObserveLastScannedScroll` are gone, along with the module state they needed. The broken `IntersectionObserver` trigger no longer exists.
+- **Panel is now pure CSS.** `.recent-scanned-floating` is fixed at the top and never moves. No animation, so the expensive reflow is gone by definition.
+- **Visibility is a plain Blazor binding.** The panel renders only when there is a last-scanned item (`Visible="@(LastScanned is not null)"`). It appears the instant you scan and then simply stays put.
+- **Removed the now-dead plumbing** this exposed: the `JsObj` JS handle, the `IntersectionObserver.js` import, and the `DisposeAsync` cleanup block, in all six views. The panel needs no JavaScript at all, so the per-scan interop call is gone too — scanning is now pure C# with no JS round-trip.
 
 ## Files changed
 
 **Shared**
-- `Mobile.MAUI/Components/Base/BaseComponent.razor.cs`
-- `Mobile.MAUI/wwwroot/js/IntersectionObserver.js`
 - `Mobile.MAUI/wwwroot/css/app.css`
+- `Mobile.MAUI/wwwroot/js/IntersectionObserver.js` (panel logic removed)
+- `Mobile.MAUI/Components/Base/BaseComponent.razor.cs` (reverted to original — no helpers needed)
 
-**Views wired up** (all had the same bug)
-- `Mobile.MAUI/Components/Pages/Packing/Returns/ReturnsItemView.razor.cs`
-- `Mobile.MAUI/Components/Pages/Packing/TransferOrder/TransferOrderItemView.razor.cs`
-- `Mobile.MAUI/Components/Pages/Packing/VendorReturnAuthorization/VendorReturnAuthorizationItemView.razor.cs`
-- `Mobile.MAUI/Components/Pages/Receiving/TransferOrder/TOxItemFulfillmentItemView.razor.cs`
-- `Mobile.MAUI/Components/Pages/Receiving/Returns/TOxReturnxItemFulfillmentItemView.razor.cs`
-- `Mobile.MAUI/Components/Pages/Receiving/PurchaseOrder/PurchaseOrderItemView.razor.cs`
+**Views** (`.razor` markup + `.razor.cs` plumbing removed from each)
+- `Mobile.MAUI/Components/Pages/Packing/Returns/ReturnsItemView`
+- `Mobile.MAUI/Components/Pages/Packing/TransferOrder/TransferOrderItemView`
+- `Mobile.MAUI/Components/Pages/Packing/VendorReturnAuthorization/VendorReturnAuthorizationItemView`
+- `Mobile.MAUI/Components/Pages/Receiving/TransferOrder/TOxItemFulfillmentItemView`
+- `Mobile.MAUI/Components/Pages/Receiving/Returns/TOxReturnxItemFulfillmentItemView`
+- `Mobile.MAUI/Components/Pages/Receiving/PurchaseOrder/PurchaseOrderItemView`
+
+Net effect: **277 lines deleted, 7 added.**
 
 ## Validation
 
-- Full solution build: **0 errors** (warnings unchanged from before the change).
-- **Not yet verified on a real handheld.** Please confirm: scan shows the panel immediately; scrolling down hides it; the slide is smooth.
-
-## Behaviour change
-
-The panel is now **one-way per scan**: scan → shows, scroll down → hides, and it stays hidden until the next scan. It does **not** come back when you scroll up. This was an intentional choice; it can be changed to a two-way toggle if operators expect the panel to return when scrolling back to the top.
+- Full solution build: **0 errors**. Warning count dropped 2754 → 2724 (dead code removed).
+- **Not yet verified on a real handheld.** Please confirm: panel is absent before the first scan, appears immediately on the first scan, and stays pinned while scrolling.
 
 ## Notes / follow-ups
 
-- `Mobile.MAUI/wwwroot/js/PicklistIntersectionObserver.js` is **dead code** — nothing imports it, and it holds a third conflicting version of this logic. Safe to delete.
-- `.box-toolbar-floating` / `.show-floating` and `Observe()` in the JS are also unused (no page declares `id="box-toolbar-floating"`). Left untouched to keep this change focused.
+- `Mobile.MAUI/wwwroot/js/PicklistIntersectionObserver.js` is **dead code** — nothing imports it, and it holds an older conflicting version of this logic. Safe to delete; needs removing manually (no delete tool was available).
+- `Receiving/TransferOrder/TransferOrderItemView.razor` and `Receiving/Returns/ReturnsItemView.razor` still have their panel markup commented out. Untouched — separate decision.
 - The empty `#recent-scanned` placeholder still exists in ~10 Razor files and is now unused. Cleanup candidate.
 - No branch or commit yet — this was written without one.

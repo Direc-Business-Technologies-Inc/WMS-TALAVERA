@@ -19,7 +19,7 @@
                  class="box-toolbar-page">
     </RadzenStack>
 
-    <RadzenStack id="recent-scanned-floating" class="recent-scanned-floating">
+    <RadzenStack id="recent-scanned-floating" class="recent-scanned-floating" Visible="@(LastScanned is not null)">
 
         <RadzenStack Visible="@(LastScanned is not null)" Style="position:relative;" class="rz-p-4" Orientation="Orientation.Horizontal">
             <RadzenStack Gap="4px">

@@ -14,7 +14,6 @@ public partial class ReturnsItemView : IAsyncDisposable
 {
     [Parameter]
     public string OrderNumber { get; set; }
-    private IJSObjectReference JsObj { get; set; }
     AppAction<List<ReturnsLineVM>> ActionGetReturnsItems { get; set; }
     AppAction<List<ItemBarcodesPerUoMVM>> ActionGetItemBarcodes { get; set; }
     AppAction ActionUpdateStartTime { get; set; }
@@ -181,12 +180,6 @@ public partial class ReturnsItemView : IAsyncDisposable
             }).ToList();
 
             await ActionFactory.ExecuteAppActionAsync(ActionGetItemBarcodes);
-        }
-
-        if (ReturnsItems.Count > 0 && JsObj is null)
-        {
-            JsObj = await Js.InvokeAsync<IJSObjectReference>("import", "./js/IntersectionObserver.js");
-            await InitLastScannedPanel(JsObj);
         }
     }
 
@@ -398,7 +391,6 @@ public partial class ReturnsItemView : IAsyncDisposable
             line.ScanCount++;
 
             LastScanned = line;
-            await RevealLastScanned();
 
             ScanCount++;
             //ChangeWeight = null; // reset the ChangeWeight after each scan
@@ -631,27 +623,5 @@ public partial class ReturnsItemView : IAsyncDisposable
     {
         MarkScansClean();
         BroadcastService.BroadcastReceived -= HandleItemScan;
-
-        if (JsObj is not null)
-        {
-            try
-            {
-                DisposeLastScannedPanel();
-                await JsObj.InvokeVoidAsync("Dispose");
-            }
-            catch
-            {
-                // ignore cleanup errors
-            }
-
-            try
-            {
-                await JsObj.DisposeAsync();
-            }
-            finally
-            {
-                JsObj = null;
-            }
-        }
     }
 }
