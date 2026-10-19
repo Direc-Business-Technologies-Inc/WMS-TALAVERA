@@ -24,7 +24,8 @@ public class PurchaseOrderIRPayloadDTO
         List<PostPurchaseOrderDTO> lines,
         int userId,
         int receivingCategory,
-        string remarks
+        string remarks,
+        bool isUsedBin
         )
     {
         bool isGoodPost = receivingCategory == 1;
@@ -64,11 +65,33 @@ public class PurchaseOrderIRPayloadDTO
 
                     if (!isReceived)
                     {
-                        return new OrderLineItem
+                        // On bin-tracked locations the transform URL carries
+                        // ?replace=item.inventoryDetail.inventoryAssignment, and NetSuite rejects the
+                        // whole save unless the body's item entries carry that sub-resource
+                        // consistently. The mobile posts every open line - the unscanned ones as
+                        // zero-qty fillers - so without this an order scanned only in part fails with
+                        // [INVALID_PARAMETER] "Resource or sub-resource 'InventoryDetail' ... was not
+                        // found in the request body". Fillers therefore get an EMPTY assignment, the
+                        // same shape the fulfillment builders emit (TransferOrderIFPayloadDTO) and
+                        // the same one the field test accepted.
+                        var filler = new OrderLineItem
                         {
                             OrderLine = line.LineSequenceNumber,
                             isReceived = false
                         };
+
+                        if (isUsedBin)
+                        {
+                            filler.InventoryDetail = new InventoryDetail
+                            {
+                                InventoryAssignment = new InventoryAssignment
+                                {
+                                    Items = []
+                                }
+                            };
+                        }
+
+                        return filler;
                     }
 
                     return new OrderLineItem

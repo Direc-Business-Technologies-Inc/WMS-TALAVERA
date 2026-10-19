@@ -41,9 +41,9 @@ public class PurchaseOrderIRPayloadDTOTests
         };
     }
 
-    private static JsonDocument Serialize(List<PostPurchaseOrderDTO> lines, int receivingCategory)
+    private static JsonDocument Serialize(List<PostPurchaseOrderDTO> lines, int receivingCategory, bool isUsedBin = false)
     {
-        var payload = PurchaseOrderIRPayloadDTO.CreateForItemReceipt(lines, UserId, receivingCategory, Remarks);
+        var payload = PurchaseOrderIRPayloadDTO.CreateForItemReceipt(lines, UserId, receivingCategory, Remarks, isUsedBin);
         var json = JsonSerializer.Serialize(payload, Options);
         return JsonDocument.Parse(json);
     }
@@ -333,5 +333,54 @@ public class PurchaseOrderIRPayloadDTOTests
             .GetProperty("binNumber");
 
         Assert.Equal("55", binNumber.GetProperty("id").GetString());
+    }
+
+    // Regression - a partially scanned bin-tracked PO. The transform URL carries
+    // ?replace=item.inventoryDetail.inventoryAssignment, so NetSuite requires the
+    // sub-resource on EVERY item entry; a detail-free filler makes it reject the whole
+    // save with [INVALID_PARAMETER] "Resource or sub-resource 'InventoryDetail' ...
+    // was not found in the request body". Every entry - scanned and filler - must carry
+    // inventoryDetail, and the unscanned fillers an EMPTY assignment.
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    public void Bin_tracked_orders_cover_every_entry_with_inventory_detail(int receivingCategory)
+    {
+        var lines = new List<PostPurchaseOrderDTO>
+        {
+            Line(1, isBad: receivingCategory == 2, scannedQuantity: 10, isLocationUsedBin: true, preferredBinId: 8),
+            Line(2, isBad: false, scannedQuantity: 0, isLocationUsedBin: true, preferredBinId: 9)
+        };
+
+        using var document = Serialize(lines, receivingCategory, isUsedBin: true);
+
+        Assert.Equal(2, Items(document).Count);
+
+        var scanned = LineEntry(document, 1)
+            .GetProperty("inventoryDetail")
+            .GetProperty("inventoryAssignment")
+            .GetProperty("items");
+        Assert.Equal(1, scanned.GetArrayLength());
+        Assert.Equal(10m, scanned[0].GetProperty("quantity").GetDecimal());
+
+        var filler = LineEntry(document, 2)
+            .GetProperty("inventoryDetail")
+            .GetProperty("inventoryAssignment")
+            .GetProperty("items");
+        Assert.Equal(0, filler.GetArrayLength());
+    }
+
+    [Fact]
+    public void Non_bin_orders_leave_filler_lines_without_inventory_detail()
+    {
+        var lines = new List<PostPurchaseOrderDTO>
+        {
+            Line(1, isBad: false, scannedQuantity: 10),
+            Line(2, isBad: false, scannedQuantity: 0)
+        };
+
+        using var document = Serialize(lines, 1, isUsedBin: false);
+
+        AssertNotReceived(LineEntry(document, 2), 2);
     }
 }

@@ -988,7 +988,7 @@ namespace Integration.NS.Services
                 string? jsonStringBad = null;
                 try
                 {
-                    var payloadBad = PurchaseOrderIRPayloadDTO.CreateForItemReceipt(Data, userId, 2, remarks);
+                    var payloadBad = PurchaseOrderIRPayloadDTO.CreateForItemReceipt(Data, userId, 2, remarks, isUsedBin);
 
                     jsonStringBad = JsonSerializer.Serialize(payloadBad, JsonSerializerOption);
 
@@ -1010,7 +1010,7 @@ namespace Integration.NS.Services
                 string? jsonStringGood = null;
                 try
                 {
-                    var payloadGood = PurchaseOrderIRPayloadDTO.CreateForItemReceipt(Data, userId, 1, remarks);
+                    var payloadGood = PurchaseOrderIRPayloadDTO.CreateForItemReceipt(Data, userId, 1, remarks, isUsedBin);
 
                     jsonStringGood = JsonSerializer.Serialize(payloadGood, JsonSerializerOption);
 

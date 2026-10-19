@@ -2,6 +2,7 @@
 
 Date: 2026-10-19
 Status: Fix in source, builds clean (`Integration.NS`, `Mobile.MAUI`), 53/53 targeted tests green — **awaiting client verification**
+Correction: The choice to leave PO filler lines detail-free (below) was **refuted in the field on 2026-10-19**: a partially scanned bin-tracked PO failed with `[INVALID_PARAMETER] Resource or sub-resource 'InventoryDetail' … was not found in the request body` (`replace=True usedBin=True scannedLines=31 totalLines=52`). The `itemReceipt` transform enforces the same strict `?replace=` coverage as `itemFulfillment`. Fixed in [2026-10-19 PO filler inventoryDetail fix](2026-10-19-po-item-receipt-filler-inventory-detail-fix.md); fillers at bin-tracked locations now carry an empty assignment.
 Mode: Bugfix / RCA / Follow-up to [2026-10-17 PO closed-line guard](2026-10-17-po-item-receipt-closed-line-guard-fix.md) and [2026-10-17 PO `?replace=` fix](2026-10-17-po-item-receipt-missing-inventory-assignment-replace.md)
 Scope: Receiving module — GOOD/BAD PO Item Receipt (`SavePOItemReceipt` → `purchaseOrder/{id}/!transform/itemReceipt`), the PO line query `NS_PurchaseOrder_Get_Items.sql`, and the mobile PO line selection (`PurchaseOrderItemView.SaveScan`)
 Related:
@@ -160,7 +161,7 @@ POItems = GoodPOItems
 
 `GoodPOItems` already holds every open line; the unscanned ones travel as detail-free fillers (`isReceived: false`), exactly as the Returns receipt does. Over-scans are deliberately left to the server's remaining-quantity guard, which names the line. The "no scanned items to save" early return is unchanged.
 
-**Deliberately not ported from TO:** the TO filler carries an empty `inventoryAssignment` (`TransferOrderIFPayloadDTO`). The itemReceipt transform tolerates a detail-free filler — proven by the production Returns receipt and recorded at the 2026-10-15 spec's cross-check — so the PO filler stays detail-free and no shape is invented.
+**Deliberately not ported from TO:** the TO filler carries an empty `inventoryAssignment` (`TransferOrderIFPayloadDTO`). The itemReceipt transform was *assumed* to tolerate a detail-free filler, based on the production Returns receipt. **This assumption was refuted in the field on 2026-10-19** — a partially scanned bin-tracked PO failed with the INVALID_PARAMETER replace error; see [2026-10-19 PO filler inventoryDetail fix](2026-10-19-po-item-receipt-filler-inventory-detail-fix.md). PO fillers at bin-tracked locations now carry the empty assignment, matching TO.
 
 ### 2.5 — Pre-flight missing-bin guard
 
@@ -249,14 +250,14 @@ Must be confirmed on the client; no NetSuite sandbox was available in this sessi
 | **Resolve the vendor bin from the item's preferred vendor** (confirmed) | *Scope the assignment by `t.entity` (the PO vendor)*: rejected by the client — the assignment belongs to the item's preferred vendor. The scope still includes item, subsidiary and location, which removes the fan-out and the foreign-bin selection. |
 | **Prefer the scanned row in the payload** (chosen) | *Depend on query row order*: order is not guaranteed; an unscanned duplicate could win and silently drop a receipt. |
 | **Mobile posts every open line** (chosen) | *Post only scanned lines and rely on `?replace=`*: Req 2.1 and the Returns precedent both require the full sublist. |
-| **Leave PO fillers detail-free** (chosen) | *Port the TO empty-assignment filler*: the itemReceipt transform tolerates a detail-free filler (Returns IR proves it); inventing a shape is risk without benefit. |
+| **PO fillers detail-free** (rejected on 2026-10-19) | *Port the TO empty-assignment filler* was dismissed as "risk without benefit" on the assumption the itemReceipt transform tolerates a detail-free filler. **Refuted in the field**: a partially scanned bin-tracked PO failed with the INVALID_PARAMETER replace error. The TO shape (empty assignment on fillers) is now applied — see [2026-10-19 PO filler inventoryDetail fix](2026-10-19-po-item-receipt-filler-inventory-detail-fix.md). |
 | **Guard on the line's own `IsLocationUsedBin`, grouped by (line, quality)** (chosen) | *Header-level `isUsedBin`*: false-rejects the non-bin line of a mixed-location PO. *Per-line without the quality split*: checks only one row of a good/bad split and can still emit the cryptic 400. |
 | **`build=…` + `scannedLines/totalLines` for build tracking** (chosen) | *Add a mobile version header now*: the counters distinguish old from new **only while the order has unscanned open lines**; a fully-scanned order reports equal counts either way, so a header remains a stronger signal for a later change. |
 
 ## Residual Risk
 
 1. **Medium — the vendor bin now comes from the item's preferred vendor by design (confirmed 2026-10-19).** Saves that previously resolved `VendorBinAssignmentId` from the PO vendor's assignment will now use the preferred vendor's assignment, fall back to the preferred bin, or resolve none. Confirm on a live open PO that the resolved bin is the intended one. Also verify that `customrecord_dbti_vendor_bin_assignment` records carry `custrecord_dbti_vba_location`; a NULL location no longer matches and silently drops the vendor bin.
-2. **Medium — the filler-coverage assumption is inherited, not re-proven on PO.** Req 2.1 and the Returns precedent say the full sublist is required; the PO transform is not instrumented to prove it live.
+2. **Closed on 2026-10-19 — the filler-coverage assumption was wrong.** Req 2.1 (full sublist) was right, but the detail-free *filler* was not tolerated: the `itemReceipt` transform enforces strict `?replace=` coverage just like `itemFulfillment`. PO (and Returns) fillers at bin-tracked locations now carry an empty assignment; see [2026-10-19 PO filler inventoryDetail fix](2026-10-19-po-item-receipt-filler-inventory-detail-fix.md).
 3. **Low–medium — the mobile needs an APK.** Until it ships, the fillers are still missing; the server can suppress over-scans and name offenders but cannot manufacture the unscanned lines the transform expects.
 4. **Low — the decoder mirrors the builder.** If the payload's `GroupBy` is ever changed without the decoder, the decoded index drifts. Both carry a comment to that effect.
 5. **Low — `BuildStamp` is `unknown` if the assembly has no informational version.** Cosmetic; the diag still carries the other fields.
