@@ -22,4 +22,40 @@ public partial class BaseComponent
 
     protected void MarkScansClean() => UnsaveChangesHandler.MarkAsClean();
 
+    private IJSObjectReference? _lastScannedJs;
+    private bool _lastScannedRevealPending;
+
+    protected async Task InitLastScannedPanel(IJSObjectReference js)
+    {
+        _lastScannedJs = js;
+
+        await js.InvokeVoidAsync("ObserveLastScannedScroll");
+
+        // A scan can land before the module is imported - the import is gated on
+        // the item grid having rows, which happens on first render. Replay it.
+        if (_lastScannedRevealPending)
+        {
+            _lastScannedRevealPending = false;
+            await js.InvokeVoidAsync("ShowLastScanned");
+        }
+    }
+
+    protected async Task RevealLastScanned()
+    {
+        if (_lastScannedJs is null)
+        {
+            _lastScannedRevealPending = true;
+            return;
+        }
+
+        await _lastScannedJs.InvokeVoidAsync("ShowLastScanned");
+    }
+
+    protected void DisposeLastScannedPanel()
+    {
+        _lastScannedJs?.InvokeVoidAsync("UnObserveLastScannedScroll");
+        _lastScannedJs = null;
+        _lastScannedRevealPending = false;
+    }
+
 }

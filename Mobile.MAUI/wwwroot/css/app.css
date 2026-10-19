@@ -187,8 +187,7 @@ h1:focus {
     top: 0px !important;
 }
 .show-recent-scanned{
-    top:0px !important;
-    
+    transform: translate(-50%, 0) !important;
 }
 div.rz-datalist-content ul.rz-datalist-data > li {
     padding: 0 !important;
@@ -201,12 +200,12 @@ div.rz-datalist-content ul.rz-datalist-data > li {
 .recent-scanned-floating {
     background-color: white;
     position: fixed !important;
-    top: -170px;
+    top: 0;
     width: 100%;
     left: 50%;
-    transform: translateX(-50%);
+    transform: translate(-50%, -170px);
     z-index: 100;
-    transition: 300ms ease-in;
+    transition: transform 300ms ease-in;
     box-shadow: -1px 6px 14px -6px rgba(0,0,0,0.75);
     -webkit-box-shadow: -1px 6px 14px -6px rgba(0,0,0,0.75);
     -moz-box-shadow: -1px 6px 14px -6px rgba(0,0,0,0.75);

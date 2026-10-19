@@ -208,7 +208,7 @@ public partial class TOxReturnxItemFulfillmentItemView : IAsyncDisposable
         if (ReturnsItems.Count > 0 && JsObj is null)
         {
             JsObj = await Js.InvokeAsync<IJSObjectReference>("import", "./js/IntersectionObserver.js");
-            await JsObj.InvokeVoidAsync("ObserveRecentScanned");
+            await InitLastScannedPanel(JsObj);
         }
     }
 
@@ -409,6 +409,7 @@ public partial class TOxReturnxItemFulfillmentItemView : IAsyncDisposable
             line.ScanCount++;
 
             LastScanned = line;
+            await RevealLastScanned();
 
             ScanCount++;
             ChangeWeight = null; // reset the ChangeWeight after each scan
@@ -853,7 +854,7 @@ public partial class TOxReturnxItemFulfillmentItemView : IAsyncDisposable
         {
             try
             {
-                JsObj.InvokeVoidAsync("UnObserveRecentScanned");
+                DisposeLastScannedPanel();
                 await JsObj.InvokeVoidAsync("Dispose");
             }
             catch

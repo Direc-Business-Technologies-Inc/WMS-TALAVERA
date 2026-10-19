@@ -284,7 +284,7 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
                 "import",
                 "./js/IntersectionObserver.js");
 
-            await JsObj.InvokeVoidAsync("ObserveRecentScanned");
+            await InitLastScannedPanel(JsObj);
         }
     }
 
@@ -406,6 +406,7 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
                     }
 
                     LastScanned = item;
+                    await RevealLastScanned();
                 }
             }
             finally
@@ -654,6 +655,8 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
 
                 LastScanned = goodLine;
             }
+
+            await RevealLastScanned();
 
             ScanCount++;
 
@@ -1294,7 +1297,7 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
         {
             try
             {
-                JsObj.InvokeVoidAsync("UnObserveRecentScanned");
+                DisposeLastScannedPanel();
                 await JsObj.InvokeVoidAsync("Dispose");
             }
             catch

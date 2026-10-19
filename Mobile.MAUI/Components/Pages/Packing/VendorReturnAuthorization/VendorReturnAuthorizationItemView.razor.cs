@@ -233,7 +233,7 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
         if (GoodVRAItems.Count > 0 && JsObj is null)
         {
             JsObj = await Js.InvokeAsync<IJSObjectReference>("import", "./js/IntersectionObserver.js");
-            await JsObj.InvokeVoidAsync("ObserveRecentScanned");
+            await InitLastScannedPanel(JsObj);
         }
     }
 
@@ -530,6 +530,8 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
 
                 LastScanned = goodLine;
             }
+
+            await RevealLastScanned();
 
             ScanCount++;
             //ChangeWeight = null; // reset the ChangeWeight after each scan
@@ -1008,7 +1010,7 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
         {
             try
             {
-                JsObj.InvokeVoidAsync("UnObserveRecentScanned");
+                DisposeLastScannedPanel();
                 await JsObj.InvokeVoidAsync("Dispose");
             }
             catch

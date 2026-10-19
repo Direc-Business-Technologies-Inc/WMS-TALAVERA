@@ -186,7 +186,7 @@ public partial class ReturnsItemView : IAsyncDisposable
         if (ReturnsItems.Count > 0 && JsObj is null)
         {
             JsObj = await Js.InvokeAsync<IJSObjectReference>("import", "./js/IntersectionObserver.js");
-            await JsObj.InvokeVoidAsync("ObserveRecentScanned");
+            await InitLastScannedPanel(JsObj);
         }
     }
 
@@ -398,6 +398,7 @@ public partial class ReturnsItemView : IAsyncDisposable
             line.ScanCount++;
 
             LastScanned = line;
+            await RevealLastScanned();
 
             ScanCount++;
             //ChangeWeight = null; // reset the ChangeWeight after each scan
@@ -635,7 +636,7 @@ public partial class ReturnsItemView : IAsyncDisposable
         {
             try
             {
-                JsObj.InvokeVoidAsync("UnObserveRecentScanned");
+                DisposeLastScannedPanel();
                 await JsObj.InvokeVoidAsync("Dispose");
             }
             catch
