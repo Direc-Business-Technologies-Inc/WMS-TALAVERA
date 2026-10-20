@@ -40,6 +40,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `ItemBarcodesPerUoMVM` no longer re-declares `UoMName`, `UoMRate` and
   `DefaultWeight`. The shadowed members meant the Inventory Worksheet read
   `""`/`0` after a scan (its `ProcessScannedItem` takes `InventoryItemVM`).
+- (Packing / Receiving → Mobile) The "Last Scanned" panel no longer sits
+  permanently on top of the item list. It is now driven by the `#recent-scanned`
+  sentinel with an `IntersectionObserver` (`threshold: 0`, `isIntersecting`):
+  hidden while the operator is at the top of the list, visible once they scroll
+  into it, and hidden again when they return to the top. A scan always reveals
+  it, and when that scan happens at the top the panel auto-hides after ~3s.
+  Restores the intent of `06a3cc7` without its two defects — it read
+  `window.scrollY` (wrong for screens that scroll an inner container) and cached
+  the panel node in an ES module that outlives the page, so the panel went dead
+  after navigation. The hidden state is now `translate(-50%, -100%)` instead of
+  a `-170px` offset that leaked a strip when a material name wrapped.
+  Behaviour reference: `last-scanned-panel-fix-summary.md`; decision log:
+  `.opencode/docs/changes/2026-10-20-last-scanned-panel-scroll-behaviour.md`.
 
 ### Added
 - `NSScriptsWellFormedTests.Item_per_barcode_script_matches_the_barcode_list_scope`

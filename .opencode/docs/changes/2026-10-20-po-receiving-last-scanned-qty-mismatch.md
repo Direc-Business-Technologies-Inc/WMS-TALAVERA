@@ -89,7 +89,9 @@ Receiving/Packing distinction is expressed once instead of six times:
 ```
 
 Also still present: the empty `#recent-scanned` / `box-toolbar-page` placeholder
-(`PurchaseOrderItemView.razor:18-20`) left behind by the earlier panel rework.
+(`PurchaseOrderItemView.razor:18-20`). It is **load-bearing** as of
+`.opencode/docs/changes/2026-10-20-last-scanned-panel-scroll-behaviour.md` — the panel's
+scroll behaviour observes it. Do not remove it as dead markup.
 
 ## Files changed
 
