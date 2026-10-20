@@ -30,10 +30,17 @@ public partial class TransferOrderItemView : IAsyncDisposable
     // and every scan handler).
     List<TransferOrderLineVM> DoneTOItems = [];
 
+    // Backordered lines are built from the raw response, not from GoodTOItems.
+    // NetSuite closes a line when it backorders the remainder, so a backordered
+    // line is also IsCompleted and would otherwise land in DoneTOItems and vanish
+    // from the BackOrdered tab.
+    List<TransferOrderLineVM> BackOrderedTOItems = [];
+
 
     List<TransferOrderLineVM> FilteredGoodTOItems = [];
     List<TransferOrderLineVM> FilteredBadTOItems = [];
     List<TransferOrderLineVM> FilteredDoneTOItems = [];
+    List<TransferOrderLineVM> FilteredBackOrderedTOItems = [];
 
     TransferOrderLineVM? LastScanned;
     List<ItemBarcodesPerUoMVM> ItemBarcodes = [];
@@ -70,7 +77,7 @@ public partial class TransferOrderItemView : IAsyncDisposable
     {
         get
         {
-            return GoodTOItems.Any(x => x.LineQuantityBackOrdered > 0);
+            return BackOrderedTOItems.Count > 0;
         }
     }
 
@@ -89,6 +96,8 @@ public partial class TransferOrderItemView : IAsyncDisposable
             {
                 var source = result.Data ?? [];
                 var openLines = source.Where(line => !line.IsCompleted).ToList();
+
+                BackOrderedTOItems = source.Where(line => line.LineQuantityBackOrdered > 0).ToList();
 
                 GoodTOItems = openLines.Select(line => new TransferOrderLineVM
                 {
@@ -196,7 +205,7 @@ public partial class TransferOrderItemView : IAsyncDisposable
 
                 // Closed / fully-shipped lines: read-only DONE list. Excluded from
                 // GoodTOItems/BadTOItems so ItemRequest and every scan handler skip them.
-                DoneTOItems = source.Where(line => line.IsCompleted).Select(line => new TransferOrderLineVM
+                DoneTOItems = source.Where(line => line.IsCompleted && line.LineQuantityBackOrdered <= 0).Select(line => new TransferOrderLineVM
                 {
                     NetsuiteOrderInternalId = line.NetsuiteOrderInternalId,
                     OrderNumber = line.OrderNumber,
@@ -331,6 +340,7 @@ public partial class TransferOrderItemView : IAsyncDisposable
             FilteredGoodTOItems = GoodTOItems.ToList();
             FilteredBadTOItems = BadTOItems.ToList();
             FilteredDoneTOItems = DoneTOItems.ToList();
+            FilteredBackOrderedTOItems = BackOrderedTOItems.ToList();
             return;
         }
 
@@ -345,6 +355,10 @@ public partial class TransferOrderItemView : IAsyncDisposable
             .ToList();
 
         FilteredDoneTOItems = DoneTOItems
+            .Where(row => MatchesSearch(row, search))
+            .ToList();
+
+        FilteredBackOrderedTOItems = BackOrderedTOItems
             .Where(row => MatchesSearch(row, search))
             .ToList();
     }
