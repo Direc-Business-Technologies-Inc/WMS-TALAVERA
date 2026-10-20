@@ -285,14 +285,30 @@ div.rz-datalist-content ul.rz-datalist-data > li {
 .floating-scan-actions {
     position: fixed;
     bottom: 50px;
+    left: 10px;
     right: 10px;
     z-index: 1000;
-    width: fit-content;
+    width: auto;
+    max-width: calc(100vw - 20px);
+    box-sizing: border-box;
+}
+
+.floating-scan-actions .scan-actions-row {
+    width: 100%;
+    gap: 4px !important;
+    justify-content: space-between;
+    flex-wrap: nowrap;
 }
 
 .scan-action-item {
     min-width: 48px;
     text-align: center;
+}
+
+.floating-scan-actions .scan-action-item {
+    flex: 1 1 0;
+    min-width: 0;
+    overflow: hidden;
 }
 
 .scan-action-label {
