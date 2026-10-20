@@ -430,12 +430,13 @@ public partial class CreateInventoryWorksheetView : IAsyncDisposable
             // UI/state modification
             await InvokeAsync(async () =>
             {
-                ProcessScannedItem(barcode);
+                await ProcessScannedItem(barcode);
                 await InvokeAsync(StateHasChanged);
             });
         }
         catch (NotAuthorizedException)
         {
+            await Toast.Error("Session expired. Please sign in again.");
         }
         catch (Exception e)
         {
@@ -447,9 +448,15 @@ public partial class CreateInventoryWorksheetView : IAsyncDisposable
         }
     }
 
-    private void ProcessScannedItem(InventoryItemVM barcode)
+    private async Task ProcessScannedItem(InventoryItemVM barcode)
     {
         var binInternalId = CurrentBinInternalId;
+
+        if (barcode.UoMRate <= 0)
+        {
+            await Toast.Warning($"{barcode.MaterialCode} has no UoM conversion rate. Scan not recorded.");
+            return;
+        }
 
         var line = ICItems.FirstOrDefault(x =>
             x.NetsuiteMaterialInternalId == barcode.NetsuiteMaterialInternalId &&
@@ -458,7 +465,10 @@ public partial class CreateInventoryWorksheetView : IAsyncDisposable
         if (line is null)
         {
             if (MoveOn || NegateQuantity)
+            {
+                await Toast.Warning("Move/Remove mode is on. Turn it off to record scans.");
                 return;
+            }
 
             line = new InventoryWorksheetLineVM
             {
@@ -565,6 +575,12 @@ public partial class CreateInventoryWorksheetView : IAsyncDisposable
         if (ICItems.Count == 0)
         {
             await Toast.Warning("No scanned items to save.");
+            return;
+        }
+
+        if (!ICItems.Any(x => x.GoodScannedQuantity > 0 || x.BadScannedQuantity > 0))
+        {
+            await Toast.Warning("No scanned quantities to save.");
             return;
         }
 

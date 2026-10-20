@@ -256,6 +256,17 @@ bin-tracked location still 400s server-side.
 The builder filters to positive scans only, so an all-zero scan posts a
 valid header with `lines: []` then Restlet 400.
 
+This reaches NetSuite because **nothing on the mobile side requires a positive
+quantity**: the display lists filter `quantity != 0` (`CreateInventoryWorksheetView
+.razor.cs:68-80`) so such lines are invisible, and `SaveBtnDisabled` checks
+`ICItems.Count`, not quantity (`:58`). The operator therefore sees "Save" enabled,
+presses it, and gets a NetSuite error instead of "nothing scanned".
+
+**Closed** — `SaveScan()` now refuses an all-zero worksheet, and scans that cannot
+produce a quantity toast instead of recording zero. See
+[mobile-netsuite-worksheet-adjustqtyby-diag.md](mobile-netsuite-worksheet-adjustqtyby-diag.md)
+section 2.
+
 ### 5c. Hardcoded header IDs
 
 `account / department / class` are constants; a subsidiary whose chart
@@ -266,6 +277,22 @@ differs then 400 invalid reference. No per-subsidiary lookup exists.
 Grouped by item only, not item+bin. Two bins for one item collapse into one
 `inventoryDetail` per status, losing the bin split, then NetSuite
 bin-balance 400.
+
+### 5e. Scan silently not recorded
+
+Three paths used to discard a scan without any feedback, which operators
+experienced as "scanning does not work" and which produced 5b at save time:
+
+- `catch (NotAuthorizedException) { }` in `HandleScan` — an expired session made
+  every scan a no-op with no message.
+- `if (MoveOn || NegateQuantity) return;` in `ProcessScannedItem` — the Move/Remove
+  mode flags swallow new items; the mode handlers themselves are dead code.
+- `quantity = barcode.UoMRate` — a `0` rate added the line with quantity `0`, which
+  is invisible in the UI.
+
+**Closed** — all three now toast a specific message. See
+[mobile-netsuite-worksheet-adjustqtyby-diag.md](mobile-netsuite-worksheet-adjustqtyby-diag.md)
+section 2.
 
 ---
 

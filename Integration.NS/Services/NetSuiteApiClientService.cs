@@ -2056,7 +2056,10 @@ namespace Integration.NS.Services
             try
             {
                 if (payload is null || payload.Lines.Count == 0)
-                    return $"[diag lines=0 build={BuildStamp}]";
+                {
+                    var zeroQty = data.Count(x => x.GoodScannedQuantity <= 0 && x.BadScannedQuantity <= 0);
+                    return $"[diag lines=0 in={data.Count} zeroQty={zeroQty} build={BuildStamp}]";
+                }
 
                 static int Len(decimal value) => JsonSerializer.Serialize(value).Length;
 
