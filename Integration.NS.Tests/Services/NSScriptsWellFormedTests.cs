@@ -60,6 +60,81 @@ public class NSScriptsWellFormedTests
     }
 
     /// <summary>
+    /// Rule 1: a derived table must not reference an outer alias. This shipped
+    /// in <c>NS_InventoryCounting_Get_Items</c> on 2026-10-20 (four correlated
+    /// scalar subqueries over <c>t.id</c>/<c>tl.id</c>), whose failure surfaced
+    /// in mobile as a null-payload crash instead of a NetSuite error.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(ScriptFiles))]
+    public void Real_script_has_no_outer_alias_reference_in_derived_table(string name, string path)
+    {
+        var sql = File.ReadAllText(path);
+
+        Assert.False(string.IsNullOrWhiteSpace(sql), $"{name} is empty");
+        SuiteQLAssert.NoOuterAliasReferenceInDerivedTable(sql);
+    }
+
+    /// <summary>
+    /// 2026-10-20 regression: the counted-quantity columns were added as four
+    /// scalar correlated subqueries. The mandate for this query is derived
+    /// tables joined on their own output columns, so any scalar subquery is a
+    /// re-introduction of the rejected shape.
+    /// </summary>
+    [Fact]
+    public void Inventory_counting_items_script_has_no_scalar_subquery()
+    {
+        var sql = File.ReadAllText(FindScript("NS_InventoryCounting_Get_Items.sql"));
+
+        Assert.DoesNotContain("(SELECT", sql, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// <c>inventorystatus</c> is text in SuiteQL — every production script
+    /// compares it quoted. A bare numeric compare is a different predicate and
+    /// must not slip back in.
+    /// </summary>
+    [Fact]
+    public void Inventory_counting_items_script_quotes_inventory_status()
+    {
+        var sql = File.ReadAllText(FindScript("NS_InventoryCounting_Get_Items.sql"));
+
+        Assert.DoesNotContain("inventorystatus = 1", sql, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("inventorystatus = 3", sql, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("inventorystatus = '1'", sql, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("inventorystatus = '3'", sql, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// <c>transactionline.countquantity</c> is referenced by no other script and
+    /// its suite-QL name was never confirmed against the sandbox. The mobile
+    /// screen maps <c>CountedQuantity</c> but never reads it, so projecting it
+    /// buys nothing and risks a 400.
+    /// </summary>
+    [Fact]
+    public void Inventory_counting_items_script_does_not_project_countquantity()
+    {
+        var sql = File.ReadAllText(FindScript("NS_InventoryCounting_Get_Items.sql"));
+
+        // 'COUNTQUANTITY' is also the transaction line type literal, so match
+        // the column reference, not a bare substring.
+        Assert.DoesNotContain(".countquantity", sql, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string FindScript(string fileName)
+    {
+        foreach (var row in ScriptFiles())
+        {
+            if (string.Equals((string)row[0], fileName, StringComparison.OrdinalIgnoreCase))
+            {
+                return (string)row[1];
+            }
+        }
+
+        throw new FileNotFoundException($"script '{fileName}' not found in NSScripts");
+    }
+
+    /// <summary>
     /// Guards against the enumeration silently returning nothing, which would
     /// make every <c>[Theory]</c> case vacuously green.
     /// </summary>

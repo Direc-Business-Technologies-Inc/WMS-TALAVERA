@@ -30,6 +30,15 @@ NetSuite rejects the correlated form with `400 [INVALID_PARAMETER] ... Search er
  occurred: Invalid or unsupported search`.
 
 **Incidents:**
+- 2026-10-20 — mobile Inventory Counting item load: the counted quantities were added as four
+  scalar correlated subqueries over `inventoryassignment`
+  (`WHERE ia.transaction = t.id AND ia.transactionline = tl.id`), together with
+  `tl.countquantity` (an unconfirmed column) and bare-numeric `inventorystatus` compares.
+  The request failed and the mobile client — which deserialized the error body regardless of
+  status code — reported it as `Value cannot be null. (Parameter 'source')` with an empty
+  screen, hiding the real cause. Fix: two filtered derived tables (`ig`, `ib`) joined on
+  `TransactionId`/`TransactionLineId`; quoted statuses; no `countquantity`. Change record:
+  `.opencode/docs/changes/2026-10-20-inventory-counting-mobile-fixes.md`.
 - 2026-10-13 — STR/Returns web item-receipt load: `IF_TO_LINE_ID` (one level of
   correlation) and `IF_TO_LINE_RECEIVED_QTY` (nested two levels, reaching the outer
   `uom` alias) in `ReceivingIntegration.GetItemReceiptItemFulfillmentLinesAsync`.
@@ -48,6 +57,20 @@ NetSuite rejects the correlated form with `400 [INVALID_PARAMETER] ... Search er
    (transactions that still have an open line with quantity left to pack) is inner-joined
    on the transaction id, so a fully packed order drops out of the packing lists. Write it
    this way, not as `EXISTS (... WHERE sub.transaction = t.id)`.
+
+**A single-level scalar subquery in the SELECT list is accepted** — do not "fix" a working
+   one. `NS_TO_Get_Itemfulfillment_Items.sql` correlates
+   `(SELECT SUM(rtl.quantity) ... WHERE pttl.previousdoc = tl.transaction AND
+   pttl.previousline = tl.id)` and has run in production since the TO flow shipped. What
+   NetSuite rejects is correlation that reaches an outer alias from *inside a derived table*
+   in the FROM/JOIN clause, and the nested (two-level) scalar form. The lint is scoped to the
+   derived-table case for exactly this reason.
+
+**Enforced by:** `SuiteQLAssert.NoOuterAliasReferenceInDerivedTable`, run over every real
+   script by `NSScriptsWellFormedTests.Real_script_has_no_outer_alias_reference_in_derived_table`,
+   with both-direction fixtures in `SuiteQLDerivedTableCorrelationTests`. The Inventory
+   Counting script additionally has three targeted checks (no `(SELECT`, quoted
+   `inventorystatus`, no `.countquantity` projection).
 
 **A "still has work to do" gate cannot be expressed as an order-state predicate.** Both
    order-state columns available on `transaction` — `ordpicked` (picking) and `status`

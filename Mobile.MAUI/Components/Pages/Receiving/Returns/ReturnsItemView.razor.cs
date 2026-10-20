@@ -59,7 +59,7 @@ public partial class ReturnsItemView : IAsyncDisposable
             },
             OnSuccess = async (result) =>
             {
-                ReturnsItems = result.Data.Select(line => new ReturnsLineVM
+                ReturnsItems = (result.Data ?? []).Select(line => new ReturnsLineVM
                 {
                     NetsuiteOrderInternalId = line.NetsuiteOrderInternalId,
                     OrderNumber = line.OrderNumber,

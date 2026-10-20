@@ -71,7 +71,7 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
             },
             OnSuccess = async (result) =>
             {
-                GoodVRAItems = result.Data.Select(line => new VendorReturnAuthorizationLineVM
+                GoodVRAItems = (result.Data ?? []).Select(line => new VendorReturnAuthorizationLineVM
                 {
                     NetsuiteOrderInternalId = line.NetsuiteOrderInternalId,
                     OrderNumber = line.OrderNumber,
@@ -119,7 +119,7 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
                     IsBad = false,
                 }).ToList() ?? [];
 
-                BadVRAItems = result.Data.Select(line => new VendorReturnAuthorizationLineVM
+                BadVRAItems = (result.Data ?? []).Select(line => new VendorReturnAuthorizationLineVM
                 {
                     NetsuiteOrderInternalId = line.NetsuiteOrderInternalId,
                     OrderNumber = line.OrderNumber,

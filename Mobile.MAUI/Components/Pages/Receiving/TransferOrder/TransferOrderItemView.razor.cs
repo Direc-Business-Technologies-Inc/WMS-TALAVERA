@@ -66,7 +66,7 @@ public partial class TransferOrderItemView : IAsyncDisposable
             },
             OnSuccess = async (result) =>
             {
-                GoodTOItems = result.Data.Select(line => new TransferOrderLineVM
+                GoodTOItems = (result.Data ?? []).Select(line => new TransferOrderLineVM
                 {
                     NetsuiteOrderInternalId = line.NetsuiteOrderInternalId,
                     OrderNumber = line.OrderNumber,
@@ -107,7 +107,7 @@ public partial class TransferOrderItemView : IAsyncDisposable
                     IsBad = false,
                 }).ToList() ?? [];
 
-                BadTOItems = result.Data.Select(line => new TransferOrderLineVM
+                BadTOItems = (result.Data ?? []).Select(line => new TransferOrderLineVM
                 {
                     NetsuiteOrderInternalId = line.NetsuiteOrderInternalId,
                     OrderNumber = line.OrderNumber,

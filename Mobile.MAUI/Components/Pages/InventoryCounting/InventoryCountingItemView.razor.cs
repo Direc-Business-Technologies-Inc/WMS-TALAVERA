@@ -69,7 +69,9 @@ public partial class InventoryCountingItemView : IAsyncDisposable
             },
             OnSuccess = async (result) =>
             {
-                GoodICItems = result.Data.Select(line => new InventoryCountingLineVM
+                var data = result.Data ?? [];
+
+                GoodICItems = data.Select(line => new InventoryCountingLineVM
                 {
                     NetsuiteOrderInternalId = line.NetsuiteOrderInternalId,
                     OrderNumber = line.OrderNumber,
@@ -98,9 +100,9 @@ public partial class InventoryCountingItemView : IAsyncDisposable
                     ScannedQuantity = line.GoodCountedQuantity,
                     IsBad = false,
                     IsCounted = false,
-                }).ToList() ?? [];
+                }).ToList();
 
-                BadICItems = result.Data.Select(line => new InventoryCountingLineVM
+                BadICItems = data.Select(line => new InventoryCountingLineVM
                 {
                     NetsuiteOrderInternalId = line.NetsuiteOrderInternalId,
                     OrderNumber = line.OrderNumber,
@@ -129,10 +131,14 @@ public partial class InventoryCountingItemView : IAsyncDisposable
                     ScannedQuantity = line.BadCountedQuantity,
                     IsBad = true,
                     IsCounted = false,
-                }).ToList() ?? [];
+                }).ToList();
 
                 ApplySearch();
                 await InvokeAsync(StateHasChanged);
+            },
+            OnFailure = async (result) =>
+            {
+                await Toast.Error($"Unable to load the count: {result.ErrorMessage}");
             },
         };
 
@@ -150,6 +156,10 @@ public partial class InventoryCountingItemView : IAsyncDisposable
                 ItemBarcodes = result.Data ?? [];
 
                 await InvokeAsync(StateHasChanged);
+            },
+            OnFailure = async (result) =>
+            {
+                await Toast.Error($"Unable to load item barcodes: {result.ErrorMessage}");
             },
         };
 

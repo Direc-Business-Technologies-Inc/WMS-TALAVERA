@@ -26,11 +26,17 @@ Area: Mobile.MAUI `InventoryCountingItemView`, API `InventoryCounting/SaveScan`,
 
 - One row per count line (the join that duplicated lines is gone).
 - New columns:
-  - `CountedQuantity` = `tl.countquantity` (null until the line is counted).
-  - `GoodCountedQuantity` / `BadCountedQuantity` = summed `inventoryassignment.quantity` by
-    inventory status (1 = Good, 3 = Bad).
-  - `NetsuiteInventoryDetailInternalId` = the Good detail row id.
+  - `GoodCountedQuantity` / `BadCountedQuantity` = summed `inventoryassignment.quantity` per
+    inventory status, from two derived tables joined on their own output columns.
+  - `NetsuiteInventoryDetailInternalId` = the Good detail row id (`MAX(ia.id)`).
   - `BadInventoryDetailId` = the Bad detail row id.
+- Status predicates are quoted (`'1'` = Good, `'3'` = Bad), matching every other script in
+  `NSScripts/`; `inventorystatus` is text in SuiteQL.
+- `COALESCE(..., 0)` on the derived-table outputs, because
+  `InventoryCountingLineDTO.GoodCountedQuantity` / `BadCountedQuantity` are non-nullable
+  `decimal` and a NULL would fail deserialization.
+- No `tl.countquantity` projection (see Follow-up below — the column name was never confirmed
+  and the screen never read it).
 
 ### API — DataTransferObjects
 
@@ -63,6 +69,49 @@ Only lines with `IsCounted` **or** a non-zero quantity are sent. The web page do
 - Manual Entry accepts an explicit zero (`AllowZero` parameter). The parameter defaults to
   `false`, so the other seven screens that share the dialog are unchanged.
 
+### Mobile — `ApiClientService` (cross-cutting)
+
+`Get<T>` / `Post<T>` / `Post` now return a failed `ApiResult` when the HTTP response is not
+successful. Before this, the body was deserialized regardless of status: a 500 ProblemDetails
+has no `errorMessage`, so `ApiResult.Success` (which is `ErrorMessage`-empty) reported success
+with `Data = null`. Every server-side failure therefore reached `OnSuccess` as a null payload.
+See `.opencode/docs/changes/2026-10-20-mobile-api-client-error-masking.md`.
+
+## Follow-up (same day) — reopening a count crashed
+
+**Symptom:** opening a count item on the phone showed `Value cannot be null. (Parameter
+'source')` and an empty screen; the server-side error was not visible anywhere.
+
+**Cause:** two defects stacked.
+
+1. The items query added the counted quantities as four **scalar correlated subqueries**
+   (`(SELECT SUM(ia.quantity) FROM inventoryassignment ia WHERE ia.transaction = t.id ...)`),
+   the shape Rule 1 of `.opencode/docs/SuiteQL-Shape-Rules.md` records as rejected by NetSuite.
+   It also compared `inventorystatus` to bare integers and projected `tl.countquantity`, a
+   column referenced by no other script.
+2. `ApiClientService` treated the resulting error response as success with a null payload, so
+   `result.Data.Select(...)` in `InventoryCountingItemView` threw instead of surfacing the
+   NetSuite message.
+
+**Fix:**
+
+- The four subqueries became two derived tables (`ig` for status 1, `ib` for status 3), joined
+  on `TransactionId`/`TransactionLineId`; statuses are quoted; `tl.countquantity` is gone.
+- `InventoryCountingItemView.OnSuccess` reads `result.Data ?? []`; the same dereference guard was
+  applied to the four other screens that read `result.Data` directly. The two load actions now
+  have `OnFailure` toasts, so a failed load names its cause instead of showing an empty screen.
+- `ApiClientService` inspects the status code before deserializing (see above).
+
+**Guard rails added:**
+
+- `SuiteQLAssert.NoOuterAliasReferenceInDerivedTable` + `SuiteQLDerivedTableCorrelationTests`
+  (4 tests) pin the Rule 1 shape, both directions. Scope is derived tables only: a
+  single-level scalar subquery in the SELECT list is accepted by NetSuite in production
+  (`NS_TO_Get_Itemfulfillment_Items.sql`), so flagging that class would force working queries
+  to change.
+- `NSScriptsWellFormedTests` gained three checks on this script: no `(SELECT`, quoted
+  `inventorystatus`, no `.countquantity` projection.
+
 ## Decisions
 
 - **Bad stock counts as physically present.** `CountQuantity = Good + Bad`, split across two
@@ -75,22 +124,23 @@ Only lines with `IsCounted` **or** a non-zero quantity are sent. The web page do
 
 ## Assumptions to verify in sandbox
 
-1. `transactionline.countquantity` is `NULL` until a line is counted and `0` when counted as
-   zero. If the column does not exist, replace `tl.countquantity` with
-   `NVL((SELECT SUM(ia.quantity) FROM inventoryassignment ia WHERE ia.transaction = t.id AND ia.transactionline = tl.id), 0)`
-   and treat `CountedQuantity > 0` as the counted flag.
-2. The `inventorycount` REST PATCH accepts two `countDetail.inventoryDetail.items[]` rows on one
+1. The `inventorycount` REST PATCH accepts two `countDetail.inventoryDetail.items[]` rows on one
    line and a zero quantity with `id: null`.
-3. Inventory status ids 1 (Good) and 3 (Bad) are active in the target account. They are account
+2. Inventory status ids 1 (Good) and 3 (Bad) are active in the target account. They are account
    configuration, not NetSuite constants — see `InventoryStatusMap.cs`.
+3. `SUM(inventoryassignment.quantity)` for status 3 is a positive number. If Bad stock is stored
+   negative, the screen would show a negative Bad quantity and `CountQuantity = Good + Bad`
+   would under-count; the payload builder would then need `Math.Abs`.
 
 ## Verification
 
 - `dotnet build Api.CoreWebAPI` — 0 errors.
 - `dotnet build Mobile.MAUI` — 0 errors.
-- `dotnet test Integration.NS.Tests` — 443 tests, all passing except
-  `NetSuiteApiClientServiceTokenTests.HttpClient_has_explicit_timeout_of_100_seconds_by_default`,
-  which passes when run alone and is order-dependent, unrelated to this change.
+- `dotnet test Integration.NS.Tests` — 477 tests. Two timing-sensitive tests
+  (`NetSuiteApiClientServiceTokenTests.HttpClient_has_explicit_timeout_of_100_seconds_by_default`,
+  `GridResultCacheTests.Key_index_does_not_outlive_the_cache_it_tracks`) fail intermittently in a
+  full run and pass when run in isolation; neither touches this change. Includes the 5 payload
+  tests and the 4 new Rule 1 lint tests.
 - New `PatchInventoryCountingPayloadTests` (5 tests) cover: untouched lines excluded, explicit
   zero sent, Good + Bad split, Bad-only line, and the web path that does not set `IsCounted`.
 
@@ -102,9 +152,14 @@ Manual checks still required against a sandbox count:
 3. Count 2 Good + 1 Bad on one line, save — NetSuite shows two detail rows (status 1 and 3).
 4. Search filters both tabs; Clear restores; Refresh keeps unsaved scans.
 5. Regression: the web inventory counting page still saves.
+6. A count whose query fails must now show the NetSuite message on the phone, not a null-argument
+   crash — this is the observable proof that the client fix works.
 
 ## Rollback
 
 Revert the SQL file and the DTO/VM properties together. The payload builder tolerates a missing
 `IsCounted` (it falls back to `ScannedQuantity > 0`), so an API-only rollback leaves the web path
 working but reintroduces the untouched-line zeroing on mobile.
+
+Reverting `ApiClientService` alone is safe (it only changes how failures are reported), but it
+restores the null-payload crash class for every mobile screen.

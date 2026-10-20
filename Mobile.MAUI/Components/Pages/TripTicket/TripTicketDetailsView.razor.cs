@@ -47,7 +47,7 @@ public partial class TripTicketDetailsView
             },
             OnSuccess = async (result) =>
             {
-                Destination = result.Data.Select(line => new LocationVM
+                Destination = (result.Data ?? []).Select(line => new LocationVM
                 {
                     LocationName = line.LocationName,
                     NetsuiteLocationInternalId = line.NetsuiteLocationInternalId,
@@ -69,7 +69,7 @@ public partial class TripTicketDetailsView
             },
             OnSuccess = async (result) =>
             {
-                OriginLocations = result.Data.Select(line => new LocationVM
+                OriginLocations = (result.Data ?? []).Select(line => new LocationVM
                 {
                     LocationName = line.LocationName,
                     NetsuiteLocationInternalId = line.NetsuiteLocationInternalId
