@@ -541,6 +541,8 @@ public partial class TOxItemFulfillmentItemView : IAsyncDisposable
                 LastScanned = goodLine;
             }
 
+            await RevealLastScanned();
+
             ScanCount++;
             ChangeWeight = null; // reset the ChangeWeight after each scan
 
@@ -1193,6 +1195,8 @@ public partial class TOxItemFulfillmentItemView : IAsyncDisposable
     {
         MarkScansClean();
         BroadcastService.BroadcastReceived -= HandleItemScan;
+
+        await DisposeLastScannedPanel();
     }
 
     #region Button States

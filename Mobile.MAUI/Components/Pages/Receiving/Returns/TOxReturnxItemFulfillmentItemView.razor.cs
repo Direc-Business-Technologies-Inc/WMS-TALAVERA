@@ -397,6 +397,8 @@ public partial class TOxReturnxItemFulfillmentItemView : IAsyncDisposable
 
             LastScanned = line;
 
+            await RevealLastScanned();
+
             ScanCount++;
             ChangeWeight = null; // reset the ChangeWeight after each scan
 
@@ -785,5 +787,7 @@ public partial class TOxReturnxItemFulfillmentItemView : IAsyncDisposable
     {
         MarkScansClean();
         BroadcastService.BroadcastReceived -= HandleItemScan;
+
+        await DisposeLastScannedPanel();
     }
 }

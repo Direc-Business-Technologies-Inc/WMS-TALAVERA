@@ -194,17 +194,28 @@ div.rz-datalist-content ul.rz-datalist-data > li {
     padding: 0 !important;
 }
 
+/* Sentinel the "Last Scanned" panel observes. It must have a measurable box -
+   a zero-area target is unreliable across WebView versions. */
+#recent-scanned {
+    height: 1px;
+}
+
 .recent-scanned-floating {
     background-color: white;
     position: fixed !important;
     top: 0;
     width: 100%;
     left: 50%;
-    transform: translate(-50%, 0);
+    transform: translate(-50%, -100%);
+    transition: transform 300ms ease-in;
     z-index: 100;
     box-shadow: -1px 6px 14px -6px rgba(0,0,0,0.75);
     -webkit-box-shadow: -1px 6px 14px -6px rgba(0,0,0,0.75);
     -moz-box-shadow: -1px 6px 14px -6px rgba(0,0,0,0.75);
+}
+
+.show-recent-scanned {
+    transform: translate(-50%, 0);
 }
 
 .recent-card {

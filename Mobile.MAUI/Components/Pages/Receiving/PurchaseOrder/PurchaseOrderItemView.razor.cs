@@ -355,6 +355,8 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
                     }
 
                     LastScanned = item;
+
+                    await RevealLastScanned();
                 }
             }
             finally
@@ -613,6 +615,8 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
 
                 LastScanned = goodLine;
             }
+
+            await RevealLastScanned();
 
             ScanCount++;
 
@@ -1203,6 +1207,8 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
     {
         MarkScansClean();
         BroadcastService.BroadcastReceived -= HandleItemScan;
+
+        await DisposeLastScannedPanel();
     }
 
     private async Task Refresh()

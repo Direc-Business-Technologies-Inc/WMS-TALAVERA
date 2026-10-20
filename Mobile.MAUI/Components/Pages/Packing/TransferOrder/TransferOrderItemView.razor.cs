@@ -612,6 +612,8 @@ public partial class TransferOrderItemView : IAsyncDisposable
                 LastScanned = goodLine;
             }
 
+            await RevealLastScanned();
+
             ScanCount++;
             //ChangeWeight = null; // reset the ChangeWeight after each scan
 
@@ -1096,6 +1098,8 @@ public partial class TransferOrderItemView : IAsyncDisposable
     {
         MarkScansClean();
         BroadcastService.BroadcastReceived -= HandleItemScan;
+
+        await DisposeLastScannedPanel();
     }
 
     #region Button States

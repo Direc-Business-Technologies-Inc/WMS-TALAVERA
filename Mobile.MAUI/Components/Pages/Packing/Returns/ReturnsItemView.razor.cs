@@ -373,6 +373,8 @@ public partial class ReturnsItemView : IAsyncDisposable
 
             LastScanned = line;
 
+            await RevealLastScanned();
+
             ScanCount++;
             //ChangeWeight = null; // reset the ChangeWeight after each scan
 
@@ -602,5 +604,7 @@ public partial class ReturnsItemView : IAsyncDisposable
     {
         MarkScansClean();
         BroadcastService.BroadcastReceived -= HandleItemScan;
+
+        await DisposeLastScannedPanel();
     }
 }

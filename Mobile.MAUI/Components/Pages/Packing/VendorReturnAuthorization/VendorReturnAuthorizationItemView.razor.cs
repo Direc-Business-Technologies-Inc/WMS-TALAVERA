@@ -504,6 +504,8 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
                 LastScanned = goodLine;
             }
 
+            await RevealLastScanned();
+
             ScanCount++;
             //ChangeWeight = null; // reset the ChangeWeight after each scan
 
@@ -982,6 +984,8 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
     {
         MarkScansClean();
         BroadcastService.BroadcastReceived -= HandleItemScan;
+
+        await DisposeLastScannedPanel();
     }
 
     #region Button States

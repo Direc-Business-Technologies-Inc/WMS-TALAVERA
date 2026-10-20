@@ -1,51 +1,82 @@
-# Last Scanned Panel Fix — Summary
+# Last Scanned Panel — behaviour reference
 
-**Date:** 2026-10-19
-**Branch:** *not created yet* — see Notes
-**Issue:** On mobile Packing, the "Last Scanned" panel did not appear when an item was scanned. It stayed hidden until **Save** was pressed, and when it did appear it slid down slowly.
-**Final behaviour (per client):** the panel is pinned at the top and stays visible. It must never hide on its own.
+**Last updated:** 2026-10-20
+**Status:** current. Supersedes the "pinned, never hides" decision of `9ac3fa3c`.
 
-## Root causes
+For the full decision history and the reasoning behind each iteration, see
+`.opencode/docs/changes/2026-10-20-last-scanned-panel-scroll-behaviour.md`.
 
-Two separate bugs, both in our code. **Not** a network or connection issue — nothing in this path makes a server call.
+## Behaviour
 
-1. **The panel was watching the wrong thing.** Instead of showing on scan, it was driven by an `IntersectionObserver` watching `#recent-scanned` — an empty placeholder element carrying a CSS class (`box-toolbar-page`) that no longer existed in `app.css`. With no size and no content, the panel only ever moved as a *side effect* of something else re-rendering the page. Pressing Save reshuffles the item list, which is why it appeared then, by accident.
-2. **The slide-down animation was expensive.** The panel animated its `top` position. `top` forces the browser to re-lay-out the whole page on every frame. On a handheld with a long item list, the 300ms slide visibly stuttered (clearly visible in the client screenshots).
+The panel's visibility is a function of two inputs: **is `#recent-scanned` in view**, and
+**was there a scan just now**.
 
-## Fix
+| `#recent-scanned` | `LastScanned` | Panel |
+|---|---|---|
+| in view (operator at the top) | null | hidden |
+| in view (operator at the top) | set, no recent scan | **hidden** |
+| in view (operator at the top) | set, scanned < 3s ago | **visible**, auto-hides |
+| out of view (operator scrolled into the list) | set | **visible**, stays |
+| out of view (operator scrolled into the list) | null | hidden |
 
-The client asked for the panel to be simply pinned at the top, so the whole show/hide mechanism was deleted rather than patched:
+The intent: the panel never covers the heading or the first rows while the operator is at
+the top, except for a short scan confirmation. Once they work down the list it follows them
+and gets out of the way when they return to the top.
 
-- **Removed the JavaScript entirely.** `ObserveRecentScanned`, `ShowLastScanned`, `ObserveLastScannedScroll` and `UnObserveLastScannedScroll` are gone, along with the module state they needed. The broken `IntersectionObserver` trigger no longer exists.
-- **Panel is now pure CSS.** `.recent-scanned-floating` is fixed at the top and never moves. No animation, so the expensive reflow is gone by definition.
-- **Visibility is a plain Blazor binding.** The panel renders only when there is a last-scanned item (`Visible="@(LastScanned is not null)"`). It appears the instant you scan and then simply stays put.
-- **Removed the now-dead plumbing** this exposed: the `JsObj` JS handle, the `IntersectionObserver.js` import, and the `DisposeAsync` cleanup block, in all six views. The panel needs no JavaScript at all, so the per-scan interop call is gone too — scanning is now pure C# with no JS round-trip.
+## How it is wired
 
-## Files changed
+Every item view already contains the sentinel — an empty stack at the very top:
 
-**Shared**
-- `Mobile.MAUI/wwwroot/css/app.css`
-- `Mobile.MAUI/wwwroot/js/IntersectionObserver.js` (panel logic removed)
-- `Mobile.MAUI/Components/Base/BaseComponent.razor.cs` (reverted to original — no helpers needed)
+```razor
+<RadzenStack id="recent-scanned" class="box-toolbar-page"></RadzenStack>
+```
 
-**Views** (`.razor` markup + `.razor.cs` plumbing removed from each)
-- `Mobile.MAUI/Components/Pages/Packing/Returns/ReturnsItemView`
-- `Mobile.MAUI/Components/Pages/Packing/TransferOrder/TransferOrderItemView`
-- `Mobile.MAUI/Components/Pages/Packing/VendorReturnAuthorization/VendorReturnAuthorizationItemView`
-- `Mobile.MAUI/Components/Pages/Receiving/TransferOrder/TOxItemFulfillmentItemView`
-- `Mobile.MAUI/Components/Pages/Receiving/Returns/TOxReturnxItemFulfillmentItemView`
-- `Mobile.MAUI/Components/Pages/Receiving/PurchaseOrder/PurchaseOrderItemView`
+and the panel itself:
 
-Net effect: **277 lines deleted, 7 added.**
+```razor
+<RadzenStack id="recent-scanned-floating"
+             class="recent-scanned-floating"
+             Visible="@(LastScanned is not null)">
+```
+
+Two calls are needed in the view:
+
+1. `await RevealLastScanned();` right after `LastScanned = …` in every path that counts as a
+   scan (barcode handler, manual entry, weight dialog).
+2. `await DisposeLastScannedPanel();` in `DisposeAsync()`.
+
+Both live in `Mobile.MAUI/Components/Base/BaseComponent.razor.cs`. Nothing else is needed:
+the script import, the observer registration and the module handle are all handled lazily
+inside `RevealLastScanned()`.
+
+**Adding the panel to a new screen:** copy the two `RadzenStack` elements above, add the two
+calls, and you are done. Do not add a `JsObj` field or an import block for the panel.
+
+## Contracts to preserve
+
+- `#recent-scanned` must keep a measurable height (`app.css` gives it `1px`). The first
+  implementation observed a zero-height element with `threshold: .75` and could never fire —
+  a zero-area target's ratio cannot reach 0.75.
+- Do not read `window.scrollY`. Several screens scroll an inner `overflow-y: auto`
+  container, and the sentinel-based observer is independent of which element scrolls.
+- Never cache the panel element in a module variable. The ES module outlives the page, so a
+  cached node goes stale after navigation and the panel silently stops responding.
+- Hidden state is `transform: translate(-50%, -100%)`, not a fixed pixel offset, so a taller
+  panel still hides completely.
 
 ## Validation
 
-- Full solution build: **0 errors**. Warning count dropped 2754 → 2724 (dead code removed).
-- **Not yet verified on a real handheld.** Please confirm: panel is absent before the first scan, appears immediately on the first scan, and stays pinned while scrolling.
+- Build: `dotnet build Mobile.MAUI/Mobile.MAUI.csproj -f net9.0-android` → 0 errors.
+- No automated tests cover this; it is DOM behaviour inside the WebView. The device
+  checklist is in `.opencode/docs/changes/2026-10-20-last-scanned-panel-scroll-behaviour.md`.
 
-## Notes / follow-ups
+## Open follow-ups
 
-- `Mobile.MAUI/wwwroot/js/PicklistIntersectionObserver.js` is **dead code** — nothing imports it, and it holds an older conflicting version of this logic. Safe to delete; needs removing manually (no delete tool was available).
-- `Receiving/TransferOrder/TransferOrderItemView.razor` and `Receiving/Returns/ReturnsItemView.razor` still have their panel markup commented out. Untouched — separate decision.
-- The empty `#recent-scanned` placeholder still exists in ~10 Razor files and is now unused. Cleanup candidate.
-- No branch or commit yet — this was written without one.
+- `Mobile.MAUI/wwwroot/js/PicklistIntersectionObserver.js` is dead code holding an older
+  version of this logic — safe to delete.
+- `Observe()` / `UnObserve()` and `#box-toolbar-floating` in
+  `Mobile.MAUI/wwwroot/js/IntersectionObserver.js` are unused; two item views still import
+  the module only to call `Observe()`, and their dispose path calls a `Dispose` export that
+  does not exist (always throws, always swallowed). Separate cleanup.
+- The 40-line panel markup is duplicated across six views; extract it into one component
+  parameterised by the comparison value and the complete flag.
