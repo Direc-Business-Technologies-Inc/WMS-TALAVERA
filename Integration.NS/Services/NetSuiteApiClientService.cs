@@ -2024,9 +2024,11 @@ namespace Integration.NS.Services
         {
             string url = InventoryWorksheetRestletUrl;
 
+            PostInventoryWorksheetPayload? payloadGood = null;
+
             try
             {
-                var payloadGood = PostInventoryWorksheetPayload.PostInventoryWorksheet(Data, Location, Subsidiary);
+                payloadGood = PostInventoryWorksheetPayload.PostInventoryWorksheet(Data, Location, Subsidiary);
 
                 var jsonStringGood = JsonSerializer.Serialize(payloadGood, JsonSerializerOption);
 
@@ -2034,10 +2036,52 @@ namespace Integration.NS.Services
             }
             catch (Exception ex)
             {
-                throw new Exception($"Error while posting Inventory Worksheet. {ex.Message}", ex);
+                throw new Exception($"Error while posting Inventory Worksheet. {ex.Message} {BuildWorksheetDiag(payloadGood, Data)}", ex);
             }
 
             return true;
+        }
+
+        /// <summary>
+        /// Names the worksheet line most likely to exceed NetSuite's adjustqtyby
+        /// character limit, so a failed save is diagnosable from the operator's
+        /// screen when server logs are unavailable. The length is measured on the
+        /// serialized decimal, because decimal scale survives System.Text.Json
+        /// serialization and is what actually reaches the wire.
+        /// </summary>
+        private static string BuildWorksheetDiag(PostInventoryWorksheetPayload? payload, List<InventoryWorksheetLineDTO> data)
+        {
+            try
+            {
+                if (payload is null || payload.Lines.Count == 0)
+                    return $"[diag lines=0 build={BuildStamp}]";
+
+                static int Len(decimal value) => JsonSerializer.Serialize(value).Length;
+
+                var worst = payload.Lines
+                    .SelectMany(line => line.InventoryDetail
+                        .Select(detail => (line.ItemId, Qty: detail.Quantity, Len: Len(detail.Quantity)))
+                        .Append((line.ItemId, Qty: line.NewQuantity, Len: Len(line.NewQuantity))))
+                    .OrderByDescending(entry => entry.Len)
+                    .FirstOrDefault();
+
+                var maxLen = payload.Lines
+                    .SelectMany(line => line.InventoryDetail
+                        .Select(detail => Len(detail.Quantity))
+                        .Append(Len(line.NewQuantity)))
+                    .DefaultIfEmpty(0)
+                    .Max();
+
+                var qty = worst.Qty.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+                return $"[diag lines={payload.Lines.Count} " +
+                       $"scanned={data.Count(x => x.GoodScannedQuantity > 0 || x.BadScannedQuantity > 0)} " +
+                       $"item={worst.ItemId} qty={qty} len={worst.Len} maxLen={maxLen} build={BuildStamp}]";
+            }
+            catch
+            {
+                return $"[diag unavailable build={BuildStamp}]";
+            }
         }
         #endregion
 
