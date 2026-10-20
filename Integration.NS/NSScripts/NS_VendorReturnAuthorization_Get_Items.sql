@@ -71,6 +71,12 @@ LEFT JOIN (
 	FROM itembinquantity ibq
 	JOIN bin b ON b.id = ibq.bin
 	WHERE ibq.preferredbin = 'T'
+	  AND ibq.item IN (
+		SELECT txl.item
+		FROM transaction tx
+		JOIN transactionline txl ON txl.transaction = tx.id
+		WHERE tx.tranid = @tranid
+	)
 	GROUP BY ibq.item, b.location
 ) ibq ON ibq.item = i.id  AND ibq.location = tl.location
 
@@ -79,15 +85,16 @@ LEFT JOIN bin b ON b.id = ibq.bin
 LEFT JOIN (
 	SELECT
 		item,
-		BUILTIN.DF( item ) AS itemname,
 		location,
-		BUILTIN.DF( location ) AS locationname,
 		quantityavailable
 	FROM
 		AggregateItemLocation
-	ORDER BY
-		Item,
-		Location
+	WHERE item IN (
+		SELECT txl.item
+		FROM transaction tx
+		JOIN transactionline txl ON txl.transaction = tx.id
+		WHERE tx.tranid = @tranid
+	)
 ) ail ON ail.item = i.id  AND ail.location = tl.location 
 
 LEFT JOIN inventorybalance ibv1
@@ -124,6 +131,12 @@ LEFT JOIN (
         SUM(ib.quantityavailable) AS quantityavailable
     FROM
         inventorybalance ib
+    WHERE ib.item IN (
+        SELECT txl.item
+        FROM transaction tx
+        JOIN transactionline txl ON txl.transaction = tx.id
+        WHERE tx.tranid = @tranid
+    )
     GROUP BY
         ib.item,
         ib.location,
@@ -140,6 +153,12 @@ LEFT JOIN (
         SUM(ib.quantityavailable) AS quantityavailable
     FROM
         inventorybalance ib
+    WHERE ib.item IN (
+        SELECT txl.item
+        FROM transaction tx
+        JOIN transactionline txl ON txl.transaction = tx.id
+        WHERE tx.tranid = @tranid
+    )
     GROUP BY
         ib.item,
         ib.location,

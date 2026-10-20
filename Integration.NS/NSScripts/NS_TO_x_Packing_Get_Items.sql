@@ -65,6 +65,12 @@ LEFT JOIN (
     FROM itembinquantity ibq
     INNER JOIN bin b ON b.id = ibq.bin
     WHERE ibq.preferredbin = 'T'
+      AND ibq.item IN (
+		SELECT txl.item
+		FROM transaction tx
+		JOIN transactionline txl ON txl.transaction = tx.id
+		WHERE tx.tranid = @tranid
+	)
     GROUP BY ibq.item, b.location
 ) ibq ON ibq.item = i.id
    AND ibq.location = tl.location
@@ -80,6 +86,12 @@ LEFT JOIN (
     FROM itemvendor iv
     JOIN customrecord_dbti_vendor_bin_assignment ba ON iv.vendor = ba.custrecord_dbti_vba_vendor
     WHERE iv.preferredvendor = 'T'
+      AND iv.item IN (
+		SELECT txl.item
+		FROM transaction tx
+		JOIN transactionline txl ON txl.transaction = tx.id
+		WHERE tx.tranid = @tranid
+	)
     GROUP BY iv.item, iv.subsidiary, ba.custrecord_dbti_vba_location
 ) ivb ON ivb.item = i.id 
 	AND ivb.subsidiary = t.subsidiary 
@@ -88,15 +100,16 @@ LEFT JOIN (
 LEFT JOIN (
 	SELECT
 		item,
-		BUILTIN.DF( item ) AS itemname,
 		location,
-		BUILTIN.DF( location ) AS locationname,
 		quantityavailable
 	FROM
 		AggregateItemLocation
-	ORDER BY
-		Item,
-		Location
+	WHERE item IN (
+		SELECT txl.item
+		FROM transaction tx
+		JOIN transactionline txl ON txl.transaction = tx.id
+		WHERE tx.tranid = @tranid
+	)
 ) ail ON ail.item = i.id  AND ail.location = tl.location 
 
 LEFT JOIN inventorybalance ibv1
@@ -133,6 +146,12 @@ LEFT JOIN (
         SUM(ib.quantityavailable) AS quantityavailable
     FROM
         inventorybalance ib
+    WHERE ib.item IN (
+        SELECT txl.item
+        FROM transaction tx
+        JOIN transactionline txl ON txl.transaction = tx.id
+        WHERE tx.tranid = @tranid
+    )
     GROUP BY
         ib.item,
         ib.location,
@@ -149,6 +168,12 @@ LEFT JOIN (
         SUM(ib.quantityavailable) AS quantityavailable
     FROM
         inventorybalance ib
+    WHERE ib.item IN (
+        SELECT txl.item
+        FROM transaction tx
+        JOIN transactionline txl ON txl.transaction = tx.id
+        WHERE tx.tranid = @tranid
+    )
     GROUP BY
         ib.item,
         ib.location,
