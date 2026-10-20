@@ -1136,7 +1136,12 @@ public class ReceivingIntegration(
             .WithFilters(
                 Equal("t.recordtype", "itemfulfillment"),
                 Equal("t.status", "C"),
-                Equal("ml.createdfrom", strId)
+                Equal("ml.createdfrom", strId),
+                // Already-received fulfillments must not be offered for receiving again.
+                // The flag is a checkbox, so unset reads as NULL rather than 'F'.
+                Any(
+                    Equal("t.custbody_dbti_fully_received", "F"),
+                    IsNull("t.custbody_dbti_fully_received"))
             )
             .WithDatagridIntent(intent)
             .Build();
