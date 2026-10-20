@@ -5,6 +5,69 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https:-/keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.14] - 2026-10-20
+### Fixed
+- (Receiving / Packing / Counting → Mobile) "Unknown barcode" still appeared for
+  correct barcodes after 0.12.9 fixed only the five Receiving views. Two defects
+  remained:
+  1. **Four screens never got the fallback.** Packing TO, Packing Returns,
+     Packing VRA and Inventory Counting still matched a scan against the
+     per-document `/Item/Barcodes` list only, so a stale, empty or failed list
+     produced the warning on every scan.
+  2. **A failed lookup was reported as an unknown barcode.** `ResolveBarcodeAsync`
+     checked only `res.Data is null`, which is also what a 4xx/5xx/timeout
+     yields. A NetSuite error therefore rendered as `Unknown barcode: …`, hiding
+     the real cause — the same class of masking 0.12.9 removed at the list layer.
+- `POST /Item/PerBarcode` is now the single source of truth for scan resolution:
+  - Mobile: one `BarcodeResolver` (`Mobile.MAUI/Services/BarcodeResolver.cs`)
+    replaces eight copies of the resolver and the per-document barcode list
+    (`ActionGetItemBarcodes` / `ItemRequest` / `ItemBarcodes`) on all nine scan
+    screens. It normalises the scan token (trim, AIM `]C1` prefix, control
+    characters a keyboard-wedge appends), caches hits per barcode for the
+    session, resets the cache when the endpoint changes, and returns one of
+    three outcomes: found, not-found, or failed-with-reason. Screens now show
+    `Barcode lookup failed: <reason>` for the last case instead of
+    `Unknown barcode`.
+  - API: `GET`-equivalent handler returns `InventoryItemDTO?`
+    (`FirstOrDefault` instead of adapting an `IEnumerable` to a single VM, which
+    produced a default object), and the controller answers `NotFound`
+    (`StatusCode 404` in the body) for "no such barcode" while real errors keep
+    their own status. Blank scans are rejected as `Failed`.
+  - `NS_Item_Get_PerBarcode.sql`: dropped the `itemtype = 'InvtPart'` filter,
+    which `NS_Item_Get_Barcodes.sql` never had — it silently made every
+    non-`InvtPart` line unresolvable. Added `ORDER BY i.id` for a deterministic
+    pick when a barcode is duplicated in the custom record.
+- `ItemBarcodesPerUoMVM` no longer re-declares `UoMName`, `UoMRate` and
+  `DefaultWeight`. The shadowed members meant the Inventory Worksheet read
+  `""`/`0` after a scan (its `ProcessScannedItem` takes `InventoryItemVM`).
+
+### Added
+- `NSScriptsWellFormedTests.Item_per_barcode_script_matches_the_barcode_list_scope`
+  pins the two barcode scripts to the same item-type scope.
+
+### Operational
+- Requires **both** an API deploy and a new mobile APK. The API must ship first:
+  an old API has no `NotFound` result, so the client would report "not found"
+  as an ordinary failure.
+- Live smoke test (one per screen family): scan a valid barcode with the network
+  cut mid-scan (expect `Barcode lookup failed: …`, not "Unknown barcode");
+  scan a barcode that NetSuite does not know (expect `Unknown barcode: …`); scan
+  one that is valid but absent from the document (expect `Item not found in this
+  PO/…`); repeat the same barcode to confirm the second scan is served from the
+  cache.
+- Verify `POST /api/Item/PerBarcode` with a known barcode returns a single object
+  with the real `NetsuiteMaterialInternalId` — the previous `Adapt` over an
+  `IEnumerable` is the reason this was never trustworthy.
+- `dotnet build Api.CoreWebAPI` and `dotnet build Mobile.MAUI -f
+  net9.0-windows10.0.19041.0` → 0 errors. `dotnet test Integration.NS.Tests` →
+  476 pass; the two documented timing-sensitive tests
+  (`GridResultCacheTests.Key_index_does_not_outlive_the_cache_it_tracks`,
+  `NetSuiteApiClientServiceTokenTests.HttpClient_has_explicit_timeout_of_100_seconds_by_default`)
+  fail only in the full run and pass in isolation.
+- `/Item/Barcodes` remains for the web pages (`InventoryCountingHandler`) only.
+
+---
+
 ## [0.12.13] - 2026-10-19
 ### Fixed
 - (Item Selection → STR / ITR / Supplier Return / Inventory Adjustment) The item

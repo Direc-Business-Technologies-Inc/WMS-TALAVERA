@@ -19,14 +19,11 @@ public partial class TransferOrderItemView : IAsyncDisposable
 
     private IJSObjectReference JsObj { get; set; }
     AppAction<List<TransferOrderLineVM>> ActionGetTOItems { get; set; }
-    AppAction<List<ItemBarcodesPerUoMVM>> ActionGetItemBarcodes { get; set; }
     AppAction ActionUpdateStartTime { get; set; }
     AppAction<bool> ActionSaveScan { get; set; }
 
     List<TransferOrderLineVM> GoodTOItems = [];
     List<TransferOrderLineVM> BadTOItems = [];
-    List<ItemBarcodesPerUoMVM> ItemBarcodes = [];
-    List<BarcodeRequestVM> ItemRequest = [];
 
     List<TransferOrderLineVM> TOItems = [];
 
@@ -149,30 +146,6 @@ public partial class TransferOrderItemView : IAsyncDisposable
             },
         };
 
-        ActionGetItemBarcodes = new AppAction<List<ItemBarcodesPerUoMVM>>
-        {
-            Name = "GetItemBarcodes",
-            TaskAsync = async () =>
-            {
-                await InvokeAsync(StateHasChanged);
-                var res = await Client.Post<List<ItemBarcodesPerUoMVM>>("/Item/Barcodes", ItemRequest);
-                return res;
-            },
-            OnSuccess = async (result) =>
-            {
-                ItemBarcodes = result.Data ?? [];
-
-                await InvokeAsync(StateHasChanged);
-            },
-
-            OnFailure = async (result) =>
-            {
-                await Toast.Error($"Failed to load item barcodes: {result.ErrorMessage}");
-
-                await InvokeAsync(StateHasChanged);
-            },
-        };
-
         ActionSaveScan = new AppAction<bool>
         {
             Name = "SaveTransferOrderScan",
@@ -204,13 +177,6 @@ public partial class TransferOrderItemView : IAsyncDisposable
         if (firstRender)
         {
             await ActionFactory.ExecuteAppActionAsync(ActionGetTOItems);
-
-            ItemRequest = GoodTOItems.Select(i => new BarcodeRequestVM
-            {
-                NetsuiteMaterialInternalId = i.NetsuiteMaterialInternalId,
-            }).ToList();
-
-            await ActionFactory.ExecuteAppActionAsync(ActionGetItemBarcodes);
         }
 
         if (TOItems.Count > 0 && JsObj is null)
@@ -289,13 +255,23 @@ public partial class TransferOrderItemView : IAsyncDisposable
                 return;
             }
 
-            var barcode = await ResolveBarcodeAsync(scanned);
+            var resolution = await BarcodeResolver.ResolveAsync(scanned);
 
-            if (barcode is null)
+            if (!resolution.IsFound)
             {
-                await Toast.Warning($"Unknown barcode: {scanned}");
+                if (resolution.IsFailure)
+                {
+                    await Toast.Error(resolution.Message);
+                }
+                else
+                {
+                    await Toast.Warning(resolution.Message);
+                }
+
                 return;
             }
+
+            var barcode = resolution.Barcode!;
 
             var goodLine = GoodTOItems.FirstOrDefault(x =>
                     x.NetsuiteMaterialInternalId == barcode.NetsuiteMaterialInternalId &&
@@ -493,71 +469,6 @@ public partial class TransferOrderItemView : IAsyncDisposable
         ChangeWeight = await GetWeightAsync("", "");
     }
 
-    /// <summary>
-    /// Resolves a scanned barcode for this view. Prefers the barcode list
-    /// preloaded for the document; when that list is empty (the load failed or
-    /// has not finished) it retries the load once; when the list simply does not
-    /// contain the scan it falls back to the authoritative per-barcode lookup.
-    /// Returns null only when NetSuite knows no such barcode.
-    /// </summary>
-    private async Task<ItemBarcodesPerUoMVM?> ResolveBarcodeAsync(string scanned)
-    {
-        var cached = FindCachedBarcode(scanned);
-
-        if (cached is not null)
-        {
-            return cached;
-        }
-
-        if (ItemBarcodes.Count == 0)
-        {
-            ItemRequest = GoodTOItems
-                .Select(i => new BarcodeRequestVM
-                {
-                    NetsuiteMaterialInternalId = i.NetsuiteMaterialInternalId
-                })
-                .ToList();
-
-            await ActionFactory.ExecuteAppActionAsync(ActionGetItemBarcodes);
-
-            cached = FindCachedBarcode(scanned);
-
-            if (cached is not null)
-            {
-                return cached;
-            }
-        }
-
-        var res = await Client.Post<InventoryItemVM>("/Item/PerBarcode", new { Barcode = scanned });
-
-        if (res?.Data is null)
-        {
-            return null;
-        }
-
-        var resolved = new ItemBarcodesPerUoMVM
-        {
-            NetsuiteMaterialInternalId = res.Data.NetsuiteMaterialInternalId,
-            MaterialCode = res.Data.MaterialCode,
-            MaterialName = res.Data.MaterialName,
-            MaterialWeight = res.Data.MaterialWeight,
-            UoMName = res.Data.UoMName,
-            UoMRate = res.Data.UoMRate,
-            MaterialBarcode = scanned,
-        };
-
-        ItemBarcodes.Add(resolved);
-
-        return resolved;
-    }
-
-    private ItemBarcodesPerUoMVM? FindCachedBarcode(string scanned)
-    {
-        return ItemBarcodes.FirstOrDefault(x =>
-            !string.IsNullOrWhiteSpace(x.MaterialBarcode) &&
-            x.MaterialBarcode.Equals(scanned, StringComparison.OrdinalIgnoreCase));
-    }
-
     async Task MoveScan(string scanned)
     {
         try
@@ -565,13 +476,23 @@ public partial class TransferOrderItemView : IAsyncDisposable
             TransferOrderLineVM? badLine;
             TransferOrderLineVM? goodLine;
 
-            var barcode = await ResolveBarcodeAsync(scanned);
+            var resolution = await BarcodeResolver.ResolveAsync(scanned);
 
-            if (barcode is null)
+            if (!resolution.IsFound)
             {
-                await Toast.Warning($"Unknown barcode: {scanned}");
+                if (resolution.IsFailure)
+                {
+                    await Toast.Error(resolution.Message);
+                }
+                else
+                {
+                    await Toast.Warning(resolution.Message);
+                }
+
                 return;
             }
+
+            var barcode = resolution.Barcode!;
 
             if (ActiveTabIndex == 1)
             {
@@ -698,13 +619,23 @@ public partial class TransferOrderItemView : IAsyncDisposable
             TransferOrderLineVM? badLine;
             TransferOrderLineVM? goodLine;
 
-            var barcode = await ResolveBarcodeAsync(scanned);
+            var resolution = await BarcodeResolver.ResolveAsync(scanned);
 
-            if (barcode is null)
+            if (!resolution.IsFound)
             {
-                await Toast.Warning($"Unknown barcode: {scanned}");
+                if (resolution.IsFailure)
+                {
+                    await Toast.Error(resolution.Message);
+                }
+                else
+                {
+                    await Toast.Warning(resolution.Message);
+                }
+
                 return;
             }
+
+            var barcode = resolution.Barcode!;
 
             if (ActiveTabIndex == 1)
             {

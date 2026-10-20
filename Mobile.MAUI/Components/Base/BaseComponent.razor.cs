@@ -12,6 +12,7 @@ public partial class BaseComponent
     [Inject] public DialogService Dialog { get; set; } = default!;
     [Inject] public ToastifyService Toast { get; set; } = default!;
     [Inject] public ApiClientService Client { get; set; } = default!;
+    [Inject] public BarcodeResolver BarcodeResolver { get; set; } = default!;
     [Inject] public PrinterApiClientService PrinterApiClient { get; set; } = default!;
     [Inject] public ActionFactoryService ActionFactory { get; set; } = default!;
     [Inject] public RoleService RoleService { get; set; } = default!;

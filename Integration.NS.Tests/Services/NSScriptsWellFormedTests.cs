@@ -121,6 +121,24 @@ public class NSScriptsWellFormedTests
         Assert.DoesNotContain(".countquantity", sql, StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>
+    /// The per-barcode lookup is the mobile scan resolver, so it must answer the
+    /// same scope as the warm-list script (<c>NS_Item_Get_Barcodes</c>), which has
+    /// never filtered by item type. The <c>itemtype = 'InvtPart'</c> filter this
+    /// script used to carry silently made every non-InvtPart line unresolvable
+    /// once the list was empty or stale.
+    /// </summary>
+    [Fact]
+    public void Item_per_barcode_script_matches_the_barcode_list_scope()
+    {
+        var perBarcode = File.ReadAllText(FindScript("NS_Item_Get_PerBarcode.sql"));
+        var list = File.ReadAllText(FindScript("NS_Item_Get_Barcodes.sql"));
+
+        Assert.DoesNotContain("itemtype", perBarcode, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("itemtype", list, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("bc.name = @barcode", perBarcode, StringComparison.OrdinalIgnoreCase);
+    }
+
     private static string FindScript(string fileName)
     {
         foreach (var row in ScriptFiles())

@@ -409,18 +409,23 @@ public partial class CreateInventoryWorksheetView : IAsyncDisposable
                 return;
 
             // API - doesn't modify UI state
-            var result = await Client.Post<InventoryItemVM>(
-                "/Item/PerBarcode",
-                new { Barcode = scanned }
-            );
+            var resolution = await BarcodeResolver.ResolveAsync(scanned);
 
-            var barcode = result.Data;
-
-            if (barcode is null)
+            if (!resolution.IsFound)
             {
-                await Toast.Warning($"Unknown barcode: {scanned}");
+                if (resolution.IsFailure)
+                {
+                    await Toast.Error(resolution.Message);
+                }
+                else
+                {
+                    await Toast.Warning(resolution.Message);
+                }
+
                 return;
             }
+
+            var barcode = resolution.Barcode!;
 
             // UI/state modification
             await InvokeAsync(async () =>

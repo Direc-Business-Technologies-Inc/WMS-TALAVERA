@@ -390,7 +390,7 @@ AND (custbody_dbti_fully_received = 'F' OR IS NULL)
 | Capture | `BarcodeScannerDialog.razor` — keyboard-wedge into a `RadzenTextBox` | Zebra **DataWedge** broadcast |
 | Dispatch | Dialog submit → `BarcodeScanned` event | `MauiProgram.BroadcastService` **static event** |
 | Accumulator | `BarcodeStore` — batch review + revert | `GoodXItems` / `BadXItems` lists mutated live |
-| Resolution | `GetBarcodeDataQry` → `CUSTOMRECORD_BARCODE_PER_UOM` | `POST /Item/Barcodes` pre-fetched once per order |
+| Resolution | `GetBarcodeDataQry` → `CUSTOMRECORD_BARCODE_PER_UOM` | `BarcodeResolver` → `POST /Item/PerBarcode` (per scan, cached in-session) |
 
 **NetSuite targets by source:**
 

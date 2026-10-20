@@ -48,10 +48,17 @@ public class ApiClientService
             }
         }
     }
+    /// <summary>
+    /// Raised when the endpoint is (re)configured. Caches that assume a single
+    /// host — e.g. resolved barcodes — must reset on it.
+    /// </summary>
+    public event Action? EndpointChanged;
+
     public void UpdateClient(ClientEndpointVM vm)
     {
         string url = EndpointHelper.BuildURI(vm);
         Client = new RestClient(new RestClientOptions { BaseUrl = new Uri(url) });
+        EndpointChanged?.Invoke();
     }
     public async Task<ApiResult<T>> Get<T>(string endpoint, object? body = null)
     {

@@ -18,6 +18,7 @@ public static class Extensions
 
         services.AddSingleton<RoleService>();
         services.AddSingleton<ApiClientService>();
+        services.AddSingleton<BarcodeResolver>();
         services.AddSingleton<PrinterApiClientService>();
         #region Maspter
         var config = new TypeAdapterConfig();
