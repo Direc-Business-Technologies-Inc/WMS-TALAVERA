@@ -37,7 +37,9 @@ public partial class TOxReturnxItemFulfillmentItemView : IAsyncDisposable
 
     List<TOxItemFulfillmentLineVM> ReturnsItems = [];
     List<TOxItemFulfillmentLineVM> FilteredReturnsItems = [];
-    List<TOxItemFulfillmentLineVM> MissingReturnsItems = [];
+    // Snapshot built by SaveScan and posted by ActionSaveScan. Kept separate from
+    // ReturnsItems so a save never rewrites the scan state it is reading from.
+    List<TOxItemFulfillmentLineVM> SavePayload = [];
     TOxItemFulfillmentLineVM? LastScanned;
     List<ItemBarcodesPerUoMVM> ItemBarcodes = [];
     List<BarcodeRequestVM> ItemRequest = [];
@@ -79,7 +81,19 @@ public partial class TOxReturnxItemFulfillmentItemView : IAsyncDisposable
             },
             OnSuccess = async (result) =>
             {
-                ReturnsItems = result.Data.Select(line => new TOxItemFulfillmentLineVM
+                // The returns line query joins the item's preferred bin and the vendor's bin
+                // assignment, so one transaction line can fan out into several rows with the
+                // same LineSequenceNumber. That number IS the NetSuite orderLine, so keeping
+                // two rows for it makes every save post a duplicate orderLine and NetSuite
+                // rejects the document with [DUPLICATE_KEYS]. Collapse to one row per line,
+                // preferring the copy that carries a bin because the receipt builder resolves
+                // the bin from the row.
+                ReturnsItems = result.Data
+                .GroupBy(line => line.LineSequenceNumber)
+                .Select(g => g
+                    .OrderByDescending(line => line.NetsuiteMaterialPrefferedBinId != 0)
+                    .First())
+                .Select(line => new TOxItemFulfillmentLineVM
                 {
                     NetsuiteOrderInternalId = line.NetsuiteOrderInternalId,
                     OrderNumber = line.OrderNumber,
@@ -156,7 +170,7 @@ public partial class TOxReturnxItemFulfillmentItemView : IAsyncDisposable
             {
                 await InvokeAsync(StateHasChanged);
                 var res = await Client.Post<bool>("/Receiving/Returns/SaveScan", new { 
-                    PostReturn = ReturnsItems, 
+                    PostReturn = SavePayload, 
                     TONetsuiteOrderInternalId = NetsuiteOrderInternalId, 
                     UserId,
                     Remarks
@@ -357,21 +371,25 @@ public partial class TOxReturnxItemFulfillmentItemView : IAsyncDisposable
                 return;
             }
 
-            var isOverScan = line.ScannedQuantity >= line.NSLineQuantityReceived;
+            var remainingQty = line.NSLineQuantityReceived - line.ScannedQuantity;
 
-            if (isOverScan)
+            // Remaining is 0 for a line that is already fully received, including 0 >= 0
+            // before anything was scanned for it, so the old
+            // "ScannedQuantity >= NSLineQuantityReceived" guard reported over-scanning before
+            // the first scan. Report what is actually true and let the quantity comparison
+            // below reject a scan that does not fit in the remainder.
+            if (remainingQty <= 0)
             {
-                await Toast.Warning($"Over-scanning item: {line.MaterialCode}.");
+                await Toast.Warning(line.NSLineQuantityReceived <= 0
+                    ? $"{line.MaterialCode} has no remaining quantity to receive."
+                    : $"Over-scanning item: {line.MaterialCode}.");
+
                 return;
             }
 
             var scanQty = barcode.UoMRate / line.UoMRate;
 
-            var remainingQty = line.NSLineQuantityReceived - line.ScannedQuantity;
-
-            bool isExceed = scanQty > remainingQty;
-
-            if (isExceed)
+            if (scanQty > remainingQty)
             {
                 await Toast.Warning($"Scan quantity exceeds remaining quantity for item: {line.MaterialCode}.");
                 return;
@@ -492,6 +510,8 @@ public partial class TOxReturnxItemFulfillmentItemView : IAsyncDisposable
             .Where(x => x.RemainingToScan > 0)
             .ToList();
 
+        List<TOxItemFulfillmentLineVM> missingReturns = [];
+
         if (missingItems.Any())
         {
             var totalMissing = missingItems.Sum(x => x.RemainingToScan);
@@ -500,9 +520,13 @@ public partial class TOxReturnxItemFulfillmentItemView : IAsyncDisposable
                           "These items will be tagged as missing.";
 
             var confirm = await _dialogService.Confirm(warning, "Missing Items?");
-        
 
-            MissingReturnsItems = missingItems
+            // Proceed = post the unscanned remainder tagged as missing (category 5).
+            // Cancel = post only what was scanned and leave the remainder open, so the
+            // operator can return to the document later.
+            if (confirm is true)
+            {
+                missingReturns = missingItems
                     .Select(m =>
                     {
                         var source = ReturnsItems.FirstOrDefault(g =>
@@ -517,6 +541,7 @@ public partial class TOxReturnxItemFulfillmentItemView : IAsyncDisposable
                             OrderNumber = source.OrderNumber,
                             OrderType = source.OrderType,
                             OrderStatus = source.OrderStatus,
+                            TransferCategory = source.TransferCategory,
 
                             NetsuiteFromLocationInternalId = source.NetsuiteFromLocationInternalId,
                             NetsuiteToLocationInternalId = source.NetsuiteToLocationInternalId,
@@ -556,11 +581,16 @@ public partial class TOxReturnxItemFulfillmentItemView : IAsyncDisposable
                     })
                     .Where(x => x != null)
                     .ToList()!;
+            }
         }
 
-
-
-        ReturnsItems = ReturnsItems.Where(x => x.NSLineQuantityReceived != 0)
+        // Snapshot the payload instead of rewriting ReturnsItems. The old code rebuilt
+        // ReturnsItems from its own output, which dropped IsMissing and concatenated a
+        // stale MissingReturnsItems on every attempt: the second save posted the same
+        // orderLine in both buckets and NetSuite rejected it with [DUPLICATE_KEYS].
+        // Grouping by (LineSequenceNumber, IsMissing) keeps one entry per orderLine per
+        // bucket, which is what the receipt payload requires.
+        SavePayload = ReturnsItems.Where(x => x.NSLineQuantityReceived != 0)
             .Select(x => new TOxItemFulfillmentLineVM
             {
                 NetsuiteOrderInternalId = x.NetsuiteOrderInternalId,
@@ -594,13 +624,16 @@ public partial class TOxReturnxItemFulfillmentItemView : IAsyncDisposable
 
                 ScanCount = x.ScanCount,
                 IsBad = x.IsBad,
+                IsMissing = x.IsMissing,
                 ScannedQuantity = RoundOfNearestHundredThousands(x.ScannedQuantity),
                 ScannedWeight = x.ScannedWeight
             })
-            .Concat(MissingReturnsItems)
+            .Concat(missingReturns)
+            .GroupBy(x => (x.LineSequenceNumber, x.IsMissing))
+            .Select(g => g.First())
             .ToList();
 
-        if (ReturnsItems.Count == 0)
+        if (SavePayload.Count == 0)
         {
             await Toast.Warning("There are no scanned items to save.");
             return;

@@ -1232,6 +1232,112 @@ namespace Integration.NS.Services
             return true;
         }
 
+        /// <summary>
+        /// Collapses the returns rows of one bucket (good/bad or missing) to one entry per
+        /// LineSequenceNumber. ReturnsIRPayloadDTO.CreateForItemReceipt maps each row 1:1 to
+        /// item[].orderline, and NetSuite rejects a body that repeats an orderLine with
+        /// [DUPLICATE_KEYS]. The returns line query fans a transaction line out when the item
+        /// has several preferred bins at the location or the vendor has several assignment
+        /// records there, and the mobile used to resend a partial save that had already been
+        /// posted. Identical copies merge silently, preferring the row the operator scanned and
+        /// then one that carries a bin; copies that disagree on quantity would post a wrong
+        /// quantity, so the save fails fast instead of guessing. The key never includes
+        /// IsMissing: a partially scanned line legitimately has a good row and a missing row,
+        /// and they go to separate Item Receipt documents, so callers pass one bucket at a
+        /// time.
+        /// </summary>
+        internal static List<PostReturnsDTO> CollapseReturnLines(List<PostReturnsDTO> lines)
+        {
+            return lines
+                .GroupBy(x => x.LineSequenceNumber)
+                .Select(g =>
+                {
+                    // Zero-quantity copies are the fillers the payload builder emits to keep
+                    // the ?replace=item.inventoryDetail.inventoryAssignment sub-resource on
+                    // every entry, so they never count as a disagreement on quantity.
+                    var quantities = g
+                        .Where(x => x.ScannedQuantity > 0)
+                        .Select(x => x.ScannedQuantity)
+                        .Distinct()
+                        .ToList();
+
+                    if (quantities.Count > 1)
+                    {
+                        var duplicate = g.First();
+
+                        throw new InvalidOperationException(
+                            $"Returns line {duplicate.LineSequenceNumber} ({duplicate.MaterialCode} - {duplicate.MaterialName}) " +
+                            $"was sent with diverging quantities ({string.Join(", ", quantities)}). " +
+                            "Refresh the document and scan the line again.");
+                    }
+
+                    return g
+                        .OrderByDescending(x => x.ScannedQuantity > 0)
+                        .ThenByDescending(x => x.NetsuiteMaterialVendorAssignedBin != 0)
+                        .ThenByDescending(x => x.NetsuiteMaterialPrefferedBinId != 0)
+                        .First();
+                })
+                .ToList();
+        }
+
+        /// <summary>
+        /// Tolerance for the scanned/missing comparison. Quantities are rounded to five
+        /// decimals by the mobile (FormatHelper.RoundOfNearestHundredThousands), so an exact
+        /// comparison would reject legitimate saves because of the division by UoMRate.
+        /// </summary>
+        internal const decimal ReturnQuantityTolerance = 0.00001m;
+
+        /// <summary>
+        /// Per line, the posted quantity is what the operator scanned plus, when they chose to
+        /// tag the remainder missing, what is written off as missing. Both land on the same
+        /// substransaction line, so together they must not exceed the line's remaining open
+        /// quantity. This guards the silent over-receipt the fan-out caused: a duplicate row
+        /// made a fully scanned line look unscanned and posted its remainder as missing.
+        /// The figures are the ones the mobile read when it loaded the document, so this
+        /// detects an inconsistent request, not a stale device (NetSuite still owns that).
+        /// Returns one descriptor per offender so the caller fails before the first POST.
+        /// </summary>
+        internal static List<string> FindReturnQuantityOverflows(
+            List<PostReturnsDTO> goodLines,
+            List<PostReturnsDTO> missingLines)
+        {
+            var offenders = new List<string>();
+
+            var lines = goodLines
+                .Concat(missingLines)
+                .GroupBy(x => x.LineSequenceNumber)
+                .Select(g => g.First());
+
+            foreach (var line in lines)
+            {
+                var good = goodLines
+                    .Where(x => x.LineSequenceNumber == line.LineSequenceNumber)
+                    .Sum(x => x.ScannedQuantity);
+
+                var missing = missingLines
+                    .Where(x => x.LineSequenceNumber == line.LineSequenceNumber)
+                    .Sum(x => x.ScannedQuantity);
+
+                var posted = good + missing;
+
+                if (line.UoMRate <= 0)
+                {
+                    offenders.Add($"WMS line {line.LineSequenceNumber} {line.MaterialCode} - {line.MaterialName}: UoM rate is {line.UoMRate}, remaining quantity cannot be verified");
+
+                    continue;
+                }
+
+                var remaining = (line.LineQuantity - (line.LineQuantityReceived + line.LineQuantityBackOrdered)) / line.UoMRate;
+
+                if (posted > remaining + ReturnQuantityTolerance)
+                {
+                    offenders.Add($"WMS line {line.LineSequenceNumber} {line.MaterialCode} - {line.MaterialName}: scanned {good} + missing {missing} = {posted}, remaining {remaining}");
+                }
+            }
+
+            return offenders;
+        }
+
         public async Task<bool> SaveReturnsItemReceipt(List<PostReturnsDTO> Data, int TONetsuiteOrderInternalId, int userId, string remarks)
         {
             var orderId = Data.Select(x => x.NetsuiteOrderInternalId).FirstOrDefault();
@@ -1242,37 +1348,57 @@ namespace Integration.NS.Services
 
             var receivingCategory = transferCategory == TransferCategory.GoodItems ? 1 : 2;
 
-            var returns = Data.Where(x => !x.IsMissing).ToList();
+            // Collapse before the payloads are built: one item[].orderline per bucket is the
+            // NetSuite contract, and this is where the mobile's duplicate rows used to land.
+            var returns = CollapseReturnLines(Data.Where(x => !x.IsMissing).ToList());
+            var missingReturns = CollapseReturnLines(Data.Where(x => x.IsMissing).ToList());
+
+            var overflows = FindReturnQuantityOverflows(returns, missingReturns);
+            if (overflows.Count > 0)
+            {
+                throw new InvalidOperationException(
+                    "Refusing to post Returns Item Receipt. " + string.Join(" | ", overflows));
+            }
+
+            var bucketName = receivingCategory == 1 ? "GOOD" : "BAD";
+
             if (returns.Any(x => x.ScannedQuantity > 0))
             {
+                var jsonStringGood = string.Empty;
+
                 try
                 {
                     ReturnsIRPayloadDTO payloadGood = ReturnsIRPayloadDTO.CreateForItemReceipt(returns, receivingCategory, orderId, userId, remarks);
 
-                    var jsonStringGood = JsonSerializer.Serialize(payloadGood, JsonSerializerOption);
+                    jsonStringGood = JsonSerializer.Serialize(payloadGood, JsonSerializerOption);
 
                     await MakeRequest<object>(url, jsonStringGood, HttpMethod.Post);
                 }
                 catch (Exception ex)
                 {
-                    throw new Exception($"Error while posting BAD Returns Item Receipt. {ex.Message}", ex);
+                    logger.LogError(ex, "{Bucket} Returns Item Receipt failed. Url: {Url}. Payload: {Payload}", bucketName, url, jsonStringGood);
+
+                    throw new Exception($"Error while posting {bucketName} Returns Item Receipt. {ex.Message}", ex);
                 }
             }
 
-            var missingReturns = Data.Where(x => x.IsMissing).ToList();
             if (missingReturns.Any(x => x.ScannedQuantity > 0))
             {
+                var jsonStringMissing = string.Empty;
+
                 try
                 {
-                    ReturnsIRPayloadDTO payloadGood = ReturnsIRPayloadDTO.CreateForItemReceipt(missingReturns, 5, orderId, userId, remarks);
+                    ReturnsIRPayloadDTO payloadMissing = ReturnsIRPayloadDTO.CreateForItemReceipt(missingReturns, 5, orderId, userId, remarks);
 
-                    var jsonStringGood = JsonSerializer.Serialize(payloadGood, JsonSerializerOption);
+                    jsonStringMissing = JsonSerializer.Serialize(payloadMissing, JsonSerializerOption);
 
-                    await MakeRequest<object>(url, jsonStringGood, HttpMethod.Post);
+                    await MakeRequest<object>(url, jsonStringMissing, HttpMethod.Post);
                 }
                 catch (Exception ex)
                 {
-                    throw new Exception($"Error while posting Missing TO Item Receipt. {ex.Message}", ex);
+                    logger.LogError(ex, "MISSING Returns Item Receipt failed. Url: {Url}. Payload: {Payload}", url, jsonStringMissing);
+
+                    throw new Exception($"Error while posting MISSING Returns Item Receipt. {ex.Message}", ex);
                 }
             }
 

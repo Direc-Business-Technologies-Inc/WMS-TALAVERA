@@ -90,7 +90,18 @@ public partial class TOxItemFulfillmentItemView : IAsyncDisposable
             },
             OnSuccess = async (result) =>
             {
-                GoodIFItems = result.Data.Select(line => new TOxItemFulfillmentLineVM
+                // The item fulfillment query joins the item's preferred bin and the vendor's bin
+                // assignment, so one transaction line can fan out into several rows with the
+                // same LineSequenceNumber. That number IS the NetSuite orderLine, and the save
+                // posts one orderLine per row, so duplicate rows break the document. Collapse
+                // to one row per line, preferring the copy that carries a bin (the restlet
+                // builder resolves the bin from the row).
+                GoodIFItems = result.Data
+                .GroupBy(line => line.LineSequenceNumber)
+                .Select(g => g
+                    .OrderByDescending(line => line.NetsuiteMaterialPrefferedBinId != 0)
+                    .First())
+                .Select(line => new TOxItemFulfillmentLineVM
                 {
                     NetsuiteOrderInternalId = line.NetsuiteOrderInternalId,
                     OrderNumber = line.OrderNumber,
@@ -131,7 +142,12 @@ public partial class TOxItemFulfillmentItemView : IAsyncDisposable
                     IsBad = false,
                 }).ToList() ?? [];
 
-                BadIFItems = result.Data.Select(line => new TOxItemFulfillmentLineVM
+                BadIFItems = result.Data
+                .GroupBy(line => line.LineSequenceNumber)
+                .Select(g => g
+                    .OrderByDescending(line => line.NetsuiteMaterialPrefferedBinId != 0)
+                    .First())
+                .Select(line => new TOxItemFulfillmentLineVM
                 {
                     NetsuiteOrderInternalId = line.NetsuiteOrderInternalId,
                     OrderNumber = line.OrderNumber,
