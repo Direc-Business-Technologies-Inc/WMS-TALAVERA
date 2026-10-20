@@ -12,6 +12,7 @@ public partial class ManualEntryDialog
     [Parameter] public decimal GoodQty { get; set; } = 0;
     [Parameter] public decimal BadQty { get; set; } = 0;
     [Parameter] public decimal PhysicalQty { get; set; } = 0;
+    [Parameter] public bool AllowZero { get; set; }
 
     private bool ShowBadIfOne => ShowBad == 1;
     private bool ShowPhysicalIfOne => ShowPhysical == 1;
@@ -29,7 +30,7 @@ public partial class ManualEntryDialog
             return;
         }
 
-        if (GoodQty + BadQty + MissingQty <= 0)
+        if (!AllowZero && GoodQty + BadQty + MissingQty <= 0)
         {
             ValidationMessage = "Enter a Good, Bad, or Missing Quantity greater than 0.";
             return;

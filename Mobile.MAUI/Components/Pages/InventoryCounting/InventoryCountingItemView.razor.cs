@@ -24,6 +24,8 @@ public partial class InventoryCountingItemView : IAsyncDisposable
 
     List<InventoryCountingLineVM> GoodICItems = [];
     List<InventoryCountingLineVM> BadICItems = [];
+    List<InventoryCountingLineVM> FilteredGoodICItems = [];
+    List<InventoryCountingLineVM> FilteredBadICItems = [];
     List<ItemBarcodesPerUoMVM> ItemBarcodes = [];
     List<BarcodeRequestVM> ItemRequest = [];
 
@@ -32,6 +34,8 @@ public partial class InventoryCountingItemView : IAsyncDisposable
     InventoryCountingLineVM? GoodSelectedLine;
     InventoryCountingLineVM? BadSelectedLine;
     InventoryCountingLineVM? LastScanned;
+
+    private string SearchText { get; set; } = string.Empty;
 
     private int _scanCount;
     int ScanCount
@@ -45,7 +49,8 @@ public partial class InventoryCountingItemView : IAsyncDisposable
     }
     int ActiveTabIndex { get; set; } = 0;
 
-    bool SaveBtnDisabled => ScanCount == 0;
+    bool HasCountedLines => GoodICItems.Any(x => x.IsCounted) || BadICItems.Any(x => x.IsCounted);
+    bool SaveBtnDisabled => !HasCountedLines;
     bool NextScanIsBad = false;
     bool MoveOn = false;
     bool IsWeightDialogOpen = false;
@@ -85,10 +90,14 @@ public partial class InventoryCountingItemView : IAsyncDisposable
                     UoMRate = line.UoMRate,
 
                     NetsuiteInventoryDetailInternalId = line.NetsuiteInventoryDetailInternalId,
+                    CountedQuantity = line.CountedQuantity,
+                    GoodCountedQuantity = line.GoodCountedQuantity,
+                    BadCountedQuantity = line.BadCountedQuantity,
 
                     ScanCount = 0,
-                    ScannedQuantity = 0,
+                    ScannedQuantity = line.GoodCountedQuantity,
                     IsBad = false,
+                    IsCounted = false,
                 }).ToList() ?? [];
 
                 BadICItems = result.Data.Select(line => new InventoryCountingLineVM
@@ -111,13 +120,18 @@ public partial class InventoryCountingItemView : IAsyncDisposable
                     UoMName = line.UoMName,
                     UoMRate = line.UoMRate,
 
-                    NetsuiteInventoryDetailInternalId = line.NetsuiteInventoryDetailInternalId,
+                    NetsuiteInventoryDetailInternalId = line.BadInventoryDetailId,
+                    CountedQuantity = line.CountedQuantity,
+                    GoodCountedQuantity = line.GoodCountedQuantity,
+                    BadCountedQuantity = line.BadCountedQuantity,
 
                     ScanCount = 0,
-                    ScannedQuantity = 0,
+                    ScannedQuantity = line.BadCountedQuantity,
                     IsBad = true,
+                    IsCounted = false,
                 }).ToList() ?? [];
 
+                ApplySearch();
                 await InvokeAsync(StateHasChanged);
             },
         };
@@ -180,9 +194,94 @@ public partial class InventoryCountingItemView : IAsyncDisposable
         }
     }
 
-    async Task LoadInventoryCounting()
+    #region Search
+    private async Task OnSearchInput(ChangeEventArgs args)
     {
+        SearchText = args.Value?.ToString() ?? string.Empty;
+        ApplySearch();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task ClearSearch()
+    {
+        SearchText = string.Empty;
+        ApplySearch();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void ApplySearch()
+    {
+        if (string.IsNullOrWhiteSpace(SearchText))
+        {
+            FilteredGoodICItems = GoodICItems.ToList();
+            FilteredBadICItems = BadICItems.ToList();
+            return;
+        }
+
+        var search = SearchText.Trim();
+
+        FilteredGoodICItems = GoodICItems
+            .Where(row => MatchesSearch(row, search))
+            .ToList();
+
+        FilteredBadICItems = BadICItems
+            .Where(row => MatchesSearch(row, search))
+            .ToList();
+    }
+
+    private static bool MatchesSearch(InventoryCountingLineVM row, string search)
+    {
+        return ContainsIgnoreCase(row.MaterialCode, search)
+            || ContainsIgnoreCase(row.MaterialName, search)
+            || ContainsIgnoreCase(row.UoMName, search);
+    }
+
+    private static bool ContainsIgnoreCase(string? source, string search)
+    {
+        return !string.IsNullOrWhiteSpace(source)
+            && source.Contains(search, StringComparison.OrdinalIgnoreCase);
+    }
+    #endregion
+
+    private async Task Refresh()
+    {
+        // Keep in-progress scans; the reload only refreshes planned quantities and detail ids.
+        var scannedState = GoodICItems
+            .Concat(BadICItems)
+            .GroupBy(x => new { x.LineSequenceNumber, x.NetsuiteMaterialInternalId, x.IsBad })
+            .ToDictionary(
+                g => g.Key,
+                g => new
+                {
+                    ScannedQuantity = g.First().ScannedQuantity,
+                    ScanCount = g.First().ScanCount,
+                    IsCounted = g.First().IsCounted
+                });
+
         await ActionFactory.ExecuteAppActionAsync(ActionGetICItems);
+
+        foreach (var item in GoodICItems.Concat(BadICItems))
+        {
+            var key = new { item.LineSequenceNumber, item.NetsuiteMaterialInternalId, item.IsBad };
+
+            if (scannedState.TryGetValue(key, out var scanned))
+            {
+                item.ScannedQuantity = scanned.ScannedQuantity;
+                item.ScanCount = scanned.ScanCount;
+                item.IsCounted = scanned.IsCounted;
+            }
+        }
+
+        ItemRequest = GoodICItems
+            .Select(i => new BarcodeRequestVM
+            {
+                NetsuiteMaterialInternalId = i.NetsuiteMaterialInternalId
+            })
+            .ToList();
+
+        await ActionFactory.ExecuteAppActionAsync(ActionGetItemBarcodes);
+
+        await InvokeAsync(StateHasChanged);
     }
 
     private async void SelectGoodLine(InventoryCountingLineVM item)
@@ -317,12 +416,14 @@ public partial class InventoryCountingItemView : IAsyncDisposable
             {
                 badLine.ScannedQuantity += barcode.UoMRate / badLine.UoMRate;
                 badLine.ScanCount++;
+                badLine.IsCounted = true;
                 LastScanned = badLine;
             }
             else
             {
                 goodLine.ScannedQuantity += barcode.UoMRate / goodLine.UoMRate;
                 goodLine.ScanCount++;
+                goodLine.IsCounted = true;
                 LastScanned = goodLine;
             }
 
@@ -366,6 +467,7 @@ public partial class InventoryCountingItemView : IAsyncDisposable
                 ScanCount = x.ScanCount,
                 ScannedQuantity = x.ScannedQuantity,
                 IsBad = x.IsBad,
+                IsCounted = x.IsCounted,
             })
             .ToList();
 
@@ -449,7 +551,8 @@ public partial class InventoryCountingItemView : IAsyncDisposable
                 { "BadQty", badLine.ScannedQuantity },
                 { "ShowBad", 1 },
                 { "ShowMissing", 0 },
-                { "ShowPhysical", 0 }
+                { "ShowPhysical", 0 },
+                { "AllowZero", true }
             },
             new DialogOptions { ShowClose = true });
 
@@ -457,6 +560,8 @@ public partial class InventoryCountingItemView : IAsyncDisposable
         {
             goodLine.ScannedQuantity = entry.GoodQty;
             badLine.ScannedQuantity = entry.BadQty;
+            goodLine.IsCounted = true;
+            badLine.IsCounted = true;
             ScanCount = Math.Max(ScanCount, 1);
         }
     }
@@ -533,6 +638,8 @@ public partial class InventoryCountingItemView : IAsyncDisposable
 
                 goodLine.ScannedQuantity += badScannedQuantity;
                 badLine.ScanCount++;
+                badLine.IsCounted = true;
+                goodLine.IsCounted = true;
             }
             else
             {
@@ -555,6 +662,8 @@ public partial class InventoryCountingItemView : IAsyncDisposable
                 badLine.ScannedQuantity += goodScannedQuantity;
 
                 goodLine.ScanCount++;
+                goodLine.IsCounted = true;
+                badLine.IsCounted = true;
             }
 
             ScanCount++;
@@ -638,6 +747,7 @@ public partial class InventoryCountingItemView : IAsyncDisposable
                 badLine.ScannedQuantity -= badScannedQuantity;
 
                 badLine.ScanCount++;
+                badLine.IsCounted = true;
             }
             else
             {
@@ -658,6 +768,7 @@ public partial class InventoryCountingItemView : IAsyncDisposable
                 goodLine.ScannedQuantity -= goodScannedQuantity;
 
                 goodLine.ScanCount++;
+                goodLine.IsCounted = true;
             }
 
             ScanCount++;

@@ -16,9 +16,25 @@ SELECT
 
     tl.quantity AS LineQuantity,
     uom.unitname AS UoMName,
-	uom.conversionrate AS UoMRate,
+    uom.conversionrate AS UoMRate,
 
-    ia.id AS NetsuiteInventoryDetailInternalId,
+    tl.countquantity AS CountedQuantity,
+
+    COALESCE((SELECT SUM(ia.quantity) FROM inventoryassignment ia
+              WHERE ia.transaction = t.id AND ia.transactionline = tl.id
+                AND ia.inventorystatus = 1), 0) AS GoodCountedQuantity,
+
+    COALESCE((SELECT SUM(ia.quantity) FROM inventoryassignment ia
+              WHERE ia.transaction = t.id AND ia.transactionline = tl.id
+                AND ia.inventorystatus = 3), 0) AS BadCountedQuantity,
+
+    (SELECT MAX(ia.id) FROM inventoryassignment ia
+     WHERE ia.transaction = t.id AND ia.transactionline = tl.id
+       AND ia.inventorystatus = 1) AS NetsuiteInventoryDetailInternalId,
+
+    (SELECT MAX(ia.id) FROM inventoryassignment ia
+     WHERE ia.transaction = t.id AND ia.transactionline = tl.id
+       AND ia.inventorystatus = 3) AS BadInventoryDetailId,
 
     TO_CHAR(t.createddate, 'YYYY-MM-DD"T"HH24:MI:SS') AS NetsuiteOrderCreatedDate
 
@@ -26,9 +42,8 @@ FROM item i
 JOIN transactionline tl ON i.id = tl.item
 JOIN transaction t ON tl.transaction = t.id
 JOIN unitstypeuom uom ON tl.units = uom.internalid
-LEFT JOIN InventoryAssignment ia ON ia.Transaction = t.ID AND ia.TransactionLine = tl.ID
 WHERE
     t.status = 'B'
-	AND t.recordType = 'inventorycount'
-	AND tl.transactionlinetype = 'COUNTQUANTITY'
-	AND t.tranid = @tranid
+    AND t.recordType = 'inventorycount'
+    AND tl.transactionlinetype = 'COUNTQUANTITY'
+    AND t.tranid = @tranid

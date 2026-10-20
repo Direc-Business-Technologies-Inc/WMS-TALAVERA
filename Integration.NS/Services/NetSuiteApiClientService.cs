@@ -1999,21 +1999,23 @@ namespace Integration.NS.Services
             var orderId = Data.Select(x => x.NetsuiteOrderInternalId).FirstOrDefault();
             string url = string.Format(PatchInventoryCountUrl, orderId);
 
-            var goodIC = Data.Where(x => !x.IsBad).ToList();
+            // Only lines the operator touched. Untouched lines must never be sent as 0.
+            // The web page does not set IsCounted, so its existing ScannedQuantity filter still works.
+            var countableIC = Data.Where(x => x.IsCounted || x.ScannedQuantity > 0).ToList();
 
-            if (goodIC.Any())
+            if (countableIC.Any())
             {
                 try
                 {
-                    var payloadGood = PatchInventoryCountingPayloadDTO.PatchInventoryCounting(goodIC);
+                    var payload = PatchInventoryCountingPayloadDTO.PatchInventoryCounting(countableIC);
 
-                    var jsonStringGood = JsonSerializer.Serialize(payloadGood, JsonSerializerOption);
+                    var jsonString = JsonSerializer.Serialize(payload, JsonSerializerOption);
 
-                    await MakeRequest<object>(url, jsonStringGood, HttpMethod.Patch);
+                    await MakeRequest<object>(url, jsonString, HttpMethod.Patch);
                 }
                 catch (Exception ex)
                 {
-                    throw new Exception($"Error while posting GOOD Inventory Counting. {ex.Message}", ex);
+                    throw new Exception($"Error while posting Inventory Counting. {ex.Message}", ex);
                 }
             }
 
