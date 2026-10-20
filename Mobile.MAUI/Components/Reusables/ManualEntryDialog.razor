@@ -14,29 +14,32 @@
                        class="rz-w-100 readonly-field" />
     </RadzenStack>
 
-    <!-- Planned Qty -->
-    <RadzenStack Gap="4px">
-        <RadzenText Text="Planned Qty"
-                    TextStyle="TextStyle.Caption"
-                    class="rz-m-0 field-label" />
+    @if (EnforcePlannedLimit)
+    {
+        <!-- Planned Qty -->
+        <RadzenStack Gap="4px">
+            <RadzenText Text="Planned Qty"
+                        TextStyle="TextStyle.Caption"
+                        class="rz-m-0 field-label" />
 
-        <RadzenNumeric TValue="decimal"
-                       Value="@PlannedQty"
-                       Disabled="true"
-                       class="rz-w-100 readonly-field" />
-    </RadzenStack>
+            <RadzenNumeric TValue="decimal"
+                           Value="@PlannedQty"
+                           Disabled="true"
+                           class="rz-w-100 readonly-field" />
+        </RadzenStack>
 
-    <!-- Remaining Qty -->
-    <RadzenStack Gap="4px">
-        <RadzenText Text="Remaining Qty"
-                    TextStyle="TextStyle.Caption"
-                    class="rz-m-0 field-label" />
+        <!-- Remaining Qty -->
+        <RadzenStack Gap="4px">
+            <RadzenText Text="Remaining Qty"
+                        TextStyle="TextStyle.Caption"
+                        class="rz-m-0 field-label" />
 
-        <RadzenNumeric TValue="decimal"
-                       Value="@RemainingQty"
-                       Disabled="true"
-                       class="rz-w-100 readonly-field" />
-    </RadzenStack>
+            <RadzenNumeric TValue="decimal"
+                           Value="@RemainingQty"
+                           Disabled="true"
+                           class="rz-w-100 readonly-field" />
+        </RadzenStack>
+    }
 
     <!-- Good / Quantity -->
     <RadzenStack Gap="4px">

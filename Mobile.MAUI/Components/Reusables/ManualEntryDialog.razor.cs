@@ -14,23 +14,26 @@ public partial class ManualEntryDialog
     [Parameter] public decimal PhysicalQty { get; set; } = 0;
     [Parameter] public bool AllowZero { get; set; }
 
+    [Parameter] public bool EnforcePlannedLimit { get; set; } = true;
+
     private bool ShowBadIfOne => ShowBad == 1;
     private bool ShowPhysicalIfOne => ShowPhysical == 1;
     private bool ShowMissingIfOne => ShowMissing == 1;
     private decimal RemainingQty => PlannedQty - (GoodQty + BadQty);
-    
+    private decimal TotalQty => GoodQty + BadQty + MissingQty;
+
     private decimal MissingQty { get; set; } = 0;
     private string? ValidationMessage { get; set; }
 
     private void OnConfirm()
     {
-        if (GoodQty + BadQty + MissingQty > PlannedQty)
+        if (EnforcePlannedLimit && TotalQty > PlannedQty)
         {
-            ValidationMessage = $"Total Qty cannot exceed Planned Quantity).";
+            ValidationMessage = "Total Qty cannot exceed Planned Quantity.";
             return;
         }
 
-        if (!AllowZero && GoodQty + BadQty + MissingQty <= 0)
+        if (!AllowZero && TotalQty <= 0)
         {
             ValidationMessage = "Enter a Good, Bad, or Missing Quantity greater than 0.";
             return;

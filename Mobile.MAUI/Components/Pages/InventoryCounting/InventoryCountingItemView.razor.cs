@@ -530,7 +530,8 @@ public partial class InventoryCountingItemView : IAsyncDisposable
                 { "ShowBad", 1 },
                 { "ShowMissing", 0 },
                 { "ShowPhysical", 0 },
-                { "AllowZero", true }
+                { "AllowZero", true },
+                { "EnforcePlannedLimit", false }
             },
             new DialogOptions { ShowClose = true });
 

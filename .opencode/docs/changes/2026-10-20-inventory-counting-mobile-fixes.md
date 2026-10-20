@@ -121,6 +121,10 @@ See `.opencode/docs/changes/2026-10-20-mobile-api-client-error-masking.md`.
 - **Zero is entered through the existing manual dialog.** No new button was added.
 - **Retention ends when the count leaves status `B`.** The items query only returns
   in-progress counts, so a closed count no longer appears on the phone.
+- **A count is not capped by the planned quantity** (corrected same day). Manual Entry now passes
+  `EnforcePlannedLimit = false` on the counting screen, so a line with `LineQuantity = 0` or a count
+  above plan can be confirmed. See
+  `2026-10-20-inventory-counting-manual-planned-qty.md`.
 
 ## Assumptions to verify in sandbox
 
