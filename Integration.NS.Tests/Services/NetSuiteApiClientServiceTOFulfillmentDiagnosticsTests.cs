@@ -101,6 +101,66 @@ public class NetSuiteApiClientServiceTOFulfillmentDiagnosticsTests
         Assert.Contains("MISSING ITEM", decoded);
     }
 
+    // ---------------------------------------------------------------------
+    // Name drift: NetSuite names the item from its own record, so whitespace
+    // and casing can differ from WMS's MaterialName. Field report 2026-10-21
+    // ("BONAKID 3/400G(1.2KG)" reported as not posted).
+    // ---------------------------------------------------------------------
+    [Fact]
+    public void Item_named_variant_matches_when_only_whitespace_differs()
+    {
+        var lines = new List<PostTransferOrderDTO>
+        {
+            Line(271, materialCode: "00022317", materialName: "BONAKID 3/400G (1.2KG)")
+        };
+
+        var decoded = NetSuiteApiClientService.DecodeTOItemFulfillmentLine(
+            "Please configure the inventory detail for BONAKID 3/400G(1.2KG).", lines);
+
+        Assert.Contains("WMSLine 271", decoded);
+        Assert.DoesNotContain("not matched", decoded);
+    }
+
+    // ---------------------------------------------------------------------
+    // No exact match: the decoder must still narrow the offender without
+    // server logs, using the reported base name (before the parenthesis).
+    // ---------------------------------------------------------------------
+    [Fact]
+    public void Unmatched_item_reports_candidates_by_base_name()
+    {
+        var lines = new List<PostTransferOrderDTO>
+        {
+            Line(10, materialName: "YOUNG'S TOWN RED IN T/SAUCE 155G"),
+            Line(271, materialCode: "00022317", materialName: "BONAKID 3/400G 1.2KG"),
+            Line(272, materialCode: "00022318", materialName: "BONAKID 3/400G 2.4KG"),
+            Line(999, materialName: "UNRELATED")
+        };
+
+        var decoded = NetSuiteApiClientService.DecodeTOItemFulfillmentLine(
+            "Please configure the inventory detail for BONAKID 3/400G (1.2KG) MILK.", lines);
+
+        Assert.Contains("not matched to a posted line", decoded);
+        Assert.Contains("candidates=[", decoded);
+        Assert.Contains("WMS line 271", decoded);
+        Assert.Contains("00022317", decoded);
+    }
+
+    [Fact]
+    public void Unmatched_item_without_candidates_reports_the_posted_count()
+    {
+        var lines = new List<PostTransferOrderDTO>
+        {
+            Line(1, materialName: "YOUNG'S TOWN RED IN T/SAUCE 155G"),
+            Line(2, materialName: "NOVA CHEDDAR 38G/40G")
+        };
+
+        var decoded = NetSuiteApiClientService.DecodeTOItemFulfillmentLine(
+            "Please configure the inventory detail for BONAKID 3/400G(1.2KG).", lines);
+
+        Assert.Contains("not matched to a posted line", decoded);
+        Assert.Contains("none among 2 posted entries", decoded);
+    }
+
     [Fact]
     public void Returns_empty_when_no_marker_is_present()
     {

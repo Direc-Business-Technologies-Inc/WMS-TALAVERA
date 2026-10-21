@@ -1535,6 +1535,17 @@ namespace Integration.NS.Services
         /// of the message and is trimmed of the trailing sentence period rather than stopping
         /// at the first dot.
         /// </summary>
+        /// <remarks>
+        /// NetSuite names the item from ITS record while the payload carries only orderLine, so
+        /// WMS's MaterialName can differ from the reported name by nothing more than whitespace
+        /// (field report 2026-10-21: "BONAKID 3/400G(1.2KG)" reported as not posted). Comparison
+        /// is therefore whitespace- and case-insensitive. When no exact match exists the decoder
+        /// still must locate the line without server logs, so it reports up to three entries whose
+        /// name/code share the reported base name (the part before the first parenthesis) - the
+        /// filler entries a large open-set payload carries are indistinguishable from scans
+        /// otherwise. Reporting a count instead of inventing a match keeps the "not matched"
+        /// wording truthful when the item really is absent.
+        /// </remarks>
         internal static string DecodeTOItemFulfillmentLine(string message, List<PostTransferOrderDTO> lines)
         {
             var nsLineMatch = Regex.Match(message, @"line (\d+) of the item list");
@@ -1548,14 +1559,49 @@ namespace Integration.NS.Services
             if (!itemMatch.Success) return string.Empty;
 
             var itemName = itemMatch.Groups[1].Value.TrimEnd('.', ' ');
-            var matched = lines.FirstOrDefault(x =>
-                string.Equals(x.MaterialName, itemName, StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(x.MaterialCode, itemName, StringComparison.OrdinalIgnoreCase));
+            var key = NormalizeDiagnosticName(itemName);
 
-            return matched is null
-                ? $" | item=\"{itemName}\" (not matched to a posted line)"
-                : $" | item={matched.MaterialCode} - {matched.MaterialName} WMSLine {matched.LineSequenceNumber} vendorBin={matched.NetsuiteMaterialVendorAssignedBin} preferredBin={matched.NetsuiteMaterialPrefferedBinId} qty={matched.ScannedQuantity}";
+            var matched = lines.FirstOrDefault(x =>
+                NormalizeDiagnosticName(x.MaterialName) == key ||
+                NormalizeDiagnosticName(x.MaterialCode) == key);
+
+            if (matched is not null)
+            {
+                return $" | item={matched.MaterialCode} - {matched.MaterialName} WMSLine {matched.LineSequenceNumber} vendorBin={matched.NetsuiteMaterialVendorAssignedBin} preferredBin={matched.NetsuiteMaterialPrefferedBinId} qty={matched.ScannedQuantity}";
+            }
+
+            // Base-name candidates: the reported name is often the same item with a suffix the
+            // WMS master data does not carry ("3/400G(1.2KG)" vs "3/400G"). Capped at three so the
+            // toast stays readable on an order that posted hundreds of fillers.
+            var stem = key.Split('(')[0];
+            if (stem.Length < 3) stem = key;
+
+            var candidates = lines
+                .Select((line, index) => (line, position: index + 1))
+                .Where(x =>
+                {
+                    var name = NormalizeDiagnosticName(x.line.MaterialName);
+                    var code = NormalizeDiagnosticName(x.line.MaterialCode);
+                    return (stem.Length > 0 && (name.StartsWith(stem) || code.StartsWith(stem) || name.Contains(stem)))
+                        || (key.Contains(code) && code.Length >= 3);
+                })
+                .Take(3)
+                .Select(x => $"item-list line {x.position} (WMS line {x.line.LineSequenceNumber}) {x.line.MaterialCode} qty={x.line.ScannedQuantity} vendorBin={x.line.NetsuiteMaterialVendorAssignedBin} preferredBin={x.line.NetsuiteMaterialPrefferedBinId}")
+                .ToList();
+
+            var candidateText = candidates.Count > 0
+                ? $"candidates=[{string.Join("; ", candidates)}]"
+                : $"candidates=[none among {lines.Count} posted entries]";
+
+            return $" | item=\"{itemName}\" (not matched to a posted line) {candidateText}";
         }
+
+        /// <summary>
+        /// Whitespace- and case-insensitive form of an item name or code, used only to match
+        /// NetSuite's reported item name against the posted DTO rows.
+        /// </summary>
+        private static string NormalizeDiagnosticName(string? value) =>
+            string.Concat((value ?? string.Empty).Where(c => !char.IsWhiteSpace(c))).ToUpperInvariant();
 
         public async Task<bool> SaveTOItemFulfillment(List<PostTransferOrderDTO> Data)
         {
@@ -1629,7 +1675,7 @@ namespace Integration.NS.Services
                 catch (Exception ex)
                 {
                     logger.LogError(ex, "BAD TO Item Fulfillment failed. Url: {Url}. Payload: {Payload}", url, jsonStringBad);
-                    var diag = $"[diag replace={url.Contains("replace=")} usedBin={isUsedBin} scannedLines={badTO.Count(x => x.ScannedQuantity > 0)} totalLines={badTO.Count}]"
+                    var diag = $"[diag replace={url.Contains("replace=")} usedBin={isUsedBin} scannedLines={badTO.Count(x => x.ScannedQuantity > 0)} totalLines={badTO.Count} build={BuildStamp}]"
                         + DecodeTOItemFulfillmentLine(ex.Message, badTO);
 
                     throw new Exception($"Error while posting BAD TO Item Fulfillment. {ex.Message} {diag}", ex);
@@ -1673,7 +1719,7 @@ namespace Integration.NS.Services
                 catch (Exception ex)
                 {
                     logger.LogError(ex, "GOOD TO Item Fulfillment failed. Url: {Url}. Payload: {Payload}", url, jsonStringGood);
-                    var diag = $"[diag replace={url.Contains("replace=")} usedBin={isUsedBin} scannedLines={goodTO.Count(x => x.ScannedQuantity > 0)} totalLines={goodTO.Count}]"
+                    var diag = $"[diag replace={url.Contains("replace=")} usedBin={isUsedBin} scannedLines={goodTO.Count(x => x.ScannedQuantity > 0)} totalLines={goodTO.Count} build={BuildStamp}]"
                         + DecodeTOItemFulfillmentLine(ex.Message, goodTO);
 
                     throw new Exception($"Error while posting GOOD TO Item Fulfillment. {ex.Message} {diag}", ex);
