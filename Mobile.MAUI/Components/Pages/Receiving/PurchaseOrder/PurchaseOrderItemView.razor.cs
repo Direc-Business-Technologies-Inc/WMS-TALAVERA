@@ -52,7 +52,6 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
 
     bool SaveBtnDisabled => ScanCount == 0;
 
-    bool NextScanIsBad = false;
     bool MoveOn = false;
     bool IsMissing { get; set; }
     bool IsWeightDialogOpen = false;
@@ -1259,47 +1258,8 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
 
 
     #region Button States
-
     private ToggleState ScanState { get; set; } = ToggleState.Base;
 
-    private string ScanStateIcon => ScanState switch
-    {
-        ToggleState.Base => "check",
-        ToggleState.Good => "check",
-        ToggleState.Bad => "block",
-        _ => "check"
-    };
-
-    private string ScanStateLabel => ScanState switch
-    {
-        ToggleState.Base => "Good",
-        ToggleState.Good => "Good",
-        ToggleState.Bad => "Bad",
-        _ => "Good"
-    };
-
-    private ButtonStyle ScanStateButtonStyle => ScanState switch
-    {
-        ToggleState.Base => ButtonStyle.Base,
-        ToggleState.Good => ButtonStyle.Success,
-        ToggleState.Bad => ButtonStyle.Danger,
-        _ => ButtonStyle.Base
-    };
-
-    private void ToggleScanState()
-    {
-        ScanState = ScanState switch
-        {
-            ToggleState.Base => ToggleState.Good,
-            ToggleState.Good => ToggleState.Bad,
-            ToggleState.Bad => ToggleState.Good,
-            _ => ToggleState.Good
-        };
-
-        NextScanIsBad = ScanState == ToggleState.Bad;
-
-        InvokeAsync(StateHasChanged);
-    }
-
+    private bool NextScanIsBad => ScanState == ToggleState.Bad;
     #endregion
 }

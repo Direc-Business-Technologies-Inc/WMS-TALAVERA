@@ -274,26 +274,8 @@
 
                                 @* GOOD / BAD / MISSING *@
 
-                                <RadzenStack Gap="5px"
-                                             Orientation="Orientation.Vertical"
-                                             AlignItems="AlignItems.Center"
-                                             class="scan-action-item">
-
-                                    <RadzenButton Class="rz-border-radius-5"
-                                                  Icon="@ScanStateIcon"
-                                                  ButtonStyle="@ScanStateButtonStyle"
-                                                  Size="ButtonSize.Small"
-                                                  Click="@ToggleScanState"
+                                <ScanToggleButton @bind-ScanState="ScanState"
                                                   Disabled="@ActionSaveScan.Busy" />
-
-                                    <RadzenText TextStyle="TextStyle.Caption"
-                                                Class="scan-action-label rz-m-0">
-
-                                        @ScanStateLabel
-
-                                    </RadzenText>
-
-                                </RadzenStack>
 
 
                                 @* MOVE *@

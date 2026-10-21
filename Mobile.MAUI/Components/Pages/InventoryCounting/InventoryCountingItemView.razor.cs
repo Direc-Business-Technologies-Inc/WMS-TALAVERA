@@ -48,7 +48,6 @@ public partial class InventoryCountingItemView : IAsyncDisposable
 
     bool HasCountedLines => GoodICItems.Any(x => x.IsCounted) || BadICItems.Any(x => x.IsCounted);
     bool SaveBtnDisabled => !HasCountedLines;
-    bool NextScanIsBad = false;
     bool MoveOn = false;
     bool IsWeightDialogOpen = false;
 
@@ -806,49 +805,6 @@ public partial class InventoryCountingItemView : IAsyncDisposable
     #region Button States
     private ToggleState ScanState { get; set; } = ToggleState.Base;
 
-    private string ScanStateIcon => ScanState switch
-    {
-        ToggleState.Base => "check",
-        ToggleState.Good => "check",
-        ToggleState.Bad => "block",
-        _ => "check"
-    };
-
-    private string ScanStateLabel => ScanState switch
-    {
-        ToggleState.Base => "Good",
-        ToggleState.Good => "Good",
-        ToggleState.Bad => "Bad",
-        _ => "Good"
-    };
-
-    private ButtonStyle ScanStateButtonStyle => ScanState switch
-    {
-        ToggleState.Base => ButtonStyle.Base,
-        ToggleState.Good => ButtonStyle.Success,
-        ToggleState.Bad => ButtonStyle.Danger,
-        _ => ButtonStyle.Base
-    };
-
-    private void ToggleScanState()
-    {
-        ScanState = ScanState switch
-        {
-            ToggleState.Base => ToggleState.Good,
-            ToggleState.Good => ToggleState.Bad,
-            ToggleState.Bad => ToggleState.Base,
-            _ => ToggleState.Base
-        };
-
-        NextScanIsBad = ScanState switch
-        {
-            ToggleState.Base => false,
-            ToggleState.Good => false,
-            ToggleState.Bad => true,
-            _ => false
-        };
-
-        InvokeAsync(StateHasChanged);
-    }
+    private bool NextScanIsBad => ScanState == ToggleState.Bad;
     #endregion
 }
