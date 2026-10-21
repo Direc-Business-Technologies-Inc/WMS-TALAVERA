@@ -1526,6 +1526,96 @@ namespace Integration.NS.Services
         }
 
         /// <summary>
+        /// Fresh line state for one transfer-order SHIPPING line, read straight
+        /// from NetSuite at save time. Carries the same three figures the device's
+        /// load-time snapshot carries on <see cref="PostTransferOrderDTO"/> -
+        /// ordered quantity, already-shipped quantity and the closed flag - in the
+        /// same raw stock units the packing script (<c>NS_TO_x_Packing_Get_Items</c>)
+        /// uses, so the two are directly comparable.
+        /// </summary>
+        internal sealed class TOFulfillmentFreshLineState
+        {
+            public int LineId { get; set; }
+            public decimal LineQuantity { get; set; }
+            public decimal QuantityShipped { get; set; }
+            public string IsClosed { get; set; } = "F";
+        }
+
+        /// <summary>
+        /// Re-reads the current SHIPPING-line state of one transfer order straight
+        /// from NetSuite. Mirrors the line semantics of the packing load script
+        /// (<c>NS_TO_x_Packing_Get_Items</c>): SHIPPING-type lines only, raw
+        /// un-normalized quantities, keyed by the transaction line id the WMS
+        /// carries as <c>LineSequenceNumber</c>.
+        /// </summary>
+        private async Task<IReadOnlyCollection<TOFulfillmentFreshLineState>> GetFreshTOFulfillmentLineStateAsync(int orderId)
+        {
+            // Constant integer interpolation (no user text) - injection-safe.
+            var query = $"""
+                SELECT
+                    tl.id AS LineId,
+                    ABS(tl.quantity) AS LineQuantity,
+                    NVL(tl.quantityshiprecv, 0) AS QuantityShipped,
+                    tl.isclosed AS IsClosed
+                FROM transactionline tl
+                JOIN transaction t ON tl.transaction = t.id
+                WHERE t.id = {orderId}
+                    AND t.recordtype IN ('transferorder', 'intercompanytransferorder')
+                    AND tl.transactionlinetype = 'SHIPPING'
+                """;
+
+            var response = await ExecuteSuiteQLQuery<TOFulfillmentFreshLineState>(query);
+
+            return response.items ?? [];
+        }
+
+        /// <summary>
+        /// Merges freshly-read NetSuite line state into the posted DTO rows. The
+        /// guards downstream of this merge (closed-line strip, over-remaining
+        /// check, missing-bin check) keep their existing logic and run on CURRENT
+        /// state instead of the device's load-time snapshot - the snapshot can be
+        /// hours old on a 700-line order, and a line fulfilled elsewhere in that
+        /// window is absent from the transform's item sublist, which is the
+        /// "invalid sublist or line item operation" 400 (field report 2026-10-21).
+        /// Lines no longer present on the order are marked closed, which the
+        /// existing strip already removes from the payload.
+        /// </summary>
+        /// <returns>Descriptors for scanned lines that were closed or fully
+        /// shipped since the snapshot - quantities the operator physically has in
+        /// hand but that can no longer be fulfilled on this order.</returns>
+        internal static List<string> MergeFreshTOFulfillmentLineState(
+            List<PostTransferOrderDTO> lines,
+            IReadOnlyCollection<TOFulfillmentFreshLineState> freshLines)
+        {
+            var freshById = freshLines.ToDictionary(x => x.LineId);
+            var newlyClosedScans = new List<string>();
+
+            foreach (var line in lines)
+            {
+                if (!freshById.TryGetValue(line.LineSequenceNumber, out var fresh))
+                {
+                    // Absent from the order's current SHIPPING lines: the same
+                    // condition NetSuite reports as an invalid insert on a static
+                    // sublist. Mark closed so the existing strip drops it.
+                    if (!line.IsLineClosed) line.IsClosed = "T";
+                    continue;
+                }
+
+                line.LineQuantity = fresh.LineQuantity;
+                line.QuantityAlreadyShipped = fresh.QuantityShipped;
+                line.IsClosed = fresh.IsClosed;
+
+                if (line.IsLineClosed && line.ScannedQuantity > 0)
+                {
+                    newlyClosedScans.Add(
+                        $"WMS line {line.LineSequenceNumber} ({line.MaterialCode} - {line.MaterialName}): scanned {line.ScannedQuantity}, already shipped {fresh.QuantityShipped} of {fresh.LineQuantity}");
+                }
+            }
+
+            return newlyClosedScans;
+        }
+
+        /// <summary>
         /// Decodes a transfer-order itemFulfillment rejection into the offending DTO row so a
         /// field failure names the item without a server-logs round trip. NetSuite emits two
         /// phrasings: "line N of the item list" (an inventoryDetail without a bin, where N is
@@ -1606,6 +1696,38 @@ namespace Integration.NS.Services
         public async Task<bool> SaveTOItemFulfillment(List<PostTransferOrderDTO> Data)
         {
             Data = DeduplicateFulfillmentLines(Data, x => x.LineSequenceNumber, x => x.IsBad, x => x.ScannedQuantity);
+
+            // Freshness revalidation (field report 2026-10-21, Error 1): every guard below runs
+            // on the line snapshot the device loaded, which can be hours old on a 700-line
+            // order. A line fulfilled elsewhere or closed in that window is absent from the
+            // transform's item sublist and any orderLine reference for it is an invalid insert
+            // on a static sublist - the whole save 400s. Re-read the order's SHIPPING lines
+            // from NetSuite and merge the fresh figures into the posted rows so the closed-line
+            // strip and the over-remaining guard below judge CURRENT state, not the snapshot.
+            // Fail-open: if the revalidation query itself fails, the save proceeds on the
+            // snapshot exactly as before (the transform post remains the final arbiter) - the
+            // revalidation must not add a new failure mode to previously successful saves.
+            var freshOrderId = Data.Select(x => x.NetsuiteOrderInternalId).FirstOrDefault();
+            List<string>? newlyClosedScans;
+            try
+            {
+                var freshLines = await GetFreshTOFulfillmentLineStateAsync(freshOrderId);
+                newlyClosedScans = MergeFreshTOFulfillmentLineState(Data, freshLines);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "TO IF freshness revalidation unavailable for order {OrderId}; continuing with the client's loaded snapshot.", freshOrderId);
+                newlyClosedScans = null;
+            }
+
+            // A scanned line that can no longer be fulfilled must fail loud, not be silently
+            // dropped: the operator physically holds the goods, so skipping the line would
+            // strand stock with no message. Fillers that went closed are handled silently by
+            // the strip below - only scans need the operator's attention.
+            if (newlyClosedScans is { Count: > 0 })
+            {
+                throw new Exception($"Cannot post TO Item Fulfillment: the following scanned line(s) were fulfilled or closed after this order was loaded: {string.Join("; ", newlyClosedScans)}. Reload the order and rescan the affected line(s).");
+            }
 
             // Partially fulfilled orders expose only their OPEN lines on the transform's
             // item sublist; a closed line has no sublist line to address and any orderLine
