@@ -98,6 +98,35 @@ public class VendorIntegration(
         return GetVendorsBySubsidiaryListAsync(newIntent, subsidiary, ct);
     }
 
+    /// <summary>
+    ///     Reads the vendor records for a known set of internal ids. Deliberately
+    ///     not paged: the caller passes the handful of vendors on one document.
+    /// </summary>
+    public async Task<IEnumerable<VendorDTO>> GetVendorsByIdsAsync(IEnumerable<int> ids, CancellationToken ct = default)
+    {
+        var vendorIds = (ids ?? []).Where(id => id > 0).Distinct().ToArray();
+
+        if (vendorIds.Length == 0)
+        {
+            return [];
+        }
+
+        var query = builderFactory.Create()
+            .Select(
+                ("v.id", nameof(VendorNSDTO.Id)),
+                ("v.entityid", nameof(VendorNSDTO.ReferenceNumber)),
+                ("v.companyname", nameof(VendorNSDTO.CompanyName)),
+                ("v.fullname", nameof(VendorNSDTO.Name))
+            )
+            .From("vendor v")
+            .WithFilters(DataGridFilterUtilities.In("v.id", vendorIds))
+            .Build();
+
+        var result = await netsuiteService.ExecuteSuiteQLQuery<VendorNSDTO>(query.Query, ct: ct);
+
+        return result.items.Select(ConvertNSDTO);
+    }
+
 
     public VendorDTO ConvertNSDTO(VendorNSDTO nsdto)
     {

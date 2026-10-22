@@ -51,4 +51,12 @@ public class CachedVendorIntegration(
         var key = NsCacheKey.Build(InterfaceName, nameof(GetNonTradeVendorsBySubsidiaryListAsync), intent, null, subsidiary);
         return cache.GetOrAddAsync(key, Ttl, () => inner.GetNonTradeVendorsBySubsidiaryListAsync(intent, subsidiary, ct), ct);
     }
+
+    /// <summary>
+    ///     Not cached on purpose: the id set is per document and the read is rare.
+    ///     Caching a document's vendor set would also pin a name for six hours after
+    ///     a rename, which is exactly when the barcode match needs fresh data.
+    /// </summary>
+    public Task<IEnumerable<VendorDTO>> GetVendorsByIdsAsync(IEnumerable<int> ids, CancellationToken ct = default)
+        => inner.GetVendorsByIdsAsync(ids, ct);
 }

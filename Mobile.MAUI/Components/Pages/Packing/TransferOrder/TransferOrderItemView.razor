@@ -8,6 +8,27 @@
 
 <RadzenStack Gap="12px" Style="">
     <PageHeading Title="Transfer Order" BackPath="/packing" Click="Refresh" Id="@OrderNumber"/>
+
+    @if (VendorId is null)
+    {
+        <RadzenCard Variant="Variant.Outlined" class="rz-m-2">
+            <RadzenStack Gap="8px" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Center">
+                <RadzenIcon Icon="qr_code_scanner" Style="font-size:2rem" />
+                <RadzenText TextStyle="TextStyle.Subtitle2">Scan Vendor Barcode</RadzenText>
+                <RadzenText TextStyle="TextStyle.Body2" class="rz-text-align-center">
+                    Scan the barcode printed under the Vendor field on the stock transfer request.
+                    Only that vendor's items will be listed and fulfilled.
+                </RadzenText>
+            </RadzenStack>
+        </RadzenCard>
+    }
+    else
+    {
+    @* Vendor-gated: nothing below renders until the vendor barcode is scanned. *@
+    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" class="rz-px-2">
+        <RadzenBadge BadgeStyle="BadgeStyle.Info" Text="@($"Vendor: {(string.IsNullOrWhiteSpace(VendorName) ? $"#{VendorId}" : VendorName)}")" />
+        <RadzenButton Text="Change Vendor" Size="ButtonSize.ExtraSmall" ButtonStyle="ButtonStyle.Light" Click="ChangeVendor" />
+    </RadzenStack>
     <RadzenStack id="recent-scanned" class="box-toolbar-page">
 
     </RadzenStack>
@@ -311,4 +332,5 @@
     </Loading>
 
     <SavingLoading IsVisible="ActionSaveScan.Busy" Text="Saving scanned items..." />
+    }
 </RadzenStack>

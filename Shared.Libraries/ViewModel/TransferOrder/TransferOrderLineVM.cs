@@ -17,6 +17,11 @@ public class TransferOrderLineVM : TransactionVM
     public decimal VendorAssignedBinQuantityAvailableGood { get; set; }
     public decimal VendorAssignedBinQuantityAvailableBad { get; set; }
 
+    // Per-line vendor requested on the STR (custcol_dbti_vendor). Nullable:
+    // documents created before per-line vendors existed carry no value.
+    public int? VendorId { get; set; }
+    public string? VendorName { get; set; }
+
     public decimal GoodPerUomRate =>
                 UoMRate == 0
                     ? 0

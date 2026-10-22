@@ -36,6 +36,27 @@ public class TransferOrderController(ISender Sender) : ControllerBase
         return ApiResult<IEnumerable<TransferOrderLineVM>>.Succeeded(ret);
     }
 
+    /// <summary>
+    ///     Resolves the vendor barcode printed under the STR's Vendor field to the
+    ///     vendor on that transfer order. The barcode encodes the vendor NAME, so
+    ///     the lookup runs against the document's own line vendors.
+    ///     <para>
+    ///     Answers 400, never 404: <c>ApiClientService</c> turns a 404 into
+    ///     "404. The endpoint does not exist.", which would hide the real reason.
+    ///     </para>
+    /// </summary>
+    [HttpPost("ResolveVendor")]
+    public async Task<IActionResult> ResolveVendor(ResolveVendorRequestDTO req)
+    {
+        var result = await Sender.Send(new ResolveTransferOrderVendorQry(req.OrderNumber, req.VendorBarcode));
+
+        ApiResult<VendorLookupVM> response = result.Success && result.Data is not null
+            ? ApiResult<VendorLookupVM>.Succeeded(result.Data.Adapt<VendorLookupVM>())
+            : ApiResult<VendorLookupVM>.Failed(result.ErrorMessage);
+
+        return StatusCode(response.StatusCode, response);
+    }
+
     [HttpPost("SaveScan")]
     public async Task<IActionResult> TransferOrderSaveScan(List<PostTransferOrderDTO> req)
     {

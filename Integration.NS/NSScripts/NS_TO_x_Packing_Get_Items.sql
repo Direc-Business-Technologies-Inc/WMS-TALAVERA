@@ -22,6 +22,9 @@ SELECT
     tl.item AS NetsuiteMaterialInternalId,
     i.itemid AS MaterialCode,
     i.displayname AS MaterialName,
+
+    tl.custcol_dbti_vendor AS VendorId,
+    BUILTIN.DF(tl.custcol_dbti_vendor) AS VendorName,
     
 	b.id AS NetsuiteMaterialPrefferedBinId,
 	ibi1.quantityavailable AS PreferredBinQuantityAvailableGood,

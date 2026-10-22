@@ -68,6 +68,21 @@ public partial class TransferOrderItemView : IAsyncDisposable
 
     private string SearchText { get; set; } = string.Empty;
 
+    // Vendor gate. The vendor barcode printed under the Vendor field on the STR
+    // encodes the vendor NAME as printed. It is resolved server-side against the
+    // order's own line vendors (custcol_dbti_vendor) before the id is used.
+    // Until it is scanned, every scan is a vendor scan and the line lists stay
+    // empty.
+    int? VendorId;
+    string VendorName = string.Empty;
+
+    // Guards the vendor-resolution round trip. While it is in flight the operator's
+    // scans are swallowed: a double-fired scan or a re-scan during a slow network
+    // call must not run a second ResolveVendorScan whose ClearVendorLines/Set
+    // sequence would wipe or overwrite the state the first call is about to set,
+    // leaving the operator scanning against a vendor they did not resolve.
+    bool _resolvingVendor;
+
     // Backorder notification
     bool HasBackorderItems
     {
@@ -85,12 +100,27 @@ public partial class TransferOrderItemView : IAsyncDisposable
             TaskAsync = async () =>
             {
                 await InvokeAsync(StateHasChanged);
-                var res = await Client.Post<List<TransferOrderLineVM>>("/Packing/TransferOrder/Items", new { OrderNumber = OrderNumber });
+                var res = await Client.Post<List<TransferOrderLineVM>>("/Packing/TransferOrder/Items", new { OrderNumber = OrderNumber, VendorId = VendorId });
                 return res;
             },
             OnSuccess = async (result) =>
             {
                 var source = result.Data ?? [];
+
+                if (VendorId is not null)
+                {
+                    // Keep the name the resolver matched against the printed barcode:
+                    // the line's display name may be a different vendor name field.
+                    if (string.IsNullOrWhiteSpace(VendorName))
+                    {
+                        VendorName = source.Select(line => line.VendorName)
+                            .FirstOrDefault(name => !string.IsNullOrWhiteSpace(name)) ?? string.Empty;
+                    }
+
+                    if (source.Count == 0)
+                        await Toast.Warning("No open items for this vendor on this transfer order.");
+                }
+
                 var openLines = source.Where(line => !line.IsCompleted).ToList();
 
                 BackOrderedTOItems = source.Where(line => line.LineQuantityBackOrdered > 0).ToList();
@@ -249,6 +279,11 @@ public partial class TransferOrderItemView : IAsyncDisposable
                 ApplySearch();
                 await InvokeAsync(StateHasChanged);
             },
+            OnFailure = async (result) =>
+            {
+                await Toast.Error(result.ErrorMessage);
+                await InvokeAsync(StateHasChanged);
+            },
         };
 
         ActionSaveScan = new AppAction<bool>
@@ -279,7 +314,7 @@ public partial class TransferOrderItemView : IAsyncDisposable
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender)
+        if (firstRender && VendorId is not null)
         {
             await ActionFactory.ExecuteAppActionAsync(ActionGetTOItems);
         }
@@ -461,18 +496,106 @@ public partial class TransferOrderItemView : IAsyncDisposable
         return BadSelectedLine?.LineSequenceNumber == row.LineSequenceNumber;
     }
 
+    /// <summary>
+    ///     Resolves the scanned vendor barcode to the vendor on this transfer
+    ///     order. The barcode carries the vendor NAME (the same value printed
+    ///     under the Vendor field), not an internal id, so the server matches it
+    ///     against the order's own line vendors and returns the id to filter on.
+    /// </summary>
+    private async Task ResolveVendorScan(string scanned)
+    {
+        var value = scanned.Trim();
+
+        // The document barcode is the tranid. Scanning it here is harmless — the
+        // document is already open — so point at the next step instead of failing.
+        if (string.Equals(value, (OrderNumber ?? string.Empty).Trim(), StringComparison.OrdinalIgnoreCase))
+        {
+            await Toast.Warning("That is the document barcode — this document is already open. Now scan the vendor barcode printed under the Vendor field.");
+            return;
+        }
+
+        var result = await Client.Post<VendorLookupVM>(
+            "/Packing/TransferOrder/ResolveVendor",
+            new { OrderNumber = OrderNumber, VendorBarcode = value });
+
+        if (!result.Success || result.Data is null)
+        {
+            await Toast.Warning(string.IsNullOrWhiteSpace(result.ErrorMessage)
+                ? $"'{value}' is not a vendor on this transfer order."
+                : result.ErrorMessage);
+
+            return;
+        }
+
+        ClearVendorLines();
+
+        VendorId = result.Data.Id;
+        VendorName = result.Data.Name;
+
+        await InvokeAsync(StateHasChanged);
+        await ActionFactory.ExecuteAppActionAsync(ActionGetTOItems);
+    }
+
+    private async Task ChangeVendor()
+    {
+        VendorId = null;
+        VendorName = string.Empty;
+        ClearVendorLines();
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void ClearVendorLines()
+    {
+        GoodTOItems = [];
+        BadTOItems = [];
+        DoneTOItems = [];
+        BackOrderedTOItems = [];
+        TOItems = [];
+
+        FilteredGoodTOItems = [];
+        FilteredBadTOItems = [];
+        FilteredDoneTOItems = [];
+        FilteredBackOrderedTOItems = [];
+
+        LastScanned = null;
+        ActiveTabIndex = 0;
+        ScanCount = 0;
+        MarkScansClean();
+    }
+
     async void HandleItemScan(object sender, string message)
     {
         try
         {
-            if (ScanState == ToggleState.Base && !MoveOn && !NegateQuantity) return;
-
-            TransferOrderLineVM? badLine;
-
             var scanned = message?.Trim();
 
             if (string.IsNullOrWhiteSpace(scanned))
                 return;
+
+            // Vendor gate. Checked before the ScanState gate on purpose: while the
+            // gate is open the operator's scan target is the vendor barcode, not an
+            // item, regardless of which Good/Bad state the toggle is in.
+            if (_resolvingVendor) return;
+
+            if (VendorId is null)
+            {
+                _resolvingVendor = true;
+                try
+                {
+                    await ResolveVendorScan(scanned);
+                }
+                finally
+                {
+                    _resolvingVendor = false;
+                }
+
+                return;
+            }
+
+            if (ScanState == ToggleState.Base && !MoveOn && !NegateQuantity) return;
+
+            TransferOrderLineVM? badLine;
 
             if (MoveOn)
             {
@@ -1043,6 +1166,9 @@ public partial class TransferOrderItemView : IAsyncDisposable
 
     private async Task Refresh()
     {
+        // Gate is open: nothing to refresh until a vendor barcode is scanned.
+        if (VendorId is null) return;
+
         // Snapshot current scanned state before refreshing
         var scannedState = GoodTOItems
             .Concat(BadTOItems)

@@ -23,6 +23,18 @@ public class MGetTransferOrderLineQryHandler(
 
         var Data = await netSuiteApiClientService.NetsuiteQuery<TransferOrderLineDTO>("NS_TO_x_Packing_Get_Items", parameters);
 
-        return Data.Adapt<IEnumerable<TransferOrderLineDTO>>();
+        // Optional vendor gate: the operator scans the vendor barcode printed on
+        // the STR, and only that vendor's lines are returned. Filtered here in
+        // memory because the script is shared with callers that must see every
+        // line (the fulfillment save path posts zero-quantity entries for the
+        // lines it was NOT asked to fulfill, and needs the full line set).
+        var source = Data ?? Enumerable.Empty<TransferOrderLineDTO>();
+
+        if (request.order.VendorId is > 0)
+        {
+            source = source.Where(line => line.VendorId == request.order.VendorId).ToList();
+        }
+
+        return source.Adapt<IEnumerable<TransferOrderLineDTO>>();
     }
 }
