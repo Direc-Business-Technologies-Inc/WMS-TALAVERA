@@ -81,7 +81,16 @@ public partial class TransferOrderItemView : IAsyncDisposable
     // call must not run a second ResolveVendorScan whose ClearVendorLines/Set
     // sequence would wipe or overwrite the state the first call is about to set,
     // leaving the operator scanning against a vendor they did not resolve.
+    // The flag must also span the follow-up item load (ResolveVendorScan awaits
+    // ActionGetTOItems before clearing it): a second resolution cannot start until
+    // the first vendor's lines have been applied, otherwise two vendors' line sets
+    // can interleave in the same lists.
     bool _resolvingVendor;
+
+    // Set only for the Save-now path of ChangeVendor: the shared save action
+    // navigates away by default, but a vendor switch must stay on this screen and
+    // continue only when the save succeeded.
+    bool _switchingVendor;
 
     // Backorder notification
     bool HasBackorderItems
@@ -305,6 +314,11 @@ public partial class TransferOrderItemView : IAsyncDisposable
 
                 MarkScansClean();
                 await Toast.Success("Scanned items saved sucessfully");
+
+                // A vendor switch stays on this screen; only the normal Save
+                // leaves the packing list.
+                if (_switchingVendor) return;
+
                 NavManager.NavigateTo("/packing");
             }
         };
@@ -538,6 +552,52 @@ public partial class TransferOrderItemView : IAsyncDisposable
 
     private async Task ChangeVendor()
     {
+        if (ScanCount > 0)
+        {
+            var saveNow = await Dialog.Confirm(
+                $"You have {ScanCount} unsaved scan(s). Save them before changing vendor?",
+                "Change Vendor",
+                new ConfirmOptions { OkButtonText = "Save now", CancelButtonText = "Discard" });
+
+            if (saveNow is null)
+            {
+                return;
+            }
+
+            if (saveNow == true)
+            {
+                _switchingVendor = true;
+                try
+                {
+                    await ActionFactory.ExecuteAppActionAsync(ActionSaveScan);
+                }
+                finally
+                {
+                    _switchingVendor = false;
+                }
+
+                // ExecuteAppActionAsync absorbs exceptions into Result; branch on
+                // the result, not a try/catch. A failed save keeps the gate on the
+                // current vendor with its scans intact.
+                if (ActionSaveScan.Result is not { Success: true })
+                {
+                    return;
+                }
+            }
+            else
+            {
+                var discard = await Dialog.Confirm(
+                    $"Discard {ScanCount} unsaved scan(s)?",
+                    "Discard Scans",
+                    new ConfirmOptions { OkButtonText = "Discard", CancelButtonText = "Cancel" });
+
+                if (discard != true)
+                {
+                    return;
+                }
+            }
+        }
+
         VendorId = null;
         VendorName = string.Empty;
         ClearVendorLines();
@@ -581,6 +641,7 @@ public partial class TransferOrderItemView : IAsyncDisposable
             if (VendorId is null)
             {
                 _resolvingVendor = true;
+                await InvokeAsync(StateHasChanged);
                 try
                 {
                     await ResolveVendorScan(scanned);

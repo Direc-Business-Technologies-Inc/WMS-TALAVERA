@@ -13,12 +13,26 @@
     {
         <RadzenCard Variant="Variant.Outlined" class="rz-m-2">
             <RadzenStack Gap="8px" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Center">
-                <RadzenIcon Icon="qr_code_scanner" Style="font-size:2rem" />
-                <RadzenText TextStyle="TextStyle.Subtitle2">Scan Vendor Barcode</RadzenText>
-                <RadzenText TextStyle="TextStyle.Body2" class="rz-text-align-center">
-                    Scan the barcode printed under the Vendor field on the stock transfer request.
-                    Only that vendor's items will be listed and fulfilled.
-                </RadzenText>
+                @if (_resolvingVendor)
+                {
+                    @* Inline, not <Loading>: that component hides its content and
+                       would blank the page heading and back button. *@
+                    <RadzenProgressBarCircular ProgressBarStyle="ProgressBarStyle.Primary"
+                                               Size="ProgressBarCircularSize.Small"
+                                               Value="100"
+                                               ShowValue="false"
+                                               Mode="ProgressBarMode.Indeterminate" />
+                    <RadzenText TextStyle="TextStyle.Subtitle2">Resolving vendor…</RadzenText>
+                }
+                else
+                {
+                    <RadzenIcon Icon="qr_code_scanner" Style="font-size:2rem" />
+                    <RadzenText TextStyle="TextStyle.Subtitle2">Scan Vendor Barcode</RadzenText>
+                    <RadzenText TextStyle="TextStyle.Body2" class="rz-text-align-center">
+                        Scan the barcode printed under the Vendor field on the stock transfer request.
+                        Only that vendor's items will be listed and fulfilled.
+                    </RadzenText>
+                }
             </RadzenStack>
         </RadzenCard>
     }

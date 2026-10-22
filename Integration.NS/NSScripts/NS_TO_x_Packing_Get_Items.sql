@@ -115,28 +115,100 @@ LEFT JOIN (
 	)
 ) ail ON ail.item = i.id  AND ail.location = tl.location 
 
-LEFT JOIN inventorybalance ibv1
-    ON ibv1.item = i.id
+LEFT JOIN (
+    SELECT
+        ib.item,
+        ib.location,
+        ib.binnumber,
+        ib.inventorystatus,
+        SUM(ib.quantityavailable) AS quantityavailable
+    FROM inventorybalance ib
+    WHERE ib.item IN (
+        SELECT txl.item
+        FROM transaction tx
+        JOIN transactionline txl ON txl.transaction = tx.id
+        WHERE tx.tranid = @tranid
+    )
+    GROUP BY
+        ib.item,
+        ib.location,
+        ib.binnumber,
+        ib.inventorystatus
+) ibv1 ON ibv1.item = i.id
     AND ibv1.location = tl.location
     AND ibv1.binnumber =
         ivb.custrecord_dbti_vba_assigned_bin
     AND ibv1.inventorystatus = '1'
 
-LEFT JOIN inventorybalance ibv2
-    ON ibv2.item = i.id
+LEFT JOIN (
+    SELECT
+        ib.item,
+        ib.location,
+        ib.binnumber,
+        ib.inventorystatus,
+        SUM(ib.quantityavailable) AS quantityavailable
+    FROM inventorybalance ib
+    WHERE ib.item IN (
+        SELECT txl.item
+        FROM transaction tx
+        JOIN transactionline txl ON txl.transaction = tx.id
+        WHERE tx.tranid = @tranid
+    )
+    GROUP BY
+        ib.item,
+        ib.location,
+        ib.binnumber,
+        ib.inventorystatus
+) ibv2 ON ibv2.item = i.id
     AND ibv2.location = tl.location
     AND ibv2.binnumber =
         ivb.custrecord_dbti_vba_assigned_bin
     AND ibv2.inventorystatus = '3'
 
-LEFT JOIN inventorybalance ibi1
-    ON ibi1.item = i.id
+LEFT JOIN (
+    SELECT
+        ib.item,
+        ib.location,
+        ib.binnumber,
+        ib.inventorystatus,
+        SUM(ib.quantityavailable) AS quantityavailable
+    FROM inventorybalance ib
+    WHERE ib.item IN (
+        SELECT txl.item
+        FROM transaction tx
+        JOIN transactionline txl ON txl.transaction = tx.id
+        WHERE tx.tranid = @tranid
+    )
+    GROUP BY
+        ib.item,
+        ib.location,
+        ib.binnumber,
+        ib.inventorystatus
+) ibi1 ON ibi1.item = i.id
     AND ibi1.location = tl.location
     AND ibi1.binnumber = b.id
     AND ibi1.inventorystatus = '1'
 
-LEFT JOIN inventorybalance ibi2
-    ON ibi2.item = i.id
+LEFT JOIN (
+    SELECT
+        ib.item,
+        ib.location,
+        ib.binnumber,
+        ib.inventorystatus,
+        SUM(ib.quantityavailable) AS quantityavailable
+    FROM inventorybalance ib
+    WHERE ib.item IN (
+        SELECT txl.item
+        FROM transaction tx
+        JOIN transactionline txl ON txl.transaction = tx.id
+        WHERE tx.tranid = @tranid
+    )
+    GROUP BY
+        ib.item,
+        ib.location,
+        ib.binnumber,
+        ib.inventorystatus
+) ibi2 ON ibi2.item = i.id
     AND ibi2.location = tl.location
     AND ibi2.binnumber = b.id
     AND ibi2.inventorystatus = '3'
@@ -191,3 +263,5 @@ WHERE
     AND t.status IN ('B', 'D', 'E')
     AND tl.transactionlinetype = 'SHIPPING'
 	AND t.tranid = @tranid
+	AND ({vendorId} = 0 OR tl.custcol_dbti_vendor = {vendorId})
+ORDER BY tl.id

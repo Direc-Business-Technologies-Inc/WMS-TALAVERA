@@ -197,7 +197,8 @@ internal class StockTransferRequestPackingIntegration(
             "NS_TO_x_Packing_Get_Items",
             new Dictionary<string, string>
             {
-                ["tranid"] = id
+                ["tranid"] = id,
+                ["vendorId"] = "0"
             });
 
         var query = builderFactory.Create()

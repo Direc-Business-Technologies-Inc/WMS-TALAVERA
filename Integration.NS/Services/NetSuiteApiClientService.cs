@@ -890,6 +890,26 @@ namespace Integration.NS.Services
             int offset = 0,
             CancellationToken ct = default)
         {
+            var result = await NetsuiteQueryWithMetadata<T>(queryName, parameters, limit, offset, ct);
+
+            return result?.items;
+        }
+
+        /// <summary>
+        /// Same script execution as <see cref="NetsuiteQuery{T}"/>, but keeps the
+        /// response envelope so a caller that spans pages can stop on the
+        /// authoritative <c>totalResults</c>/<c>hasMore</c> instead of probing
+        /// one page past the end. NetSuite rejects an offset equal to the result
+        /// count with 404 INVALID_PARAMETER, so an exact multiple of the page
+        /// size would otherwise fail on a "next page" that can never exist.
+        /// </summary>
+        public async Task<NetSuiteResponse<T>?> NetsuiteQueryWithMetadata<T>(
+            string queryName,
+            Dictionary<string, string>? parameters = null,
+            int limit = 0,
+            int offset = 0,
+            CancellationToken ct = default)
+        {
             var url = SuiteQLRoot;
 
             if (limit > 0 && offset >= 0)
@@ -913,9 +933,7 @@ namespace Integration.NS.Services
                 q = FormatQuery(query)
             });
 
-            var result = await MakeRequest<NetSuiteResponse<T>>(url, jsonBody, HttpMethod.Post, ct: ct);
-
-            return result.items;
+            return await MakeRequest<NetSuiteResponse<T>>(url, jsonBody, HttpMethod.Post, ct: ct);
         }
 
         public async Task<NetSuiteResponse<T>> ExecuteSuiteQLQuery<T>(string query, int? limit = null, int? offset = null, CancellationToken ct = default)

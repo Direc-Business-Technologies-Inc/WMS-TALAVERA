@@ -61,6 +61,14 @@ public sealed class MutatingNetSuiteClient : INetSuiteApiClientService
         CancellationToken ct = default)
         => throw new NotSupportedException();
 
+    public Task<NetSuiteResponse<T>?> NetsuiteQueryWithMetadata<T>(
+        string queryName,
+        Dictionary<string, string>? parameters = null,
+        int limit = 0,
+        int offset = 0,
+        CancellationToken ct = default)
+        => throw new NotSupportedException();
+
     public Task<T> MakeRequestOAuth1<T>(
         string url,
         string? reqBody,

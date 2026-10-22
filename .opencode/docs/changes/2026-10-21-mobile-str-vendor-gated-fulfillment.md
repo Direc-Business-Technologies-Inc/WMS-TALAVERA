@@ -16,6 +16,33 @@ Operators pick one vendor's section at a time, but the handheld loaded **every**
 on the STR. Nothing stopped a scan against another vendor's section, and a mis-scan
 was only caught by quantity guards, not by vendor.
 
+## Hardening follow-up (2026-10-22)
+
+The vendor gate read the same line query the screen uses, and that read had three
+defects that the gate made worse. Measured on the sample STR (SuiteQL console):
+
+| Finding | Measurement |
+|---|---|
+| NetSuite's SuiteQL page cap silently truncated the read | **1,657** SHIPPING lines on the document; at most **1,000** were transferred |
+| Four bare `inventorybalance` joins fanned one line into several rows | **1,661** joined rows for **1,657** distinct lines (4 duplicates) |
+| The gate read all lines twice per scan to use one vendor's slice | **95** distinct vendors on the document; ~17 lines per vendor |
+
+The fix (spec `.opencode/specs/2026-10-22-str-packing-line-read-hardening/`) lands in
+three parts:
+
+1. **Paging.** `MGetTransferOrderLineQryHandler` loops 1,000-row pages through
+   `NetsuiteQueryWithMetadata`, orders the script by `tl.id` for a stable total order,
+   stops on the authoritative `totalResults` (never probing past the end, which
+   NetSuite answers with 404), caps at 100 pages, and fails rather than returning a
+   short set.
+2. **Row uniqueness.** The four `inventorybalance` joins are pre-aggregated with
+   `SUM(...) GROUP BY (item, location, binnumber, inventorystatus)`, mirroring the
+   location-level joins, so a line is returned exactly once.
+3. **Vendor scope in SQL.** The line script takes the `{vendorId}` predicate above and
+   the resolver reads vendor ids from `NS_TO_x_Get_Vendor_Candidates.sql` instead of a
+   full line read. Duplicate rows were also a real over-scan risk in the UI, which is
+   not deduped; that risk is removed at the source.
+
 ## What is printed on the document
 
 Two barcodes, both owned by NetSuite scriptlet **1671** (`NetSuitePrint.cs`), not by
@@ -73,18 +100,21 @@ changed here.
 The scan is text, so it cannot be used as a filter key directly. Resolution is
 `scanned name → vendor on this document → internal id`, in that order:
 
-1. Read the order's lines (the same read the fulfillment screen needs anyway).
-2. Collapse the distinct `(VendorId, VendorName)` pairs, then read those vendor
-   records for `entityid`, `companyname`, and `fullname`.
-3. Match the scan against all of those names — whitespace/case-insensitive first,
+1. Run one small candidate query (`NS_TO_x_Get_Vendor_Candidates.sql`) that returns
+   the distinct `tl.custcol_dbti_vendor` ids for the tranid, with the same
+   document-level filters as the line read and `IS NOT NULL`. It deliberately does
+   not read the line values or names (design D4a).
+2. Read those vendor records for `entityid`, `companyname`, and `fullname`.
+3. Match the scan against those record names — whitespace/case-insensitive first,
    then a punctuation-insensitive retry (printed labels and record names can differ
    by a comma or a period).
 4. Return the matched vendor's id and the name that matched.
 
-The line projection alone is not enough: it carries `BUILTIN.DF`'s display text,
-which is not guaranteed to be the name the print template rendered. The first field
-attempt (2026-10-21) resolved to nothing until the vendor record's own name fields
-were added to the candidate set.
+The candidate read is independent of the line read's 1,000-row page, so a vendor
+whose lines sit beyond row 1,000 still resolves. Names come from the vendor record,
+not from the line's `BUILTIN.DF` text: that display text is not guaranteed to be
+the name the print template rendered, and the first field attempt (2026-10-21)
+resolved to nothing until the vendor record's own name fields were added.
 
 Why scope the vendor read to the document's ids rather than a global name lookup:
 
@@ -96,30 +126,32 @@ Why scope the vendor read to the document's ids rather than a global name lookup
 
 A scan that matches nothing is rejected with the scanned text in the message. A scan
 that matches more than one vendor (possible only after the punctuation-insensitive
-retry) is rejected rather than guessed.
+retry) is rejected rather than guessed. A document with no vendor on any line names
+web Packing as the alternative route.
 
-### 3. The filter lives in the query handler, not in the SQL script
+### 3. The scope lives in the SQL script with a call-scoped predicate
 
-`NS_TO_x_Packing_Get_Items.sql` is shared by three consumers: mobile line list, the
-save path, and (historically) the web grid. Two constraints follow:
+`NS_TO_x_Packing_Get_Items.sql` is shared by the mobile line list, the web packing
+grid (`StockTransferRequestPackingIntegration`), and the save-path re-read. All of
+them send a `vendorId` parameter:
 
-- **No `@vendorId` parameter in the script.** `SuiteQLText.SubstituteScriptParameters`
-  only replaces parameters that are present in the dictionary; an unsubstituted
-  `@vendorId` reaches NetSuite as invalid SQL and fails the request. Every caller
-  would have to pass it, including the save path that must stay unfiltered.
-- **The save path must see every line.** `ItemReceiptPackingHandler.PostItemFulfillment`
-  rebuilds the payload from **all** non-completed source lines and posts zero-quantity
-  entries for the ones that were not submitted. That is what keeps the other vendor's
-  lines open. Filtering its input would change the payload the transform receives.
-
-So the script gained **projections only** (`VendorId`, `VendorName`) and the filter is
-applied in `MGetTransferOrderLineQryHandler` on the returned lines.
+- `AND ({vendorId} = 0 OR tl.custcol_dbti_vendor = {vendorId})` in the `WHERE` block.
+- `{key}` is the repo's raw-integer splice, validated by `SuiteQLText.IntegerList`,
+  so a non-integer throws locally before reaching NetSuite. `@key` would splice a
+  quoted string and compare text against a numeric List/Record field.
+- `0` is the "no scope" sentinel. Mobile sends the resolved id; every other caller
+  sends `0` and receives the full row set, so the predicate's default reproduces the
+  previous behaviour. No in-memory filter remains in the handler.
 
 ### 4. The save logic is untouched
 
-`PostTransferOrderIFCmd` / `SaveTOItemFulfillment` are unchanged. "Fulfill only this
-vendor's items" already follows from the line set on the handheld: unsubmitted lines
-are posted as zero. No new command, flag, or guard.
+`PostTransferOrderIFCmd` / `SaveTOItemFulfillment` are unchanged. Mobile posts **only
+the lines the operator scanned**; it does not send zero-quantity entries for a
+vendor's unsubmitted lines. The zero-quantity filler behaviour belongs to the web
+flow: `ItemReceiptPackingHandler.PostItemFulfillment` rebuilds its payload from all
+non-completed source lines and posts a zero-quantity entry for each one it was not
+asked to fulfil. That is why the web caller must keep receiving the full line set
+(`vendorId = 0`) and why the new GitHub-hardening work leaves the save payload alone.
 
 ### 5. Hard gate, not a soft filter
 
@@ -154,30 +186,36 @@ every line, ungated. Consequences are recorded under *Known gaps*.
 
 | File | Change |
 |---|---|
-| `Integration.NS/NSScripts/NS_TO_x_Packing_Get_Items.sql` | Project `tl.custcol_dbti_vendor AS VendorId` and `BUILTIN.DF(...) AS VendorName`. No predicate, no parameter, no join change. |
+| `Integration.NS/NSScripts/NS_TO_x_Packing_Get_Items.sql` | Project `tl.custcol_dbti_vendor AS VendorId` and `BUILTIN.DF(...) AS VendorName`; `ORDER BY tl.id`; the four `inventorybalance` joins pre-aggregated with `SUM`; call-scoped `AND ({vendorId} = 0 OR tl.custcol_dbti_vendor = {vendorId})`. |
+| `Integration.NS/NSScripts/NS_TO_x_Get_Vendor_Candidates.sql` | New: `SELECT DISTINCT tl.custcol_dbti_vendor AS Id` for one tranid, with the line read's record-type / category / status / `SHIPPING` filters and `IS NOT NULL`. |
 | `Application.DataTransferObjects/Transactions/Commons/NS/TransferOrderLineDTO.cs` | `VendorId` (nullable) + `VendorName`. |
-| `Application.DataTransferObjects/Transactions/Commons/NS/VendorLookupDTO.cs` | New: `{ Id, Name }` returned by the resolver. |
+| `Application.DataTransferObjects/Transactions/Commons/NS/VendorLookupDTO.cs` | New: `{ Id, Name }` returned by the resolver; the candidate script fills only `Id`. |
 | `Application.DataTransferObjects/Transactions/Commons/NS/Request/ResolveVendorRequestDTO.cs` | New: `OrderNumber` + `VendorBarcode` (the scanned name). |
 | `Shared.Libraries/ViewModel/TransferOrder/TransferOrderLineVM.cs` | Same two fields, mapped by name. |
 | `Shared.Libraries/ViewModel/TransferOrder/VendorLookupVM.cs` | New: mobile response shape for the resolver. |
 | `Application.DataTransferObjects/Transactions/Commons/NS/Request/TransferOrderLineRequestDTO.cs` | Optional `VendorId`. Null/0 = every line. |
-| `Application.UseCases/.../NS/TransferOrder/GetTransferOrderLineQry.cs` | In-memory vendor filter when `VendorId is > 0`. Null-safe on the query result. |
-| `Application.UseCases/.../NS/TransferOrder/ResolveTransferOrderVendorQry.cs` | New: document-scoped name matcher (`TransferOrderVendorResolver`) + query handler. |
+| `Application.UseCases/.../NS/TransferOrder/GetTransferOrderLineQry.cs` | Pages the read through `NetsuiteQueryWithMetadata` (1,000 rows/page, stable order, `totalResults`-terminated, 100-page cap, fail-loud); always sends `vendorId` (`id` or `"0"`); no in-memory filter. |
+| `Application.UseCases/.../NS/TransferOrder/ResolveTransferOrderVendorQry.cs` | Document-scoped name matcher + handler. The handler sends `NS_TO_x_Get_Vendor_Candidates`, enriches via `GetVendorsByIdsAsync`, and maps infrastructure faults to `ApiResult.ServerError`. |
 | `Application.UseCases/Repositories/Integration/Others/IVendorIntegration.cs` | New `GetVendorsByIdsAsync` for the document's vendor records. |
 | `Integration.NS/Implementations/Others/VendorIntegration.cs` | Implementation: `id IN (...)` read of `entityid`, `companyname`, and `fullname`. |
 | `Integration.NS/Implementations/Others/Caching/CachedVendorIntegration.cs` | Delegates the new read uncached — a six-hour cache could pin a renamed vendor. |
 | `Api.CoreWebAPI/Controllers/Packing/TransferOrderController.cs` | New `ResolveVendor` action. Answers **400, never 404** — the mobile client turns 404 into "the endpoint does not exist". |
-| `Mobile.MAUI/.../Packing/TransferOrder/TransferOrderItemView.razor(.cs)` | Vendor gate, name resolution call, scan routing, vendor badge, Change Vendor, clear-on-switch, empty/refresh guards, failure toast on the item load, and the `_resolvingVendor` busy guard that swallows scans arriving while a vendor resolution is in flight (double-fired scanners and slow networks otherwise interleave two resolutions and can leave the operator scanning against the wrong vendor). |
-| `Integration.NS.Tests/.../Packing/StrPackingVendorFilterShapeTests.cs` | New: vendor filter returns only that vendor; null vendor returns all; null-vendor lines are excluded when filtering; the vendor never enters script parameters. |
-| `Integration.NS.Tests/.../Packing/TransferOrderVendorResolverTests.cs` | New: exact/case/whitespace/punctuation matching, unknown and ambiguous names, blank scan, null-vendor lines. |
+| `Mobile.MAUI/.../Packing/TransferOrder/TransferOrderItemView.razor(.cs)` | Vendor gate, name resolution call, inline "Resolving vendor…" indicator (outside `<Loading>`, which would blank the header), vendor badge shown before lines, scan routing, three-way Change Vendor (Save now / Discard / Cancel), clear-on-switch, and the `_resolvingVendor` busy guard that spans the follow-up item load. |
+| `Integration.NS.Tests/.../Packing/StrPackingVendorFilterShapeTests.cs` | `tranid` travels as `@tranid`; the vendor travels as `{vendorId}`; an unscoped call sends `"0"`, a scoped call the id. |
+| `Integration.NS.Tests/.../Packing/TransferOrderVendorResolverTests.cs` | Candidate-based matching: exact/case/whitespace/punctuation, record `entityid` / `companyname` / `fullname`, unknown and ambiguous names, blank scan, no candidates, ids without names, and a vendor beyond row 1,000. |
+| `Integration.NS.Tests/.../Packing/TransferOrderLinePagingTests.cs` | New: 0/999/1,000/1,001/2,000 rows, call count, order, uniqueness, page failure, `totalResults` contradiction, page-cap overflow, cancellation. |
 
 ## What was deliberately not changed
 
 1. **Web packing** — reverted to its original behaviour. No gate, no scan box, no
    vendor column, no `vendor` query parameter.
-2. **The shared script's `WHERE`, joins, and parameters** — only projections were
-   added. The `ivb` vendor-bin join still uses `itemvendor.preferredvendor`.
+2. **The shared script's joins and parameters** — originally unchanged beyond
+   projections. The 2026-10-22 hardening added the stable order, pre-aggregated the
+   four `inventorybalance` joins, and added the call-scoped `{vendorId}` predicate;
+   the `ivb` vendor-bin join still uses `itemvendor.preferredvendor`.
 3. **Save path** — `PostItemFulfillment` and `SaveTOItemFulfillment` untouched.
+   Mobile still posts only the lines the operator scanned; the web handler's
+   zero-quantity filler behaviour is unchanged.
 4. **Print output** — scriptlet 1671 is not in this repo.
 5. **Receiving, trip ticket, returns, VRA** — untouched.
 
@@ -192,31 +230,42 @@ every line, ungated. Consequences are recorded under *Known gaps*.
 | Vendor has only closed/fully-shipped lines | Same as above; those lines land in Done, not Good/Bad. |
 | Lines with no vendor (legacy documents) | Excluded from every vendor scan. See *Known gaps*. |
 | Refresh pressed while gated | No-op (nothing loaded yet). |
-| Change Vendor | Clears unsaved scans, reopens the gate. |
-| Save | Unchanged command; other vendors' lines are posted as zero and stay open. |
+| Change Vendor, no unsaved scans | Gate reopens immediately. |
+| Change Vendor, unsaved scans | Prompts Save now / Discard / Cancel. Save succeeds → switch; save fails → current vendor and scans retained; Discard → lists cleared; Cancel → unchanged. |
+| Save | Unchanged command; mobile posts only the scanned lines. |
 
 Only the `Packing/TransferOrder` handheld screen is affected. The STR receiving screen
 (`TOxItemFulfillmentItemView`) and its item-fulfillment list are not gated.
 
 ## Verification
 
-- `dotnet build Web.BlazorServer` — 0 errors (web reverted, still green).
-- `dotnet build Api.CoreWebAPI` — 0 errors.
-- `dotnet build Mobile.MAUI` — 0 errors (re-run after adding the `_resolvingVendor`
-  busy guard; the ~1470 warnings are pre-existing project-wide).
-- `StrPackingVendorFilterShapeTests` — 4/4 pass.
-- `TransferOrderVendorResolverTests` — 12/12 pass (exact, case/whitespace, punctuation
-  fallback, vendor-record `entityid` / `companyname` / `fullname` fallback, unknown
-  name with candidate hint, ambiguous name, blank scan, null-vendor lines, no-vendor
-  order, ids without any name).
-- Full `Integration.NS.Tests` — 503 passed, 2 failed, both unrelated to this change:
+- `dotnet build` from the solution root — 0 errors (all projects).
+- `dotnet test Integration.NS.Tests` — 69/69 packing tests pass; full suite
+  521 passed, 1 failed:
   - `NetSuiteApiClientServiceFreshnessRevalidationTests.Newly_closed_scanned_line_is_reported(quantityShipped: 50, isClosed: "F")`
-    — **pre-existing** and consistent. `MergeFreshTOFulfillmentLineState`
+    — **pre-existing and unrelated.** `MergeFreshTOFulfillmentLineState`
     (`NetSuiteApiClientService.cs:1608`) only reports a scanned line when
     `IsLineClosed` is true, so the "fully shipped but not closed" case is never
-    reported. Not touched by this change; worth a separate fix.
-  - `NetSuiteApiClientServiceTokenTests.HttpClient_has_explicit_timeout_of_100_seconds_by_default`
-    — the known static-`HttpClient` flake; it passes in isolation.
+    reported. Worth a separate fix.
+- `StrPackingVendorFilterShapeTests` — 6/6: `tranid` as `@tranid`, scoped vendor as
+  `{vendorId}`, unscoped `"0"`, and the scoped/unscoped row sets.
+- `TransferOrderVendorResolverTests` — 13/13, including a vendor beyond row 1,000.
+- `TransferOrderLinePagingTests` — page-size/total matrix, exact-multiple stop,
+  page failure, short-page contradiction, page-cap overflow, cancellation.
+
+Still to run against a live account / device (T16):
+
+1. SuiteQL console: edited script with `{vendorId}` = `0` returns the tranid's
+   `COUNT(*)` (1,657 on the sample); with a real id returns only that vendor's lines;
+   `JoinedRows == DistinctLines`.
+2. SuiteQL console: candidate script returns 95 ids for the sample tranid, no `NULL`
+   row, clean `VendorLookupDTO` deserialization.
+3. Postman: unscoped `/Items` returns 1,657; scoped `/Items` returns the vendor
+   slice. Record both timings here.
+4. Web `PostItemFulfillment` post succeeds with the grown payload (it now sees every
+   line instead of ≤1,000 and posts a zero-quantity entry per non-completed line).
+   If it cannot be exercised, treat the payload-size growth as an accepted risk.
+5. Device: Change Vendor save-succeeds / save-fails / discard / cancel.
 
 Not yet verified against a device or a live NetSuite account.
 

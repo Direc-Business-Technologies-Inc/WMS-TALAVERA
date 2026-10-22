@@ -53,20 +53,20 @@ _Requirements: 1.2_
 **File:** `Application.UseCases/Queries/Transaction/Packing/NS/TransferOrder/GetTransferOrderLineQry.cs:19-38`
 **Current:** one `NetsuiteQuery` call with no limit; `CancellationToken` not forwarded.
 **Target:**
-- Extract a private paged-read method: `limit = 1000`, `offset += 1000`, stop when a batch is shorter than 1,000, concatenate results.
+- Page the read inside the handler: `limit = 1000`, `offset += 1000`, through a metadata-returning query (`NetsuiteQueryWithMetadata`) so the loop stops on `totalResults` / `hasMore` instead of probing one page past the end. NetSuite answers `offset == totalResults` with `404 INVALID_PARAMETER`, not an empty page, so the short-page probe would fail an exact multiple of 1,000.
 - Guard against a runaway loop: cap at 100 pages and fail loudly on overflow.
-- Forward `cancellationToken` to `NetsuiteQuery`.
-- Treat a `null` result as an empty batch.
+- Forward `cancellationToken` to the transport.
+- Treat a `null` result as an empty batch **only when it accounts for the reported total**; a short or empty page that contradicts `totalResults` fails the read.
 - Any page failure propagates as a failure; never return a partial set.
-**Acceptance:** the sample tranid returns 1,657 rows; a ≤1,000-line document issues one NetSuite call; a 2,000-line document issues three (one extra empty page at exact multiples is expected).
+**Acceptance:** the sample tranid returns 1,657 rows; a ≤1,000-line document issues one NetSuite call; a 1,001-line and a 2,000-line document each issue two (exact multiples stop on the last full page, no empty probe). A page set reporting fewer rows than its `totalResults` fails rather than returning the short set.
 
-_Requirements: 1.1, 1.2, 1.4, 1.5, 1.8_
+_Requirements: 1.1, 1.2, 1.4, 1.5, 1.8, 1.9_
 
 ### T4. Paging tests
 **File:** new file under `Integration.NS.Tests/Implementations/Transactions/Packing/`
-**Target:** `[Theory]` over 0 / 999 / 1,000 / 1,001 / 2,000 rows with a fake returning synthetic pages. Assert concatenation equals the reference set, order is preserved, no duplicates, and the number of calls is as expected. Add a page-failure case and a page-cap-overflow case, both asserting failure rather than partial success.
+**Target:** `[Theory]` over 0 / 999 / 1,000 / 1,001 / 2,000 rows with a fake returning synthetic pages. Assert concatenation equals the reference set, order is preserved, no duplicates, and the number of calls is as expected. Add a page-failure case, a short-page/`totalResults` contradiction case, and a page-cap-overflow case, all asserting failure rather than partial success.
 
-_Requirements: 1.1, 1.5, 1.8_
+_Requirements: 1.1, 1.5, 1.8, 1.9_
 
 > **Checkpoint A** — fan-out clean; 1,657 rows returned; new tests and the existing suite green. Do not proceed on a partial pass.
 
@@ -85,6 +85,7 @@ _Requirements: 1.6, 1.7_
 **Target:**
 - Parameter dictionary becomes `{ "tranid": ..., "vendorId": request.order.VendorId is > 0 ? request.order.VendorId!.Value.ToString() : "0" }`.
 - Delete the in-memory vendor filter (`:31-36`); the SQL predicate is authoritative. Keeping both would mask a broken predicate.
+- Replace the `:26-30` comment. Its rationale (in-memory filtering because the script is shared with callers that need the full set) is superseded by the call-scoped predicate: callers without a scope send `0` and receive the full set. The claim it makes about save paths conflates mobile (posts only scanned lines — Req 5.1) with web (`ItemReceiptPackingHandler.PostItemFulfillment`, whose zero-quantity filler need is documented there, not here). The old comment left in place would justify a filter that no longer exists.
 **Acceptance:** web path (no `VendorId`) receives 1,657 rows; scoped path receives that vendor's line count.
 
 _Requirements: 1.6, 1.7_
@@ -102,21 +103,25 @@ _Requirements: 1.4, 1.6, 1.7, 4.2_
 
 ### T8. Add the candidate query
 **File:** new `Integration.NS/NSScripts/NS_TO_x_Get_Vendor_Candidates.sql`
-**Target:** exactly the script in `design.md` — `SELECT DISTINCT tl.custcol_dbti_vendor AS Id` with the `tranid` / `recordtype` / `SHIPPING` filters. **No** `GROUP BY`, **no** `BUILTIN.DF`, **no** `ORDER BY` on an aggregate. Deserialize into `VendorLookupDTO` (only `Id` is populated here).
-**Acceptance:** console run for the sample tranid returns 95 rows.
+**Target:** exactly the script in `design.md` — `SELECT DISTINCT tl.custcol_dbti_vendor AS Id` with the `tranid` / `recordtype` / category / status / `SHIPPING` filters **and `AND tl.custcol_dbti_vendor IS NOT NULL`**.
+**Why the two additions (D4b):**
+- `IS NOT NULL` — `VendorLookupDTO.Id` is a non-nullable `int` (`VendorLookupDTO.cs:11`); a `NULL` row fails the whole response at deserialization (`JsonSerializerRequestOption` with `AllowReadingFromString` reads `"123"` but not `null`, `NetSuiteApiClientService.cs:214-218, 448`). The guard must live in the script: the crash precedes every handler-side filter, and `GetVendorsByIdsAsync`'s `id > 0` guard (`VendorIntegration.cs:107`) never runs. A partially null-vendor document works today and would break without this.
+- Mirrored category/status filters — the line script filters `custbody_dbti_transfer_category IN ('1','2')` and `status IN ('B','D','E')` at document level (`NS_TO_x_Packing_Get_Items.sql:190-191`); mirroring them keeps the candidate set a subset of what the scoped read can return.
+**No** `GROUP BY`, **no** `BUILTIN.DF`, **no** `ORDER BY` on an aggregate. Deserialize into `VendorLookupDTO` (only `Id` is populated here).
+**Acceptance:** console run for the sample tranid returns 95 rows; a tranid with a null-vendor SHIPPING line returns no `NULL` row and deserializes cleanly.
 
-_Requirements: 2.1, 2.2_
+_Requirements: 2.1, 2.2, 2.5, 2.6_
 
 ### T9. Point the resolver at it
 **File:** `Application.UseCases/Queries/Transaction/Packing/NS/TransferOrder/ResolveTransferOrderVendorQry.cs:34-66`
-**Target:** replace the `GetTransferOrderLineQry` call (`:39-45`) with the candidate query; keep `GetVendorsByIdsAsync` enrichment (`:57-59`); wrap the handler body in `try/catch` returning `ApiResult<VendorLookupDTO>.ServerError(...)`.
+**Target:** replace the `GetTransferOrderLineQry` call (`:39-45`) with the candidate query; extract ids with the same `is > 0` guard the line path uses today (`:47-51`) — `GetVendorsByIdsAsync` filters `id > 0` again (`VendorIntegration.cs:107`), but do not rely on it alone; keep `GetVendorsByIdsAsync` enrichment (`:57-59`); wrap the handler body in `try/catch` returning `ApiResult<VendorLookupDTO>.ServerError(...)`.
 **Acceptance:** a logged resolve shows one candidate query plus one vendor-record read, and no full line query.
 
 _Requirements: 2.1, 2.2, 2.4_
 
 ### T10. Change the matcher contract and migrate its tests
 **File:** `ResolveTransferOrderVendorQry.cs:74-225` (matcher) and `Integration.NS.Tests/.../TransferOrderVendorResolverTests.cs`
-**Target:** `Resolve(candidates, vendors, scannedVendor, orderNumber)` — candidate ids seed the name map; names come from the vendor records (`entityid` / `companyname` / `fullname`). Matching, normalization, ambiguity, and message rules are unchanged. Migrate the 12 existing cases; add one asserting a vendor whose lines sit beyond row 1,000 still resolves.
+**Target:** `Resolve(candidates, vendors, scannedVendor, orderNumber)` — candidate ids seed the name map; names come from the vendor records (`entityid` / `companyname` / `fullname`). Matching, normalization, ambiguity, and message rules are unchanged. Migrate the 12 existing cases; add one asserting a vendor whose lines sit beyond row 1,000 still resolves. Note for the migration: five cases (`Scanned_name_resolves_to_that_vendors_id`, `Matching_ignores_case_and_extra_whitespace`, `Matching_falls_back_to_ignoring_punctuation`, `Name_that_is_not_on_the_document_is_rejected_with_the_scan_and_the_candidates`, `Two_vendors_that_only_differ_by_punctuation_are_reported_as_ambiguous`) currently source their names from the line's `BUILTIN.DF` text — move those names into the `VendorDTO` fixtures, since D4a retires the line-name hint. The rewritten suite can no longer represent a "line name matches, record names do not" scenario; that residual risk is accepted on the 2026-10-21 field evidence (D4a).
 
 _Requirements: 2.1_
 
@@ -165,8 +170,9 @@ _Requirements: 5.1, 5.2_
 6. Null-vendor documents: behaviour unchanged (still out of handheld scope).
 7. `dotnet build` all projects; `dotnet test Integration.NS.Tests` green.
 8. Record that no device verification was possible and carry it as an open risk.
+9. Web save payload growth (4.6): `PostItemFulfillment` re-reads the full set and posts zero-quantity entries for every non-completed line — ~1,657 entries on the sample, up from ≤1,000. Exercise the web post (Postman) for the sample order and confirm it succeeds, or record the payload-size risk as accepted in the change document.
 
-_Requirements: 4.1, 4.2, 4.3, 4.4, 4.5_
+_Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 4.6_
 
 ---
 

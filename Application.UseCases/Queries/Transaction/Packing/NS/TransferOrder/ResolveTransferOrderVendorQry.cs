@@ -1,6 +1,5 @@
 using Application.DataTransferObjects.Others;
 using Application.DataTransferObjects.Transactions.Commons.NS;
-using Application.DataTransferObjects.Transactions.Commons.NS.Request;
 using Application.UseCases.Repositories.Integration.Others;
 using MediatR;
 using Shared.Libraries.Entities;
@@ -27,7 +26,7 @@ public record ResolveTransferOrderVendorQry(string OrderNumber, string VendorBar
     : IRequest<ApiResult<VendorLookupDTO>>;
 
 public class ResolveTransferOrderVendorQryHandler(
-    ISender sender,
+    INetSuiteApiClientService netSuiteApiClientService,
     IVendorIntegration vendorIntegration)
     : IRequestHandler<ResolveTransferOrderVendorQry, ApiResult<VendorLookupDTO>>
 {
@@ -35,34 +34,47 @@ public class ResolveTransferOrderVendorQryHandler(
         ResolveTransferOrderVendorQry request,
         CancellationToken cancellationToken)
     {
-        // Every line on the order: the vendor scan itself is what narrows the set.
-        var lines = await sender.Send(
-            new GetTransferOrderLineQry(new TransferOrderLineRequestDTO
-            {
-                OrderNumber = request.OrderNumber
-            }),
-            cancellationToken)
-            ?? [];
+        try
+        {
+            // Vendor ids only, distinct over the whole document: this cannot be
+            // truncated by the line read's 1,000-row page and transfers a handful
+            // of integers instead of every line.
+            var candidates = await netSuiteApiClientService.NetsuiteQuery<VendorLookupDTO>(
+                "NS_TO_x_Get_Vendor_Candidates",
+                new Dictionary<string, string>
+                {
+                    ["tranid"] = request.OrderNumber
+                },
+                ct: cancellationToken)
+                ?? [];
 
-        var vendorIds = lines
-            .Where(line => line.VendorId is > 0)
-            .Select(line => line.VendorId!.Value)
-            .Distinct()
-            .ToList();
+            var vendorIds = candidates
+                .Where(candidate => candidate.Id > 0)
+                .Select(candidate => candidate.Id)
+                .Distinct()
+                .ToList();
 
-        // The line projection carries the List/Record id plus BUILTIN.DF's display
-        // text, which is not guaranteed to be the name the print template rendered.
-        // The vendor record's own names (entityid / companyname / fullname) are read
-        // for the same ids so any of them can satisfy the scan.
-        var vendors = vendorIds.Count == 0
-            ? Enumerable.Empty<VendorDTO>()
-            : await vendorIntegration.GetVendorsByIdsAsync(vendorIds, cancellationToken);
+            // The candidate script carries ids only; the vendor record's own names
+            // (entityid / companyname / fullname) are what a scan is matched against.
+            var vendors = vendorIds.Count == 0
+                ? Enumerable.Empty<VendorDTO>()
+                : await vendorIntegration.GetVendorsByIdsAsync(vendorIds, cancellationToken);
 
-        return TransferOrderVendorResolver.Resolve(
-            lines,
-            vendors,
-            request.VendorBarcode,
-            request.OrderNumber);
+            return TransferOrderVendorResolver.Resolve(
+                candidates,
+                vendors,
+                request.VendorBarcode,
+                request.OrderNumber);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            return ApiResult<VendorLookupDTO>.ServerError(
+                $"Vendor lookup for transfer order {request.OrderNumber} failed: {ex.Message}");
+        }
     }
 }
 
@@ -74,7 +86,7 @@ public class ResolveTransferOrderVendorQryHandler(
 public static class TransferOrderVendorResolver
 {
     public static ApiResult<VendorLookupDTO> Resolve(
-        IEnumerable<TransferOrderLineDTO>? lines,
+        IEnumerable<VendorLookupDTO>? candidates,
         IEnumerable<VendorDTO>? vendors,
         string? scannedVendor,
         string orderNumber)
@@ -87,19 +99,23 @@ public static class TransferOrderVendorResolver
                 "Scan the vendor barcode printed under the Vendor field.");
         }
 
-        // Every name a printed document could carry for this vendor, grouped by id.
-        // The line's BUILTIN.DF text and the record's entityid / companyname /
-        // fullname are all candidates: the print template may not have used the
-        // same one the line query projects.
+        // The document's own vendor ids seed the map; the record's entityid /
+        // companyname / fullname are the names a scan can match, because the
+        // print template may not use the same value the line carried.
         var namesById = new Dictionary<int, List<string>>();
 
-        foreach (var line in lines ?? [])
+        foreach (var candidate in candidates ?? [])
         {
-            Register(namesById, line.VendorId ?? 0, line.VendorName);
+            Register(namesById, candidate.Id, null);
         }
 
         foreach (var vendor in vendors ?? [])
         {
+            if (!namesById.ContainsKey(vendor.Id))
+            {
+                continue;
+            }
+
             Register(namesById, vendor.Id, vendor.ReferenceNumber);
             Register(namesById, vendor.Id, vendor.CompanyName);
             Register(namesById, vendor.Id, vendor.Name);
@@ -108,7 +124,8 @@ public static class TransferOrderVendorResolver
         if (namesById.Count == 0)
         {
             return ApiResult<VendorLookupDTO>.Failed(
-                $"Transfer order {orderNumber} has no vendor on its lines.");
+                $"Transfer order {orderNumber} has no vendor on its lines. " +
+                "Fulfil this order from web Packing instead.");
         }
 
         if (namesById.Values.All(names => names.Count == 0))

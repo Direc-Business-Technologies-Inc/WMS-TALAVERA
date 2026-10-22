@@ -72,6 +72,8 @@ exact, and moves the vendor scope into SQL so the gate is both correct and fast.
 
 **1.8** WHEN any page of a multi-page read fails THEN the read SHALL fail as a whole; a partial row set SHALL NOT be returned as success.
 
+**1.9** WHEN the rows delivered across the pages account for fewer lines than the response's `totalResults` THEN the read SHALL fail rather than return the short set.
+
 ### 2. Vendor resolution
 
 **2.1** WHEN resolving a scanned vendor barcode THEN candidate vendors SHALL be drawn from the complete set of vendors on the document, independent of any vendor's row position in the line read.
@@ -81,6 +83,10 @@ exact, and moves the vendor scope into SQL so the gate is both correct and fast.
 **2.3** WHEN an STR has no vendor on any line THEN the failure SHALL name an actionable alternative route for the operator.
 
 **2.4** WHEN resolution fails because of an infrastructure fault THEN the API SHALL answer with a readable message rather than an unhandled 500.
+
+**2.5** WHEN a SHIPPING line carries no vendor THEN the candidate read SHALL NOT emit a row for it, so no `NULL` or non-positive id reaches the vendor-record read.
+
+**2.6** WHEN the candidate read lists vendors THEN its document-level filters SHALL mirror the line read's (`recordtype`, transfer category, `status`), so a resolved vendor's lines are always visible to the scoped line read.
 
 ### 3. Mobile vendor-gate behaviour
 
@@ -105,6 +111,8 @@ exact, and moves the vendor scope into SQL so the gate is both correct and fast.
 **4.4** Documents with no vendor on their lines SHALL remain out of scope for handheld fulfilment.
 
 **4.5** WHEN hardening lands THEN "vendor-scan to lines-visible" SHALL NOT be slower than "page-open to lines-visible" was before the gate, measured on a document of at least 1,000 lines.
+
+**4.6** WHEN the complete line set reaches web packing THEN the growth of the web save payload (`PostItemFulfillment` posts zero-quantity entries for every non-completed line) SHALL be verified against NetSuite's limits or recorded as an accepted risk.
 
 ### 5. Documentation accuracy
 

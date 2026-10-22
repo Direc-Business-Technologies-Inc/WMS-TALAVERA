@@ -15,16 +15,15 @@ namespace Integration.NS.Tests.Implementations.Transactions.Packing;
 /// <summary>
 /// Vendor gate on the packing line list used by the mobile app. The operator scans
 /// the vendor barcode printed under the STR's Vendor field — the barcode carries
-/// the NetSuite vendor internal id, which is exactly what the line stores in
-/// <c>transactionline.custcol_dbti_vendor</c> — and only that vendor's lines are
-/// eligible for fulfillment.
+/// the vendor <em>name</em>, which is resolved to its NetSuite id before this
+/// query runs.
 /// <para>
-/// The filter is applied in <see cref="MGetTransferOrderLineQryHandler"/> rather
-/// than in <c>NS_TO_x_Packing_Get_Items.sql</c>, because that script is also
-/// called by the fulfillment save path, which must still see every line (it posts
-/// zero-quantity entries for the lines it was not asked to fulfill). Adding an
-/// optional <c>@vendorId</c> token would also break callers that do not supply it:
-/// unsubstituted tokens reach NetSuite as invalid SQL.
+/// The gate's scope is applied by <c>NS_TO_x_Packing_Get_Items.sql</c>, which
+/// takes an optional <c>{vendorId}</c> integer splice. A scoped call sends the
+/// vendor id; a call with no scope sends the <c>"0"</c> sentinel and receives
+/// every line. The handler performs no in-memory filter, so a broken predicate
+/// cannot be masked: these tests assert the parameter shape that reaches the
+/// script, and the fake applies the script's scope the way SuiteQL does.
 /// </para>
 /// </summary>
 public class StrPackingVendorFilterShapeTests
@@ -37,6 +36,8 @@ public class StrPackingVendorFilterShapeTests
         MaterialCode = $"ITEM-{lineNumber}"
     };
 
+    private const string Tranid = "ISTR-THM00100000776-2";
+
     private static async Task<List<TransferOrderLineDTO>> QueryAsync(int? vendorId, FakeNetSuiteClient client)
     {
         var handler = new MGetTransferOrderLineQryHandler(client);
@@ -44,7 +45,7 @@ public class StrPackingVendorFilterShapeTests
         var result = await handler.Handle(
             new GetTransferOrderLineQry(new TransferOrderLineRequestDTO
             {
-                OrderNumber = "ISTR-THM00100000776-2",
+                OrderNumber = Tranid,
                 VendorId = vendorId
             }),
             CancellationToken.None);
@@ -88,7 +89,7 @@ public class StrPackingVendorFilterShapeTests
     }
 
     [Fact]
-    public async Task Vendor_never_travels_into_the_script_parameters()
+    public async Task Tranid_travels_as_a_text_parameter()
     {
         var client = new FakeNetSuiteClient();
         client.Lines.Add(Line(1, 111));
@@ -96,8 +97,31 @@ public class StrPackingVendorFilterShapeTests
         await QueryAsync(vendorId: 111, client);
 
         Assert.NotNull(client.LastParameters);
-        Assert.Equal("ISTR-THM00100000776-2", client.LastParameters!["tranid"]);
-        Assert.False(client.LastParameters.ContainsKey("vendorId"));
+        Assert.Equal(Tranid, client.LastParameters!["tranid"]);
+    }
+
+    [Fact]
+    public async Task Scanned_vendor_travels_as_the_vendor_scope()
+    {
+        var client = new FakeNetSuiteClient();
+        client.Lines.Add(Line(1, 111));
+
+        await QueryAsync(vendorId: 111, client);
+
+        Assert.NotNull(client.LastParameters);
+        Assert.Equal("111", client.LastParameters!["vendorId"]);
+    }
+
+    [Fact]
+    public async Task No_vendor_scanned_sends_the_zero_sentinel()
+    {
+        var client = new FakeNetSuiteClient();
+        client.Lines.Add(Line(1, 111));
+
+        await QueryAsync(vendorId: null, client);
+
+        Assert.NotNull(client.LastParameters);
+        Assert.Equal("0", client.LastParameters!["vendorId"]);
     }
 
     private sealed class FakeNetSuiteClient : INetSuiteApiClientService
@@ -115,7 +139,43 @@ public class StrPackingVendorFilterShapeTests
             CancellationToken ct = default)
         {
             LastParameters = parameters;
-            return Task.FromResult<IEnumerable<T>?>(Lines.OfType<T>().ToList());
+            return Task.FromResult<IEnumerable<T>?>(Scoped<T>(parameters));
+        }
+
+        public Task<NetSuiteResponse<T>?> NetsuiteQueryWithMetadata<T>(
+            string queryName,
+            Dictionary<string, string>? parameters = null,
+            int limit = 0,
+            int offset = 0,
+            CancellationToken ct = default)
+        {
+            LastParameters = parameters;
+            var items = Scoped<T>(parameters);
+            return Task.FromResult<NetSuiteResponse<T>?>(new NetSuiteResponse<T>
+            {
+                items = items,
+                count = items.Count,
+                totalResults = items.Count,
+                hasMore = false
+            });
+        }
+
+        // The script's predicate is {vendorId} = 0 OR custcol_dbti_vendor = {vendorId}.
+        private List<T> Scoped<T>(Dictionary<string, string>? parameters)
+        {
+            var items = Lines.OfType<T>().ToList();
+
+            if (typeof(T) == typeof(TransferOrderLineDTO) &&
+                parameters?.TryGetValue("vendorId", out var raw) == true &&
+                int.TryParse(raw, out var vendorId) && vendorId > 0)
+            {
+                items = ((IEnumerable<TransferOrderLineDTO>)items)
+                    .Where(line => line.VendorId == vendorId)
+                    .Cast<T>()
+                    .ToList();
+            }
+
+            return items;
         }
 
         public Task<NetSuiteResponse<T>> ExecuteSuiteQLQuery<T>(string query, int? limit = null, int? offset = null, CancellationToken ct = default)
