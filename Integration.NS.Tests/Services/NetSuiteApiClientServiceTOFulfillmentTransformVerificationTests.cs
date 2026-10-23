@@ -63,7 +63,7 @@ public class NetSuiteApiClientServiceTOFulfillmentTransformVerificationTests
 
         NetSuiteApiClientService.TOFulfillmentTransformLine[] preview =
         [
-            TransformLine(10),
+            TransformLine(10, quantity: 2),
             TransformLine(20)
         ];
 
@@ -90,7 +90,7 @@ public class NetSuiteApiClientServiceTOFulfillmentTransformVerificationTests
 
         NetSuiteApiClientService.TOFulfillmentTransformLine[] preview =
         [
-            TransformLine(10),
+            TransformLine(10, quantity: 2),
             TransformLine(30) // a line the read did not report, keeps the count honest
         ];
 
@@ -196,7 +196,7 @@ public class NetSuiteApiClientServiceTOFulfillmentTransformVerificationTests
 
         NetSuiteApiClientService.TOFulfillmentTransformLine[] preview =
         [
-            TransformLine(10),
+            TransformLine(10, quantity: 2),
             TransformLine(20, hasAssignment: true)
         ];
 
@@ -206,6 +206,67 @@ public class NetSuiteApiClientServiceTOFulfillmentTransformVerificationTests
         Assert.Equal([20], result.FillersWithInventoryDetail);
         Assert.Empty(result.DroppedFillerIds);
         Assert.Equal(2, result.Lines.Count);
+    }
+
+    [Fact]
+    public void Scan_beyond_the_preview_quantity_is_rejected_by_name()
+    {
+        // The preview's quantity is the amount NetSuite would fulfil if the line
+        // went unaddressed - the authoritative cap, in the POST's quantity unit.
+        PostTransferOrderDTO[] lines =
+        [
+            Line(10, 29)
+        ];
+
+        NetSuiteApiClientService.TOFulfillmentTransformLine[] preview =
+        [
+            TransformLine(10, quantity: 23)
+        ];
+
+        var result = NetSuiteApiClientService.VerifyTOFulfillmentAgainstTransform(lines, preview, 1);
+
+        Assert.True(result.Available);
+        Assert.Single(result.RejectedScans);
+        Assert.Contains("WMS line 10", result.RejectedScans[0]);
+        Assert.Contains("scanned 29", result.RejectedScans[0]);
+        Assert.Contains("exposes only 23", result.RejectedScans[0]);
+        Assert.Empty(result.Lines);
+    }
+
+    [Fact]
+    public void Scan_at_the_preview_quantity_is_kept()
+    {
+        PostTransferOrderDTO[] lines = [Line(10, 23)];
+
+        NetSuiteApiClientService.TOFulfillmentTransformLine[] preview =
+        [
+            TransformLine(10, quantity: 23)
+        ];
+
+        var result = NetSuiteApiClientService.VerifyTOFulfillmentAgainstTransform(lines, preview, 1);
+
+        Assert.True(result.Available);
+        Assert.Empty(result.RejectedScans);
+        Assert.Single(result.Lines);
+    }
+
+    [Fact]
+    public void Preview_without_a_quantity_does_not_cap_the_scan()
+    {
+        // quantity is nullable on the preview payload; when absent the SuiteQL
+        // packable-quantity guard remains the only cap (fail open on this check).
+        PostTransferOrderDTO[] lines = [Line(10, 500)];
+
+        NetSuiteApiClientService.TOFulfillmentTransformLine[] preview =
+        [
+            TransformLine(10, quantity: null)
+        ];
+
+        var result = NetSuiteApiClientService.VerifyTOFulfillmentAgainstTransform(lines, preview, 1);
+
+        Assert.True(result.Available);
+        Assert.Empty(result.RejectedScans);
+        Assert.Single(result.Lines);
     }
 
     [Fact]

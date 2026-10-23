@@ -490,7 +490,7 @@ public partial class TransferOrderItemView : IAsyncDisposable
             new Dictionary<string, object>
             {
                 { "ItemName", item.MaterialName },
-                { "PlannedQty", item.NSLineQuantityReceived },
+                { "PlannedQty", item.PackableQuantity },
                 { "GoodQty", goodLine.ScannedQuantity },
                 { "BadQty", badLine.ScannedQuantity },
                 { "ShowMissing", 1 }
@@ -718,7 +718,11 @@ public partial class TransferOrderItemView : IAsyncDisposable
             var badlineTotal = badLine.ScannedQuantity;
             var goodLineTotal = goodLine.ScannedQuantity;
 
-            var isOverScan = badlineTotal + goodLineTotal >= goodLine.NSLineQuantityRemaining;
+            // PackableQuantity is in the same display unit ScannedQuantity
+            // accumulates in (barcode rate / line rate). NSLineQuantityRemaining
+            // is raw stock units - comparing the two let a BOX12 line accept 12x
+            // its remaining quantity (2026-10-23 over-scan report).
+            var isOverScan = badlineTotal + goodLineTotal >= goodLine.PackableQuantity;
 
             if (isOverScan)
             {
@@ -728,11 +732,7 @@ public partial class TransferOrderItemView : IAsyncDisposable
 
             var scanQty = barcode.UoMRate / goodLine.UoMRate;
 
-            // Remaining open quantity on a partially fulfilled order is
-            // LineQuantity - QuantityAlreadyShipped; NSLineQuantityPacked is based on
-            // quantitypacked and understates the remaining qty after an earlier partial
-            // fulfillment, wrongly blocking valid scans.
-            var remainingQty = goodLine.NSLineQuantityRemaining - (goodLine.ScannedQuantity + (badLine?.ScannedQuantity ?? 0));
+            var remainingQty = goodLine.PackableQuantity - (goodLine.ScannedQuantity + (badLine?.ScannedQuantity ?? 0));
 
             bool isExceed = scanQty > remainingQty;
 
@@ -849,6 +849,7 @@ public partial class TransferOrderItemView : IAsyncDisposable
 
                 LineQuantity = x.LineQuantity,
                 LineQuantityPacked = x.LineQuantityPacked,
+                LineQuantityBackOrdered = x.LineQuantityBackOrdered,
 
                 IsClosed = x.IsClosed,
                 QuantityAlreadyShipped = x.QuantityAlreadyShipped,
@@ -1250,6 +1251,8 @@ public partial class TransferOrderItemView : IAsyncDisposable
 
         // Restore scanned state (including DONE lines, so a line that moved to
         // DONE across the reload keeps its snapshot entry).
+        var clampedLines = new List<string>();
+
         foreach (var item in GoodTOItems.Concat(BadTOItems).Concat(DoneTOItems))
         {
             var key = new
@@ -1261,10 +1264,26 @@ public partial class TransferOrderItemView : IAsyncDisposable
 
             if (scannedState.TryGetValue(key, out var scanned))
             {
-                item.ScannedQuantity = scanned.ScannedQuantity;
+                // The plan can shrink across the reload (another picker packed
+                // some of it, the order was edited). Restoring the old count
+                // would leave the device over the fresh packable quantity, and
+                // the scan guard would then allow everything up to the stale
+                // total, so clamp and tell the operator what was reduced.
+                var clamped = Math.Min(scanned.ScannedQuantity, item.PackableQuantity);
+                if (clamped < scanned.ScannedQuantity)
+                {
+                    clampedLines.Add($"{item.MaterialCode} ({scanned.ScannedQuantity} -> {clamped})");
+                }
+
+                item.ScannedQuantity = clamped;
                 item.ScannedWeight = scanned.ScannedWeight;
                 item.ScanCount = scanned.ScanCount;
             }
+        }
+
+        if (clampedLines.Count > 0)
+        {
+            await Toast.Warning($"Refresh reduced the scanned quantity on {clampedLines.Count} line(s) to the current plan: {string.Join(", ", clampedLines)}.");
         }
 
         await InvokeAsync(StateHasChanged);

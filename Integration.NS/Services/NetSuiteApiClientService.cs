@@ -79,7 +79,7 @@ namespace Integration.NS.Services
 
         private static string ItemReceiptRestletUrl = $"https://{AccountId}.restlets.api.netsuite.com/app/site/hosting/restlet.nl?script=1853&deploy=1";
 
-        private static string ItemFulfillmentRestletUrl = $"https://{AccountId}.restlets.api.netsuite.com/app/site/hosting/restlet.nl?script=2522&deploy=1";
+        private static string ItemFulfillmentRestletUrl = $"https://{AccountId}.restlets.api.netsuite.com/app/site/hosting/restlet.nl?script=1863&deploy=1";
 
         private static string TripTicketRestletUrl = $"https://{AccountId}.restlets.api.netsuite.com/app/site/hosting/restlet.nl?script=1862&deploy=1";
 
@@ -1541,6 +1541,36 @@ namespace Integration.NS.Services
         /// remaining figures, so the caller can fail with an actionable message
         /// before the first NetSuite call.
         /// </summary>
+        /// <remarks>
+        /// ScannedQuantity accumulates in the line's DISPLAY unit (a barcode
+        /// contributes barcodeRate / lineRate), while LineQuantity,
+        /// QuantityAlreadyShipped, LineQuantityPacked and LineQuantityBackOrdered
+        /// are raw stock units (transactionline.quantity). The comparison must
+        /// therefore divide by the line's UoM conversion rate
+        /// (<see cref="PackableDisplayQuantity"/>). The pre-2026-10-23 guard
+        /// compared display-unit scans against raw stock units, so a BOX12 line
+        /// accepted 12x its remaining quantity - the over-scan report on
+        /// STR-THM00100000867 (item 00032678: quantity 888 eaches, rate 12,
+        /// guard ceiling 888 instead of 74 boxes).
+        /// </remarks>
+        internal const decimal ScanQuantityTolerance = 0.00001m;
+
+        /// <summary>
+        /// The quantity one TO line may still be packed, expressed in the SAME
+        /// display unit <see cref="PostTransferOrderDTO.ScannedQuantity"/>
+        /// accumulates in. Backordered quantity is unavailable stock and is not
+        /// packable; a fully backordered line therefore packs 0 and refuses
+        /// every scan. Zero/absent UoM rates fall back to 1 so legacy payloads
+        /// without a rate keep their previous behaviour.
+        /// </summary>
+        internal static decimal PackableDisplayQuantity(PostTransferOrderDTO line)
+        {
+            var rate = line.UoMRate > 0 ? line.UoMRate : 1m;
+            var committed = Math.Max(line.LineQuantityPacked, line.QuantityAlreadyShipped);
+            var remaining = line.LineQuantity - committed - line.LineQuantityBackOrdered;
+            return remaining > 0 ? remaining / rate : 0m;
+        }
+
         internal static List<string> FindScansExceedingRemaining(List<PostTransferOrderDTO> lines)
         {
             var offenders = new List<string>();
@@ -1550,8 +1580,8 @@ namespace Integration.NS.Services
                 var line = lines[i];
                 if (line.ScannedQuantity <= 0) continue;
 
-                var remaining = line.RemainingQuantity;
-                if (line.ScannedQuantity > remaining)
+                var remaining = PackableDisplayQuantity(line);
+                if (line.ScannedQuantity > remaining + ScanQuantityTolerance)
                 {
                     offenders.Add(
                         $"item-list line {i + 1} (WMS line {line.LineSequenceNumber}) {line.MaterialCode} - {line.MaterialName}: scanned {line.ScannedQuantity}, ordered {line.LineQuantity}, remaining {remaining}");
@@ -1559,6 +1589,59 @@ namespace Integration.NS.Services
             }
 
             return offenders;
+        }
+
+        /// <summary>
+        /// Good and bad scans of the SAME line live in different payload rows, so
+        /// a per-row check passes each one individually while their sum exceeds
+        /// what the line can still pack. Groups by WMS line and flags the combined
+        /// total; single-row groups are skipped because
+        /// <see cref="FindScansExceedingRemaining"/> already names those (with the
+        /// item-list position).
+        /// </summary>
+        internal static List<string> FindLinesExceedingRemainingAcrossBuckets(
+            IReadOnlyCollection<PostTransferOrderDTO> lines)
+        {
+            var offenders = new List<string>();
+
+            foreach (var group in lines
+                         .Where(x => x.ScannedQuantity > 0)
+                         .GroupBy(x => x.LineSequenceNumber)
+                         .Where(g => g.Count() > 1))
+            {
+                var line = group.First();
+                var total = group.Sum(x => x.ScannedQuantity);
+                var remaining = PackableDisplayQuantity(line);
+
+                if (total > remaining + ScanQuantityTolerance)
+                {
+                    var buckets = string.Join(
+                        "+",
+                        group.OrderByDescending(x => x.ScannedQuantity)
+                            .Select(x => $"{(x.IsBad ? "BAD" : "GOOD")} {x.ScannedQuantity}"));
+
+                    offenders.Add(
+                        $"WMS line {group.Key} {line.MaterialCode} - {line.MaterialName}: scanned {total} ({buckets}), remaining {remaining}");
+                }
+            }
+
+            return offenders;
+        }
+
+        /// <summary>
+        /// The save-time quantity gate shared by the transform and RESTlet
+        /// transports: per-row over-remaining descriptors plus the good+bad
+        /// aggregate, both measured in the line's display unit.
+        /// </summary>
+        internal static void EnsureScansWithinPackableQuantity(IReadOnlyCollection<PostTransferOrderDTO> lines)
+        {
+            var offenders = FindScansExceedingRemaining(lines.ToList())
+                .Concat(FindLinesExceedingRemainingAcrossBuckets(lines))
+                .ToList();
+
+            if (offenders.Count == 0) return;
+
+            throw new Exception($"Cannot post TO Item Fulfillment: scanned quantity exceeds the remaining quantity for: {string.Join("; ", offenders)}. Reload the order and rescan the affected line(s).");
         }
 
         /// <summary>
@@ -1579,6 +1662,8 @@ namespace Integration.NS.Services
             public string ItemName { get; set; } = string.Empty;
             public decimal LineQuantity { get; set; }
             public decimal QuantityShipped { get; set; }
+            public decimal QuantityPacked { get; set; }
+            public decimal QuantityBackOrdered { get; set; }
             public string IsClosed { get; set; } = "F";
             public decimal UoMRate { get; set; } = 1m;
 
@@ -1720,6 +1805,8 @@ namespace Integration.NS.Services
                     i.displayname AS ItemName,
                     ABS(tl.quantity) AS LineQuantity,
                     NVL(tl.quantityshiprecv, 0) AS QuantityShipped,
+                    NVL(tl.quantitypacked, 0) AS QuantityPacked,
+                    NVL(tl.quantitybackordered, 0) AS QuantityBackOrdered,
                     tl.isclosed AS IsClosed,
                     NVL(u.conversionrate, 1) AS UoMRate
                 FROM transactionline tl
@@ -1967,6 +2054,21 @@ namespace Integration.NS.Services
                     fillersWithInventoryDetail.Add(line.LineSequenceNumber);
                 }
 
+                // Quantity cap: the preview's own quantity is the amount NetSuite
+                // would fulfil if the line went unaddressed - the exact maximum a
+                // scan may claim, and the authoritative answer to the unit question
+                // the SuiteQL read can only approximate (ScannedQuantity is in the
+                // line's display unit; the preview quantity is the POST's quantity
+                // unit, the same line UoM).
+                if (line.ScannedQuantity > 0
+                    && transformLine.Quantity is { } previewed
+                    && line.ScannedQuantity > previewed + ScanQuantityTolerance)
+                {
+                    rejectedScans.Add(
+                        $"WMS line {line.LineSequenceNumber} ({line.MaterialCode} - {line.MaterialName}): scanned {line.ScannedQuantity}, but the item fulfillment transform exposes only {previewed}");
+                    continue;
+                }
+
                 kept.Add(line);
             }
 
@@ -2118,6 +2220,8 @@ namespace Integration.NS.Services
 
                 line.LineQuantity = fresh.LineQuantity;
                 line.QuantityAlreadyShipped = fresh.QuantityShipped;
+                line.LineQuantityPacked = fresh.QuantityPacked;
+                line.LineQuantityBackOrdered = fresh.QuantityBackOrdered;
                 line.IsClosed = fresh.IsClosed;
                 // The save diagnostic reports the rate the save actually ran on,
                 // not the device's load-time value (2b will use it in the guards).
@@ -2148,6 +2252,8 @@ namespace Integration.NS.Services
                     MaterialName = fresh.ItemName,
                     LineQuantity = fresh.LineQuantity,
                     QuantityAlreadyShipped = fresh.QuantityShipped,
+                    LineQuantityPacked = fresh.QuantityPacked,
+                    LineQuantityBackOrdered = fresh.QuantityBackOrdered,
                     IsClosed = fresh.IsClosed,
                     UoMRate = fresh.UoMRate,
                     ScannedQuantity = 0,
@@ -2171,6 +2277,9 @@ namespace Integration.NS.Services
         /// first and closes them, so the GOOD transform (created afterwards) no
         /// longer exposes them: a filler referencing a closed line is an invalid
         /// insert on a static sublist and would 400 the whole GOOD post.
+        /// The comparison uses the display-unit packable quantity - ScannedQuantity
+        /// is in display units while RemainingQuantity is raw stock units, and
+        /// comparing the two under-counted closure on multi-unit lines.
         /// </summary>
         private static HashSet<int> LinesClosedByBadPost(
             IReadOnlyCollection<PostTransferOrderDTO> completed)
@@ -2178,7 +2287,7 @@ namespace Integration.NS.Services
             return completed
                 .Where(x => x.IsBad)
                 .GroupBy(x => x.LineSequenceNumber)
-                .Where(g => g.Sum(x => x.ScannedQuantity) >= g.First().RemainingQuantity)
+                .Where(g => g.Sum(x => x.ScannedQuantity) >= PackableDisplayQuantity(g.First()) - ScanQuantityTolerance)
                 .Select(g => g.Key)
                 .ToHashSet();
         }
@@ -2327,6 +2436,8 @@ namespace Integration.NS.Services
 
                 line.LineQuantity = fresh.LineQuantity;
                 line.QuantityAlreadyShipped = fresh.QuantityShipped;
+                line.LineQuantityPacked = fresh.QuantityPacked;
+                line.LineQuantityBackOrdered = fresh.QuantityBackOrdered;
                 line.IsClosed = fresh.IsClosed;
 
                 if (line.ScannedQuantity > 0 && (line.IsLineClosed || line.RemainingQuantity <= 0))
@@ -2571,11 +2682,7 @@ namespace Integration.NS.Services
             // call: on a partially fulfilled order quantitypacked is not the open quantity,
             // so surface the WMS line and the real ordered/remaining figures to the operator
             // instead of a cryptic NetSuite 400 mid-post.
-            var overRemaining = FindScansExceedingRemaining(Data);
-            if (overRemaining.Count > 0)
-            {
-                throw new Exception($"Cannot post TO Item Fulfillment: scanned quantity exceeds the remaining quantity for: {string.Join("; ", overRemaining)}. Reload the order and rescan the affected line(s).");
-            }
+            EnsureScansWithinPackableQuantity(Data);
 
             // D2b - verify the line SET against the transform preview, the same body the POST
             // validates. The SuiteQL read is an approximation; a line it calls open that the
@@ -2864,11 +2971,7 @@ namespace Integration.NS.Services
 
             Data = Data.Where(x => !IsClosedFulfillmentLine(x)).ToList();
 
-            var overRemaining = FindScansExceedingRemaining(Data);
-            if (overRemaining.Count > 0)
-            {
-                throw new Exception($"Cannot post TO Item Fulfillment: scanned quantity exceeds the remaining quantity for: {string.Join("; ", overRemaining)}. Reload the order and rescan the affected line(s).");
-            }
+            EnsureScansWithinPackableQuantity(Data);
 
             var scanned = Data.Where(x => x.ScannedQuantity > 0).ToList();
             if (scanned.Count == 0)

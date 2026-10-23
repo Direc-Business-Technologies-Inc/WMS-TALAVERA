@@ -172,6 +172,14 @@ the same-day Phase 2a revert (refutation trait added):
 
 ## Still open
 
+0. ~~**GOOD/BAD combined-remaining guard**~~ **Addressed 2026-10-23:**
+   `EnsureScansWithinPackableQuantity` runs the per-row + good+bad aggregate
+   check on both transports, with all guard quantities normalized to the line's
+   display unit (`PackableDisplayQuantity`). This closes the over-scan bug
+   (STR-THM00100000867 root cause: boxes vs eaches comparison); see
+   [2026-10-23 TO packing over-scan fix](2026-10-23-to-packing-overscan-fix.md).
+   RESTlet fallback and returns/VRA reconciliation parity remain open items.
+
 1. ~~**U2 (sandbox) is a deploy gate.**~~ **Answered in the field 2026-10-23: variant
    2 (`quantity: 0` + empty assignment) is rejected by the transform.** Phase 2a
    reverted to variant 1 (no `quantity` field — Transaction A's field-proven
@@ -187,5 +195,4 @@ the same-day Phase 2a revert (refutation trait added):
 4. Fail-closed flip after three clean production days (one week recommended on
    the acceptance list).
 5. Phase 4.4 and the five sibling display scripts (own tickets).
-6. GOOD/BAD atomicity, same-line GOOD+BAD combined-remaining guard,
-   returns/VRA reconciliation parity, RESTlet fallback.
+6. GOOD/BAD atomicity, returns/VRA reconciliation parity, RESTlet fallback.

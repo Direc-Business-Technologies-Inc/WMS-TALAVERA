@@ -23,7 +23,10 @@ public class NetSuiteApiClientServiceClosedLineGuardTests
         decimal scannedQuantity = 0,
         bool isBad = false,
         string isClosed = "F",
-        string materialCode = "ITEM")
+        string materialCode = "ITEM",
+        decimal uomRate = 0,
+        decimal lineQuantityPacked = 0,
+        decimal lineQuantityBackOrdered = 0)
         => new()
         {
             LineSequenceNumber = lineSequenceNumber,
@@ -33,7 +36,10 @@ public class NetSuiteApiClientServiceClosedLineGuardTests
             IsBad = isBad,
             IsClosed = isClosed,
             MaterialCode = materialCode,
-            MaterialName = $"{materialCode} NAME"
+            MaterialName = $"{materialCode} NAME",
+            UoMRate = uomRate,
+            LineQuantityPacked = lineQuantityPacked,
+            LineQuantityBackOrdered = lineQuantityBackOrdered
         };
 
     // ---------------------------------------------------------------------
@@ -177,5 +183,133 @@ public class NetSuiteApiClientServiceClosedLineGuardTests
 
         Assert.Equal(data.Count, postable.Count);
         Assert.Empty(NetSuiteApiClientService.FindScansExceedingRemaining(postable));
+    }
+
+    // ---------------------------------------------------------------------
+    // The 2026-10-23 over-scan report (STR-THM00100000867, item 00032678):
+    // transactionline.quantity is 888 EACHES, the line UoM is BOX12 (rate 12),
+    // and ScannedQuantity accumulates in BOXES. The old guard compared boxes
+    // against eaches, so the ceiling was 888 scans instead of 74.
+    // ---------------------------------------------------------------------
+    [Theory]
+    [InlineData(74, false)] // the full 74 boxes: allowed
+    [InlineData(75, true)]  // one box over: flagged
+    [InlineData(888, true)] // the old guard allowed this (888 <= 888 in eaches)
+    public void Multi_unit_line_cap_is_the_remaining_quantity_in_display_units(decimal scanned, bool shouldFlag)
+    {
+        var line = Line(536, lineQuantity: 888, uomRate: 12, scannedQuantity: scanned, materialCode: "00032678");
+
+        var offenders = NetSuiteApiClientService.FindScansExceedingRemaining([line]);
+
+        Assert.Equal(shouldFlag, offenders.Count == 1);
+    }
+
+    [Fact]
+    public void Fully_backordered_line_refuses_every_scan()
+    {
+        // SuiteQL on STR-THM00100000867 line 2: quantity 888, backordered 888,
+        // packed 0, shipped 0. The white box showed 0 - the guard must agree.
+        var line = Line(536, lineQuantity: 888, uomRate: 12, lineQuantityBackOrdered: 888, scannedQuantity: 1);
+
+        var offenders = NetSuiteApiClientService.FindScansExceedingRemaining([line]);
+
+        var message = Assert.Single(offenders);
+        Assert.Contains("remaining 0", message);
+    }
+
+    [Fact]
+    public void Packed_quantity_counts_toward_the_cap()
+    {
+        // 888 eaches ordered, 444 (37 boxes) already packed -> 37 boxes remain.
+        var within = Line(536, lineQuantity: 888, uomRate: 12, lineQuantityPacked: 444, scannedQuantity: 37);
+        var over = Line(536, lineQuantity: 888, uomRate: 12, lineQuantityPacked: 444, scannedQuantity: 38);
+
+        Assert.Empty(NetSuiteApiClientService.FindScansExceedingRemaining([within]));
+        Assert.Single(NetSuiteApiClientService.FindScansExceedingRemaining([over]));
+    }
+
+    [Fact]
+    public void Shipped_quantity_counts_even_when_packed_is_stale()
+    {
+        // The device screenshot case: 276 eaches (23 boxes) planned, fully
+        // shipped, quantitypacked still 0 on the row. The old max(packed, ...)
+        // omission would have re-opened the line; the operator scanned 29 boxes.
+        var line = Line(536, lineQuantity: 276, uomRate: 12, quantityAlreadyShipped: 276, scannedQuantity: 29);
+
+        var offenders = NetSuiteApiClientService.FindScansExceedingRemaining([line]);
+
+        var message = Assert.Single(offenders);
+        Assert.Contains("remaining 0", message);
+    }
+
+    [Fact]
+    public void Missing_uom_rate_falls_back_to_one_to_one()
+    {
+        // Legacy payloads without a rate keep the previous 1:1 behaviour.
+        var line = Line(536, lineQuantity: 200, quantityAlreadyShipped: 150, scannedQuantity: 51);
+
+        Assert.Single(NetSuiteApiClientService.FindScansExceedingRemaining([line]));
+    }
+
+    // ---------------------------------------------------------------------
+    // Good and bad scans of the SAME line live in different payload rows; the
+    // per-row check passes each individually while their sum exceeds the cap.
+    // ---------------------------------------------------------------------
+    [Fact]
+    public void Good_and_bad_scans_of_one_line_are_checked_as_a_total()
+    {
+        var data = new List<PostTransferOrderDTO>
+        {
+            Line(100, lineQuantity: 276, uomRate: 12, scannedQuantity: 20),
+            Line(100, lineQuantity: 276, uomRate: 12, scannedQuantity: 5, isBad: true)
+        };
+
+        var offenders = NetSuiteApiClientService.FindLinesExceedingRemainingAcrossBuckets(data);
+
+        var message = Assert.Single(offenders);
+        Assert.Contains("WMS line 100", message);
+        Assert.Contains("scanned 25", message);
+        Assert.Contains("BAD 5", message);
+        Assert.Contains("remaining 23", message);
+    }
+
+    [Fact]
+    public void Good_and_bad_scans_within_the_cap_pass_the_aggregate_check()
+    {
+        var data = new List<PostTransferOrderDTO>
+        {
+            Line(100, lineQuantity: 276, uomRate: 12, scannedQuantity: 20),
+            Line(100, lineQuantity: 276, uomRate: 12, scannedQuantity: 3, isBad: true)
+        };
+
+        Assert.Empty(NetSuiteApiClientService.FindLinesExceedingRemainingAcrossBuckets(data));
+    }
+
+    [Fact]
+    public void Save_gate_throws_when_any_line_is_over_scanned()
+    {
+        var data = new List<PostTransferOrderDTO>
+        {
+            Line(100, lineQuantity: 276, uomRate: 12, scannedQuantity: 29, materialCode: "00018051")
+        };
+
+        var ex = Assert.Throws<Exception>(
+            () => NetSuiteApiClientService.EnsureScansWithinPackableQuantity(data));
+
+        Assert.Contains("00018051", ex.Message);
+        Assert.Contains("remaining 23", ex.Message);
+    }
+
+    [Fact]
+    public void Save_gate_passes_a_valid_payload()
+    {
+        var data = new List<PostTransferOrderDTO>
+        {
+            Line(100, lineQuantity: 276, uomRate: 12, scannedQuantity: 20),
+            Line(100, lineQuantity: 276, uomRate: 12, scannedQuantity: 3, isBad: true),
+            Line(200, lineQuantity: 888, uomRate: 12, lineQuantityBackOrdered: 888) // filler, fully backordered
+        };
+
+        NetSuiteApiClientService.EnsureScansWithinPackableQuantity(data);
     }
 }
