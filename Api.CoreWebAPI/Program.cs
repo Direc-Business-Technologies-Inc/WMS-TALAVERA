@@ -30,6 +30,16 @@ builder.Services.AddAuthentication("Bearer")
 
 var app = builder.Build();
 
+// Deploy verification without waiting for a field failure: the stamp is the git
+// commit the assembly was COMPILED from (SDK AssemblyInformationalVersion). The
+// two TO item-fulfillment flags are logged with it so the deployed behaviour is
+// readable from the first log line, not inferred from a save result.
+app.Logger.LogInformation(
+    "API build {BuildStamp} | TO IF reconciliation={ReconciliationEnabled} failClosed={FailClosedRevalidationEnabled}",
+    Integration.NS.Services.NetSuiteApiClientService.BuildStampValue,
+    Integration.NS.Services.NetSuiteApiClientService.ReconciliationEnabled,
+    Integration.NS.Services.NetSuiteApiClientService.FailClosedRevalidationEnabled);
+
 app.UseHttpsRedirection();
 
 app.UseAuthentication();

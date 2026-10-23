@@ -97,7 +97,8 @@ public class NetSuiteApiClientServiceTOFulfillmentDiagnosticsTests
         var decoded = NetSuiteApiClientService.DecodeTOItemFulfillmentLine(
             "Please configure the inventory detail for MISSING ITEM.", lines);
 
-        Assert.Contains("not matched to a posted line", decoded);
+        Assert.Contains("is not in the submitted set", decoded);
+        Assert.Contains("postedIds=", decoded);
         Assert.Contains("MISSING ITEM", decoded);
     }
 
@@ -139,7 +140,7 @@ public class NetSuiteApiClientServiceTOFulfillmentDiagnosticsTests
         var decoded = NetSuiteApiClientService.DecodeTOItemFulfillmentLine(
             "Please configure the inventory detail for BONAKID 3/400G (1.2KG) MILK.", lines);
 
-        Assert.Contains("not matched to a posted line", decoded);
+        Assert.Contains("is not in the submitted set", decoded);
         Assert.Contains("candidates=[", decoded);
         Assert.Contains("WMS line 271", decoded);
         Assert.Contains("00022317", decoded);
@@ -157,7 +158,7 @@ public class NetSuiteApiClientServiceTOFulfillmentDiagnosticsTests
         var decoded = NetSuiteApiClientService.DecodeTOItemFulfillmentLine(
             "Please configure the inventory detail for BONAKID 3/400G(1.2KG).", lines);
 
-        Assert.Contains("not matched to a posted line", decoded);
+        Assert.Contains("is not in the submitted set", decoded);
         Assert.Contains("none among 2 posted entries", decoded);
     }
 

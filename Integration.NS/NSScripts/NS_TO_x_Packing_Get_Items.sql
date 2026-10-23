@@ -48,8 +48,8 @@ SELECT
     tl.quantityshiprecv AS QuantityAlreadyShipped,
 
     tl.units AS NetsuiteUoMInternalId,
-    uom.unitname AS UoMName,
-    uom.conversionrate AS UoMRate,
+    NVL(uom.unitname, 'EACH') AS UoMName,
+    NVL(uom.conversionrate, 1) AS UoMRate,
 
     TO_CHAR(t.createddate, 'YYYY-MM-DD"T"HH24:MI:SS') AS NetsuiteOrderCreatedDate
 
@@ -58,7 +58,7 @@ JOIN transactionline tl ON i.id = tl.item
 JOIN transaction t ON tl.transaction = t.id
 JOIN subsidiary s ON t.subsidiary = s.id
 JOIN location loc ON tl.location = loc.id
-JOIN unitstypeuom uom ON tl.units = uom.internalid
+LEFT JOIN unitstypeuom uom ON tl.units = uom.internalid
 
 LEFT JOIN (
     SELECT

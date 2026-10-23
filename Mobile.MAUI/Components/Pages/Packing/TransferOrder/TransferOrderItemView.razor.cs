@@ -811,17 +811,13 @@ public partial class TransferOrderItemView : IAsyncDisposable
     async Task SaveScan()
     {
         TOItems = GoodTOItems
-            .Where(g =>
-            {
-                var bad = BadTOItems.FirstOrDefault(b =>
-                    b.LineSequenceNumber == g.LineSequenceNumber);
-
-                var badQty = bad?.ScannedQuantity ?? 0;
-
-                return (badQty == 0 && g.LineQuantity != g.LineQuantityPacked + g.LineQuantityBackOrdered) ||
-                        (g.ScannedQuantity > 0 &&
-                        (g.ScannedQuantity + badQty) <= g.NSLineQuantityPacked);
-            })
+            // The server now owns the authoritative open-line set (save-time
+            // reconciliation), so the client must not drop a line for a
+            // packed-based remaining figure. LineQuantity == LineQuantityPacked +
+            // LineQuantityBackOrdered is false on partially fulfilled orders and
+            // used to remove valid scans from the payload. Forward the loaded rows
+            // (scanned and zero-quantity) unchanged; the server replaces stale
+            // zeros and adds fillers for every open line it did not receive.
             .Concat(BadTOItems.Where(x => x.NSLineQuantityPacked != 0))
             .Select(x => new TransferOrderLineVM
             {

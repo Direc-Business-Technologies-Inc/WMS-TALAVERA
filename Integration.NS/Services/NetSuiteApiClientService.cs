@@ -57,6 +57,12 @@ namespace Integration.NS.Services
             ?? typeof(NetSuiteApiClientService).Assembly.GetName().Version?.ToString()
             ?? "unknown";
 
+        /// <summary>
+        /// Public read-only view of <see cref="BuildStamp"/> for the startup log
+        /// (deploy verification without waiting for a field failure).
+        /// </summary>
+        public static string BuildStampValue => BuildStamp;
+
         private static readonly string ItemFulfillmentUrl = $"https://{AccountId}.suitetalk.api.netsuite.com/services/rest/record/v1/{{0}}/{{1}}/!transform/itemFulfillment?replace=item.inventoryDetail.inventoryAssignment";
         private static readonly string ItemFulfillmentUrlNotUsedBin = $"https://{AccountId}.suitetalk.api.netsuite.com/services/rest/record/v1/{{0}}/{{1}}/!transform/itemFulfillment?replace=item.inventoryDetail.inventoryAssignment";
         private static readonly string ItemFulfillmentUrlNoReplace = $"https://{AccountId}.suitetalk.api.netsuite.com/services/rest/record/v1/{{0}}/{{1}}/!transform/itemFulfillment";
@@ -1499,6 +1505,13 @@ namespace Integration.NS.Services
         /// save from being told the location is bin-tracked when it is not (e.g. SELLING AREA -
         /// CAUAYAN, where usebins = 'F'). Passed per line, it also avoids falsely rejecting a
         /// non-bin line on a mixed-location PO.
+        ///
+        /// Zero-quantity fillers are exempt by design: <c>scannedQuantity &gt; 0</c> keeps them
+        /// out of the bin requirement. That is correct, not an oversight - a filler ships
+        /// nothing, carries an EMPTY assignment, and has no bin to name at a bin-tracked
+        /// location. Do not "fix" this by requiring a bin on fillers: an unscanned line has no
+        /// operator-chosen bin, and rejecting it would block the very save reconciliation exists
+        /// to complete.
         /// </remarks>
         internal static bool RequiresBin(bool isUsedBin, decimal scannedQuantity, int vendorAssignedBin, int preferredBin) =>
             isUsedBin && scannedQuantity > 0 && vendorAssignedBin == 0 && preferredBin == 0;
@@ -1545,46 +1558,431 @@ namespace Integration.NS.Services
 
         /// <summary>
         /// Fresh line state for one transfer-order SHIPPING line, read straight
-        /// from NetSuite at save time. Carries the same three figures the device's
+        /// from NetSuite at save time. Carries the same figures the device's
         /// load-time snapshot carries on <see cref="PostTransferOrderDTO"/> -
         /// ordered quantity, already-shipped quantity and the closed flag - in the
         /// same raw stock units the packing script (<c>NS_TO_x_Packing_Get_Items</c>)
-        /// uses, so the two are directly comparable.
+        /// uses, so the two are directly comparable. The item identity is included
+        /// so the server can build a filler for a line the mobile never loaded
+        /// (a vendor-scoped read, or a line the display query dropped).
         /// </summary>
         internal sealed class TOFulfillmentFreshLineState
         {
             public int LineId { get; set; }
+            public int Item { get; set; }
+            public string ItemCode { get; set; } = string.Empty;
+            public string ItemName { get; set; } = string.Empty;
             public decimal LineQuantity { get; set; }
             public decimal QuantityShipped { get; set; }
             public string IsClosed { get; set; } = "F";
+            public decimal UoMRate { get; set; } = 1m;
+
+            /// <summary>
+            /// A line the transform exposes on the item sublist: not closed and
+            /// with quantity still to ship.
+            /// </summary>
+            public bool IsOpen =>
+                !string.Equals(IsClosed, "T", StringComparison.OrdinalIgnoreCase)
+                && (LineQuantity - QuantityShipped) > 0;
         }
+
+        /// <summary>
+        /// NetSuite caps a SuiteQL response at 1,000 rows. The fresh read must be
+        /// paged before the line SET can be trusted: an unpaged read makes every
+        /// line beyond row 1,000 look closed, and the old code stripped those
+        /// lines from the payload without a message (issue 1 in the resolution
+        /// plan, 2026-10-23). Page size and runaway guard mirror
+        /// <c>MGetTransferOrderLineQryHandler</c>.
+        /// </summary>
+        private const int TOFulfillmentLinePageSize = 1000;
+
+        private const int TOFulfillmentLineMaxPages = 100;
 
         /// <summary>
         /// Re-reads the current SHIPPING-line state of one transfer order straight
         /// from NetSuite. Mirrors the line semantics of the packing load script
         /// (<c>NS_TO_x_Packing_Get_Items</c>): SHIPPING-type lines only, raw
         /// un-normalized quantities, keyed by the transaction line id the WMS
-        /// carries as <c>LineSequenceNumber</c>.
+        /// carries as <c>LineSequenceNumber</c>, and deliberately free of UoM,
+        /// bin, availability, vendor, status and category predicates - those are
+        /// display concerns and must never remove a line the transform exposes.
         /// </summary>
         private async Task<IReadOnlyCollection<TOFulfillmentFreshLineState>> GetFreshTOFulfillmentLineStateAsync(int orderId)
         {
+            if (orderId <= 0)
+            {
+                throw new InvalidOperationException("A transfer-order internal id is required to read its fulfillment line state.");
+            }
+
             // Constant integer interpolation (no user text) - injection-safe.
+            // ORDER BY makes consecutive pages neither repeat nor skip a line.
             var query = $"""
                 SELECT
                     tl.id AS LineId,
+                    tl.item AS Item,
+                    i.itemid AS ItemCode,
+                    i.displayname AS ItemName,
                     ABS(tl.quantity) AS LineQuantity,
                     NVL(tl.quantityshiprecv, 0) AS QuantityShipped,
-                    tl.isclosed AS IsClosed
+                    tl.isclosed AS IsClosed,
+                    NVL(u.conversionrate, 1) AS UoMRate
                 FROM transactionline tl
                 JOIN transaction t ON tl.transaction = t.id
+                JOIN item i ON i.id = tl.item
+                LEFT JOIN unitstypeuom u ON u.internalid = tl.units
                 WHERE t.id = {orderId}
                     AND t.recordtype IN ('transferorder', 'intercompanytransferorder')
                     AND tl.transactionlinetype = 'SHIPPING'
+                ORDER BY tl.id
                 """;
 
-            var response = await ExecuteSuiteQLQuery<TOFulfillmentFreshLineState>(query);
+            var rows = await ReadAllSuiteQLPagesAsync(
+                (limit, offset) => ExecuteSuiteQLQuery<TOFulfillmentFreshLineState>(query, limit, offset),
+                TOFulfillmentLinePageSize,
+                TOFulfillmentLineMaxPages,
+                $"TO fulfillment line read for order {orderId}");
 
-            return response.items ?? [];
+            return rows;
+        }
+
+        /// <summary>
+        /// Reads every page of a SuiteQL result with the limit/offset +
+        /// <c>totalResults</c> contract used by the packing line read. A short or
+        /// empty page is a valid terminator only when it accounts for the total
+        /// NetSuite reported; otherwise the read throws instead of returning a
+        /// partial list (the silent-truncation defect in a different shape).
+        /// Extracted so the paging itself is unit-testable without HTTP.
+        /// </summary>
+        internal static async Task<List<T>> ReadAllSuiteQLPagesAsync<T>(
+            Func<int, int, Task<NetSuiteResponse<T>>> fetchPage,
+            int pageSize,
+            int maxPages,
+            string context)
+        {
+            var rows = new List<T>();
+            int? expectedTotal = null;
+
+            for (var page = 0; page < maxPages; page++)
+            {
+                var offset = page * pageSize;
+
+                var response = await fetchPage(pageSize, offset);
+
+                var batch = response?.items;
+                if (batch is null || batch.Count == 0)
+                {
+                    break;
+                }
+
+                rows.AddRange(batch);
+
+                if (response!.totalResults > 0)
+                {
+                    expectedTotal = response.totalResults;
+                }
+
+                // totalResults is authoritative, so a 1,000-row document stops on
+                // its last full page instead of probing an offset NetSuite answers
+                // with 404 INVALID_PARAMETER.
+                if (response!.totalResults > 0 && rows.Count >= response.totalResults)
+                {
+                    break;
+                }
+
+                // hasMore is the page contract: a full batch does NOT prove
+                // another page exists. An exact multiple with totalResults
+                // absent otherwise probes a past-end offset, which NetSuite
+                // answers with a 404 (SuiteQL-Shape-Rules Rule 4).
+                if (!response.hasMore)
+                {
+                    break;
+                }
+
+                if (batch.Count < pageSize)
+                {
+                    break;
+                }
+
+                if (page == maxPages - 1)
+                {
+                    throw new InvalidOperationException(
+                        $"{context} exceeded {maxPages} pages ({maxPages * pageSize:N0} rows). Refusing to return a partial list.");
+                }
+            }
+
+            // A silently truncated set is indistinguishable from "these lines are
+            // closed", which is exactly how a scanned line beyond the 1,000-row cap
+            // used to disappear. Fail before posting instead.
+            if (expectedTotal is > 0 && rows.Count < expectedTotal)
+            {
+                throw new InvalidOperationException(
+                    $"{context} returned {rows.Count:N0} of {expectedTotal:N0} rows. Refusing to return a partial list.");
+            }
+
+            return rows;
+        }
+
+        /// <summary>
+        /// Reconciliation switch (deployment rollback: set to false to restore the
+        /// pre-reconciliation snapshot behaviour). Environment configuration, like
+        /// the NetSuite credentials this service already reads.
+        /// </summary>
+        internal const string ReconciliationFlagVariable = "WMS_TO_IF_ENABLE_RECONCILIATION";
+
+        /// <summary>
+        /// Fail-closed switch for the authoritative read (D5). Off by default so
+        /// the first deploy can be observed; a read failure still fails the save
+        /// when this is on.
+        /// </summary>
+        internal const string FailClosedRevalidationFlagVariable = "WMS_TO_IF_ENABLE_FAIL_CLOSED_REVALIDATION";
+
+        public static bool ReconciliationEnabled =>
+            ReadFlag(Environment.GetEnvironmentVariable(ReconciliationFlagVariable), defaultValue: true);
+
+        public static bool FailClosedRevalidationEnabled =>
+            ReadFlag(Environment.GetEnvironmentVariable(FailClosedRevalidationFlagVariable), defaultValue: false);
+
+        internal static bool ReadFlag(string? value, bool defaultValue)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return defaultValue;
+            }
+
+            return value.Trim().ToLowerInvariant() switch
+            {
+                "1" or "true" or "yes" or "on" => true,
+                "0" or "false" or "no" or "off" => false,
+                _ => defaultValue
+            };
+        }
+
+        /// <summary>
+        /// Result of reconciling the submitted WMS rows against the authoritative
+        /// open-line set: the completed payload input (scans plus zero-quantity
+        /// fillers for every other open line), the scans that can no longer be
+        /// fulfilled, and the counts needed by the save diagnostic.
+        /// </summary>
+        internal sealed class TOFulfillmentReconciliation
+        {
+            public List<PostTransferOrderDTO> Lines { get; init; } = [];
+            public List<string> RejectedScans { get; init; } = [];
+            public int OpenLineCount { get; init; }
+            public int FillerCount { get; init; }
+        }
+
+        /// <summary>
+        /// Builds the complete payload input from the authoritative open-line set
+        /// (D1/D6): every submitted scan that is still open survives with fresh
+        /// quantity state, and every other open line becomes a zero-quantity
+        /// filler so the transform's pre-filled item sublist is addressed on every
+        /// line. The mobile vendor gate stays a work-scoping control only.
+        /// </summary>
+        /// <remarks>
+        /// Only scanned submitted rows are required to be open. A submitted
+        /// zero-quantity row is a stale client-side filler: it is replaced by the
+        /// authoritative filler (or dropped when the line closed), never treated
+        /// as an operator conflict.
+        /// </remarks>
+        internal static TOFulfillmentReconciliation ReconcileTOFulfillmentLines(
+            IReadOnlyCollection<PostTransferOrderDTO> submitted,
+            IReadOnlyCollection<TOFulfillmentFreshLineState> freshLines,
+            int orderId,
+            bool isUsedBin)
+        {
+            var openById = freshLines
+                .Where(x => x.IsOpen)
+                .GroupBy(x => x.LineId)
+                .ToDictionary(g => g.Key, g => g.First());
+
+            var completed = new List<PostTransferOrderDTO>();
+            var rejectedScans = new List<string>();
+            var covered = new HashSet<int>();
+
+            foreach (var line in submitted.Where(x => x.ScannedQuantity > 0))
+            {
+                if (!openById.TryGetValue(line.LineSequenceNumber, out var fresh))
+                {
+                    rejectedScans.Add(
+                        $"WMS line {line.LineSequenceNumber} ({line.MaterialCode} - {line.MaterialName}): scanned {line.ScannedQuantity}, but the line is no longer open on the order");
+                    continue;
+                }
+
+                line.LineQuantity = fresh.LineQuantity;
+                line.QuantityAlreadyShipped = fresh.QuantityShipped;
+                line.IsClosed = fresh.IsClosed;
+                // The save diagnostic reports the rate the save actually ran on,
+                // not the device's load-time value (2b will use it in the guards).
+                line.UoMRate = fresh.UoMRate;
+                if (string.IsNullOrWhiteSpace(line.MaterialCode)) line.MaterialCode = fresh.ItemCode;
+                if (string.IsNullOrWhiteSpace(line.MaterialName)) line.MaterialName = fresh.ItemName;
+                if (line.NetsuiteMaterialInternalId == 0) line.NetsuiteMaterialInternalId = fresh.Item;
+
+                completed.Add(line);
+                covered.Add(line.LineSequenceNumber);
+            }
+
+            var fillerCount = 0;
+
+            foreach (var fresh in openById.Values.OrderBy(x => x.LineId))
+            {
+                if (covered.Contains(fresh.LineId))
+                {
+                    continue;
+                }
+
+                completed.Add(new PostTransferOrderDTO
+                {
+                    NetsuiteOrderInternalId = orderId,
+                    LineSequenceNumber = fresh.LineId,
+                    NetsuiteMaterialInternalId = fresh.Item,
+                    MaterialCode = fresh.ItemCode,
+                    MaterialName = fresh.ItemName,
+                    LineQuantity = fresh.LineQuantity,
+                    QuantityAlreadyShipped = fresh.QuantityShipped,
+                    IsClosed = fresh.IsClosed,
+                    UoMRate = fresh.UoMRate,
+                    ScannedQuantity = 0,
+                    IsBad = false,
+                    IsLocationUsedBin = isUsedBin
+                });
+                fillerCount++;
+            }
+
+            return new TOFulfillmentReconciliation
+            {
+                Lines = completed,
+                RejectedScans = rejectedScans,
+                OpenLineCount = openById.Count,
+                FillerCount = fillerCount
+            };
+        }
+
+        /// <summary>
+        /// Lines whose whole remaining quantity is bad-scanned. The BAD post runs
+        /// first and closes them, so the GOOD transform (created afterwards) no
+        /// longer exposes them: a filler referencing a closed line is an invalid
+        /// insert on a static sublist and would 400 the whole GOOD post.
+        /// </summary>
+        private static HashSet<int> LinesClosedByBadPost(
+            IReadOnlyCollection<PostTransferOrderDTO> completed)
+        {
+            return completed
+                .Where(x => x.IsBad)
+                .GroupBy(x => x.LineSequenceNumber)
+                .Where(g => g.Sum(x => x.ScannedQuantity) >= g.First().RemainingQuantity)
+                .Select(g => g.Key)
+                .ToHashSet();
+        }
+
+        /// <summary>
+        /// The orderLine ids one quality bucket must address: the lines it ships
+        /// itself, plus every other open line - which it must address at quantity
+        /// zero, otherwise the transform fulfils it at its pre-filled quantity.
+        /// </summary>
+        internal static List<int> ExpectedTOFulfillmentBucketLineIds(
+            IReadOnlyCollection<PostTransferOrderDTO> completed,
+            bool isBadBucket)
+        {
+            var ownIds = completed
+                .Where(x => x.IsBad == isBadBucket)
+                .Select(x => x.LineSequenceNumber)
+                .ToHashSet();
+            var closedByBadPost = isBadBucket ? [] : LinesClosedByBadPost(completed);
+
+            return completed
+                .Select(x => x.LineSequenceNumber)
+                .Where(id => ownIds.Contains(id) || !closedByBadPost.Contains(id))
+                .Distinct()
+                .OrderBy(id => id)
+                .ToList();
+        }
+
+        /// <summary>
+        /// Builds the postable input for one quality bucket (D6): the bucket's own
+        /// rows at their scanned quantity, plus a zero-quantity filler for every
+        /// other open line. Reconciliation runs once; only the split is per bucket.
+        /// </summary>
+        internal static List<PostTransferOrderDTO> BuildTOFulfillmentBucketLines(
+            IReadOnlyCollection<PostTransferOrderDTO> completed,
+            bool isBadBucket)
+        {
+            var own = completed.Where(x => x.IsBad == isBadBucket).ToList();
+            var ownIds = own.Select(x => x.LineSequenceNumber).ToHashSet();
+            var closedByBadPost = isBadBucket ? [] : LinesClosedByBadPost(completed);
+
+            var fillers = completed
+                .Where(x => !ownIds.Contains(x.LineSequenceNumber))
+                .Where(x => !closedByBadPost.Contains(x.LineSequenceNumber))
+                .GroupBy(x => x.LineSequenceNumber)
+                .Select(g => ToZeroQuantityFiller(g.First(), isBadBucket))
+                .ToList();
+
+            return [.. own, .. fillers];
+        }
+
+        /// <summary>
+        /// A filler clone: same line identity, nothing shipped. Cloned rather than
+        /// mutated because the same line may be a scan in the other bucket.
+        /// </summary>
+        private static PostTransferOrderDTO ToZeroQuantityFiller(PostTransferOrderDTO source, bool bucketIsBad) => new()
+        {
+            NetsuiteOrderInternalId = source.NetsuiteOrderInternalId,
+            OrderNumber = source.OrderNumber,
+            OrderType = source.OrderType,
+            OrderStatus = source.OrderStatus,
+            LocationName = source.LocationName,
+            LocationUsedBin = source.LocationUsedBin,
+            IsLocationUsedBin = source.IsLocationUsedBin,
+            LineSequenceNumber = source.LineSequenceNumber,
+            TransactionLineType = source.TransactionLineType,
+            NetsuiteMaterialInternalId = source.NetsuiteMaterialInternalId,
+            MaterialCode = source.MaterialCode,
+            MaterialName = source.MaterialName,
+            NetsuiteMaterialPrefferedBinId = source.NetsuiteMaterialPrefferedBinId,
+            NetsuiteMaterialVendorAssignedBin = source.NetsuiteMaterialVendorAssignedBin,
+            LineQuantity = source.LineQuantity,
+            LineQuantityPacked = source.LineQuantityPacked,
+            LineQuantityBackOrdered = source.LineQuantityBackOrdered,
+            QuantityAlreadyShipped = source.QuantityAlreadyShipped,
+            IsClosed = source.IsClosed,
+            NetsuiteUoMInternalId = source.NetsuiteUoMInternalId,
+            UoMName = source.UoMName,
+            UoMRate = source.UoMRate,
+            ScannedQuantity = 0,
+            ScannedWeight = 0,
+            ScanCount = 0,
+            IsBad = bucketIsBad,
+            IsTripTicketExempt = source.IsTripTicketExempt,
+            TransferCategory = source.TransferCategory
+        };
+
+        /// <summary>
+        /// F2 pre-flight assertion: the bucket addresses exactly the open set it is
+        /// responsible for, exactly once. This is the guard that makes the
+        /// "line never addressed" defect (RCA issue 1) unable to come back.
+        /// </summary>
+        internal static void EnsureTOFulfillmentBucketIsComplete(
+            string bucket,
+            IReadOnlyCollection<PostTransferOrderDTO> bucketLines,
+            IReadOnlyCollection<PostTransferOrderDTO> completedLines,
+            bool isBadBucket)
+        {
+            var postedIds = bucketLines.Select(x => x.LineSequenceNumber).ToList();
+            var duplicates = postedIds.GroupBy(x => x).Where(g => g.Count() > 1).Select(g => g.Key).ToList();
+            var expected = ExpectedTOFulfillmentBucketLineIds(completedLines, isBadBucket);
+            var missing = expected.Except(postedIds).ToList();
+            var extra = postedIds.Distinct().Except(expected).ToList();
+
+            if (duplicates.Count == 0 && missing.Count == 0 && extra.Count == 0)
+            {
+                return;
+            }
+
+            throw new Exception(
+                $"Cannot post {bucket} TO Item Fulfillment: internal line-set guard failed "
+                + $"(duplicate=[{string.Join(",", duplicates)}] missing=[{string.Join(",", missing)}] extra=[{string.Join(",", extra)}]). "
+                + "Nothing was saved. Reload the order and retry; report this message if it repeats.");
         }
 
         /// <summary>
@@ -1623,7 +2021,7 @@ namespace Integration.NS.Services
                 line.QuantityAlreadyShipped = fresh.QuantityShipped;
                 line.IsClosed = fresh.IsClosed;
 
-                if (line.IsLineClosed && line.ScannedQuantity > 0)
+                if (line.ScannedQuantity > 0 && (line.IsLineClosed || line.RemainingQuantity <= 0))
                 {
                     newlyClosedScans.Add(
                         $"WMS line {line.LineSequenceNumber} ({line.MaterialCode} - {line.MaterialName}): scanned {line.ScannedQuantity}, already shipped {fresh.QuantityShipped} of {fresh.LineQuantity}");
@@ -1651,8 +2049,9 @@ namespace Integration.NS.Services
         /// still must locate the line without server logs, so it reports up to three entries whose
         /// name/code share the reported base name (the part before the first parenthesis) - the
         /// filler entries a large open-set payload carries are indistinguishable from scans
-        /// otherwise. Reporting a count instead of inventing a match keeps the "not matched"
-        /// wording truthful when the item really is absent.
+        /// otherwise. Reporting a count instead of inventing a match, plus the posted orderLine
+        /// ids, keeps the "is not in the submitted set" wording truthful when the item really is
+        /// absent.
         /// </remarks>
         internal static string DecodeTOItemFulfillmentLine(string message, List<PostTransferOrderDTO> lines)
         {
@@ -1679,9 +2078,13 @@ namespace Integration.NS.Services
             }
 
             // Base-name candidates: the reported name is often the same item with a suffix the
-            // WMS master data does not carry ("3/400G(1.2KG)" vs "3/400G"). Capped at three so the
-            // toast stays readable on an order that posted hundreds of fillers.
-            var stem = key.Split('(')[0];
+            // WMS master data does not carry ("3/400G(1.2KG)" vs "3/400G"), plus a pack suffix
+            // ("90MLX2", "65G 6+1"). Capped at three so the toast stays readable on an order
+            // that posted hundreds of fillers.
+            var stem = Regex.Replace(
+                key.Split('(')[0],
+                @"(?:\d+\+\d+|X\d+)$",
+                string.Empty);
             if (stem.Length < 3) stem = key;
 
             var candidates = lines
@@ -1701,7 +2104,12 @@ namespace Integration.NS.Services
                 ? $"candidates=[{string.Join("; ", candidates)}]"
                 : $"candidates=[none among {lines.Count} posted entries]";
 
-            return $" | item=\"{itemName}\" (not matched to a posted line) {candidateText}";
+            // An absent item is a line the payload never addressed; the posted
+            // orderLine ids are the authoritative statement of what WAS addressed
+            // (D7 - never identify a line by its display name).
+            var postedIds = string.Join(",", lines.Take(10).Select(x => x.LineSequenceNumber));
+
+            return $" | item=\"{itemName}\" is not in the submitted set postedIds=[{postedIds}] {candidateText}";
         }
 
         /// <summary>
@@ -1711,37 +2119,117 @@ namespace Integration.NS.Services
         private static string NormalizeDiagnosticName(string? value) =>
             string.Concat((value ?? string.Empty).Where(c => !char.IsWhiteSpace(c))).ToUpperInvariant();
 
+        /// <summary>
+        /// 1.4 - rejects a request that has nothing to fulfil or that mixes orders
+        /// before the first NetSuite call. Extracted so both guards are testable
+        /// without HTTP. Input rule 1 and 2 of the target contract.
+        /// </summary>
+        internal static void ValidateTOFulfillmentRequest(IReadOnlyCollection<PostTransferOrderDTO> lines)
+        {
+            if (!lines.Any(x => x.ScannedQuantity > 0))
+            {
+                throw new Exception("Cannot post TO Item Fulfillment: the request contains no positive scanned quantity. Reload the order, rescan the affected line(s), and try again. Nothing was saved.");
+            }
+
+            var orderIds = lines.Select(x => x.NetsuiteOrderInternalId).Distinct().ToList();
+            if (orderIds.Count != 1 || orderIds[0] <= 0)
+            {
+                throw new Exception($"Cannot post TO Item Fulfillment: the request must identify exactly one transfer order, but found [{string.Join(", ", orderIds)}]. Reload the order and try again. Nothing was saved.");
+            }
+        }
+
         public async Task<bool> SaveTOItemFulfillment(List<PostTransferOrderDTO> Data)
         {
+            // Captured before the deterministic collapse: the diagnostic reports the
+            // count, and a successful save logs the collapsed keys (input rule 4).
+            var duplicateGroups = Data
+                .GroupBy(x => (x.LineSequenceNumber, x.IsBad))
+                .Where(g => g.Count() > 1)
+                .ToList();
+            var duplicateLineCount = duplicateGroups.Count;
+            var duplicateKeys = duplicateGroups
+                .Select(g => $"WMS{g.Key.LineSequenceNumber}/{(g.Key.IsBad ? "BAD" : "GOOD")}x{g.Count()}")
+                .ToList();
+
             Data = DeduplicateFulfillmentLines(Data, x => x.LineSequenceNumber, x => x.IsBad, x => x.ScannedQuantity);
 
-            // Freshness revalidation (field report 2026-10-21, Error 1): every guard below runs
-            // on the line snapshot the device loaded, which can be hours old on a 700-line
-            // order. A line fulfilled elsewhere or closed in that window is absent from the
-            // transform's item sublist and any orderLine reference for it is an invalid insert
-            // on a static sublist - the whole save 400s. Re-read the order's SHIPPING lines
-            // from NetSuite and merge the fresh figures into the posted rows so the closed-line
-            // strip and the over-remaining guard below judge CURRENT state, not the snapshot.
-            // Fail-open: if the revalidation query itself fails, the save proceeds on the
-            // snapshot exactly as before (the transform post remains the final arbiter) - the
-            // revalidation must not add a new failure mode to previously successful saves.
-            var freshOrderId = Data.Select(x => x.NetsuiteOrderInternalId).FirstOrDefault();
-            List<string>? newlyClosedScans;
+            ValidateTOFulfillmentRequest(Data);
+
+            var orderId = Data[0].NetsuiteOrderInternalId;
+            var orderNumber = Data.FirstOrDefault()?.OrderNumber ?? orderId.ToString();
+
+            // Header bin flag from the SUBMITTED rows (D3/1.3): fillers inherit it,
+            // so it must be decided before the authoritative set adds fillers.
+            // Use Any (not First): one stale non-bin line must not downgrade a
+            // bin-tracked fulfillment to the legacy no-detail shape.
+            var isUsedBin = Data.Any(x => x.IsLocationUsedBin);
+            var mixedBinFlags = Data.Select(x => x.IsLocationUsedBin).Distinct().Count() > 1;
+
+            if (mixedBinFlags)
+            {
+                var flagSample = string.Join("; ", Data.Take(10).Select((line, i) => $"pos{i + 1}/WMS{line.LineSequenceNumber}/{line.MaterialCode} usedBin={line.IsLocationUsedBin} ({line.LocationUsedBin})"));
+                throw new Exception($"Cannot post BAD TO Item Fulfillment: mixed bin-tracked flags in one save (location '{Data.FirstOrDefault()?.LocationName}'). Reload the order so every line resolves the same location, then retry. Sample: {flagSample}.");
+            }
+
+            var submittedLineCount = Data.Count;
+            // -1 means "unknown": the authoritative read failed in fail-open mode,
+            // so the diagnostic must not claim the order has zero open lines.
+            var openLineCount = -1;
+            var missingLineCount = 0;
+            HashSet<int>? openLineIds = null;
+            List<string>? newlyClosedScans = null;
+
+            // D2 - read authoritative state immediately before posting, paged.
+            // D5 - fail-open first: when the read itself fails and the fail-closed
+            // flag is off, the save proceeds on the client snapshot exactly as
+            // before, so the deploy adds no new availability failure. When the
+            // flag is on the save stops: a line set nobody can establish must not
+            // be posted.
+            IReadOnlyCollection<TOFulfillmentFreshLineState>? freshLines = null;
             try
             {
-                var freshLines = await GetFreshTOFulfillmentLineStateAsync(freshOrderId);
-                newlyClosedScans = MergeFreshTOFulfillmentLineState(Data, freshLines);
+                freshLines = await GetFreshTOFulfillmentLineStateAsync(orderId);
             }
             catch (Exception ex)
             {
-                logger.LogWarning(ex, "TO IF freshness revalidation unavailable for order {OrderId}; continuing with the client's loaded snapshot.", freshOrderId);
-                newlyClosedScans = null;
+                if (FailClosedRevalidationEnabled)
+                {
+                    throw new Exception($"Cannot post TO Item Fulfillment for order {orderNumber}: the current open-line state could not be read. Nothing was saved. {ex.Message}", ex);
+                }
+
+                logger.LogWarning(ex, "TO IF authoritative line read unavailable for order {OrderId}; continuing with the client's loaded snapshot (fail-open).", orderId);
             }
 
-            // A scanned line that can no longer be fulfilled must fail loud, not be silently
-            // dropped: the operator physically holds the goods, so skipping the line would
-            // strand stock with no message. Fillers that went closed are handled silently by
-            // the strip below - only scans need the operator's attention.
+            if (freshLines is not null)
+            {
+                openLineIds = freshLines.Where(x => x.IsOpen).Select(x => x.LineId).ToHashSet();
+
+                if (ReconciliationEnabled)
+                {
+                    var reconciled = ReconcileTOFulfillmentLines(Data, freshLines, orderId, isUsedBin);
+
+                    // A scanned line that is no longer open must fail loud: the
+                    // operator physically holds goods that can no longer ship on
+                    // this order. A stale zero-quantity client filler is replaced
+                    // (or dropped) silently by the reconciliation.
+                    if (reconciled.RejectedScans.Count > 0)
+                    {
+                        throw new Exception($"Cannot post TO Item Fulfillment: the following scanned line(s) were fulfilled or closed after this order was loaded: {string.Join("; ", reconciled.RejectedScans)}. Reload the order and rescan the affected line(s).");
+                    }
+
+                    Data = reconciled.Lines;
+                    openLineCount = reconciled.OpenLineCount;
+                    missingLineCount = reconciled.FillerCount;
+                }
+                else
+                {
+                    // Rollback path (WMS_TO_IF_ENABLE_RECONCILIATION=false): the
+                    // pre-reconciliation freshness merge, unchanged.
+                    newlyClosedScans = MergeFreshTOFulfillmentLineState(Data, freshLines);
+                    openLineCount = freshLines.Count(x => x.IsOpen);
+                }
+            }
+
             if (newlyClosedScans is { Count: > 0 })
             {
                 throw new Exception($"Cannot post TO Item Fulfillment: the following scanned line(s) were fulfilled or closed after this order was loaded: {string.Join("; ", newlyClosedScans)}. Reload the order and rescan the affected line(s).");
@@ -1764,25 +2252,21 @@ namespace Integration.NS.Services
                 throw new Exception($"Cannot post TO Item Fulfillment: scanned quantity exceeds the remaining quantity for: {string.Join("; ", overRemaining)}. Reload the order and rescan the affected line(s).");
             }
 
-            var orderId = Data.Select(x => x.NetsuiteOrderInternalId).FirstOrDefault();
-            // Use Any (not First): one stale non-bin line must not downgrade a
-            // bin-tracked fulfillment to the legacy no-detail shape.
-            var isUsedBin = Data.Any(x => x.IsLocationUsedBin);
-            var mixedBinFlags = Data.Select(x => x.IsLocationUsedBin).Distinct().Count() > 1;
             var isTripTicketExempt = Data.FirstOrDefault()?.IsTripTicketExempt == true;
             var itemFulfillmentStatus = isTripTicketExempt ? "C" : "B";
             var printLabel = true; // Packing labels are required regardless of trip-ticket exemption.
 
-            var badTO = Data.Where(x => x.IsBad).ToList();
-
-            if (mixedBinFlags)
-            {
-                var flagSample = string.Join("; ", Data.Take(10).Select((line, i) => $"pos{i + 1}/WMS{line.LineSequenceNumber}/{line.MaterialCode} usedBin={line.IsLocationUsedBin} ({line.LocationUsedBin})"));
-                throw new Exception($"Cannot post BAD TO Item Fulfillment: mixed bin-tracked flags in one save (location '{Data.FirstOrDefault()?.LocationName}'). Reload the order so every line resolves the same location, then retry. Sample: {flagSample}.");
-            }
+            // 1.5 - reconciliation ran once; only the split is per bucket. Each
+            // bucket is completed with fillers for every open line it does not
+            // own, otherwise the transform fulfils those lines at full quantity
+            // (RCA issue 1 / D6).
+            var badTO = BuildTOFulfillmentBucketLines(Data, isBadBucket: true);
+            var goodTO = BuildTOFulfillmentBucketLines(Data, isBadBucket: false);
 
             if (badTO.Any(x => x.ScannedQuantity > 0))
             {
+                EnsureTOFulfillmentBucketIsComplete("BAD", badTO, Data, isBadBucket: true);
+
                 // NetSuite rejects inventoryDetail without binNumber at bin-tracked locations ("configure the inventory detail in line N").
                 // Fail here, naming the offending items and their item-list positions, instead of surfacing a cryptic 400.
                 var badMissingBin = new List<string>();
@@ -1815,17 +2299,18 @@ namespace Integration.NS.Services
                 catch (Exception ex)
                 {
                     logger.LogError(ex, "BAD TO Item Fulfillment failed. Url: {Url}. Payload: {Payload}", url, jsonStringBad);
-                    var diag = $"[diag replace={url.Contains("replace=")} usedBin={isUsedBin} scannedLines={badTO.Count(x => x.ScannedQuantity > 0)} totalLines={badTO.Count} build={BuildStamp}]"
-                        + DecodeTOItemFulfillmentLine(ex.Message, badTO);
-
+                    var diag = BuildSaveDiagnostic("BAD", url, badTO, ex.Message);
                     throw new Exception($"Error while posting BAD TO Item Fulfillment. {ex.Message} {diag}", ex);
                 }
             }
 
-            var goodTO = Data.Where(x => !x.IsBad).ToList();
-
-            if (goodTO.Any())
+            // Fillers make goodTO non-empty by construction, so the bucket guard
+            // must be "ships something", not "has entries": posting a document
+            // that ships nothing is noise in NetSuite.
+            if (goodTO.Any(x => x.ScannedQuantity > 0))
             {
+                EnsureTOFulfillmentBucketIsComplete("GOOD", goodTO, Data, isBadBucket: false);
+
                 // NetSuite rejects inventoryDetail without binNumber at bin-tracked locations ("configure the inventory detail in line N").
                 // Fail here, naming the offending items and their item-list positions, instead of surfacing a cryptic 400.
                 var goodMissingBin = new List<string>();
@@ -1843,9 +2328,9 @@ namespace Integration.NS.Services
                     throw new Exception($"Cannot post GOOD TO Item Fulfillment: location '{Data.FirstOrDefault()?.LocationName}' is bin-tracked but no bin is resolved for: {string.Join("; ", goodMissingBin)}. Reload the order; if the bin is still missing, ask Master Data to set a Vendor Bin Assignment or a preferred bin for these items.");
                 }
 
-                // replace + explicit inventoryDetail only when the location is bin-tracked AND the bucket carries scanned lines.
-                var usedBinWithScan = isUsedBin && goodTO.Any(x => x.ScannedQuantity > 0);
-                var url = string.Format(usedBinWithScan ? ItemFulfillmentUrl : ItemFulfillmentUrlNoReplace, "transferOrder", orderId);
+                // The body always carries inventoryDetail at a bin-tracked location
+                // (fillers included), so the URL must always request the replace.
+                var url = string.Format(isUsedBin ? ItemFulfillmentUrl : ItemFulfillmentUrlNoReplace, "transferOrder", orderId);
 
                 string? jsonStringGood = null;
                 try
@@ -1859,12 +2344,46 @@ namespace Integration.NS.Services
                 catch (Exception ex)
                 {
                     logger.LogError(ex, "GOOD TO Item Fulfillment failed. Url: {Url}. Payload: {Payload}", url, jsonStringGood);
-                    var diag = $"[diag replace={url.Contains("replace=")} usedBin={isUsedBin} scannedLines={goodTO.Count(x => x.ScannedQuantity > 0)} totalLines={goodTO.Count} build={BuildStamp}]"
-                        + DecodeTOItemFulfillmentLine(ex.Message, goodTO);
-
+                    var diag = BuildSaveDiagnostic("GOOD", url, goodTO, ex.Message);
                     throw new Exception($"Error while posting GOOD TO Item Fulfillment. {ex.Message} {diag}", ex);
                 }
             }
+
+            // Structured save diagnostic (5.2/D7). The toast keeps NetSuite's
+            // message; this suffix makes the line set and the failed bucket
+            // reconstructable without a server-logs round trip. Ids are truncated
+            // so a 1,657-line payload cannot overflow the operator toast.
+            string BuildSaveDiagnostic(string bucket, string url, List<PostTransferOrderDTO> bucketLines, string message)
+            {
+                var postedIds = string.Join(",", bucketLines.Take(10).Select(x => x.LineSequenceNumber));
+                var uomRate = bucketLines.FirstOrDefault(x => x.ScannedQuantity > 0)?.UoMRate ?? 0;
+                // -1 = the authoritative read failed, so "extra" is unknowable
+                // rather than a measured zero (the old hardcoded 0 could never
+                // fail the acceptance check it exists for).
+                var extra = openLineIds is null
+                    ? -1
+                    : bucketLines.Count(x => !openLineIds.Contains(x.LineSequenceNumber));
+                var diag = $"[diag bucket={bucket} replace={url.Contains("replace=")} usedBin={isUsedBin} order={orderNumber}/{orderId} open={openLineCount} submitted={submittedLineCount} posted={bucketLines.Count} scannedLines={bucketLines.Count(x => x.ScannedQuantity > 0)} missing={missingLineCount} extra={extra} dup={duplicateLineCount} uomRate={uomRate} postedIds=[{postedIds}] build={BuildStamp}]";
+
+                if (bucketLines.Count > 10)
+                {
+                    diag += $" | postedIdsTruncated=yes totalPostedIds={bucketLines.Count}";
+                }
+
+                return diag + DecodeTOItemFulfillmentLine(message, bucketLines);
+            }
+
+            // Input rule 4: a collapse is deterministic, but it must not be silent.
+            if (duplicateKeys.Count > 0)
+            {
+                logger.LogWarning(
+                    "TO IF request for order {OrderNumber}/{OrderId} contained {Count} duplicate (WMS line, bucket) row(s); collapsed deterministically: {Keys}",
+                    orderNumber,
+                    orderId,
+                    duplicateKeys.Count,
+                    string.Join("; ", duplicateKeys));
+            }
+
             return true;
         }
 
@@ -1923,7 +2442,7 @@ namespace Integration.NS.Services
             catch (Exception ex)
             {
                 logger.LogError(ex, "Returns Item Fulfillment failed. Url: {Url}. Payload: {Payload}", url, jsonStringGood);
-                var diag = $"[diag replace={url.Contains("replace=")} usedBin={isUsedBin} scannedLines={Data.Count(x => x.ScannedQuantity > 0)} totalLines={Data.Count}]";
+                var diag = $"[diag replace={url.Contains("replace=")} usedBin={isUsedBin} scannedLines={Data.Count(x => x.ScannedQuantity > 0)} totalLines={Data.Count} build={BuildStamp}]";
 
                 // Decode NetSuite's "line N of the item list" into the actual DTO row so field tests identify the offender without server logs.
                 var nsLineMatch = Regex.Match(ex.Message, @"line (\d+) of the item list");
@@ -1999,7 +2518,7 @@ namespace Integration.NS.Services
                 catch (Exception ex)
                 {
                     logger.LogError(ex, "BAD VRA Item Fulfillment failed. Url: {Url}. Payload: {Payload}", urlBad, jsonStringBad);
-                    var diag = $"[diag replace={urlBad.Contains("replace=")} usedBin={isUsedBin} scannedLines={badTO.Count(x => x.ScannedQuantity > 0)} totalLines={badTO.Count}]";
+                    var diag = $"[diag replace={urlBad.Contains("replace=")} usedBin={isUsedBin} scannedLines={badTO.Count(x => x.ScannedQuantity > 0)} totalLines={badTO.Count} build={BuildStamp}]";
 
                     // Decode NetSuite's "line N of the item list" into the actual DTO row so field tests identify the offender without server logs.
                     var nsLineMatch = Regex.Match(ex.Message, @"line (\d+) of the item list");
@@ -2049,7 +2568,7 @@ namespace Integration.NS.Services
                 catch (Exception ex)
                 {
                     logger.LogError(ex, "GOOD VRA Item Fulfillment failed. Url: {Url}. Payload: {Payload}", urlGood, jsonStringGood);
-                    var diag = $"[diag replace={urlGood.Contains("replace=")} usedBin={isUsedBin} scannedLines={goodTO.Count(x => x.ScannedQuantity > 0)} totalLines={goodTO.Count}]";
+                    var diag = $"[diag replace={urlGood.Contains("replace=")} usedBin={isUsedBin} scannedLines={goodTO.Count(x => x.ScannedQuantity > 0)} totalLines={goodTO.Count} build={BuildStamp}]";
 
                     // Decode NetSuite's "line N of the item list" into the actual DTO row so field tests identify the offender without server logs.
                     var nsLineMatch = Regex.Match(ex.Message, @"line (\d+) of the item list");

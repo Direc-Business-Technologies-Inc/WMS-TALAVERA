@@ -32,10 +32,16 @@ public class TransferOrderIFPayloadDTO
                         // On bin-tracked locations the transform URL carries ?replace=item.inventoryDetail.inventoryAssignment,
                         // and NetSuite rejects the request unless the body's item entries carry the sub-resource consistently.
                         // Zero-qty filler lines therefore get an EMPTY assignment so the replace target exists on every line.
+                        //
+                        // The explicit quantity is required: itemreceive is an itemReceipt field and is inert on an
+                        // itemFulfillment, so without it NetSuite keeps the transform's pre-filled open quantity while the
+                        // empty assignment sums to 0 and rejects the save with "The total inventory detail quantity must be N".
+                        // A filler is quantity 0 by definition - the line is not being shipped.
                         var filler = new OrderLineItem
                         {
                             OrderLine = line.LineSequenceNumber,
-                            isReceived = false
+                            isReceived = false,
+                            Quantity = 0
                         };
 
                         if (isUsedBin)
