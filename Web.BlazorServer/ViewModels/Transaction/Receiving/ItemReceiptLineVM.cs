@@ -40,7 +40,9 @@ public class ItemReceiptLineVM
     public decimal QuantityOpen => QuantityPlanned - QuantityReceived;
     public decimal QuantityReceived { get; set; }
     public decimal QuantityAlloted { get; set; }
-    public bool IsAllAssigned => !ItemUsesBins || InventoryDetails.Sum(x => x.QuantityAlloted) == QuantityAlloted;
+    public bool IsAllAssigned => InventoryDetails.Sum(x => x.QuantityAlloted) == QuantityAlloted &&
+        InventoryDetails.All(x => x.QuantityAlloted >= 0 &&
+            (x.QuantityAlloted == 0 || x.Status?.Id is 1 or 3 or 6));
     public bool ItemUsesBins { get; set; } = true;
     public string DetailsTooltipText { get; set; } = string.Empty;
     public List<InventoryDetailVM> InventoryDetails { get; set; } = [];

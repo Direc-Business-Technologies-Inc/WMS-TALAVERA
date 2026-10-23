@@ -46,13 +46,15 @@ partial class ItemReceiptForm
     readonly List<AppFilterDescriptor> StatusFilters = [
         DataGridFilterUtilities.In(
             nameof(InventoryStatusVM.Id),
-            new List<int> { 1, 3 })
+            new List<int> { 1, 3, 6 })
     ];
 
     BarcodeStore BarcodeStore = new();
 
     public async Task Submit()
     {
+        ApplyBarcodes();
+
         if (string.IsNullOrWhiteSpace(Data.Remarks))
         {
             ToastService.Error("Please add remarks before submitting");
@@ -64,7 +66,7 @@ partial class ItemReceiptForm
             ToastService.Error("Please assign inventory details to all lines");
             return;
         }
-        if (!Data.Lines.Any(x => x.QuantityAlloted > 0))
+        if (!Data.Lines.Any(x => x.IsReceived && x.QuantityAlloted > 0))
         {
             ToastService.Error("Please assign a quantity to at least one line");
             return;
@@ -77,7 +79,6 @@ partial class ItemReceiptForm
 
         if (OnValidSubmit.HasDelegate && EditContext is not null && EditContext.Validate())
         {
-            ApplyBarcodes();
             await OnValidSubmit.InvokeAsync(Data);
         }
     }

@@ -189,6 +189,13 @@ public class ReceivingHandler(
         var dto = new ItemReceiptDTO();
 
         data.Adapt(dto);
+        // The DTO stores this flag as T/F while the web model exposes a bool.
+        dto.Lines = data.Lines.Select(line =>
+        {
+            var mapped = line.Adapt<ItemReceiptLineDTO>();
+            mapped.ItemUseBins = line.ItemUsesBins ? "T" : "F";
+            return mapped;
+        }).ToList();
         dto.SourceType = data.SourceType switch
         {
             ItemReceiptVM.SourceTypes.PurchaseOrder => ItemReceiptDTO.SourceTypes.PurchaseOrder,

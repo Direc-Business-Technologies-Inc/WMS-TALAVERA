@@ -794,19 +794,29 @@ public class ReceivingIntegration(
 
     public async Task<bool> PostItemReceipt(ItemReceiptDTO dto)
     {
+        ItemReceiptValidation.Validate(dto);
+        // PO transforms need explicit itemreceive=false fillers for unchecked open
+        // lines. RESTlet payloads, in contrast, must contain only selected lines.
+        if (dto.SourceType != ItemReceiptDTO.SourceTypes.PurchaseOrder)
+            dto.Lines = dto.Lines.Where(line => line.IsReceived && line.QuantityAlloted > 0).ToList();
+
         var uri = dto.SourceType == ItemReceiptDTO.SourceTypes.PurchaseOrder ?
             $"{netsuiteService.GetRestAPIURI}/record/v1/purchaseOrder/{dto.SourceInternalId}/!transform/itemReceipt" :
             $"{netsuiteService.GetRestletURI}?script=1853&deploy=1";
 
-        List<Exception> exceptions = [];
-        List<Task> tasks = [];
+        if (dto.SourceType == ItemReceiptDTO.SourceTypes.PurchaseOrder &&
+            dto.Lines.Any(line => line.IsReceived && line.QuantityAlloted > 0 && line.IsLocationBinUsed))
+            uri += "?replace=item.inventoryDetail.inventoryAssignment";
+
+        List<(int StatusId, string Payload)> posts = [];
+        List<int> completedStatuses = [];
 
         try
         {
             // A line without a resolved NetSuite line number cannot be posted:
             // orderLine: 0 is always rejected with a 400 that surfaces only a
             // terse "(0)" detail. Fail fast with a message identifying the line.
-            var unnumberedLine = dto.Lines.FirstOrDefault(x => x.LineNumber <= 0);
+            var unnumberedLine = dto.Lines.FirstOrDefault(x => x.QuantityOpen > 0 && x.LineNumber <= 0);
 
             if (unnumberedLine is not null)
             {
@@ -858,17 +868,22 @@ public class ReceivingIntegration(
             }
 
             // Determine which statuses actually exist in the receipt
-            var hasGoodLines = dto.Lines.Any(x =>
+            var hasGoodLines = dto.Lines.Any(x => x.IsReceived && x.QuantityAlloted > 0 &&
                 x.InventoryDetails.Any(y =>
-                    y.Status?.Id == INVENTORY_STATUS_ID_GOOD));
+                    y.QuantityAlloted > 0 && y.Status?.Id == INVENTORY_STATUS_ID_GOOD));
 
-            var hasBadLines = dto.Lines.Any(x =>
+            var hasBadLines = dto.Lines.Any(x => x.IsReceived && x.QuantityAlloted > 0 &&
                 x.InventoryDetails.Any(y =>
-                    y.Status?.Id == INVENTORY_STATUS_ID_BAD));
+                    y.QuantityAlloted > 0 && y.Status?.Id == INVENTORY_STATUS_ID_BAD));
 
-            var hasMissingLines = dto.Lines.Any(x =>
+            var hasMissingLines = dto.Lines.Any(x => x.IsReceived && x.QuantityAlloted > 0 &&
                 x.InventoryDetails.Any(y =>
-                    y.Status?.Id == INVENTORY_STATUS_ID_MISSING));
+                    y.QuantityAlloted > 0 && y.Status?.Id == INVENTORY_STATUS_ID_MISSING));
+
+            // Predict which PO lines earlier buckets exhaust, so later transforms
+            // do not address a line that has disappeared from their static sublist.
+            var exhaustedPOLines = new HashSet<int>();
+            var plannedPOQuantities = new Dictionary<int, decimal>();
 
             // Helper to create the correct payload for the source type
             string CreatePayload(int statusId)
@@ -876,7 +891,7 @@ public class ReceivingIntegration(
                 return dto.SourceType switch
                 {
                     ItemReceiptDTO.SourceTypes.PurchaseOrder =>
-                        CreatePOJson(dto, statusId),
+                        CreatePOJson(dto, statusId, exhaustedPOLines),
 
                     ItemReceiptDTO.SourceTypes.TransferOrder =>
                         CreateTOJson(dto, statusId),
@@ -886,41 +901,64 @@ public class ReceivingIntegration(
                 };
             }
 
-            void AddPostTask(bool hasLines, int statusId)
+            void AddPost(bool hasLines, int statusId)
             {
                 if (!hasLines)
                     return;
 
                 var payload = CreatePayload(statusId);
 
-                // G1: the entire payload (including the fulfillment id actually
-                // sent) is logged for every post attempt, successful or not.
-                logger.LogInformation(
-                    "PostItemReceipt payload ({SourceType}, status {StatusId}) to {Uri}: {Payload}",
-                    dto.SourceType,
-                    statusId,
-                    uri,
-                    payload);
+                posts.Add((statusId, payload));
 
-                tasks.Add(
-                    netsuiteService.MakeRequest<object>(
-                        uri,
-                        payload,
-                        HttpMethod.Post));
+                if (dto.SourceType == ItemReceiptDTO.SourceTypes.PurchaseOrder)
+                {
+                    foreach (var line in dto.Lines.Where(line => line.IsReceived && line.QuantityAlloted > 0))
+                    {
+                        var quantity = line.InventoryDetails.Where(detail => detail.Status?.Id == statusId)
+                            .Sum(detail => detail.QuantityAlloted);
+                        plannedPOQuantities.TryGetValue(line.LineNumber, out var earlierQuantity);
+                        plannedPOQuantities[line.LineNumber] = earlierQuantity + quantity;
+                        if (earlierQuantity + quantity >= line.QuantityOpen)
+                            exhaustedPOLines.Add(line.LineNumber);
+                    }
+                }
             }
 
-            AddPostTask(hasBadLines, INVENTORY_STATUS_ID_BAD);
-            AddPostTask(hasGoodLines, INVENTORY_STATUS_ID_GOOD);
-            AddPostTask(hasMissingLines, INVENTORY_STATUS_ID_MISSING);
+            AddPost(hasBadLines, INVENTORY_STATUS_ID_BAD);
+            AddPost(hasGoodLines, INVENTORY_STATUS_ID_GOOD);
+            AddPost(hasMissingLines, INVENTORY_STATUS_ID_MISSING);
 
-            await Task.WhenAll(tasks);
+            if (posts.Count == 0)
+                throw new InvalidOperationException("No receivable quantities with a valid inventory status were submitted.");
+
+            // Build and validate ALL payloads before the first write, then stop on the
+            // first failed bucket. Independent NetSuite receipts cannot be rolled back here.
+            foreach (var post in posts)
+            {
+                try
+                {
+                    logger.LogInformation(
+                        "PostItemReceipt payload ({SourceType}, status {StatusId}) to {Uri}: {Payload}",
+                        dto.SourceType, post.StatusId, uri, post.Payload);
+                    await netsuiteService.MakeRequest<object>(uri, post.Payload, HttpMethod.Post);
+                    completedStatuses.Add(post.StatusId);
+                }
+                catch (Exception ex)
+                {
+                    var completed = completedStatuses.Count == 0
+                        ? "No earlier status bucket was confirmed successful."
+                        : $"Partial receipt: already posted {string.Join(", ", completedStatuses.Select(ReceiptStatusName))}.";
+                    throw new InvalidOperationException(
+                        $"{completed} {ReceiptStatusName(post.StatusId)} receipt failed: {ex.Message}. " +
+                        "Later status buckets were not posted. Check NetSuite Item Receipts before retrying; " +
+                        "the failed request may have committed if its response was lost. Reload and receive only the remaining quantities.", ex);
+                }
+            }
         }
         catch (Exception ex)
         {
-            // Nothing was posted (e.g. payload construction threw before any
-            // task was created): preserve the original exception instead of
-            // swallowing it into a true return.
-            if (tasks.Count == 0)
+            // Preserve validation and payload-construction exceptions before posting.
+            if (posts.Count == 0)
             {
                 logger.LogWarning(
                     ex,
@@ -931,51 +969,14 @@ public class ReceivingIntegration(
                 throw;
             }
 
-            foreach (var task in tasks.Where(t => t.IsFaulted))
-            {
-                foreach (var exception in task.Exception!.Flatten().InnerExceptions)
-                {
-                    // Each rewrap keeps the original exception as inner so the
-                    // stack chain reaches the log; the unreachable
-                    // "Empty response from NetSuite API" filter was removed (G5).
-                    exceptions.Add(new Exception(
-                        "Error posting items: " + exception.Message,
-                        exception));
-                }
-            }
-
-            // No faulted-task message could be captured; rethrow rather than
-            // report success.
-            if (exceptions.Count == 0)
-            {
-                logger.LogWarning(
-                    ex,
-                    "PostItemReceipt failed without faulted task detail ({SourceType}, uri: {Uri})",
-                    dto.SourceType,
-                    uri);
-
-                throw;
-            }
-        }
-
-        if (exceptions.Count > 0)
-        {
-            // The aggregate carries every collected exception as inner, so the
-            // original stack chain is preserved while the toast keeps showing
-            // the same joined message (G4/G6).
-            var aggregateException = new AggregateException(
-                string.Join(
-                    "\n\n",
-                    exceptions.Select(ex => ex.Message)),
-                exceptions);
-
             logger.LogError(
-                aggregateException,
-                "PostItemReceipt failed for {SourceType} (uri: {Uri})",
+                ex,
+                "PostItemReceipt failed for {SourceType} (uri: {Uri}); confirmed statuses: {CompletedStatuses}",
                 dto.SourceType,
-                uri);
+                uri,
+                string.Join(", ", completedStatuses));
 
-            throw aggregateException;
+            throw;
         }
 
         return true;
@@ -1207,6 +1208,14 @@ public class ReceivingIntegration(
     }
 
 
+    private static string ReceiptStatusName(int statusId) => statusId switch
+    {
+        INVENTORY_STATUS_ID_GOOD => "GOOD",
+        INVENTORY_STATUS_ID_BAD => "BAD/CONFISCATED",
+        INVENTORY_STATUS_ID_MISSING => "MISSING",
+        _ => statusId.ToString()
+    };
+
     private string CreateReturnsJson(ItemReceiptDTO dto, bool isGood) => CreateTOJson(dto, isGood);
     private string CreateReturnsJson(ItemReceiptDTO dto, int statusId) => CreateTOJson(dto, statusId);
     private string CreateTOJson(ItemReceiptDTO dto, bool isGood)
@@ -1229,7 +1238,7 @@ public class ReceivingIntegration(
                 {
                     orderLine = line.LineNumber,
                     quantity = line.InventoryDetails.Sum(x => x.Status?.Id == statusId ? x.QuantityAlloted : 0),
-                    inventoryDetail = line.InventoryDetails.Where(x => x.Status?.Id == statusId).Select(y => new
+                    inventoryDetail = line.InventoryDetails.Where(x => x.Status?.Id == statusId && x.QuantityAlloted > 0).Select(y => new
                     {
                         binNumber = y.Bin?.BinNumber,
                         inventoryStatus = statusId,
@@ -1274,7 +1283,7 @@ public class ReceivingIntegration(
                     recWeight = line.WeightPerItem * quantity,
                     actualWeight = line.WeightActual,
                     rate = statusId == INVENTORY_STATUS_ID_BAD ? 0m : (decimal?)null,
-                    inventoryDetail = line.InventoryDetails.Where(x => x.Status?.Id == statusId).Select(y => new
+                    inventoryDetail = line.InventoryDetails.Where(x => x.Status?.Id == statusId && x.QuantityAlloted > 0).Select(y => new
                     {
                         inventoryStatus = statusId,
                         quantity = y.QuantityAlloted
@@ -1339,10 +1348,10 @@ public class ReceivingIntegration(
         return JsonSerializer.Serialize(obj, JSON_OPTS);
     }
 
-    private string CreatePOJson(ItemReceiptDTO dto, int statusId)
+    private string CreatePOJson(ItemReceiptDTO dto, int statusId, HashSet<int>? exhaustedLines = null)
     {
         var lines = dto.Lines
-            .Where(x => x.QuantityPlanned > x.QuantityReceived)
+            .Where(x => x.QuantityPlanned > x.QuantityReceived && !(exhaustedLines?.Contains(x.LineNumber) ?? false))
             .GroupBy(x => x.LineNumber)
             .Select(g => g.First());
         var isGood = statusId == INVENTORY_STATUS_ID_GOOD;

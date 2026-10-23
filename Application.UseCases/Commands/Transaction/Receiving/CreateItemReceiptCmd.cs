@@ -16,14 +16,6 @@ public class CreateItemReceiptCmdHandler(
 {
     public async Task<bool> Handle(CreateItemReceiptCmd request, CancellationToken cancellationToken)
     {
-        try
-        {
-            return await receivingIntegration.PostItemReceipt(request.dto);
-        }
-        catch (Exception ex) when (ex.Message.Equals("Empty response from NetSuite API", StringComparison.OrdinalIgnoreCase))
-        {
-            // this error is thrown when the http response is a success response but is empty
-            return true;
-        }
+        return await receivingIntegration.PostItemReceipt(request.dto);
     }
 }
