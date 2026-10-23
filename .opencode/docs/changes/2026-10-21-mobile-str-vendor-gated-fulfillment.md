@@ -64,11 +64,12 @@ against the vendors already present on the transfer order.
 1. Packing list (`/packing`) — operator scans barcode #1. The existing handler puts
    the tranid into the list search, narrowing the list to that transfer order.
 2. Operator opens the order (`/packing/transferorder/{OrderNumber}`).
-3. **Vendor gate.** The item lists stay empty and a "Scan Vendor Barcode" card is
+3. **Vendor gate.** The item lists stay empty and a vendor selection card is
    shown. Every scan is treated as a vendor scan, regardless of the Good/Bad toggle.
-4. Operator scans barcode #2 → the name is posted to
-   `POST /Packing/TransferOrder/ResolveVendor`, which matches it against the
-   vendors on **this order's** lines and answers `{ Id, Name }`.
+4. Operator selects a vendor from the dropdown (loaded from **this order's** line
+   vendors via `POST /Packing/TransferOrder/Vendors`) or scans barcode #2. Scans are
+   resolved by `POST /Packing/TransferOrder/ResolveVendor` against the vendors on
+   **this order's** lines and answer `{ Id, Name }`.
 5. Lines are loaded filtered to the resolved id; the header shows the canonical
    name plus a **Change Vendor** action.
 6. Operator scans items into Good/Bad as before and saves. Only the scanned
@@ -200,7 +201,7 @@ every line, ungated. Consequences are recorded under *Known gaps*.
 | `Integration.NS/Implementations/Others/VendorIntegration.cs` | Implementation: `id IN (...)` read of `entityid`, `companyname`, and `fullname`. |
 | `Integration.NS/Implementations/Others/Caching/CachedVendorIntegration.cs` | Delegates the new read uncached — a six-hour cache could pin a renamed vendor. |
 | `Api.CoreWebAPI/Controllers/Packing/TransferOrderController.cs` | New `ResolveVendor` action. Answers **400, never 404** — the mobile client turns 404 into "the endpoint does not exist". |
-| `Mobile.MAUI/.../Packing/TransferOrder/TransferOrderItemView.razor(.cs)` | Vendor gate, name resolution call, inline "Resolving vendor…" indicator (outside `<Loading>`, which would blank the header), vendor badge shown before lines, scan routing, three-way Change Vendor (Save now / Discard / Cancel), clear-on-switch, and the `_resolvingVendor` busy guard that spans the follow-up item load. |
+| `Mobile.MAUI/.../Packing/TransferOrder/TransferOrderItemView.razor(.cs)` | Vendor gate, searchable dropdown of vendors on the current order as a barcode fallback, name resolution call, inline "Resolving vendor…" indicator (outside `<Loading>`, which would blank the header), vendor badge shown before lines, scan routing, three-way Change Vendor (Save now / Discard / Cancel), clear-on-switch, and the `_resolvingVendor` busy guard that spans the follow-up item load. |
 | `Integration.NS.Tests/.../Packing/StrPackingVendorFilterShapeTests.cs` | `tranid` travels as `@tranid`; the vendor travels as `{vendorId}`; an unscoped call sends `"0"`, a scoped call the id. |
 | `Integration.NS.Tests/.../Packing/TransferOrderVendorResolverTests.cs` | Candidate-based matching: exact/case/whitespace/punctuation, record `entityid` / `companyname` / `fullname`, unknown and ambiguous names, blank scan, no candidates, ids without names, and a vendor beyond row 1,000. |
 | `Integration.NS.Tests/.../Packing/TransferOrderLinePagingTests.cs` | New: 0/999/1,000/1,001/2,000 rows, call count, order, uniqueness, page failure, `totalResults` contradiction, page-cap overflow, cancellation. |

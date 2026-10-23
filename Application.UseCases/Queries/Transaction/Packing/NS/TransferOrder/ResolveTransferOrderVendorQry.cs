@@ -85,6 +85,35 @@ public class ResolveTransferOrderVendorQryHandler(
 /// </summary>
 public static class TransferOrderVendorResolver
 {
+    public static List<VendorLookupDTO> GetOptions(
+        IEnumerable<VendorLookupDTO>? candidates,
+        IEnumerable<VendorDTO>? vendors)
+    {
+        var candidateIds = (candidates ?? [])
+            .Where(candidate => candidate.Id > 0)
+            .Select(candidate => candidate.Id)
+            .ToHashSet();
+
+        return (vendors ?? [])
+            .Where(vendor => candidateIds.Contains(vendor.Id))
+            .GroupBy(vendor => vendor.Id)
+            .Select(group =>
+            {
+                var vendor = group.First();
+                var name = new[] { vendor.Name, vendor.CompanyName, vendor.ReferenceNumber }
+                    .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
+
+                return new VendorLookupDTO
+                {
+                    Id = vendor.Id,
+                    Name = name?.Trim() ?? string.Empty
+                };
+            })
+            .Where(vendor => !string.IsNullOrWhiteSpace(vendor.Name))
+            .OrderBy(vendor => vendor.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
     public static ApiResult<VendorLookupDTO> Resolve(
         IEnumerable<VendorLookupDTO>? candidates,
         IEnumerable<VendorDTO>? vendors,

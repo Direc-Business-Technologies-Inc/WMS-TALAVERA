@@ -17,6 +17,7 @@ public partial class TransferOrderItemView : IAsyncDisposable
     public string OrderNumber { get; set; }
 
     AppAction<List<TransferOrderLineVM>> ActionGetTOItems { get; set; }
+    AppAction<List<VendorLookupVM>> ActionGetVendors { get; set; }
     AppAction ActionUpdateStartTime { get; set; }
     AppAction<bool> ActionSaveScan { get; set; }
 
@@ -75,6 +76,8 @@ public partial class TransferOrderItemView : IAsyncDisposable
     // empty.
     int? VendorId;
     string VendorName = string.Empty;
+    List<VendorLookupVM> TransferOrderVendors = [];
+    int SelectedVendorId;
 
     // Guards the vendor-resolution round trip. While it is in flight the operator's
     // scans are swallowed: a double-fired scan or a re-scan during a slow network
@@ -295,6 +298,28 @@ public partial class TransferOrderItemView : IAsyncDisposable
             },
         };
 
+        ActionGetVendors = new AppAction<List<VendorLookupVM>>
+        {
+            Name = "GetTransferOrderVendors",
+            TaskAsync = async () =>
+            {
+                var res = await Client.Post<List<VendorLookupVM>>(
+                    "/Packing/TransferOrder/Vendors",
+                    new { OrderNumber = OrderNumber });
+                return res;
+            },
+            OnSuccess = async result =>
+            {
+                TransferOrderVendors = result.Data ?? [];
+                await InvokeAsync(StateHasChanged);
+            },
+            OnFailure = async result =>
+            {
+                await Toast.Error(result.ErrorMessage);
+                await InvokeAsync(StateHasChanged);
+            }
+        };
+
         ActionSaveScan = new AppAction<bool>
         {
             Name = "SaveTransferOrderScan",
@@ -328,9 +353,18 @@ public partial class TransferOrderItemView : IAsyncDisposable
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender && VendorId is not null)
+        if (!firstRender)
+        {
+            return;
+        }
+
+        if (VendorId is not null)
         {
             await ActionFactory.ExecuteAppActionAsync(ActionGetTOItems);
+        }
+        else
+        {
+            await ActionFactory.ExecuteAppActionAsync(ActionGetVendors);
         }
     }
 
@@ -541,10 +575,45 @@ public partial class TransferOrderItemView : IAsyncDisposable
             return;
         }
 
+        await ApplyVendor(result.Data);
+    }
+
+    private async Task SelectVendor()
+    {
+        if (_resolvingVendor)
+        {
+            return;
+        }
+
+        var vendor = TransferOrderVendors.FirstOrDefault(option => option.Id == SelectedVendorId);
+
+        if (vendor is null)
+        {
+            await Toast.Warning("Select a vendor from this transfer order.");
+            return;
+        }
+
+        _resolvingVendor = true;
+        await InvokeAsync(StateHasChanged);
+
+        try
+        {
+            await ApplyVendor(vendor);
+        }
+        finally
+        {
+            _resolvingVendor = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task ApplyVendor(VendorLookupVM vendor)
+    {
         ClearVendorLines();
 
-        VendorId = result.Data.Id;
-        VendorName = result.Data.Name;
+        VendorId = vendor.Id;
+        VendorName = vendor.Name;
+        SelectedVendorId = vendor.Id;
 
         await InvokeAsync(StateHasChanged);
         await ActionFactory.ExecuteAppActionAsync(ActionGetTOItems);
@@ -601,6 +670,7 @@ public partial class TransferOrderItemView : IAsyncDisposable
         VendorId = null;
         VendorName = string.Empty;
         ClearVendorLines();
+        SelectedVendorId = 0;
 
         await InvokeAsync(StateHasChanged);
     }
@@ -621,6 +691,7 @@ public partial class TransferOrderItemView : IAsyncDisposable
         LastScanned = null;
         ActiveTabIndex = 0;
         ScanCount = 0;
+        SelectedVendorId = 0;
         MarkScansClean();
     }
 

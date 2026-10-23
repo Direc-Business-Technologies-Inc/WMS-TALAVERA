@@ -51,6 +51,21 @@ public class TransferOrderVendorResolverTests
     ];
 
     [Fact]
+    public void Vendor_options_only_include_named_vendors_from_the_document_candidates()
+    {
+        var options = TransferOrderVendorResolver.GetOptions(
+            Candidates(111, 222, 333),
+            [
+                .. DocumentVendors(),
+                Vendor(444, "OTHER VENDOR", "OTHER VENDOR", "OTHER VENDOR"),
+                Vendor(333, "", "", "")
+            ]);
+
+        Assert.Equal(new[] { 111, 222 }, options.Select(option => option.Id).OrderBy(id => id));
+        Assert.All(options, option => Assert.False(string.IsNullOrWhiteSpace(option.Name)));
+    }
+
+    [Fact]
     public void Scanned_name_resolves_to_that_vendors_id()
     {
         var result = TransferOrderVendorResolver.Resolve(

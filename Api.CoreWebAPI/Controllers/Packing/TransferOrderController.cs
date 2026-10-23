@@ -57,6 +57,18 @@ public class TransferOrderController(ISender Sender) : ControllerBase
         return StatusCode(response.StatusCode, response);
     }
 
+    [HttpPost("Vendors")]
+    public async Task<IActionResult> GetVendors(GetTransferOrderVendorsRequestDTO req)
+    {
+        var result = await Sender.Send(new GetTransferOrderVendorsQry(req.OrderNumber));
+
+        ApiResult<IEnumerable<VendorLookupVM>> response = result.Success && result.Data is not null
+            ? ApiResult<IEnumerable<VendorLookupVM>>.Succeeded(result.Data.Adapt<List<VendorLookupVM>>())
+            : ApiResult<IEnumerable<VendorLookupVM>>.Failed(result.ErrorMessage);
+
+        return StatusCode(response.StatusCode, response);
+    }
+
     [HttpPost("SaveScan")]
     public async Task<IActionResult> TransferOrderSaveScan(List<PostTransferOrderDTO> req)
     {

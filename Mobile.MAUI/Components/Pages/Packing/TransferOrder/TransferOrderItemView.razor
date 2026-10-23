@@ -27,11 +27,38 @@
                 else
                 {
                     <RadzenIcon Icon="qr_code_scanner" Style="font-size:2rem" />
-                    <RadzenText TextStyle="TextStyle.Subtitle2">Scan Vendor Barcode</RadzenText>
+                    <RadzenText TextStyle="TextStyle.Subtitle2">Select or Scan Vendor</RadzenText>
                     <RadzenText TextStyle="TextStyle.Body2" class="rz-text-align-center">
-                        Scan the barcode printed under the Vendor field on the stock transfer request.
+                        Select a vendor on this STR, or scan the barcode printed under the Vendor field.
                         Only that vendor's items will be listed and fulfilled.
                     </RadzenText>
+
+                    @if (ActionGetVendors?.Busy == true)
+                    {
+                        <RadzenText TextStyle="TextStyle.Caption">Loading vendors on this STR...</RadzenText>
+                    }
+                    else if (TransferOrderVendors.Count == 0 && ActionGetVendors?.Result?.Success == true)
+                    {
+                        <RadzenText TextStyle="TextStyle.Caption">No vendors are available on this STR. Scan the vendor barcode to continue.</RadzenText>
+                    }
+                    else
+                    {
+                        <RadzenDropDown TValue="int"
+                                        Data="@TransferOrderVendors"
+                                        TextProperty="Name"
+                                        ValueProperty="Id"
+                                        @bind-Value="@SelectedVendorId"
+                                        Placeholder="Select vendor on this STR"
+                                        AllowFiltering="true"
+                                        FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                                        Style="width:100%;"
+                                        Disabled="@(ActionGetVendors?.Busy == true || _resolvingVendor)" />
+                        <RadzenButton Text="Use Selected Vendor"
+                                      Icon="check"
+                                      ButtonStyle="ButtonStyle.Primary"
+                                      Click="SelectVendor"
+                                      Disabled="@(SelectedVendorId <= 0 || _resolvingVendor)" />
+                    }
                 }
             </RadzenStack>
         </RadzenCard>
