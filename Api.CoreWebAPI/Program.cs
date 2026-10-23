@@ -32,13 +32,16 @@ var app = builder.Build();
 
 // Deploy verification without waiting for a field failure: the stamp is the git
 // commit the assembly was COMPILED from (SDK AssemblyInformationalVersion). The
-// two TO item-fulfillment flags are logged with it so the deployed behaviour is
+// TO item-fulfillment flags are logged with it so the deployed behaviour is
 // readable from the first log line, not inferred from a save result.
 app.Logger.LogInformation(
-    "API build {BuildStamp} | TO IF reconciliation={ReconciliationEnabled} failClosed={FailClosedRevalidationEnabled}",
+    "API build {BuildStamp} | TO IF reconciliation={ReconciliationEnabled} failClosed={FailClosedRevalidationEnabled} restlet={UseRestlet} transformVerify={TransformVerify} maxTransformLines={MaxTransformLines}",
     Integration.NS.Services.NetSuiteApiClientService.BuildStampValue,
     Integration.NS.Services.NetSuiteApiClientService.ReconciliationEnabled,
-    Integration.NS.Services.NetSuiteApiClientService.FailClosedRevalidationEnabled);
+    Integration.NS.Services.NetSuiteApiClientService.FailClosedRevalidationEnabled,
+    Integration.NS.Services.NetSuiteApiClientService.UseRestletForTOFulfillment,
+    Integration.NS.Services.NetSuiteApiClientService.TransformVerificationEnabled,
+    Integration.NS.Services.NetSuiteApiClientService.MaxTransformLines);
 
 app.UseHttpsRedirection();
 

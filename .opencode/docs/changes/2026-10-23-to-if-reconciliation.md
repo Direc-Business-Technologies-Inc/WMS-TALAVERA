@@ -33,7 +33,7 @@ Phase 0 evidence could not be captured in this change:
 | # | Question | Status | Why / what is recorded |
 |---|---|---|---|
 | U1 | Is `must be 3` a filler identity error or a UoM-rate error? | **Unverified** | The failing order id was lost among the client's transactions, so the SuiteQL probe cannot be run. The implementation therefore takes the plan's identified filler-identity route (2a, `quantity: 0`) and does **not** change unit semantics. 2b stays deferred until U1 is answered. |
-| U2 | Does NetSuite accept a `quantity: 0` filler with an empty assignment at a bin-tracked location under `?replace=`? | **Unverified** | No sandbox matrix was run. The code implements variant 2 (the plan's preferred fix). If the sandbox rejects it, the approved fallback is variant 3 / guard-only — both are localized to the filler branch in the three payload builders. |
+| U2 | Does NetSuite accept a `quantity: 0` filler with an empty assignment at a bin-tracked location under `?replace=`? | **Refuted in field (2026-10-23, same day as deploy)** | Answered by order `STR-THM00100000881/226006` before any sandbox matrix could run: the transform rejected the GOOD bucket with `[USER_ERROR] Value 0.0 outside of valid min/max range for field quantity` (`replace=True usedBin=True posted=1022 scannedLines=6` — i.e. 1,016 zero-quantity fillers). Variant 2 is dead. The filler reverted to variant 1 (no `quantity` field, field-proven Transaction A 2026-10-15); see [2026-10-23 IF filler quantity-zero refutation fix](../../.github/specs/2026-10-23-to-if-filler-quantity-zero-refuted-fix.md). |
 | U3 | Does `orderLine` equal `transactionline.id`? | **Unverified** | `NextTransactionLineLink` was not inspected. The pre-existing, production-working scanned lines already use `transactionline.id` as `orderLine`; fillers use the same `LineId` from the same table, so the change does not introduce a new identity assumption. Confirm before the first large-order deploy. |
 
 The two failing orders (`ISTR-THM00100000771`, `ISTR-THM00100000776-2`) cannot be
@@ -72,6 +72,15 @@ scanned lines" remains unverified.
 All three builders (`TransferOrderIFPayloadDTO`, `ReturnsIFPayloadDTO`,
 `VendorReturnAuthorizationIFPayloadDTO`) now emit `quantity: 0` on fillers and
 keep the empty `inventoryDetail` at bin-tracked locations.
+
+> **Correction (2026-10-23, later the same day): Phase 2a refuted in the field.**
+> The `quantity: 0` filler was rejected by the transform with
+> `Value 0.0 outside of valid min/max range for field quantity`. All three
+> builders reverted to the field-proven shape: fillers carry **no `quantity`
+> property** (`WhenWritingNull` omits the null), keeping the empty assignment.
+> The "must be N" motivation for Phase 2a remains unverified (U1) and is now
+> suspected to be a UoM-rate issue (Phase 2b), not filler identity. See
+> [2026-10-23 IF filler quantity-zero refutation fix](../../.github/specs/2026-10-23-to-if-filler-quantity-zero-refuted-fix.md).
 
 ### Phase 3.3 / Phase 4 — client and display query
 
@@ -140,7 +149,8 @@ unaddressed - RCA issue 1 in a new shape. This pass closes that gap:
 
 ## Tests
 
-`dotnet test Integration.NS.Tests` — 574 passing:
+`dotnet test Integration.NS.Tests` — 574 passing at Phase 2a, 575 passing after
+the same-day Phase 2a revert (refutation trait added):
 
 - reconciliation: posted ⊂ open, open ⊃ posted, closed/fully-shipped exclusion,
   fresh quantity overwrite (including the UoM rate), GOOD+BAD split, stale client
@@ -153,17 +163,21 @@ unaddressed - RCA issue 1 in a new shape. This pass closes that gap:
   case;
 - paging: 0/999/1,000/1,001/1,657/2,000/2,001 rows, exact-multiple stop, short
   page contradiction, full page with `hasMore=false`, page failure, runaway loop;
-- payload contract (2c): every entry's `quantity` equals its assignment sum,
+- payload contract (2c): a shipping entry's `quantity` equals its assignment sum,
   unique `orderLine` per bucket, bin present iff quantity > 0, fillers serialize
-  `quantity: 0` and keep `inventoryDetail` at bin-tracked locations.
+  **without a `quantity` property** (field-proven shape; the `quantity: 0`
+  variant was refuted 2026-10-23) and keep the empty `inventoryDetail` at
+  bin-tracked locations, including a byte-exact snapshot of the used-bin filler
+  entry.
 
 ## Still open
 
-1. **U2 (sandbox) is a deploy gate.** `quantity: 0` with an empty assignment
-   under `?replace=` is still unverified, and reconciliation ships enabled. Run
-   matrix variant 2 on a bin-tracked TO first; if it cannot run before deploy,
-   ship the API with `WMS_TO_IF_ENABLE_RECONCILIATION=false`, post one real
-   order, then flip it. Variant 3 and guard-only remain the fallbacks.
+1. ~~**U2 (sandbox) is a deploy gate.**~~ **Answered in the field 2026-10-23: variant
+   2 (`quantity: 0` + empty assignment) is rejected by the transform.** Phase 2a
+   reverted to variant 1 (no `quantity` field — Transaction A's field-proven
+   shape). Any future filler wire-shape change must pass the sandbox matrix
+   first; see [2026-10-23 IF filler quantity-zero refutation fix](../../.github/specs/2026-10-23-to-if-filler-quantity-zero-refuted-fix.md).
+   Variant 3 and guard-only remain the fallbacks if variant 1 ever fails.
 2. U1 remains open (2b deferred). U3 is answered by inference: both the display
    query and the authoritative read use `transactionline.id` as `orderLine`, and
    scanned lines already post with it in production - record that rather than

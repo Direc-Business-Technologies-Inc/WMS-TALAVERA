@@ -225,16 +225,21 @@ public class PackingIFPayloadDTOTests
     }
 
     // -----------------------------------------------------------------
-    // Resolution plan 2026-10-23, Phase 2. A filler must say, explicitly,
-    // that it ships nothing. itemreceive is an itemReceipt field and is inert
-    // on an itemFulfillment; without quantity: 0 NetSuite keeps the
-    // transform's pre-filled open quantity while the empty assignment sums to
-    // 0 and rejects the save with "The total inventory detail quantity must
-    // be N" (issue 2).
+    // Filler wire shape (field-proven). At a bin-tracked location a filler
+    // is exactly {orderLine, itemreceive:false, inventoryDetail:
+    // {inventoryAssignment:{items:[]}}} and carries NO quantity property.
+    // The explicit "quantity: 0" attempt (2026-10-23, build ce8da8a7) was
+    // REFUTED in the field: the itemFulfillment transform rejects a line
+    // quantity of 0 with "Value 0.0 outside of valid min/max range for
+    // field quantity" (order STR-THM00100000881/226006, GOOD bucket: 6
+    // scans + 1,016 fillers). WhenWritingNull omits the null quantity,
+    // restoring the shape that passed in production on 2026-10-15
+    // (Transaction A). These tests pin the serialized bytes; do not relax
+    // them without a field-verified payload change.
     // -----------------------------------------------------------------
 
     [Fact]
-    public void Transfer_order_filler_serializes_quantity_zero_and_keeps_inventory_detail()
+    public void Transfer_order_filler_omits_quantity_and_keeps_empty_inventory_detail()
     {
         var line = TransferOrderLine(1, scannedQuantity: 0);
 
@@ -242,13 +247,13 @@ public class PackingIFPayloadDTOTests
 
         var entry = LineEntry(document, 1);
         Assert.False(entry.GetProperty("itemreceive").GetBoolean());
-        Assert.Equal(0, entry.GetProperty("quantity").GetDecimal());
+        Assert.False(entry.TryGetProperty("quantity", out _));
         Assert.True(entry.TryGetProperty("inventoryDetail", out var detail));
         Assert.Empty(detail.GetProperty("inventoryAssignment").GetProperty("items").EnumerateArray());
     }
 
     [Fact]
-    public void Returns_filler_serializes_quantity_zero_and_keeps_inventory_detail()
+    public void Returns_filler_omits_quantity_and_keeps_empty_inventory_detail()
     {
         var line = ReturnsLine(1, scannedQuantity: 0);
 
@@ -256,12 +261,12 @@ public class PackingIFPayloadDTOTests
 
         var entry = LineEntry(document, 1);
         Assert.False(entry.GetProperty("itemreceive").GetBoolean());
-        Assert.Equal(0, entry.GetProperty("quantity").GetDecimal());
+        Assert.False(entry.TryGetProperty("quantity", out _));
         Assert.True(entry.TryGetProperty("inventoryDetail", out _));
     }
 
     [Fact]
-    public void Vendor_return_authorization_filler_serializes_quantity_zero_and_keeps_inventory_detail()
+    public void Vendor_return_authorization_filler_omits_quantity_and_keeps_empty_inventory_detail()
     {
         var line = SraLine(1, scannedQuantity: 0);
 
@@ -269,12 +274,12 @@ public class PackingIFPayloadDTOTests
 
         var entry = LineEntry(document, 1);
         Assert.False(entry.GetProperty("itemreceive").GetBoolean());
-        Assert.Equal(0, entry.GetProperty("quantity").GetDecimal());
+        Assert.False(entry.TryGetProperty("quantity", out _));
         Assert.True(entry.TryGetProperty("inventoryDetail", out _));
     }
 
     [Fact]
-    public void Non_bin_filler_omits_inventory_detail_but_still_carries_quantity_zero()
+    public void Non_bin_filler_omits_quantity_and_inventory_detail()
     {
         var line = TransferOrderLine(1, scannedQuantity: 0);
         line.IsLocationUsedBin = false;
@@ -285,8 +290,31 @@ public class PackingIFPayloadDTOTests
         using var document = JsonDocument.Parse(JsonSerializer.Serialize(payload, Options));
 
         var entry = LineEntry(document, 1);
-        Assert.Equal(0, entry.GetProperty("quantity").GetDecimal());
+        Assert.False(entry.TryGetProperty("quantity", out _));
         Assert.False(entry.TryGetProperty("inventoryDetail", out _));
+    }
+
+    [Fact]
+    public void UsedBin_filler_serializes_to_the_field_proven_shape()
+    {
+        // Transaction A (2026-10-15) posted this exact entry shape at a bin-tracked
+        // location under ?replace=item.inventoryDetail.inventoryAssignment. The
+        // "quantity: 0" variant (2026-10-23) was rejected with "Value 0.0 outside of
+        // valid min/max range for field quantity". Pin the bytes: any drift here is
+        // a wire-contract change, not a refactor.
+        var line = TransferOrderLine(1, scannedQuantity: 0);
+
+        var payload = TransferOrderIFPayloadDTO.CreateForItemFulfillment(
+            [line], ShipStatus, printLabel: true, isUsedBin: true);
+
+        var json = JsonSerializer.Serialize(payload, new JsonSerializerOptions
+        {
+            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+        });
+
+        Assert.Contains(
+            """{"orderLine":1,"itemreceive":false,"inventoryDetail":{"inventoryAssignment":{"items":[]}}}""",
+            json);
     }
 
     // -----------------------------------------------------------------
@@ -298,7 +326,7 @@ public class PackingIFPayloadDTOTests
     [Theory]
     [InlineData(3, 3)]
     [InlineData(9, 0)]
-    public void Every_entry_quantity_matches_its_assignment_sum_at_a_bin_tracked_location(
+    public void Shipping_entries_quantity_matches_assignment_sum_and_fillers_sum_to_zero(
         decimal scannedQuantity, decimal fillerQuantity)
     {
         List<PostTransferOrderDTO> lines =
@@ -323,7 +351,6 @@ public class PackingIFPayloadDTOTests
 
         foreach (var entry in entries)
         {
-            var quantity = entry.GetProperty("quantity").GetDecimal();
             var assignmentSum = entry
                 .GetProperty("inventoryDetail")
                 .GetProperty("inventoryAssignment")
@@ -331,22 +358,31 @@ public class PackingIFPayloadDTOTests
                 .EnumerateArray()
                 .Sum(x => x.GetProperty("quantity").GetDecimal());
 
-            Assert.Equal(quantity, assignmentSum);
+            if (entry.TryGetProperty("quantity", out var quantity))
+            {
+                Assert.Equal(quantity.GetDecimal(), assignmentSum);
 
-            // A bin is named exactly when the entry ships something.
-            var hasBin = entry
-                .GetProperty("inventoryDetail")
-                .GetProperty("inventoryAssignment")
-                .GetProperty("items")
-                .EnumerateArray()
-                .Any(x => x.TryGetProperty("binNumber", out _));
+                // A bin is named exactly when the entry ships something.
+                var hasBin = entry
+                    .GetProperty("inventoryDetail")
+                    .GetProperty("inventoryAssignment")
+                    .GetProperty("items")
+                    .EnumerateArray()
+                    .Any(x => x.TryGetProperty("binNumber", out _));
 
-            Assert.Equal(quantity > 0, hasBin);
+                Assert.Equal(quantity.GetDecimal() > 0, hasBin);
+            }
+            else
+            {
+                // A filler ships nothing: no quantity property (the transform rejects
+                // a line quantity of 0) and an assignment that sums to 0.
+                Assert.Equal(0, assignmentSum);
+            }
         }
     }
 
     [Fact]
-    public void Every_scanned_entry_carries_an_explicit_quantity()
+    public void Quantity_property_appears_exactly_when_the_entry_ships_something()
     {
         List<PostTransferOrderDTO> lines =
         [
@@ -359,12 +395,14 @@ public class PackingIFPayloadDTOTests
 
         using var document = JsonDocument.Parse(JsonSerializer.Serialize(payload, Options));
 
-        foreach (var entry in document.RootElement
-                     .GetProperty("item")
-                     .GetProperty("items")
-                     .EnumerateArray())
-        {
-            Assert.True(entry.TryGetProperty("quantity", out _));
-        }
+        var entries = document.RootElement
+            .GetProperty("item")
+            .GetProperty("items")
+            .EnumerateArray()
+            .ToList();
+
+        Assert.Equal(2, entries.Count);
+        Assert.True(entries[0].TryGetProperty("quantity", out _));
+        Assert.False(entries[1].TryGetProperty("quantity", out _));
     }
 }

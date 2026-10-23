@@ -33,15 +33,20 @@ public class TransferOrderIFPayloadDTO
                         // and NetSuite rejects the request unless the body's item entries carry the sub-resource consistently.
                         // Zero-qty filler lines therefore get an EMPTY assignment so the replace target exists on every line.
                         //
-                        // The explicit quantity is required: itemreceive is an itemReceipt field and is inert on an
-                        // itemFulfillment, so without it NetSuite keeps the transform's pre-filled open quantity while the
-                        // empty assignment sums to 0 and rejects the save with "The total inventory detail quantity must be N".
-                        // A filler is quantity 0 by definition - the line is not being shipped.
+                        // Fillers carry NO quantity field. The explicit Quantity = 0 attempt (build ce8da8a7,
+                        // 2026-10-23) was REFUTED in the field: the transform rejects a line quantity of 0 with
+                        // "Value 0.0 outside of valid min/max range for field quantity". WhenWritingNull omits
+                        // the null, restoring the field-proven shape (Transaction A passed, 2026-10-15).
+                        // The "total inventory detail quantity must be N" error that motivated Quantity = 0
+                        // never had a verified cause (open question U1 - likely a UoM-rate mismatch; a field
+                        // diag carried uomRate=72). Run the SuiteQL probe in
+                        // .opencode/docs/TO-itemFulfillment-resolution-plan.md (0.2) before changing filler
+                        // quantity semantics again, and never alter this wire shape without serialization
+                        // tests (PackingIFPayloadDTOTests) pinned to the exact JSON.
                         var filler = new OrderLineItem
                         {
                             OrderLine = line.LineSequenceNumber,
-                            isReceived = false,
-                            Quantity = 0
+                            isReceived = false
                         };
 
                         if (isUsedBin)

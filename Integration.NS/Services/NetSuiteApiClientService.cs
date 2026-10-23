@@ -79,6 +79,8 @@ namespace Integration.NS.Services
 
         private static string ItemReceiptRestletUrl = $"https://{AccountId}.restlets.api.netsuite.com/app/site/hosting/restlet.nl?script=1853&deploy=1";
 
+        private static string ItemFulfillmentRestletUrl = $"https://{AccountId}.restlets.api.netsuite.com/app/site/hosting/restlet.nl?script=2522&deploy=1";
+
         private static string TripTicketRestletUrl = $"https://{AccountId}.restlets.api.netsuite.com/app/site/hosting/restlet.nl?script=1862&deploy=1";
 
         private static string InventoryWorksheetRestletUrl = $"https://{AccountId}.restlets.api.netsuite.com/app/site/hosting/restlet.nl?script=1878&deploy=1";
@@ -149,13 +151,15 @@ namespace Integration.NS.Services
             string? recordApiRoot = null,
             string? itemReceiptRestlet = null,
             string? tripTicketRestlet = null,
-            string? inventoryWorksheetRestlet = null)
+            string? inventoryWorksheetRestlet = null,
+            string? itemFulfillmentRestlet = null)
         {
             if (suiteQlRoot is not null) SuiteQLRoot = suiteQlRoot;
             if (recordApiRoot is not null) RecordApiRoot = recordApiRoot;
             if (itemReceiptRestlet is not null) ItemReceiptRestletUrl = itemReceiptRestlet;
             if (tripTicketRestlet is not null) TripTicketRestletUrl = tripTicketRestlet;
             if (inventoryWorksheetRestlet is not null) InventoryWorksheetRestletUrl = inventoryWorksheetRestlet;
+            if (itemFulfillmentRestlet is not null) ItemFulfillmentRestletUrl = itemFulfillmentRestlet;
         }
 
         internal static void ResetUrlRootsForTests()
@@ -165,6 +169,7 @@ namespace Integration.NS.Services
             ItemReceiptRestletUrl = $"https://{AccountId}.restlets.api.netsuite.com/app/site/hosting/restlet.nl?script=1853&deploy=1";
             TripTicketRestletUrl = $"https://{AccountId}.restlets.api.netsuite.com/app/site/hosting/restlet.nl?script=1862&deploy=1";
             InventoryWorksheetRestletUrl = $"https://{AccountId}.restlets.api.netsuite.com/app/site/hosting/restlet.nl?script=1878&deploy=1";
+            ItemFulfillmentRestletUrl = $"https://{AccountId}.restlets.api.netsuite.com/app/site/hosting/restlet.nl?script=2522&deploy=1";
         }
 
         /// <summary>
@@ -1587,6 +1592,97 @@ namespace Integration.NS.Services
         }
 
         /// <summary>
+        /// Reads an id that NetSuite may return as a bare number, a numeric string, or a
+        /// reference object (<c>{"id":"1001"}</c>). A strict <c>int?</c> binding throws on the
+        /// last two shapes, which made the transform-preview read fail open in the field
+        /// (2026-10-23, order 226006: <c>transform=-1</c> with no diagnostic reason).
+        /// </summary>
+        public sealed class LenientInt32Converter : JsonConverter<int?>
+        {
+            public override int? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+            {
+                switch (reader.TokenType)
+                {
+                    case JsonTokenType.Null:
+                        return null;
+                    case JsonTokenType.Number:
+                        return reader.TryGetInt32(out var number) ? number : null;
+                    case JsonTokenType.String:
+                        return int.TryParse(reader.GetString(), out var parsed) ? parsed : null;
+                    case JsonTokenType.StartObject:
+                        using (var document = JsonDocument.ParseValue(ref reader))
+                        {
+                            if (!document.RootElement.TryGetProperty("id", out var id)) return null;
+                            return id.ValueKind switch
+                            {
+                                JsonValueKind.Number when id.TryGetInt32(out var objectNumber) => objectNumber,
+                                JsonValueKind.String when int.TryParse(id.GetString(), out var objectParsed) => objectParsed,
+                                _ => null
+                            };
+                        }
+                    default:
+                        reader.Skip();
+                        return null;
+                }
+            }
+
+            public override void Write(Utf8JsonWriter writer, int? value, JsonSerializerOptions options)
+            {
+                if (value.HasValue) writer.WriteNumberValue(value.Value); else writer.WriteNullValue();
+            }
+        }
+
+        /// <summary>
+        /// One line of the <c>!transform/itemFulfillment</c> preview. <see cref="OrderLine"/>
+        /// is the SOURCE transfer-order line id - the same id the POST's <c>orderLine</c>
+        /// addresses. <see cref="Line"/> is only the preview's sublist position and must
+        /// never be used as an id; a preview without <c>orderLine</c> is unusable and the
+        /// verification fails open rather than guessing.
+        /// </summary>
+        internal sealed class TOFulfillmentTransformLine
+        {
+            [JsonPropertyName("orderLine")]
+            [JsonConverter(typeof(LenientInt32Converter))]
+            public int? OrderLine { get; set; }
+
+            [JsonPropertyName("line")]
+            [JsonConverter(typeof(LenientInt32Converter))]
+            public int? Line { get; set; }
+
+            [JsonPropertyName("quantity")]
+            public decimal? Quantity { get; set; }
+
+            [JsonPropertyName("inventoryDetail")]
+            public JsonElement? InventoryDetail { get; set; }
+
+            /// <summary>
+            /// True when the preview already carries a non-empty inventory assignment.
+            /// Under <c>?replace=item.inventoryDetail.inventoryAssignment</c>, replacing
+            /// that with an EMPTY list removes sublist lines, which NetSuite rejects with
+            /// "You have attempted an invalid sublist or line item operation".
+            /// </summary>
+            public bool HasInventoryAssignment =>
+                InventoryDetail is { ValueKind: JsonValueKind.Object } detail
+                && detail.TryGetProperty("inventoryAssignment", out var assignment)
+                && assignment.ValueKind == JsonValueKind.Object
+                && assignment.TryGetProperty("items", out var items)
+                && items.ValueKind == JsonValueKind.Array
+                && items.GetArrayLength() > 0;
+        }
+
+        private sealed class TOFulfillmentTransformPreview
+        {
+            [JsonPropertyName("item")]
+            public TransformItemSublist? Item { get; set; }
+        }
+
+        private sealed class TransformItemSublist
+        {
+            [JsonPropertyName("items")]
+            public List<TOFulfillmentTransformLine> Items { get; set; } = [];
+        }
+
+        /// <summary>
         /// NetSuite caps a SuiteQL response at 1,000 rows. The fresh read must be
         /// paged before the line SET can be trusted: an unpaged read makes every
         /// line beyond row 1,000 look closed, and the old code stripped those
@@ -1723,6 +1819,169 @@ namespace Integration.NS.Services
         }
 
         /// <summary>
+        /// Reads the item sublist of the <c>!transform/itemFulfillment</c> preview: the
+        /// exact line set the POST validates, with the pre-filled quantity and inventory
+        /// detail per line. Read-only (GET) - it creates nothing.
+        /// </summary>
+        private async Task<IReadOnlyCollection<TOFulfillmentTransformLine>> GetTOFulfillmentTransformLinesAsync(int orderId)
+        {
+            var url = string.Format(ItemFulfillmentUrlNoReplace, "transferOrder", orderId);
+            var preview = await MakeRequest<TOFulfillmentTransformPreview>(url, null, HttpMethod.Get);
+            return preview?.Item?.Items ?? [];
+        }
+
+        /// <summary>
+        /// Result of checking the reconciled line set against the transform preview.
+        /// </summary>
+        internal sealed class TOFulfillmentTransformVerification
+        {
+            /// <summary>False when the preview could not be used (fail-open).</summary>
+            public bool Available { get; init; }
+            public string? UnavailableReason { get; init; }
+            public List<PostTransferOrderDTO> Lines { get; init; } = [];
+            public List<string> RejectedScans { get; init; } = [];
+            public List<int> DroppedFillerIds { get; init; } = [];
+
+            /// <summary>Fillers whose preview line already carries an inventory assignment.</summary>
+            public List<int> FillersWithInventoryDetail { get; init; } = [];
+            public int TransformLineCount { get; init; }
+
+            /// <summary>Set when the preview exposes fewer lines than the open-line read.</summary>
+            public string? BlockingError { get; init; }
+        }
+
+        /// <summary>
+        /// Refuses a REST-transform payload larger than the measured ceiling. The message
+        /// is the operator's instruction, so it names both sizes and the two working paths.
+        /// </summary>
+        internal static void EnsureTOFulfillmentTransformSize(int lineCount, int maxLines, string orderNumber)
+        {
+            if (lineCount <= maxLines)
+            {
+                return;
+            }
+
+            throw new Exception(
+                $"Cannot post TO Item Fulfillment for order {orderNumber}: the payload would address {lineCount:N0} line(s) and the NetSuite transform accepts up to {maxLines:N0} per document "
+                + "(larger payloads are rejected with \"invalid sublist or line item operation\"). Nothing was saved. "
+                + "Fulfil this order in NetSuite, or enable WMS_TO_IF_USE_RESTLET once script 2522 has been piloted.");
+        }
+
+        /// <summary>
+        /// Checks the payload's line SET against the transform preview instead of against the
+        /// SuiteQL open-line read. The read is an approximation: a line it calls open that the
+        /// transform does not expose fails the whole POST with "You have attempted an invalid
+        /// sublist or line item operation", and every previous guard was blind to it because
+        /// they all measured against that same read.
+        ///
+        /// Rules:
+        /// <list type="bullet">
+        /// <item>A preview with no usable <c>orderLine</c> ids is unusable - fail open, never guess.</item>
+        /// <item>A preview exposing FEWER lines than the read expects blocks the save: dropping
+        /// those lines would auto-fulfil them at their pre-filled quantity.</item>
+        /// <item>A filler the preview does not expose is dropped - it cannot be addressed, and
+        /// dropping it cannot auto-fulfil anything (a line absent from the sublist is not on
+        /// the document at all).</item>
+        /// <item>A scan the preview does not expose is rejected, naming the WMS line.</item>
+        /// </list>
+        /// </summary>
+        internal static TOFulfillmentTransformVerification VerifyTOFulfillmentAgainstTransform(
+            IReadOnlyCollection<PostTransferOrderDTO> lines,
+            IReadOnlyCollection<TOFulfillmentTransformLine> transformLines,
+            int expectedOpenLineCount)
+        {
+            if (transformLines.Count == 0)
+            {
+                return new()
+                {
+                    Available = false,
+                    UnavailableReason = "the transform preview returned no item lines"
+                };
+            }
+
+            var exposed = transformLines
+                .Where(x => x.OrderLine is > 0)
+                .GroupBy(x => x.OrderLine!.Value)
+                .ToDictionary(g => g.Key, g => g.First());
+
+            if (exposed.Count == 0)
+            {
+                return new()
+                {
+                    Available = false,
+                    UnavailableReason = "the transform preview carried no orderLine ids"
+                };
+            }
+
+            var expected = Math.Max(
+                expectedOpenLineCount,
+                lines.Select(x => x.LineSequenceNumber).Distinct().Count());
+
+            if (exposed.Count < expected)
+            {
+                var absent = lines
+                    .Select(x => x.LineSequenceNumber)
+                    .Distinct()
+                    .Where(id => !exposed.ContainsKey(id))
+                    .OrderBy(id => id)
+                    .Take(10)
+                    .ToList();
+
+                return new()
+                {
+                    Available = true,
+                    TransformLineCount = exposed.Count,
+                    BlockingError =
+                        $"the item fulfillment transform exposes {exposed.Count:N0} line(s) but the open-line read expects {expected:N0}, "
+                        + $"and addressing the difference would auto-fulfil those lines at their pre-filled quantity. "
+                        + $"Sample unexposed WMS lines: [{string.Join(",", absent)}]. Nothing was saved - fulfil this order in NetSuite, then report this message."
+                };
+            }
+
+            var kept = new List<PostTransferOrderDTO>();
+            var rejectedScans = new List<string>();
+            var droppedFillerIds = new List<int>();
+            var fillersWithInventoryDetail = new List<int>();
+
+            foreach (var line in lines)
+            {
+                if (!exposed.TryGetValue(line.LineSequenceNumber, out var transformLine))
+                {
+                    if (line.ScannedQuantity > 0)
+                    {
+                        rejectedScans.Add(
+                            $"WMS line {line.LineSequenceNumber} ({line.MaterialCode} - {line.MaterialName}): scanned {line.ScannedQuantity}, but the line is not exposed by the item fulfillment transform");
+                    }
+                    else
+                    {
+                        droppedFillerIds.Add(line.LineSequenceNumber);
+                    }
+
+                    continue;
+                }
+
+                // Diagnostic only: an empty ?replace= on a line that already carries an
+                // assignment removes sublist lines. Reported so a field failure names it.
+                if (line.ScannedQuantity == 0 && transformLine.HasInventoryAssignment)
+                {
+                    fillersWithInventoryDetail.Add(line.LineSequenceNumber);
+                }
+
+                kept.Add(line);
+            }
+
+            return new()
+            {
+                Available = true,
+                TransformLineCount = exposed.Count,
+                Lines = kept,
+                RejectedScans = rejectedScans,
+                DroppedFillerIds = droppedFillerIds,
+                FillersWithInventoryDetail = fillersWithInventoryDetail
+            };
+        }
+
+        /// <summary>
         /// Reconciliation switch (deployment rollback: set to false to restore the
         /// pre-reconciliation snapshot behaviour). Environment configuration, like
         /// the NetSuite credentials this service already reads.
@@ -1735,6 +1994,55 @@ namespace Integration.NS.Services
         /// when this is on.
         /// </summary>
         internal const string FailClosedRevalidationFlagVariable = "WMS_TO_IF_ENABLE_FAIL_CLOSED_REVALIDATION";
+
+        /// <summary>
+        /// Transform-preview verification switch. The payload's line SET is checked
+        /// against the <c>!transform/itemFulfillment</c> preview - the same body the
+        /// POST validates - instead of trusting the SuiteQL open-line read.
+        ///
+        /// OFF BY DEFAULT: the preview cannot be read. NetSuite answers
+        /// <c>GET .../!transform/itemFulfillment</c> with
+        /// <c>405 INVALID_METHOD - Unsupported HTTP method</c> (field-verified
+        /// 2026-10-23, order ISTR-THM00100000837/223191), because the transform action
+        /// is POST-only. The reader and its guards stay for the day a supported preview
+        /// exists (or a transient-POST preview is proven safe); enabling this flag
+        /// without one only costs a failed call per save.
+        /// </summary>
+        internal const string TransformVerificationFlagVariable = "WMS_TO_IF_ENABLE_TRANSFORM_VERIFY";
+
+        public static bool TransformVerificationEnabled =>
+            ReadFlag(Environment.GetEnvironmentVariable(TransformVerificationFlagVariable), defaultValue: false);
+
+        /// <summary>
+        /// Upper bound on the entries one REST <c>!transform/itemFulfillment</c> POST may
+        /// carry. The transform addresses the item sublist as a whole: field orders of
+        /// 1,022 and 1,584 lines were rejected with "invalid sublist or line item
+        /// operation" while small orders post. NetSuite's REST sublist boundary is 1,000,
+        /// so anything above it is refused before the POST instead of after a doomed save.
+        /// Override with <see cref="MaxTransformLinesVariable"/> once the real ceiling is
+        /// measured on this account.
+        /// </summary>
+        internal const string MaxTransformLinesVariable = "WMS_TO_IF_MAX_TRANSFORM_LINES";
+
+        public static int MaxTransformLines
+        {
+            get
+            {
+                var raw = Environment.GetEnvironmentVariable(MaxTransformLinesVariable);
+                return int.TryParse(raw, out var value) && value > 0 ? value : 1000;
+            }
+        }
+
+        /// <summary>
+        /// Routes TO item fulfillment through the RESTlet (script 2522) instead of the REST
+        /// <c>!transform/itemFulfillment</c> endpoint. OFF by default: the RESTlet sends only
+        /// the scanned lines and relies on the SuiteScript to leave every other line
+        /// unfulfilled, so it must be piloted on a partially scanned order first.
+        /// </summary>
+        internal const string UseRestletForTOIFVariable = "WMS_TO_IF_USE_RESTLET";
+
+        public static bool UseRestletForTOFulfillment =>
+            ReadFlag(Environment.GetEnvironmentVariable(UseRestletForTOIFVariable), defaultValue: false);
 
         public static bool ReconciliationEnabled =>
             ReadFlag(Environment.GetEnvironmentVariable(ReconciliationFlagVariable), defaultValue: true);
@@ -2120,6 +2428,18 @@ namespace Integration.NS.Services
             string.Concat((value ?? string.Empty).Where(c => !char.IsWhiteSpace(c))).ToUpperInvariant();
 
         /// <summary>
+        /// One-line, length-capped form of a diagnostic reason. The toast is the only
+        /// channel a field failure has, so a multi-line exception message must not
+        /// break its layout; the API log keeps the untouched text.
+        /// </summary>
+        private static string SanitizeDiagnosticText(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return string.Empty;
+            var single = value.Replace('\r', ' ').Replace('\n', ' ').Trim();
+            return single.Length <= 120 ? single : single[..120] + "…";
+        }
+
+        /// <summary>
         /// 1.4 - rejects a request that has nothing to fulfil or that mixes orders
         /// before the first NetSuite call. Extracted so both guards are testable
         /// without HTTP. Input rule 1 and 2 of the target contract.
@@ -2140,6 +2460,11 @@ namespace Integration.NS.Services
 
         public async Task<bool> SaveTOItemFulfillment(List<PostTransferOrderDTO> Data)
         {
+            if (UseRestletForTOFulfillment)
+            {
+                return await SaveTOItemFulfillmentViaRestlet(Data);
+            }
+
             // Captured before the deterministic collapse: the diagnostic reports the
             // count, and a successful save logs the collapsed keys (input rule 4).
             var duplicateGroups = Data
@@ -2252,9 +2577,88 @@ namespace Integration.NS.Services
                 throw new Exception($"Cannot post TO Item Fulfillment: scanned quantity exceeds the remaining quantity for: {string.Join("; ", overRemaining)}. Reload the order and rescan the affected line(s).");
             }
 
+            // D2b - verify the line SET against the transform preview, the same body the POST
+            // validates. The SuiteQL read is an approximation; a line it calls open that the
+            // transform does not expose is an "invalid sublist or line item operation" 400 that
+            // fails the entire save, and every earlier guard was blind to it because they all
+            // measured against that same read (field report 2026-10-23, order 226006: the diag
+            // reported extra=0 while NetSuite rejected the payload).
+            var transformLineCount = -1;
+            List<int> droppedFillerIds = [];
+            List<int> fillersWithInventoryDetail = [];
+            var transformVerifyError = string.Empty;
+
+            if (TransformVerificationEnabled)
+            {
+                IReadOnlyCollection<TOFulfillmentTransformLine>? transformLines = null;
+                try
+                {
+                    transformLines = await GetTOFulfillmentTransformLinesAsync(orderId);
+                }
+                catch (Exception ex)
+                {
+                    transformVerifyError = ex.Message;
+                    logger.LogWarning(ex, "TO IF transform preview unavailable for order {OrderId}; posting on the SuiteQL line set (fail-open).", orderId);
+                }
+
+                if (transformLines is not null)
+                {
+                    var verification = VerifyTOFulfillmentAgainstTransform(Data, transformLines, openLineCount);
+
+                    if (!verification.Available)
+                    {
+                        transformVerifyError = verification.UnavailableReason ?? string.Empty;
+                        logger.LogWarning(
+                            "TO IF transform preview unusable for order {OrderId}: {Reason}. Posting on the SuiteQL line set (fail-open).",
+                            orderId,
+                            verification.UnavailableReason);
+                    }
+                    else
+                    {
+                        if (verification.BlockingError is not null)
+                        {
+                            throw new Exception($"Cannot post TO Item Fulfillment for order {orderNumber}: {verification.BlockingError}");
+                        }
+
+                        if (verification.RejectedScans.Count > 0)
+                        {
+                            throw new Exception($"Cannot post TO Item Fulfillment: the following scanned line(s) are not exposed by the item fulfillment transform: {string.Join("; ", verification.RejectedScans)}. Reload the order and rescan the affected line(s).");
+                        }
+
+                        Data = verification.Lines;
+                        transformLineCount = verification.TransformLineCount;
+                        droppedFillerIds = verification.DroppedFillerIds;
+                        fillersWithInventoryDetail = verification.FillersWithInventoryDetail;
+
+                        if (droppedFillerIds.Count > 0)
+                        {
+                            logger.LogWarning(
+                                "TO IF for order {OrderId}: dropped {Count} filler line(s) the transform does not expose: [{Ids}].",
+                                orderId,
+                                droppedFillerIds.Count,
+                                string.Join(",", droppedFillerIds.Take(20)));
+                        }
+
+                        if (fillersWithInventoryDetail.Count > 0)
+                        {
+                            logger.LogWarning(
+                                "TO IF for order {OrderId}: {Count} filler line(s) already carry an inventory assignment in the transform preview: [{Ids}]. An empty ?replace= on these removes sublist lines and NetSuite rejects the save with 'invalid sublist or line item operation'.",
+                                orderId,
+                                fillersWithInventoryDetail.Count,
+                                string.Join(",", fillersWithInventoryDetail.Take(20)));
+                        }
+                    }
+                }
+            }
+
             var isTripTicketExempt = Data.FirstOrDefault()?.IsTripTicketExempt == true;
             var itemFulfillmentStatus = isTripTicketExempt ? "C" : "B";
             var printLabel = true; // Packing labels are required regardless of trip-ticket exemption.
+
+            // The rest of the save builds the bucket payload from Data; its size IS the
+            // number of entries NetSuite will see in item.items[]. Refuse a payload above
+            // the measured transform ceiling before the POST, not after it fails.
+            EnsureTOFulfillmentTransformSize(Data.Count, MaxTransformLines, orderNumber);
 
             // 1.5 - reconciliation ran once; only the split is per bucket. Each
             // bucket is completed with fillers for every open line it does not
@@ -2363,7 +2767,7 @@ namespace Integration.NS.Services
                 var extra = openLineIds is null
                     ? -1
                     : bucketLines.Count(x => !openLineIds.Contains(x.LineSequenceNumber));
-                var diag = $"[diag bucket={bucket} replace={url.Contains("replace=")} usedBin={isUsedBin} order={orderNumber}/{orderId} open={openLineCount} submitted={submittedLineCount} posted={bucketLines.Count} scannedLines={bucketLines.Count(x => x.ScannedQuantity > 0)} missing={missingLineCount} extra={extra} dup={duplicateLineCount} uomRate={uomRate} postedIds=[{postedIds}] build={BuildStamp}]";
+                var diag = $"[diag bucket={bucket} replace={url.Contains("replace=")} usedBin={isUsedBin} order={orderNumber}/{orderId} open={openLineCount} submitted={submittedLineCount} posted={bucketLines.Count} scannedLines={bucketLines.Count(x => x.ScannedQuantity > 0)} missing={missingLineCount} extra={extra} dup={duplicateLineCount} uomRate={uomRate} transform={transformLineCount} transformError=[{SanitizeDiagnosticText(transformVerifyError)}] droppedFillers=[{string.Join(",", droppedFillerIds.Take(10))}] fillersWithDetail=[{string.Join(",", fillersWithInventoryDetail.Take(10))}] postedIds=[{postedIds}] build={BuildStamp}]";
 
                 if (bucketLines.Count > 10)
                 {
@@ -2382,6 +2786,141 @@ namespace Integration.NS.Services
                     orderId,
                     duplicateKeys.Count,
                     string.Join("; ", duplicateKeys));
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Posts a TO item fulfillment through the RESTlet (script 2522): only the scanned
+        /// lines, with no zero-quantity fillers. Reconciliation and the save guards are the
+        /// same as the REST path, so a scan on a line that closed after load still fails loud.
+        /// </summary>
+        public async Task<bool> SaveTOItemFulfillmentViaRestlet(List<PostTransferOrderDTO> Data)
+        {
+            var duplicateGroups = Data
+                .GroupBy(x => (x.LineSequenceNumber, x.IsBad))
+                .Where(g => g.Count() > 1)
+                .ToList();
+
+            Data = DeduplicateFulfillmentLines(Data, x => x.LineSequenceNumber, x => x.IsBad, x => x.ScannedQuantity);
+
+            ValidateTOFulfillmentRequest(Data);
+
+            var orderId = Data[0].NetsuiteOrderInternalId;
+            var orderNumber = Data.FirstOrDefault()?.OrderNumber ?? orderId.ToString();
+
+            var isUsedBin = Data.Any(x => x.IsLocationUsedBin);
+            if (Data.Select(x => x.IsLocationUsedBin).Distinct().Count() > 1)
+            {
+                var flagSample = string.Join("; ", Data.Take(10).Select((line, i) => $"pos{i + 1}/WMS{line.LineSequenceNumber}/{line.MaterialCode} usedBin={line.IsLocationUsedBin} ({line.LocationUsedBin})"));
+                throw new Exception($"Cannot post TO Item Fulfillment: mixed bin-tracked flags in one save (location '{Data.FirstOrDefault()?.LocationName}'). Reload the order so every line resolves the same location, then retry. Sample: {flagSample}.");
+            }
+
+            var submittedLineCount = Data.Count;
+
+            // Same authoritative read and reconciliation as the REST path: a scan on a line
+            // fulfilled or closed since load must stop the save, not reach the RESTlet.
+            IReadOnlyCollection<TOFulfillmentFreshLineState>? freshLines = null;
+            try
+            {
+                freshLines = await GetFreshTOFulfillmentLineStateAsync(orderId);
+            }
+            catch (Exception ex)
+            {
+                if (FailClosedRevalidationEnabled)
+                {
+                    throw new Exception($"Cannot post TO Item Fulfillment for order {orderNumber}: the current open-line state could not be read. Nothing was saved. {ex.Message}", ex);
+                }
+
+                logger.LogWarning(ex, "TO IF authoritative line read unavailable for order {OrderId}; continuing with the client's loaded snapshot (fail-open).", orderId);
+            }
+
+            List<string>? newlyClosedScans = null;
+
+            if (freshLines is not null)
+            {
+                if (ReconciliationEnabled)
+                {
+                    var reconciled = ReconcileTOFulfillmentLines(Data, freshLines, orderId, isUsedBin);
+
+                    if (reconciled.RejectedScans.Count > 0)
+                    {
+                        throw new Exception($"Cannot post TO Item Fulfillment: the following scanned line(s) were fulfilled or closed after this order was loaded: {string.Join("; ", reconciled.RejectedScans)}. Reload the order and rescan the affected line(s).");
+                    }
+
+                    Data = reconciled.Lines;
+                }
+                else
+                {
+                    newlyClosedScans = MergeFreshTOFulfillmentLineState(Data, freshLines);
+                }
+            }
+
+            if (newlyClosedScans is { Count: > 0 })
+            {
+                throw new Exception($"Cannot post TO Item Fulfillment: the following scanned line(s) were fulfilled or closed after this order was loaded: {string.Join("; ", newlyClosedScans)}. Reload the order and rescan the affected line(s).");
+            }
+
+            Data = Data.Where(x => !IsClosedFulfillmentLine(x)).ToList();
+
+            var overRemaining = FindScansExceedingRemaining(Data);
+            if (overRemaining.Count > 0)
+            {
+                throw new Exception($"Cannot post TO Item Fulfillment: scanned quantity exceeds the remaining quantity for: {string.Join("; ", overRemaining)}. Reload the order and rescan the affected line(s).");
+            }
+
+            var scanned = Data.Where(x => x.ScannedQuantity > 0).ToList();
+            if (scanned.Count == 0)
+            {
+                throw new Exception("Cannot post TO Item Fulfillment: the request contains no positive scanned quantity. Reload the order, rescan the affected line(s), and try again. Nothing was saved.");
+            }
+
+            var shipStatus = Data.FirstOrDefault()?.IsTripTicketExempt == true ? "C" : "B";
+            var url = ItemFulfillmentRestletUrl;
+
+            string? jsonString = null;
+            try
+            {
+                var payload = TransferOrderIFRestletPayloadDTO.CreateForItemFulfillmentRestlet(scanned, orderId, shipStatus, isUsedBin);
+
+                jsonString = JsonSerializer.Serialize(payload, JsonSerializerOption);
+
+                var response = await MakeRequest<TransferOrderIFRestletResponseDTO>(url, jsonString, HttpMethod.Post);
+
+                if (response is { Success: false })
+                {
+                    throw new Exception($"the RESTlet reported success=false (itemFulfillmentId={response.ItemFulfillmentId}, status={response.Status ?? "unknown"})");
+                }
+
+                // The RESTlet commits the document; naming it here is the only way the
+                // save can be verified without opening NetSuite.
+                logger.LogInformation(
+                    "TO IF RESTlet created itemFulfillment {ItemFulfillmentId} ({Status}) for order {OrderNumber}/{OrderId} with {ScannedLines} scanned line(s).",
+                    response?.ItemFulfillmentId ?? 0,
+                    response?.Status ?? "unknown",
+                    orderNumber,
+                    orderId,
+                    scanned.Count);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "TO Item Fulfillment RESTlet failed. Url: {Url}. Payload: {Payload}", url, jsonString);
+
+                var postedIds = string.Join(",", scanned.Take(10).Select(x => x.LineSequenceNumber));
+                var uomRate = scanned.FirstOrDefault()?.UoMRate ?? 0;
+                var diag = $"[diag transport=restlet order={orderNumber}/{orderId} submitted={submittedLineCount} scannedLines={scanned.Count} postedLines={scanned.Count} dup={duplicateGroups.Count} uomRate={uomRate} postedIds=[{postedIds}] build={BuildStamp}]";
+
+                throw new Exception($"Error while posting TO Item Fulfillment (RESTlet). {ex.Message} {diag}", ex);
+            }
+
+            if (duplicateGroups.Count > 0)
+            {
+                logger.LogWarning(
+                    "TO IF RESTlet request for order {OrderNumber}/{OrderId} contained {Count} duplicate (WMS line, bucket) row(s); collapsed deterministically.",
+                    orderNumber,
+                    orderId,
+                    duplicateGroups.Count);
             }
 
             return true;
