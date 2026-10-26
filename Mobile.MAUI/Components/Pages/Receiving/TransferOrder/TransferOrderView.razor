@@ -59,6 +59,13 @@
                             </RadzenStack>
                         </Template>
                     </RadzenDataList>
+                    @if (HasMore)
+                    {
+                        <RadzenButton Text="@(IsLoadingMore ? "Loading..." : "Load more")"
+                                      Icon="expand_more"
+                                      Disabled="@IsLoadingMore"
+                                      Click="@LoadMore" />
+                    }
                 </RadzenStack>
             </ChildContent>
         </Loading>

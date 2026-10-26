@@ -24,6 +24,11 @@ public partial class TransferOrderView : IAsyncDisposable
 
     private string SearchText { get; set; } = string.Empty;
 
+    private const int PageSize = 50;
+    private int Offset { get; set; }
+    private bool HasMore { get; set; }
+    private bool IsLoadingMore { get; set; }
+
     public string TOOrderNumber;
 
     protected override async Task OnInitializedAsync()
@@ -35,12 +40,15 @@ public partial class TransferOrderView : IAsyncDisposable
             TaskAsync = async () =>
             {
                 await InvokeAsync(StateHasChanged);
-                var res = await Client.Post<List<TransferOrderVM>>("/Receiving/TransferOrder/PendingReceipt", new { NetsuiteUserSubsidiaryInternalId = UserSubsidiaryId, NetsuiteUserInternalId = UserId });
+                Offset = 0;
+                var res = await Client.Post<List<TransferOrderVM>>($"/Receiving/TransferOrder/PendingReceipt?limit={PageSize}&offset={Offset}", new { NetsuiteUserSubsidiaryInternalId = UserSubsidiaryId, NetsuiteUserInternalId = UserId });
                 return res;
             },
             OnSuccess = async (result) =>
             {
                 Data = result.Data ?? [];
+                Offset = Data.Count;
+                HasMore = Data.Count == PageSize;
                 ApplySearch();
 
                 await InvokeAsync(StateHasChanged);
@@ -76,6 +84,32 @@ public partial class TransferOrderView : IAsyncDisposable
     async Task LoadData()
     {
         await ActionFactory.ExecuteAppActionAsync(ActionGetTransferOrder);
+    }
+
+    private async Task LoadMore()
+    {
+        if (!HasMore || IsLoadingMore)
+            return;
+
+        IsLoadingMore = true;
+        await InvokeAsync(StateHasChanged);
+        try
+        {
+            var result = await Client.Post<List<TransferOrderVM>>(
+                $"/Receiving/TransferOrder/PendingReceipt?limit={PageSize}&offset={Offset}",
+                new { NetsuiteUserSubsidiaryInternalId = UserSubsidiaryId, NetsuiteUserInternalId = UserId });
+
+            var page = result.Data ?? [];
+            Data.AddRange(page);
+            Offset += page.Count;
+            HasMore = page.Count == PageSize;
+            ApplySearch();
+        }
+        finally
+        {
+            IsLoadingMore = false;
+            await InvokeAsync(StateHasChanged);
+        }
     }
 
     #region Search

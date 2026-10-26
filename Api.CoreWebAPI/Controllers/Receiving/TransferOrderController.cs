@@ -17,9 +17,9 @@ namespace Api.CoreWebAPI.Controllers.Receiving;
 public class TransferOrderController(ISender Sender) : ControllerBase
 {
     [HttpPost("PendingReceipt")]
-    public async Task<ApiResult<IEnumerable<TransferOrderVM>>> GetAllTO(RequestPerUserDTO req)
+    public async Task<ApiResult<IEnumerable<TransferOrderVM>>> GetAllTO(RequestPerUserDTO req, [FromQuery] int limit = 50, [FromQuery] int offset = 0)
     {
-        var result = await Sender.Send(new GetTransferOrdersQry(req));
+        var result = await Sender.Send(new GetTransferOrdersQry(req, limit, offset));
 
         List<TransferOrderVM> ret = result.Adapt<List<TransferOrderVM>>();
 

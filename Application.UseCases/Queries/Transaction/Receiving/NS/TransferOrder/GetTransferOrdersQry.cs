@@ -6,7 +6,7 @@ using MediatR;
 
 namespace Application.UseCases.Queries.Transaction.Receiving.NS.TransferOrder;
 
-public record GetTransferOrdersQry(RequestPerUserDTO user) : IRequest<IEnumerable<OrdersDTO>>;
+public record GetTransferOrdersQry(RequestPerUserDTO user, int limit = 50, int offset = 0) : IRequest<IEnumerable<OrdersDTO>>;
 
 public class GetTransferOrdersQryHandler(
     INetSuiteApiClientService netSuiteApiClientService)
@@ -22,7 +22,10 @@ public class GetTransferOrdersQryHandler(
             ["userid"] = request.user.NetsuiteUserInternalId.ToString()
         };
 
-        var Data = await netSuiteApiClientService.NetsuiteQuery<OrdersDTO>("NS_TransferOrder_Get_PendingReceipt", parameters);
+        const int maxPageSize = 100;
+        var limit = Math.Clamp(request.limit, 1, maxPageSize);
+        var offset = Math.Max(0, request.offset);
+        var Data = await netSuiteApiClientService.NetsuiteQuery<OrdersDTO>("NS_TransferOrder_Get_PendingReceipt", parameters, limit, offset, cancellationToken);
         return Data.Adapt<IEnumerable<OrdersDTO>>();
     }
 }
