@@ -65,7 +65,10 @@ public class ItemReceiptLineDTO
     public decimal WeightPerItem { get; set; }
     public decimal TotalConfiscated { get; set; }
     public decimal QuantityPlanned { get; set; }
-    public decimal QuantityOpen => QuantityPlanned - QuantityReceived;
+    public decimal? QuantityFulfilled { get; set; }
+    public decimal QuantityOpen => (QuantityFulfilled.HasValue
+        ? Math.Min(QuantityPlanned, QuantityFulfilled.Value)
+        : QuantityPlanned) - QuantityReceived;
     public decimal QuantityReceived { get; set; }
     public decimal QuantityAlloted { get; set; }
 

@@ -16,6 +16,15 @@ public class ReceivingPostingTests
     private static (ReceivingIntegration Sut, RestCapturingNetSuiteClient Client) Create()
     {
         var client = new RestCapturingNetSuiteClient();
+        client.QueryItems.Add(new ItemFulfillmentLineRemainingDTO
+        {
+            LineNumber = 10,
+            ItemCode = "ITEM-1",
+            ItemDescription = "Test item",
+            QuantityPlanned = 10,
+            QuantityFulfilled = 10,
+            QuantityReceived = 0
+        });
         return (new ReceivingIntegration(client, new HttpContextAccessor(),
             new SuiteQLQueryBuilderFactoryService(), NullLogger<ReceivingIntegration>.Instance), client);
     }
@@ -173,6 +182,83 @@ public class ReceivingPostingTests
         var dto = Receipt(ItemReceiptDTO.SourceTypes.TransferOrder);
         dto.Lines[0].InventoryDetails = [Detail(3, 1), Detail(1, 3), Detail(6, 1)];
         return dto;
+    }
+
+    [Fact]
+    public async Task Transfer_receipt_allows_the_remaining_quantity_for_the_selected_fulfillment()
+    {
+        var (sut, client) = Create();
+        client.QueryItems.Clear();
+        client.QueryItems.Add(new ItemFulfillmentLineRemainingDTO
+        {
+            LineNumber = 10,
+            ItemCode = "ITEM-1",
+            ItemDescription = "Test item",
+            QuantityPlanned = 9,
+            QuantityFulfilled = 9,
+            QuantityReceived = 6
+        });
+        var dto = Receipt(ItemReceiptDTO.SourceTypes.TransferOrder);
+        dto.Lines[0].QuantityPlanned = 9;
+        dto.Lines[0].QuantityReceived = 6;
+        dto.Lines[0].QuantityAlloted = 3;
+        dto.Lines[0].InventoryDetails = [Detail(1, 3)];
+
+        Assert.True(await sut.PostItemReceipt(dto));
+        Assert.Single(client.Writes);
+    }
+
+    [Fact]
+    public async Task Transfer_receipt_rejects_quantity_above_the_selected_fulfillment_remainder()
+    {
+        var (sut, client) = Create();
+        client.QueryItems.Clear();
+        client.QueryItems.Add(new ItemFulfillmentLineRemainingDTO
+        {
+            LineNumber = 10,
+            ItemCode = "ITEM-1",
+            ItemDescription = "Test item",
+            QuantityPlanned = 9,
+            QuantityFulfilled = 9,
+            QuantityReceived = 6
+        });
+        var dto = Receipt(ItemReceiptDTO.SourceTypes.TransferOrder);
+        dto.Lines[0].QuantityPlanned = 9;
+        // Simulate a stale browser that still believes no receipt has been
+        // applied; the server's fresh IF-scoped check must reject the overage.
+        dto.Lines[0].QuantityReceived = 0;
+        dto.Lines[0].QuantityAlloted = 4;
+        dto.Lines[0].InventoryDetails = [Detail(1, 4)];
+
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => sut.PostItemReceipt(dto));
+
+        Assert.Contains("remaining quantity 3", error.Message);
+        Assert.Empty(client.Writes);
+    }
+
+    [Fact]
+    public async Task Transfer_receipt_is_capped_to_the_quantity_shipped_on_this_fulfillment()
+    {
+        var (sut, client) = Create();
+        client.QueryItems.Clear();
+        client.QueryItems.Add(new ItemFulfillmentLineRemainingDTO
+        {
+            LineNumber = 10,
+            ItemCode = "ITEM-1",
+            ItemDescription = "Test item",
+            QuantityPlanned = 9,
+            QuantityFulfilled = 3,
+            QuantityReceived = 0
+        });
+        var dto = Receipt(ItemReceiptDTO.SourceTypes.TransferOrder);
+        dto.Lines[0].QuantityPlanned = 9;
+        dto.Lines[0].QuantityAlloted = 4;
+        dto.Lines[0].InventoryDetails = [Detail(1, 4)];
+
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => sut.PostItemReceipt(dto));
+
+        Assert.Contains("remaining quantity 3", error.Message);
+        Assert.Empty(client.Writes);
     }
 
     [Fact]

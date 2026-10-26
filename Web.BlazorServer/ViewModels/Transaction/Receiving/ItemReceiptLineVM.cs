@@ -10,14 +10,14 @@ public class ItemReceiptLineVM
     {
         get
         {
-            return _isReceived && (QuantityReceived < QuantityPlanned);
+            return _isReceived && QuantityOpen > 0;
         }
         set
         {
             _isReceived = value;
         }
     }
-    public bool IsComplete => QuantityPlanned <= QuantityReceived;
+    public bool IsComplete => QuantityOpen <= 0;
     public bool IsLocationBinUsed { get; set; } = false;
 
     public int LineNumber { get; set; }
@@ -37,7 +37,10 @@ public class ItemReceiptLineVM
     public decimal WeightPerItem { get; set; }
     public decimal WeightRecord => WeightPerItem * QuantityAlloted;
     public decimal QuantityPlanned { get; set; }
-    public decimal QuantityOpen => QuantityPlanned - QuantityReceived;
+    public decimal? QuantityFulfilled { get; set; }
+    public decimal QuantityOpen => (QuantityFulfilled.HasValue
+        ? Math.Min(QuantityPlanned, QuantityFulfilled.Value)
+        : QuantityPlanned) - QuantityReceived;
     public decimal QuantityReceived { get; set; }
     public decimal QuantityAlloted { get; set; }
     public bool IsAllAssigned => InventoryDetails.Sum(x => x.QuantityAlloted) == QuantityAlloted &&

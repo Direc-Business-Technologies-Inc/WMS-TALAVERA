@@ -17,6 +17,8 @@ namespace Integration.NS.Tests.Fakes;
 public sealed class RestCapturingNetSuiteClient : INetSuiteApiClientService
 {
     public List<(string Url, string? Body, HttpMethod Method)> Writes { get; } = new();
+    public List<object> QueryItems { get; } = new();
+    public List<string> Queries { get; } = new();
     public Func<int, Task>? OnWrite { get; set; }
     public int QueryCount { get; private set; }
 
@@ -31,10 +33,12 @@ public sealed class RestCapturingNetSuiteClient : INetSuiteApiClientService
     public Task<NetSuiteResponse<T>> ExecuteSuiteQLQuery<T>(string query, int? limit = null, int? offset = null, CancellationToken ct = default)
     {
         QueryCount++;
+        Queries.Add(query);
+        var items = QueryItems.OfType<T>().ToList();
         return Task.FromResult(new NetSuiteResponse<T>
         {
-            items = new List<T>(),
-            totalResults = 0
+            items = items,
+            totalResults = items.Count
         });
     }
 

@@ -60,13 +60,18 @@ public class GetItemReceiptItemFulfillmentLinesQueryShapeTests
     }
 
     [Fact]
-    public async Task QuantityReceived_reads_the_to_ledger_without_a_nested_subquery()
+    public async Task QuantityReceived_reads_fulfillment_allocations_without_a_nested_subquery()
     {
         var query = await BuiltQueryAsync("IF-1");
 
-        // Same ledger source as the pre-fix design (TO RECEIVING line's
-        // quantityshiprecv, UoM-normalized), delivered without correlation.
+        // Receipt totals are tied to the selected IF, not taken from the shared
+        // Transfer Order quantityshiprecv counter.
         Assert.Contains("NVL(ifmap.qtyrecv / uom.conversionrate, 0) AS QuantityReceived", query);
+        Assert.Contains("ifreceipt.previousdoc AS ifdoc", query);
+        Assert.Contains("nexttransactionlink ifreceipt", query);
+        Assert.Contains("ifreceipt.linktype = 'TOrdCost'", query);
+        Assert.Contains("SUM(ABS(receiptline.quantity)) AS qtyrecv", query);
+        Assert.DoesNotContain("ttl.quantityshiprecv", query);
         Assert.DoesNotContain("rline.id =", query);
         Assert.DoesNotContain("SELECT ttl.id", query);
     }
@@ -107,7 +112,9 @@ public class GetItemReceiptItemFulfillmentLinesQueryShapeTests
         // contains "tl." as a plain substring.
         Assert.DoesNotContain(" tl.", derivedTable);
         Assert.DoesNotContain("uom.", derivedTable);
-        Assert.Contains("ttl.quantityshiprecv AS qtyrecv", derivedTable);
+        Assert.Contains("ABS(ttl.quantity) AS quantityplanned", derivedTable);
+        Assert.Contains("ABS(ifline.quantity) AS quantityfulfilled", derivedTable);
+        Assert.Contains("NVL(receipts.qtyrecv, 0) AS qtyrecv", derivedTable);
     }
 
     [Fact]
@@ -116,5 +123,14 @@ public class GetItemReceiptItemFulfillmentLinesQueryShapeTests
         var query = await BuiltQueryAsync("IF-THM00100000660");
 
         Assert.Contains("WHERE t.tranid = 'IF-THM00100000660'", query);
+    }
+
+    [Fact]
+    public async Task Fulfillment_line_plan_uses_its_shipped_quantity()
+    {
+        var query = await BuiltQueryAsync("IF-1");
+
+        Assert.Contains("ABS(ifmap.quantityplanned / uom.conversionrate) AS QuantityPlanned", query);
+        Assert.Contains("ABS(ifmap.quantityfulfilled / uom.conversionrate) AS QuantityFulfilled", query);
     }
 }

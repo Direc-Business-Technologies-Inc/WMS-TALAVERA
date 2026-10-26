@@ -401,7 +401,7 @@ AND (custbody_dbti_fully_received = 'F' OR IS NULL)
 | Purchase Order | `Receiving/PurchaseOrder/SaveScan` | `PostPurchaseOrderIRCmd` | `purchaseOrder/{id}/!transform/itemReceipt` |
 
 **Web path**: `ItemReceiptCreatePage.razor` → `ReceivingIntegration.PostItemReceipt` →
-up to 3 concurrent posts split by inventory status, ordered **bad → good → missing**
+up to 3 sequential posts split by inventory status, ordered **bad → good → missing**
 (`INVENTORY_STATUS_ID_GOOD=1`, `_BAD=3`, `_MISSING=6`).
 
 **Pre-flight guards in `ReceivingIntegration.PostItemReceipt`:**
@@ -414,8 +414,11 @@ up to 3 concurrent posts split by inventory status, ordered **bad → good → m
 - Direct TO: `status IN ('F','E')`, `transactionlinetype = 'RECEIVING'`
 - Via IF: `NS_TO_Get_Itemfulfillments.sql` **requires `t.status='C'`** ← the trip-ticket gate
 
-**End state:** item receipts created; when `quantityshiprecv == quantity` the TO
-auto-closes and `custbody_dbti_fully_received='T'` removes the IF from every open pool.
+**End state:** NetSuite natively links IF→IR in `nexttransactionlink`
+(`linktype='TOrdCost'`) and TO line→IR line in its transaction-line links. WMS
+computes IF completion from those links, so the picker does not depend on
+`custbody_dbti_fully_received` or a RESTlet update. The TO's own
+`quantityshiprecv` remains the order-wide over-receipt ceiling.
 
 ---
 
