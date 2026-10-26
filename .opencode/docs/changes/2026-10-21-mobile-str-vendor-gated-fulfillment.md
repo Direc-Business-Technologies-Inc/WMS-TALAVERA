@@ -96,10 +96,10 @@ manually overridden; they only diverge on an override, where the displayed bin m
 belong to the item-master vendor. That divergence is pre-existing and is **not**
 changed here.
 
-### 2. The barcode is a name — resolve the name, then use the id
+### 2. The barcode is a name or an internal id — resolve it, then use the id
 
 The scan is text, so it cannot be used as a filter key directly. Resolution is
-`scanned name → vendor on this document → internal id`, in that order:
+`scanned payload → vendor on this document → internal id`, in that order:
 
 1. Run one small candidate query (`NS_TO_x_Get_Vendor_Candidates.sql`) that returns
    the distinct `tl.custcol_dbti_vendor` ids for the tranid, with the same
@@ -110,6 +110,13 @@ The scan is text, so it cannot be used as a filter key directly. Resolution is
    then a punctuation-insensitive retry (printed labels and record names can differ
    by a comma or a period).
 4. Return the matched vendor's id and the name that matched.
+
+**Internal-id payloads (2026-10-26).** If the payload parses as a positive integer
+that is one of the document's candidate ids, that vendor is returned before any name
+matching, so the label may carry either the printed name or the NetSuite internal id.
+The id channel is still document-scoped — an id from another order is rejected — and
+it wins when a numeric payload could also be a vendor name. That precedence is pinned
+by a unit test rather than guessed at runtime.
 
 The candidate read is independent of the line read's 1,000-row page, so a vendor
 whose lines sit beyond row 1,000 still resolves. Names come from the vendor record,
@@ -297,11 +304,14 @@ Not yet verified against a device or a live NetSuite account.
 3. **No server-side re-validation of vendor on save.** The gate is a query/UI control,
    and `PostTransferOrderIFCmd` accepts whatever line set it is given. Acceptable for
    an internal handheld; a crafted client could still post other lines.
-4. **The scan is matched by name, which is fragile.** Renaming the vendor between
-   printing and scanning breaks the match, and two vendors on one order whose names
-   collapse to the same text are rejected as ambiguous. The durable fix is to have
-   print scriptlet 1671 encode the vendor internal id instead; the resolver can then
-   try an id first and fall back to the name, so existing printouts keep working.
+4. **Name scans are fragile; id scans are not.** Renaming the vendor between printing
+   and scanning breaks a *name* match, and two vendors on one order whose names
+   collapse to the same text are rejected as ambiguous. As of 2026-10-26 the resolver
+   accepts the vendor internal id first and falls back to the name
+   (`2026-10-26-mobile-str-vendor-scan-id-support.md`), so existing printouts keep
+   working. The remaining gap is the label: print scriptlet 1671 still emits the name,
+   so an id scan requires an id-bearing label. Until the print owner changes it, the
+   rename fragility applies to the paper in circulation.
 5. **Multi-page vendor sections.** If a vendor's items overflow one page, the vendor
    barcode only appears in that section's footer. Confirm with the print owner whether
    it should repeat on every page of the section.

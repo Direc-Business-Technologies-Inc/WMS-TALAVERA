@@ -1,3 +1,4 @@
+using System.Globalization;
 using Application.DataTransferObjects.Others;
 using Application.DataTransferObjects.Transactions.Commons.NS;
 using Application.UseCases.Repositories.Integration.Others;
@@ -10,16 +11,18 @@ namespace Application.UseCases.Queries.Transaction.Packing.NS.TransferOrder;
 ///     Resolves the vendor barcode printed under the STR's Vendor field to the
 ///     vendor on that transfer order.
 ///     <para>
-///         The barcode payload is the vendor NAME (confirmed on the handheld,
+///         Two payloads are accepted. The vendor NAME (confirmed on the handheld,
 ///         2026-10-21: scanning the ISABELA GIOS section returned
-///         <c>ISABELA GIOS COMMERCIAL, INC.</c>), not a NetSuite internal id. The
-///         name is matched against the vendors on the document's own lines, and
-///         against the vendor record's own name fields, before the id is used.
+///         <c>ISABELA GIOS COMMERCIAL, INC.</c>) is matched against the document's
+///         own line vendors and against the vendor record's name fields
+///         (<c>entityid</c>, <c>companyname</c>, <c>fullname</c>). A NetSuite vendor
+///         internal id is matched against the document's candidate ids. An id wins
+///         when a numeric payload could also be a name.
 ///     </para>
 ///     <para>
 ///         Scoping to the document matters: it removes the cross-vendor ambiguity a
 ///         global vendor-master lookup would reintroduce (two vendors can share a
-///         display name).
+///         display name, and an id from another order must not open this gate).
 ///     </para>
 /// </summary>
 public record ResolveTransferOrderVendorQry(string OrderNumber, string VendorBarcode)
@@ -125,7 +128,7 @@ public static class TransferOrderVendorResolver
         if (scanned.Length == 0)
         {
             return ApiResult<VendorLookupDTO>.Failed(
-                "Scan the vendor barcode printed under the Vendor field.");
+                "Scan the vendor barcode printed under the Vendor field — the vendor ID or vendor name.");
         }
 
         // The document's own vendor ids seed the map; the record's entityid /
@@ -157,10 +160,32 @@ public static class TransferOrderVendorResolver
                 "Fulfil this order from web Packing instead.");
         }
 
+        // Internal-id channel: the label may carry the NetSuite vendor internal id
+        // instead of a name. Only ids that are already candidates on this document
+        // are accepted, so a scan cannot open the gate on another order's vendor.
+        // Checked before the name channels so a numeric payload that is both a
+        // valid id and a numeric vendor name resolves deterministically to the id.
+        if (int.TryParse(
+                scannedVendor?.Trim(),
+                NumberStyles.None,
+                CultureInfo.InvariantCulture,
+                out var scannedId)
+            && scannedId > 0
+            && namesById.ContainsKey(scannedId))
+        {
+            return ApiResult<VendorLookupDTO>.Succeeded(new VendorLookupDTO
+            {
+                Id = scannedId,
+                Name = namesById[scannedId].FirstOrDefault()
+                       ?? scannedId.ToString(CultureInfo.InvariantCulture)
+            });
+        }
+
         if (namesById.Values.All(names => names.Count == 0))
         {
             return ApiResult<VendorLookupDTO>.Failed(
-                $"The vendor names for transfer order {orderNumber} could not be read.");
+                $"The vendor names for transfer order {orderNumber} could not be read. " +
+                "Scan the vendor ID instead.");
         }
 
         // Strict first (whitespace + case), then a punctuation-insensitive retry:
@@ -196,7 +221,7 @@ public static class TransferOrderVendorResolver
                 : string.Empty;
 
             return ApiResult<VendorLookupDTO>.Failed(
-                $"'{scannedVendor?.Trim()}' is not a vendor on transfer order {orderNumber}.{hint}");
+                $"'{scannedVendor?.Trim()}' is not a vendor ID or vendor name on transfer order {orderNumber}.{hint}");
         }
 
         return ApiResult<VendorLookupDTO>.Failed(

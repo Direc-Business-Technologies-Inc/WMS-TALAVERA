@@ -546,9 +546,10 @@ public partial class TransferOrderItemView : IAsyncDisposable
 
     /// <summary>
     ///     Resolves the scanned vendor barcode to the vendor on this transfer
-    ///     order. The barcode carries the vendor NAME (the same value printed
-    ///     under the Vendor field), not an internal id, so the server matches it
-    ///     against the order's own line vendors and returns the id to filter on.
+    ///     order. The barcode carries either the vendor's NetSuite internal id or
+    ///     the vendor name (the same value printed under the Vendor field), so the
+    ///     server matches it against the order's own line vendors and returns the
+    ///     id to filter on. An internal id wins over a numeric vendor name.
     /// </summary>
     private async Task ResolveVendorScan(string scanned)
     {

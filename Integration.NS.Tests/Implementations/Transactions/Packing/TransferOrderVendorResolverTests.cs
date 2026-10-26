@@ -6,11 +6,12 @@ using Xunit;
 namespace Integration.NS.Tests.Implementations.Transactions.Packing;
 
 /// <summary>
-/// Name-matching rules for the vendor barcode printed under the STR's Vendor
-/// field. Field-confirmed on 2026-10-21: the barcode payload is the vendor NAME
-/// (<c>ISABELA GIOS COMMERCIAL, INC.</c>), not a NetSuite internal id, so the name
-/// is resolved against the vendors actually present on the transfer order and the
-/// id is read from that data afterwards.
+/// Matching rules for the vendor barcode printed under the STR's Vendor field.
+/// Field-confirmed on 2026-10-21: the printed payload was the vendor NAME
+/// (<c>ISABELA GIOS COMMERCIAL, INC.</c>), so names are resolved against the
+/// vendors actually present on the transfer order. The label may also carry the
+/// NetSuite vendor internal id; that channel is document-scoped and takes
+/// precedence over a numeric name.
 /// <para>
 /// Candidates now arrive as ids only from a dedicated document-scoped query, so
 /// they are independent of any vendor's row position in the line read. The names
@@ -120,6 +121,72 @@ public class TransferOrderVendorResolverTests
         Assert.True(result.Success);
         Assert.Equal(111, result.Data!.Id);
         Assert.Equal("ISABELA GIOS COMMERCIAL INC.", result.Data.Name);
+    }
+
+    // ---------------------------------------------------------------------
+    // Vendor barcode may carry the NetSuite internal id instead of a name.
+    // ---------------------------------------------------------------------
+    [Fact]
+    public void Scanned_internal_id_resolves_to_that_vendor()
+    {
+        var result = TransferOrderVendorResolver.Resolve(
+            Candidates(111, 222), DocumentVendors(), "111", OrderNumber);
+
+        Assert.True(result.Success);
+        Assert.Equal(111, result.Data!.Id);
+        Assert.Equal(Scanned, result.Data.Name);
+    }
+
+    [Fact]
+    public void Scanned_internal_id_from_another_document_is_rejected()
+    {
+        // 999 exists in NetSuite but is not a candidate on this transfer order.
+        var result = TransferOrderVendorResolver.Resolve(
+            Candidates(111, 222), DocumentVendors(), "999", OrderNumber);
+
+        Assert.False(result.Success);
+        Assert.Contains("not a vendor ID or vendor name", result.ErrorMessage);
+        Assert.Contains("Vendors on this order", result.ErrorMessage);
+    }
+
+    [Fact]
+    public void Scanned_internal_id_wins_over_a_numeric_name()
+    {
+        // Vendor 111's entityid is literally "222"; vendor 222's id is 222.
+        // The id channel must win deterministically.
+        var vendors = new[]
+        {
+            Vendor(111, "222", "222", "222"),
+            Vendor(222, "REAL VENDOR", "REAL VENDOR", "REAL VENDOR")
+        };
+
+        var result = TransferOrderVendorResolver.Resolve(
+            Candidates(111, 222), vendors, "222", OrderNumber);
+
+        Assert.True(result.Success);
+        Assert.Equal(222, result.Data!.Id);
+        Assert.Equal("REAL VENDOR", result.Data.Name);
+    }
+
+    [Fact]
+    public void Scanned_internal_id_resolves_even_when_vendor_names_are_missing()
+    {
+        var result = TransferOrderVendorResolver.Resolve(
+            Candidates(111), [Vendor(111, "", "", "")], "111", OrderNumber);
+
+        Assert.True(result.Success);
+        Assert.Equal(111, result.Data!.Id);
+        Assert.Equal("111", result.Data.Name);
+    }
+
+    [Fact]
+    public void Zero_is_treated_as_a_name_and_rejected()
+    {
+        var result = TransferOrderVendorResolver.Resolve(
+            Candidates(111), DocumentVendors(), "0", OrderNumber);
+
+        Assert.False(result.Success);
+        Assert.Contains("not a vendor ID or vendor name", result.ErrorMessage);
     }
 
     [Fact]
