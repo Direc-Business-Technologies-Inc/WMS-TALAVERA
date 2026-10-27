@@ -2,7 +2,7 @@
 @inherits BaseComponent
 @typeparam TItem where TItem : class
 
-<AppTable @ref="@Table" Id="@Id" TItem="@TItem" @bind-GridSettingsLoaded="@GridSettingsLoaded" Data="[..Data]">
+<AppTable @ref="@Table" Id="@Id" TItem="@TItem" @bind-GridSettingsLoaded="@GridSettingsLoaded" Data="@Data">
     <HeaderTemplate>
 
         <RadzenStack Orientation="Orientation.Horizontal"

@@ -299,7 +299,7 @@
                                       Id="trip_ticket_fulfillments_create"
                                       TItem="ItemFulfillmentVM"
                                       @bind-GridSettingsLoaded="@GridSettingsLoaded"
-                                      Data="[..FormData.ItemFulfillments]">
+                                      Data="@FormData.ItemFulfillments">
                                 <HeaderTemplate>
                                     <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" AlignItems="AlignItems.Center" Gap="8px">
 

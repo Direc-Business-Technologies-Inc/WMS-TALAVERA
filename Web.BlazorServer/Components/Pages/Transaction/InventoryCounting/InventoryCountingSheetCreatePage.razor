@@ -53,7 +53,7 @@
                               Id="ict_sheet_lines"
                               TItem="InventoryCountingSheetLineVM"
                               @bind-GridSettingsLoaded="@GridSettingsLoaded"
-                              Data="[..FormData.SheetLines]">
+                              Data="@FormData.SheetLines">
                         <HeaderTemplate>
                             <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" AlignItems="AlignItems.Center" Gap="8px">
                                 <RadzenButton Icon="settings" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@OpenSheetLinesSettings" />

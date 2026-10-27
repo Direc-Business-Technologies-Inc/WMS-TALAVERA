@@ -154,7 +154,7 @@
                         <RadzenColumn>
                             @if (Creating)
                             {
-                                <AppTable @ref="@SalesOrderLinesTable" Id="dlv_so_items" TItem="SalesOrderLineVM" @bind-GridSettingsLoaded="@GridSettingsLoaded" Data="[.. SalesOrderData.DocumentLines]">
+                                <AppTable @ref="@SalesOrderLinesTable" Id="dlv_so_items" TItem="SalesOrderLineVM" @bind-GridSettingsLoaded="@GridSettingsLoaded" Data="@SalesOrderData.DocumentLines">
                                     <HeaderTemplate>
                                         <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" AlignItems="AlignItems.Center" Gap="8px">
                                             <RadzenButton Icon="settings" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@OpenSalesOrderTableSettings" />
@@ -204,7 +204,7 @@
                             }
                             else
                             {
-                                <AppTable @ref="@DeliveryLinesTable" Id="dlv_items" TItem="DeliveryLineVM" @bind-GridSettingsLoaded="@GridSettingsLoaded" Data="[.. FormData.DocumentLines]">
+                                <AppTable @ref="@DeliveryLinesTable" Id="dlv_items" TItem="DeliveryLineVM" @bind-GridSettingsLoaded="@GridSettingsLoaded" Data="@FormData.DocumentLines">
                                     <HeaderTemplate>
                                         <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" AlignItems="AlignItems.Center" Gap="8px">
                                             <RadzenButton Icon="settings" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@OpenDeliveryTableSettings" />

@@ -22,11 +22,23 @@ partial class PackingItemReceiptForm
     AppTable<ItemReceiptLinePackingVM> LinesTable = default!;
     DataGridSettings TableSettings { get; set; } = new();
 
-    List<ItemReceiptLinePackingVM> FulfillableLines => [.. Data.Lines.Where(line => !line.IsComplete)];
+    List<ItemReceiptLinePackingVM>? sourceLines;
+    List<ItemReceiptLinePackingVM> fulfillableLines = [];
 
     BarcodeStore BarcodeStore = new();
 
     bool isPlannedGreaterOpen => Data.Lines.Any(line => line.QuantityAvailable < line.QuantityOpen);
+
+    protected override void OnParametersSet()
+    {
+        base.OnParametersSet();
+
+        if (!ReferenceEquals(sourceLines, Data.Lines))
+        {
+            sourceLines = Data.Lines;
+            fulfillableLines = [.. Data.Lines.Where(line => !line.IsComplete)];
+        }
+    }
 
     public async Task Submit()
     {

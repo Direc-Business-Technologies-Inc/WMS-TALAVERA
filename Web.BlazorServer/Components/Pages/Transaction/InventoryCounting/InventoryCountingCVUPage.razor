@@ -147,7 +147,7 @@
                                       Id="ict_lines_create"
                                       TItem="InventoryCountingLineVM"
                                       @bind-GridSettingsLoaded="@GridSettingsLoaded"
-                                      Data="[..FormData.DocumentLines]">
+                                      Data="@FormData.DocumentLines">
                                 <HeaderTemplate>
                                     <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" AlignItems="AlignItems.Center" Gap="8px">
                                         <RadzenButton Icon="print" Size="ButtonSize.Small">

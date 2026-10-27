@@ -23,9 +23,21 @@ public partial class VendorReturnAuthorizationItemReceiptForm
     DataGridSettings TableSettings { get; set; } = new();
 
     BarcodeStore BarcodeStore = new();
-    List<VendorReturnAuthorizationItemReceiptLinePackingVM> FulfillableLines => [.. Data.Lines.Where(line => !line.IsComplete)];
+    List<VendorReturnAuthorizationItemReceiptLinePackingVM>? sourceLines;
+    List<VendorReturnAuthorizationItemReceiptLinePackingVM> fulfillableLines = [];
 
     bool isPlannedGreaterOpen => Data.Lines.Any(line => line.QuantityAvailable < line.QuantityOpen);
+
+    protected override void OnParametersSet()
+    {
+        base.OnParametersSet();
+
+        if (!ReferenceEquals(sourceLines, Data.Lines))
+        {
+            sourceLines = Data.Lines;
+            fulfillableLines = [.. Data.Lines.Where(line => !line.IsComplete)];
+        }
+    }
 
     public async Task Submit()
     {

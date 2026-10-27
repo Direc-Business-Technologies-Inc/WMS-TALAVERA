@@ -16,7 +16,7 @@ public partial class AppTable<TItem> : BaseComponent where TItem : class
 
 
     [Parameter] public string Id { get; init; } = $"{typeof(TItem).Name}-data-grid";
-    [Parameter] public List<TItem> Data { get; set; } = new List<TItem>();
+    [Parameter] public IEnumerable<TItem> Data { get; set; } = [];
     [Parameter] public EventCallback<List<TItem>> DataChanged { get; set; }
     [Parameter] public Func<DataGridIntent, Task<DataGridResultVM<TItem>>>? DataGetter { get; set; }
     [Parameter] public RenderFragment HeaderTemplate { get; set; }
