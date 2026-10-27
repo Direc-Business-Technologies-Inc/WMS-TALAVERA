@@ -209,6 +209,65 @@ join result, but it is not a parse error.
 real `NSScripts/*.sql`. Coverage currently extends to `.sql` files only — see the
 open items in the change record.
 
+## Rule 8 — Scope aggregate tables before joining them to a picker
+
+Syntactically valid aggregate derived tables may still fail with NetSuite `500
+UNEXPECTED_ERROR` when they scan account-wide transaction tables and rely on an
+outer predicate to reduce the result afterward. NetSuite does not reliably push
+the outer predicate into the aggregate.
+
+```sql
+-- REJECTED in the STR fulfillment picker: aggregates every transaction line.
+JOIN (SELECT transaction, SUM(ABS(quantity)) AS qty
+      FROM transactionline
+      GROUP BY transaction) totals ON totals.transaction = t.id
+WHERE ml.createdfrom = :strId
+
+-- Accepted strategy: resolve the small candidate id set first, then aggregate
+-- with a direct predicate in a separate query.
+SELECT transaction, SUM(ABS(quantity)) AS qty
+FROM transactionline
+WHERE transaction IN (:candidateIfIds)
+GROUP BY transaction
+```
+
+Do not use the similarly named `nexttransactionlink` header table for this
+relationship. This account returns `500 UNEXPECTED_ERROR` from that table even
+for one IF and without joins. Use the runtime-verified
+`nexttransactionlinelink`, and read document links and line totals separately:
+
+```sql
+SELECT iflink.previousdoc, iflink.nextdoc
+FROM nexttransactionlinelink iflink
+WHERE iflink.previousdoc IN (:candidateIfIds)
+  AND iflink.previoustype = 'ItemShip'
+  AND iflink.nexttype = 'ItemRcpt'
+  AND iflink.linktype = 'TOrdCost';
+
+SELECT receiptline.transaction, SUM(ABS(receiptline.quantity))
+FROM transactionline receiptline
+WHERE receiptline.transaction IN (:linkedReceiptIds)
+  AND receiptline.mainline = 'F'
+  AND receiptline.item IS NOT NULL
+GROUP BY receiptline.transaction;
+```
+
+Qualify every link-table column. NetSuite reports bare columns such as
+`previoustype` as `Unknown identifier` even when only one table is in scope.
+Deduplicate `(previousdoc, nextdoc)` pairs in application code before assigning
+receipt totals; native link rows are not guaranteed to be unique.
+
+**Incident:** 2026-10-26 — Issue 182 changed the Web STR Item Fulfillment picker
+to compare fulfilled and linked-receipt quantities. Its two unbounded aggregate
+derived tables repeatedly returned `500 UNEXPECTED_ERROR`. Follow-up probes
+isolated the failure to the mistakenly used `nexttransactionlink` header table;
+the previously validated table was `nexttransactionlinelink`. The final fix uses
+the validated line-link table, resolves candidate ids first, reads IF-to-IR links
+and receipt totals separately, combines them in C#, and executes the paged query
+only for ids with a positive remainder.
+
+**Enforced by:** `GetSTRItemFulfillmentsQueryShapeTests`.
+
 ## Adding a new rule
 
 1. Reproduce with the query text from the warning log

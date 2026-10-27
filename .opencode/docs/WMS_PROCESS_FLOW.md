@@ -414,7 +414,7 @@ up to 3 sequential posts split by inventory status, ordered **bad → good → m
 - Direct TO: `status IN ('F','E')`, `transactionlinetype = 'RECEIVING'`
 - Via IF: `NS_TO_Get_Itemfulfillments.sql` **requires `t.status='C'`** ← the trip-ticket gate
 
-**End state:** NetSuite natively links IF→IR in `nexttransactionlink`
+**End state:** NetSuite natively links IF→IR in `nexttransactionlinelink`
 (`linktype='TOrdCost'`) and TO line→IR line in its transaction-line links. WMS
 computes IF completion from those links, so the picker does not depend on
 `custbody_dbti_fully_received` or a RESTlet update. The TO's own

@@ -668,7 +668,7 @@ public class ReceivingIntegration(
                     FROM
                         previoustransactionlinelink receiptlink
                     JOIN
-                        nexttransactionlink ifreceipt ON ifreceipt.nextdoc = receiptlink.nextdoc
+                        nexttransactionlinelink ifreceipt ON ifreceipt.nextdoc = receiptlink.nextdoc
                             AND ifreceipt.previoustype = 'ItemShip'
                             AND ifreceipt.nexttype = 'ItemRcpt'
                             AND ifreceipt.linktype = 'TOrdCost'
@@ -1209,6 +1209,96 @@ public class ReceivingIntegration(
         if (intent.Sorts.Count == 0)
             intent.Sorts.Add(DataGridSortUtilities.Descending(nameof(ItemFulfillmentDTO.DateLastModified)));
 
+        var candidatesQuery = builderFactory.Create()
+            .Distinct()
+            .Select(("t.id", nameof(ItemFulfillmentDTO.Id)))
+            .From("transaction t")
+            .Join("transactionline ml", on: "ml.transaction = t.id AND ml.mainline = 'T'")
+            .WithFilters(
+                Equal("t.recordtype", "itemfulfillment"),
+                Equal("t.status", "C"),
+                Equal("ml.createdfrom", strId))
+            .Build();
+
+        var candidatesResponse = await netsuiteService.ExecuteSuiteQLQuery<ItemFulfillmentDTO>(
+            candidatesQuery.Query,
+            limit: 1000);
+        var candidateIds = candidatesResponse.items.Select(item => item.Id).Distinct().ToArray();
+        if (candidateIds.Length == 0) return ([], 0);
+        if (candidatesResponse.hasMore || candidatesResponse.totalResults > candidateIds.Length)
+            throw new InvalidOperationException(
+                $"Transfer Order {strId} has more than 1,000 Item Fulfillments; " +
+                "the receiving picker cannot verify all remaining quantities safely.");
+
+        var fulfilledQuery = builderFactory.Create()
+            .Select(
+                ("tl.transaction", nameof(ItemFulfillmentQuantityDTO.Id)),
+                ("SUM(ABS(tl.quantity))", nameof(ItemFulfillmentQuantityDTO.Quantity)))
+            .From("transactionline tl")
+            .WithFilters(
+                In("tl.transaction", candidateIds),
+                Equal("tl.mainline", "F"),
+                NotNull("tl.item"))
+            .GroupBy("tl.transaction")
+            .Build();
+        var fulfilledResponse = await netsuiteService.ExecuteSuiteQLQuery<ItemFulfillmentQuantityDTO>(
+            fulfilledQuery.Query,
+            limit: 1000);
+
+        var receiptLinksQuery = builderFactory.Create()
+            .Select(
+                ("iflink.previousdoc", nameof(ItemFulfillmentReceiptLinkDTO.ItemFulfillmentId)),
+                ("iflink.nextdoc", nameof(ItemFulfillmentReceiptLinkDTO.ItemReceiptId)))
+            .From("nexttransactionlinelink iflink")
+            .WithFilters(
+                In("iflink.previousdoc", candidateIds),
+                Equal("iflink.previoustype", "ItemShip"),
+                Equal("iflink.nexttype", "ItemRcpt"),
+                Equal("iflink.linktype", "TOrdCost"))
+            .Build();
+        var receiptLinksResponse = await netsuiteService.ExecuteSuiteQLQuery<ItemFulfillmentReceiptLinkDTO>(
+            receiptLinksQuery.Query,
+            limit: 1000);
+
+        var receiptLinks = receiptLinksResponse.items
+            .DistinctBy(link => (link.ItemFulfillmentId, link.ItemReceiptId))
+            .ToArray();
+        if (receiptLinksResponse.hasMore || receiptLinksResponse.totalResults > receiptLinksResponse.items.Count)
+            throw new InvalidOperationException(
+                $"Item Fulfillments for Transfer Order {strId} have more than 1,000 receipt links; " +
+                "the receiving picker cannot verify all remaining quantities safely.");
+
+        Dictionary<int, decimal> receiptQuantityById = [];
+        if (receiptLinks.Length > 0)
+        {
+            var receiptIds = receiptLinks.Select(link => link.ItemReceiptId).Distinct().ToArray();
+            var receiptTotalsQuery = builderFactory.Create()
+                .Select(
+                    ("receiptline.transaction", nameof(ItemFulfillmentQuantityDTO.Id)),
+                    ("SUM(ABS(receiptline.quantity))", nameof(ItemFulfillmentQuantityDTO.Quantity)))
+                .From("transactionline receiptline")
+                .WithFilters(
+                    In("receiptline.transaction", receiptIds),
+                    Equal("receiptline.mainline", "F"),
+                    NotNull("receiptline.item"))
+                .GroupBy("receiptline.transaction")
+                .Build();
+            var receiptTotalsResponse = await netsuiteService.ExecuteSuiteQLQuery<ItemFulfillmentQuantityDTO>(
+                receiptTotalsQuery.Query,
+                limit: 1000);
+            receiptQuantityById = receiptTotalsResponse.items.ToDictionary(item => item.Id, item => item.Quantity);
+        }
+
+        var receivedByFulfillment = receiptLinks
+            .GroupBy(link => link.ItemFulfillmentId)
+            .ToDictionary(
+                group => group.Key,
+                group => group.Sum(link => receiptQuantityById.GetValueOrDefault(link.ItemReceiptId)));
+        var pendingIds = fulfilledResponse.items
+            .Where(item => receivedByFulfillment.GetValueOrDefault(item.Id) < item.Quantity)
+            .Select(item => item.Id)
+            .ToArray();
+        if (pendingIds.Length == 0) return ([], 0);
 
         var query = builderFactory.Create()
             .Select(
@@ -1222,14 +1312,12 @@ public class ReceivingIntegration(
             .From("transaction t")
             .Join("itemfulfillmentstatus s", on: "t.status = s.id")
             .Join("transactionline ml", on: "ml.transaction = t.id AND ml.mainline = 'T'")
-            .Join("(SELECT transaction, SUM(ABS(quantity)) AS qtyfulfilled FROM transactionline WHERE mainline = 'F' AND item IS NOT NULL GROUP BY transaction) ifqty", on: "ifqty.transaction = t.id")
-            .LeftJoin("(SELECT ifreceipt.previousdoc AS ifdoc, SUM(ABS(receiptline.quantity)) AS qtyreceived FROM nexttransactionlink ifreceipt JOIN transactionline receiptline ON receiptline.transaction = ifreceipt.nextdoc AND receiptline.mainline = 'F' AND receiptline.item IS NOT NULL WHERE ifreceipt.previoustype = 'ItemShip' AND ifreceipt.nexttype = 'ItemRcpt' AND ifreceipt.linktype = 'TOrdCost' GROUP BY ifreceipt.previousdoc) irqty", on: "irqty.ifdoc = t.id")
             .LeftJoin("employee e", on: "e.id = t.custbody_dbti_prepared_by")
             .WithFilters(
                 Equal("t.recordtype", "itemfulfillment"),
                 Equal("t.status", "C"),
                 Equal("ml.createdfrom", strId),
-                LessThan("NVL(irqty.qtyreceived, 0)", new SuiteQLQueryBuilder.Literal("ifqty.qtyfulfilled"))
+                In("t.id", pendingIds)
             )
             .WithDatagridIntent(intent)
             .Build();
@@ -1237,6 +1325,18 @@ public class ReceivingIntegration(
         var response = await query.ExecuteWithPaging<ItemFulfillmentDTO>(netsuiteService);
 
         return (response.items, response.totalResults);
+    }
+
+    public sealed class ItemFulfillmentQuantityDTO
+    {
+        public int Id { get; set; }
+        public decimal Quantity { get; set; }
+    }
+
+    public sealed class ItemFulfillmentReceiptLinkDTO
+    {
+        public int ItemFulfillmentId { get; set; }
+        public int ItemReceiptId { get; set; }
     }
 
     public async Task<IEnumerable<ItemFulfillmentLineDTO>> GetItemFulfillmentLines(int ifId, DataGridIntent intent)

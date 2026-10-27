@@ -68,7 +68,8 @@ public class GetItemReceiptItemFulfillmentLinesQueryShapeTests
         // Transfer Order quantityshiprecv counter.
         Assert.Contains("NVL(ifmap.qtyrecv / uom.conversionrate, 0) AS QuantityReceived", query);
         Assert.Contains("ifreceipt.previousdoc AS ifdoc", query);
-        Assert.Contains("nexttransactionlink ifreceipt", query);
+        Assert.Contains("nexttransactionlinelink ifreceipt", query);
+        Assert.DoesNotContain("nexttransactionlink ifreceipt", query);
         Assert.Contains("ifreceipt.linktype = 'TOrdCost'", query);
         Assert.Contains("SUM(ABS(receiptline.quantity)) AS qtyrecv", query);
         Assert.DoesNotContain("ttl.quantityshiprecv", query);

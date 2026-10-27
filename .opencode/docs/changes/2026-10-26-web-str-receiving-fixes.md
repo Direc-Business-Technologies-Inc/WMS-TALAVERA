@@ -4,7 +4,7 @@ Date: 2026-10-26
 Area: `Integration.NS/Implementations/Transactions/ReceivingIntegration.cs`,
 `Application.DataTransferObjects/Transactions/Receiving/ItemFulfillmentLineRemainingDTO.cs`  
 Related issues: 181, 182  
-Status: WMS changes implemented; NetSuite sandbox validation remains required.
+Status: WMS changes implemented; Issue 182 picker query revised after local NetSuite 500; sandbox validation remains required.
 
 ## Contract
 
@@ -57,6 +57,29 @@ natively linked IRs and returns only IFs with a positive remainder. An IF with
 no IR remains available, a partial IF remains available, and a fully received
 IF is excluded even when the custom checkbox is stale.
 
+The first implementation performed two unbounded aggregate derived-table scans
+over `transactionline` and the incorrectly selected `nexttransactionlink` header
+table inside the paged picker query.
+NetSuite returned `500 UNEXPECTED_ERROR` for that shape even though the query was
+syntactically valid. The picker now uses scoped stages:
+
+1. Read the completed IF ids belonging to the selected STR (maximum 1,000; fail
+   closed rather than return an incompletely verified list).
+2. Aggregate fulfilled material quantities only for those IF ids.
+3. Read native `(previousdoc, nextdoc)` IF-to-IR links only for those IF ids and
+   deduplicate the pairs in C#. This uses the runtime-verified
+   `nexttransactionlinelink` table. The similarly named `nexttransactionlink`
+   header table returned `500 UNEXPECTED_ERROR` even for one candidate IF and
+   without joins, so it must not be used for this relationship.
+4. Aggregate receipt material quantities only for the linked IR ids and combine
+   those totals with the deduplicated links in C#.
+5. Apply grid filters, sorting, and paging to the resulting ids that still have
+   a positive remainder.
+
+This keeps Issue 182's quantity-derived source of truth and accurate grid counts
+without asking NetSuite to aggregate account-wide transaction data. The existing
+fresh server-side IF and TO quantity checks before posting remain unchanged.
+
 ## Confirmed NetSuite relationship
 
 Runtime probes for IF `118077` and IR `123541` returned the same native link from
@@ -103,8 +126,10 @@ RESTlet behavior. The account-specific sandbox matrix is a deployment gate.
 - `GetItemReceiptItemFulfillmentLinesQueryShapeTests` verifies fulfillment-
   scoped receipt aggregation and that the select list does not add correlated
   subqueries.
-- `GetSTRItemFulfillmentsQueryShapeTests` verifies the native linked-quantity
-  filter and confirms the stale fully-received checkbox is no longer used.
+- `GetSTRItemFulfillmentsQueryShapeTests` verifies candidate-scoped quantity
+  reads, deduplicated IF-to-IR links, exclusion of fully received IFs, and final
+  paging over pending ids. It also confirms the stale fully-received checkbox is
+  no longer used.
 
 Command:
 

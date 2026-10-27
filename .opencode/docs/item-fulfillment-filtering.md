@@ -14,7 +14,7 @@ Already-received IFs were still listed in the IF picker.
 
 **WMS query** — `Integration.NS/Implementations/Transactions/ReceivingIntegration.cs`
 
-NetSuite exposes a standard IF-to-IR relationship in `nexttransactionlink`:
+NetSuite exposes a standard IF-to-IR relationship in `nexttransactionlinelink`:
 
 ```sql
 previousdoc = Item Fulfillment internal id
@@ -28,6 +28,10 @@ linktype     = 'TOrdCost'
 the material quantities on all natively linked IRs. It offers only IFs where
 linked received quantity is less than fulfilled quantity. No custom completion
 field and no RESTlet 1853 change are required.
+
+Do not substitute the similarly named `nexttransactionlink` header table. In
+this account, SuiteQL requests against that table return `500 UNEXPECTED_ERROR`
+even for one fulfillment and without joins.
 
 The native header relationship has `previousline = 0` and does not allocate
 quantities by line. For receipt entry and server validation, WMS combines that

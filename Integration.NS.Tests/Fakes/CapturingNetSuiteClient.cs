@@ -24,6 +24,8 @@ public sealed class CapturingNetSuiteClient : INetSuiteApiClientService
     public List<(int? Limit, int? Offset)> Calls { get; } = [];
     public object? NextResult { get; set; }
     public List<object> NextItems { get; set; } = [];
+    public Func<string, Type, IEnumerable<object>>? QueryItems { get; set; }
+    public List<string> Queries { get; } = [];
     public int CallCount { get; private set; }
     /// <summary>Thrown once by the next ExecuteSuiteQLQuery call (after the call is recorded), then cleared.</summary>
     public Exception? NextException { get; set; }
@@ -45,6 +47,7 @@ public sealed class CapturingNetSuiteClient : INetSuiteApiClientService
         LastLimit = limit;
         LastOffset = offset;
         Calls.Add((limit, offset));
+        Queries.Add(query);
 
         if (NextException is not null)
         {
@@ -63,8 +66,9 @@ public sealed class CapturingNetSuiteClient : INetSuiteApiClientService
             });
         }
 
+        var source = QueryItems?.Invoke(query, typeof(T)) ?? NextItems;
         var items = new List<T>();
-        foreach (var next in NextItems.OfType<T>()) items.Add(next);
+        foreach (var next in source.OfType<T>()) items.Add(next);
         if (NextResult is T typed) items.Add(typed);
         return Task.FromResult(new NetSuiteResponse<T>
         {
