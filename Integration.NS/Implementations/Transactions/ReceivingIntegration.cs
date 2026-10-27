@@ -759,8 +759,17 @@ public class ReceivingIntegration(
             .Join("transaction t", on: "tl.transaction = t.id")
             .Join("location loc", on: "tl.location = loc.id")
             .Join("unitstypeuom uom", on: "tl.units = uom.internalid")
-            .LeftJoin("(SELECT ibq.bin, ibq.item, b.location FROM itembinquantity ibq JOIN bin b ON ibq.bin = b.id WHERE preferredbin = \'T\') pb", on: "pb.item = item.id AND pb.location = tl.location")
-            .LeftJoin("CUSTOMRECORD_BARCODE_PER_UOM barcode", "barcode.custrecord_bpu_uom = tl.units AND barcode.custrecord_bpu_item = tl.item")
+            // These lookup tables are not guaranteed to be unique on the join keys.
+            // Collapse them before joining so one source transaction line remains one
+            // receipt row. If multiple distinct preferred bins are marked for an
+            // item/location, leave the assignment unset rather than choosing a bin
+            // arbitrarily; the user can select the correct bin in inventory detail.
+            .LeftJoin("(SELECT CASE WHEN COUNT(DISTINCT ibq.bin) = 1 THEN MIN(ibq.bin) ELSE NULL END AS bin, ibq.item, b.location FROM itembinquantity ibq JOIN bin b ON ibq.bin = b.id WHERE ibq.preferredbin = \'T\' GROUP BY ibq.item, b.location) pb", on: "pb.item = item.id AND pb.location = tl.location")
+            // A barcode-per-UoM key may have multiple records. The grid has a
+            // single display column, so use a stable representative value while
+            // retaining the source line exactly once. Barcode resolution itself
+            // still uses the barcode lookup path, not this display value.
+            .LeftJoin("(SELECT MIN(b.name) AS name, b.custrecord_bpu_item, b.custrecord_bpu_uom FROM CUSTOMRECORD_BARCODE_PER_UOM b GROUP BY b.custrecord_bpu_item, b.custrecord_bpu_uom) barcode", "barcode.custrecord_bpu_uom = tl.units AND barcode.custrecord_bpu_item = tl.item")
             .WithFilters(
                 Equal("t.tranid", docEntry),
                 Equal("tl.mainline", "F")
