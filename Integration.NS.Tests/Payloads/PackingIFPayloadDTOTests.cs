@@ -176,6 +176,72 @@ public class PackingIFPayloadDTOTests
     }
 
     [Theory]
+    [InlineData(false, false, 20, 8, 20)]
+    [InlineData(false, true, 20, 8, 8)]
+    [InlineData(true, false, 20, 8, 5)]
+    [InlineData(true, true, 20, 8, 3)]
+    public void Vendor_return_authorization_resolves_availability_for_selected_status_and_bin(
+        bool useVendorBin, bool isBad, decimal goodAvailable, decimal badAvailable, decimal expected)
+    {
+        var line = new VendorReturnAuthorizationLineDTO
+        {
+            LocationUsedBin = "T",
+            UoMRate = 1,
+            NetsuiteMaterialVendorAssignedBin = useVendorBin ? 101 : 0,
+            NetsuiteMaterialPrefferedBinId = 202,
+            VendorAssignedBinQuantityAvailableGood = goodAvailable,
+            VendorAssignedBinQuantityAvailableBad = badAvailable,
+            PreferredBinQuantityAvailableGood = 20,
+            PreferredBinQuantityAvailableBad = 8
+        };
+
+        if (useVendorBin)
+        {
+            line.VendorAssignedBinQuantityAvailableGood = 5;
+            line.VendorAssignedBinQuantityAvailableBad = 3;
+        }
+
+        Assert.Equal(expected, VendorReturnAuthorizationInventoryAvailability.GetAvailableQuantity(line, isBad));
+        Assert.Equal(useVendorBin ? 101 : 202, VendorReturnAuthorizationInventoryAvailability.GetSelectedBinId(line));
+    }
+
+    [Fact]
+    public void Vendor_return_authorization_non_bin_availability_is_converted_to_transaction_units()
+    {
+        var line = new VendorReturnAuthorizationLineDTO
+        {
+            LocationUsedBin = "F",
+            UoMRate = 4,
+            LocationItemQuantityAvailableGood = 24,
+            LocationItemQuantityAvailableBad = 8
+        };
+
+        Assert.Equal(6, VendorReturnAuthorizationInventoryAvailability.GetAvailableQuantity(line, isBad: false));
+        Assert.Equal(2, VendorReturnAuthorizationInventoryAvailability.GetAvailableQuantity(line, isBad: true));
+        Assert.Null(VendorReturnAuthorizationInventoryAvailability.GetSelectedBinId(line));
+    }
+
+    [Theory]
+    [InlineData(0, true)]
+    [InlineData(3, true)]
+    [InlineData(4, false)]
+    public void Vendor_return_authorization_refuses_quantity_above_selected_status_balance(
+        decimal requestedQuantity, bool expected)
+    {
+        var line = new VendorReturnAuthorizationLineDTO
+        {
+            LocationUsedBin = "T",
+            UoMRate = 1,
+            NetsuiteMaterialVendorAssignedBin = 101,
+            VendorAssignedBinQuantityAvailableGood = 3
+        };
+
+        Assert.Equal(
+            expected,
+            VendorReturnAuthorizationInventoryAvailability.CanFulfill(line, isBad: false, requestedQuantity));
+    }
+
+    [Theory]
     [InlineData(false, false)]
     [InlineData(true, false)]
     [InlineData(false, true)]

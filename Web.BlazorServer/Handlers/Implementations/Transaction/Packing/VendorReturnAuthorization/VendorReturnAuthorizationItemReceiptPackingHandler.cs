@@ -45,6 +45,8 @@ public class VendorReturnAuthorizationItemReceiptPackingHandler(ISender sender) 
         }))).ToList();
 
         var submittedLines = data.Lines.ToDictionary(line => line.LineNumber);
+        ValidateInventoryStatusAvailability(sourceLines, submittedLines);
+
         var dto = sourceLines
             .Where(x => GetRemainingQuantity(x.LineQuantity, x.LineQuantityBackOrdered, x.LineQuantityPacked, x.UoMRate) > 0)
             .SelectMany(line =>
@@ -71,6 +73,49 @@ public class VendorReturnAuthorizationItemReceiptPackingHandler(ISender sender) 
         }
 
         return result.Data == true;
+    }
+
+    private static void ValidateInventoryStatusAvailability(
+        IEnumerable<VendorReturnAuthorizationLineDTO> sourceLines,
+        IReadOnlyDictionary<int, VendorReturnAuthorizationItemReceiptLinePackingVM> submittedLines)
+    {
+        var unavailable = new List<string>();
+
+        foreach (var line in sourceLines)
+        {
+            if (!submittedLines.TryGetValue(line.LineSequenceNumber, out var submittedLine) || !submittedLine.IsReceived)
+                continue;
+
+            ValidateCondition(line, submittedLine.QuantityGood, isBad: false, unavailable);
+            ValidateCondition(line, submittedLine.QuantityBad, isBad: true, unavailable);
+        }
+
+        if (unavailable.Count > 0)
+        {
+            throw new InvalidOperationException(
+                $"Cannot fulfill vendor return because the selected inventory status is unavailable: {string.Join("; ", unavailable)}. " +
+                "Nothing was saved. Reload the order and verify the item, source location, bin, and inventory status in NetSuite.");
+        }
+    }
+
+    private static void ValidateCondition(
+        VendorReturnAuthorizationLineDTO line,
+        decimal requestedQuantity,
+        bool isBad,
+        ICollection<string> unavailable)
+    {
+        if (requestedQuantity <= 0) return;
+
+        if (VendorReturnAuthorizationInventoryAvailability.CanFulfill(line, isBad, requestedQuantity)) return;
+
+        var availableQuantity = VendorReturnAuthorizationInventoryAvailability.GetAvailableQuantity(line, isBad);
+
+        var status = isBad ? "Bad (3)" : "Good (1)";
+        var binId = VendorReturnAuthorizationInventoryAvailability.GetSelectedBinId(line);
+        var context = binId is null ? $"location {line.LocationName}" : $"bin {binId} at {line.LocationName}";
+
+        unavailable.Add(
+            $"line {line.LineSequenceNumber} {line.MaterialCode} - {line.MaterialName}, status {status}, {context}, requested {requestedQuantity}, available {availableQuantity}");
     }
 
     private static VendorReturnAuthorizationItemReceiptLinePackingVM MapToVm(VendorReturnAuthorizationLineDTO dto)
