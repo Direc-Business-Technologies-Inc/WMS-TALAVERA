@@ -6,6 +6,7 @@ using Application.UseCases.Queries.Transaction.Receiving.NS.TransferOrder;
 using Mapster;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using Shared.Libraries.Entities;
 using Shared.Libraries.ViewModel.ItemFulfillment;
 using Shared.Libraries.ViewModel.Returns;
@@ -13,6 +14,7 @@ using Shared.Libraries.ViewModel.Returns;
 namespace Api.CoreWebAPI.Controllers.Receiving;
 
 [ApiController]
+[Authorize(AuthenticationSchemes = "Bearer")]
 [Route("api/Receiving/[controller]")]
 public class ReturnsController(ISender Sender) : ControllerBase
 {
@@ -24,6 +26,27 @@ public class ReturnsController(ISender Sender) : ControllerBase
         List<ReturnsVM> ret = result.Adapt<List<ReturnsVM>>();
 
         return ApiResult<IEnumerable<ReturnsVM>>.Succeeded(ret);
+    }
+
+    [HttpPost("Lookup")]
+    public async Task<IActionResult> Lookup(RequestDTO req)
+    {
+        if (string.IsNullOrWhiteSpace(req.OrderNumber)) return StatusCode(400, ApiResult<ReturnsVM>.Failed("Enter a return number."));
+        if (!TryGetNetSuiteIdentity(out var user)) return Unauthorized(ApiResult<ReturnsVM>.Failed("Authenticated NetSuite employee identity is unavailable."));
+        var result = await Sender.Send(new GetReceivingReturnByNumberQry(req.OrderNumber, user));
+        if (result is null) return Ok(ApiResult<ReturnsVM>.NotFound("No eligible return was found."));
+        return Ok(ApiResult<ReturnsVM>.Succeeded(result.Adapt<ReturnsVM>()));
+    }
+
+    private bool TryGetNetSuiteIdentity(out RequestPerUserDTO user)
+    {
+        var employee = User.FindFirst("NsEmployeeId")?.Value;
+        var subsidiary = User.FindFirst("NsSubsidiaryId")?.Value;
+        user = new RequestPerUserDTO();
+        if (!int.TryParse(employee, out var employeeId) || employeeId <= 0 || !int.TryParse(subsidiary, out var subsidiaryId) || subsidiaryId <= 0) return false;
+        user.NetsuiteUserInternalId = employeeId;
+        user.NetsuiteUserSubsidiaryInternalId = subsidiaryId;
+        return true;
     }
 
     [HttpPost("ItemFulfillment")]

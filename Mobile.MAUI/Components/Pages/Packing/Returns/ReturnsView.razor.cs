@@ -1,183 +1,38 @@
-using Microsoft.JSInterop;
-using Mobile.MAUI.Helpers.Extensions;
 using Mobile.MAUI.Services;
-using Shared.Libraries.ViewModel.Authentication;
+using Microsoft.AspNetCore.Components.Web;
 using Shared.Libraries.ViewModel.Returns;
-using System.Globalization;
-using System.Text.Json;
 using static Mobile.MAUI.MauiProgram;
 
 namespace Mobile.MAUI.Components.Pages.Packing.Returns;
 
-public partial class ReturnsView : IAsyncDisposable
+public partial class ReturnsView : IDisposable
 {
-    private IJSObjectReference JsObj { get; set; }
-
-    List<ReturnsVM> Data { get; set; } = [];
-
-    AppAction<List<ReturnsVM>> ActionGetReturns;
-
-    int UserSubsidiaryId { get; set; }
-    int UserId { get; set; }
-
-    private List<ReturnsVM> FilteredData { get; set; } = [];
     private string SearchText { get; set; } = string.Empty;
-    protected override async Task OnInitializedAsync()
+    private string ErrorMessage { get; set; } = string.Empty;
+    private int _lookupInProgress;
+    private bool IsLoading => Volatile.Read(ref _lookupInProgress) != 0;
+    protected override Task OnInitializedAsync()
     {
-        string userId = await AuthState.GetAuthenticatedUserId();
-        ActionGetReturns = new AppAction<List<ReturnsVM>>
-        {
-            Name = "GetReturns",
-            TaskAsync = async () =>
-            {
-                await InvokeAsync(StateHasChanged);
-                var res = await Client.Post<List<ReturnsVM>>("/Packing/Returns/PendingFulfillment", new { NetsuiteUserSubsidiaryInternalId = UserSubsidiaryId, NetsuiteUserInternalId = UserId });
-                return res;
-            },
-            OnSuccess = async (result) =>
-            {
-                Data = result.Data ?? [];
-                ApplySearch();
-                await InvokeAsync(StateHasChanged);
-            }
-        };
-
         BroadcastService.BroadcastReceived += HandleItemScan;
+        return Task.CompletedTask;
     }
-
-    protected override async Task OnAfterRenderAsync(bool firstRender)
+    private Task OnSearchInput(ChangeEventArgs args) { SearchText = args.Value?.ToString() ?? string.Empty; return Task.CompletedTask; }
+    private async Task HandleEnter(KeyboardEventArgs args) { if (args.Key == "Enter") await SubmitLookup(); }
+    private async void HandleItemScan(object? sender, string message) { if (!string.IsNullOrWhiteSpace(message)) { SearchText = message.Trim(); try { await InvokeAsync(SubmitLookup); } catch { } } }
+    private async Task SubmitLookup()
     {
-        if (firstRender)
+        var number = SearchText.Trim();
+        if (number.Length == 0) { ErrorMessage = "Enter or scan a return number."; return; }
+        if (Interlocked.CompareExchange(ref _lookupInProgress, 1, 0) != 0) return;
+        ErrorMessage = string.Empty; await InvokeAsync(StateHasChanged);
+        try
         {
-            string? userAuth = await SecureStorage.GetAsync("UserAuth");
-            if (userAuth is not null)
-            {
-                var auth = JsonSerializer.Deserialize<AuthenticationVM>(userAuth);
-
-                UserSubsidiaryId = auth.NetsuiteSubsidiaryInternalId;
-                UserId = auth.NetsuiteEmployeeInternalId;
-            }
-
-            await LoadData();
+            var result = await Client.Post<ReturnsVM>("/Packing/Returns/Lookup", new { OrderNumber = number });
+            if (result is null || !result.Success || result.Data is null) { ErrorMessage = result?.ErrorMessage ?? "No eligible return was found."; return; }
+            NavManager.NavigateTo($"/packing/returns/{Uri.EscapeDataString(result.Data.OrderNumber)}");
         }
-
-        if (FilteredData.Count > 0 && JsObj is null)
-        {
-            JsObj = await Js.InvokeAsync<IJSObjectReference>("import", "./js/IntersectionObserver.js");
-            await JsObj.InvokeVoidAsync("Observe");
-        }
+        catch (Exception ex) when (ex is not NotAuthorizedException) { ErrorMessage = ex.Message.Contains("404", StringComparison.OrdinalIgnoreCase) ? "No eligible return was found." : "Unable to find that return. Check your connection and try again."; }
+        finally { Interlocked.Exchange(ref _lookupInProgress, 0); await InvokeAsync(StateHasChanged); }
     }
-
-    async Task LoadData()
-    {
-        await ActionFactory.ExecuteAppActionAsync(ActionGetReturns);
-    }
-
-    #region Search
-    async void HandleItemScan(object sender, string message)
-    {
-        SearchText = message?.Trim();
-
-        ApplySearch();
-
-        await InvokeAsync(StateHasChanged);
-    }
-
-    private async Task OnSearchInput(ChangeEventArgs args)
-    {
-        SearchText = args.Value?.ToString() ?? string.Empty;
-
-        ApplySearch();
-
-        await InvokeAsync(StateHasChanged);
-    }
-
-    private async Task ClearSearch()
-    {
-        SearchText = string.Empty;
-
-        ApplySearch();
-
-        await InvokeAsync(StateHasChanged);
-    }
-
-    private void ApplySearch()
-    {
-        if (string.IsNullOrWhiteSpace(SearchText))
-        {
-            FilteredData = Data.ToList();
-            return;
-        }
-
-        var search = SearchText.Trim();
-
-        FilteredData = Data
-            .Where(row => MatchesSearch(row, search))
-            .ToList();
-    }
-
-    private static bool MatchesSearch(ReturnsVM row, string search)
-    {
-        if (ContainsIgnoreCase(row.OrderNumber, search))
-            return true;
-
-        if (ContainsIgnoreCase(row.OrderStatus, search))
-            return true;
-
-        if (ContainsIgnoreCase(row.OrderType, search))
-            return true;
-
-        var createdDateFormats = new[]
-        {
-            row.NetsuiteOrderCreatedDate.ToString("MMMM d, yyyy", CultureInfo.InvariantCulture),
-            row.NetsuiteOrderCreatedDate.ToString("MMM d, yyyy", CultureInfo.InvariantCulture),
-            row.NetsuiteOrderCreatedDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
-            row.NetsuiteOrderCreatedDate.ToString("MM/dd/yyyy", CultureInfo.InvariantCulture),
-            row.NetsuiteOrderCreatedDate.ToString("M/d/yyyy", CultureInfo.InvariantCulture)
-        };
-
-        if (createdDateFormats.Any(date => ContainsIgnoreCase(date, search)))
-            return true;
-
-        if (DateTime.TryParse(search, out var parsedDate))
-        {
-            return row.NetsuiteOrderCreatedDate.Date == parsedDate.Date;
-        }
-
-        return false;
-    }
-
-    private static bool ContainsIgnoreCase(string? source, string search)
-    {
-        return !string.IsNullOrWhiteSpace(source) &&
-               source.Contains(search, StringComparison.OrdinalIgnoreCase);
-    }
-
-    #endregion
-
-    public async ValueTask DisposeAsync()
-    {
-        BroadcastService.BroadcastReceived -= HandleItemScan;
-
-        if (JsObj is not null)
-        {
-            try
-            {
-                await JsObj.InvokeVoidAsync("Dispose");
-            }
-            catch
-            {
-                // ignore cleanup errors
-            }
-
-            try
-            {
-                await JsObj.DisposeAsync();
-            }
-            finally
-            {
-                JsObj = null;
-            }
-        }
-    }
+    public void Dispose() => BroadcastService.BroadcastReceived -= HandleItemScan;
 }

@@ -314,6 +314,46 @@ public class PackingPendingFulfillmentFilterShapeTests
         Assert.Contains("t.status IN", sql);
     }
 
+    public static IEnumerable<object[]> ScanFirstPackingLookupScripts() => new[]
+    {
+        new object[] { "NS_TO_x_Packing_Get_PendingFulfillment_ByOrderNumber.sql", "employee" },
+        new object[] { "NS_VendorReturnAuthorization_Get_PendingReturn_ByOrderNumber.sql", "employee-location" },
+        new object[] { "NS_TO_x_Return_x_Packing_Get_PendingFulfillment_ByOrderNumber.sql", false },
+    }.Select(row => new object[] { row[0], row[1], Path.Combine(Path.GetDirectoryName(ScriptsPath("NS_TO_x_Packing_Get_PendingFulfillment.sql"))!, (string)row[0]!) });
+
+    [Theory]
+    [MemberData(nameof(ScanFirstPackingLookupScripts))]
+    public void Scan_first_packing_lookup_keeps_expected_pending_filters(string name, string accessPredicate, string path)
+    {
+        Assert.False(string.IsNullOrWhiteSpace(name));
+        var sql = Normalize(File.ReadAllText(path));
+        Assert.Contains("@ordernumber", sql);
+        Assert.Contains("@subsidiaryid", sql);
+        Assert.Contains("t.recordtype", sql);
+        Assert.Contains("t.status IN", sql);
+        Assert.Contains("openpk", sql);
+        Assert.Contains("ABS(opk.quantity)", sql);
+        if (accessPredicate == "mapping")
+        {
+            Assert.Contains("@userid", sql);
+            Assert.Contains("MAP_employee_custentity_dbti_wms_user_location_access", sql);
+            Assert.Contains("map.mapone = emp.id", sql);
+        }
+        else if (accessPredicate == "employee")
+        {
+            Assert.Contains("@userid", sql);
+            Assert.Contains("JOIN employee emp ON emp.id = @userid", sql);
+        }
+        else if (accessPredicate == "employee-location")
+        {
+            Assert.Contains("@userid", sql);
+            Assert.Contains("custentity_dbti_wms_user_location_access", sql);
+            Assert.Contains("BUILTIN.DF(tl.location)", sql);
+        }
+        SuiteQLAssert.NoTrailingComma(sql);
+    }
+
+
     private static string ScriptsPath(string fileName)
     {
         var copied = Path.Combine(AppContext.BaseDirectory, "Scripts", fileName);

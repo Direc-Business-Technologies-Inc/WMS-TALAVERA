@@ -8,7 +8,7 @@ namespace Application.DataTransferObjects.Transactions.Commons.NS.Request;
 
 public class RequestDTO
 {
-    public string OrderNumber { get; set; }
+    public string OrderNumber { get; set; } = string.Empty;
 }
 
 public class RequestPerUserDTO
