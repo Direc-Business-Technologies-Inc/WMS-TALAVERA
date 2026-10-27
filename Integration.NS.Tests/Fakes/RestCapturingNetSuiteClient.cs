@@ -21,6 +21,9 @@ public sealed class RestCapturingNetSuiteClient : INetSuiteApiClientService
     public List<string> Queries { get; } = new();
     public Func<int, Task>? OnWrite { get; set; }
     public int QueryCount { get; private set; }
+    public Func<string, Type, object?>? OnQuery { get; set; }
+    public Func<string, object?>? OnRead { get; set; }
+    public List<string> Reads { get; } = [];
 
     public string? LastBody => Writes.Count == 0 ? null : Writes[^1].Body;
 
@@ -34,6 +37,8 @@ public sealed class RestCapturingNetSuiteClient : INetSuiteApiClientService
     {
         QueryCount++;
         Queries.Add(query);
+        if (OnQuery?.Invoke(query, typeof(T)) is NetSuiteResponse<T> response)
+            return Task.FromResult(response);
         var items = QueryItems.OfType<T>().ToList();
         return Task.FromResult(new NetSuiteResponse<T>
         {
@@ -50,6 +55,11 @@ public sealed class RestCapturingNetSuiteClient : INetSuiteApiClientService
         NetSuiteRetryProfile profile = NetSuiteRetryProfile.Interactive,
         CancellationToken ct = default)
     {
+        if (method == HttpMethod.Get)
+        {
+            Reads.Add(url);
+            return (T)(OnRead?.Invoke(url) ?? throw new InvalidOperationException("No REST read fixture: " + url));
+        }
         Writes.Add((url, reqBody, method));
         if (OnWrite is not null)
             await OnWrite(Writes.Count);

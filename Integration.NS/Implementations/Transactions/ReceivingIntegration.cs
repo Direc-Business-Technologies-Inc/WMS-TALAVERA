@@ -30,7 +30,7 @@ using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace Integration.NS.Implementations.Transactions;
 // this class sucks
-public class ReceivingIntegration(
+public partial class ReceivingIntegration(
     INetSuiteApiClientService netsuiteService,
     IHttpContextAccessor httpContext,
     SuiteQLQueryBuilderFactoryService builderFactory,
@@ -627,108 +627,15 @@ public class ReceivingIntegration(
         });
     }
 
-    /// <summary>
-    ///     Derived table mapping each Item Fulfillment line to its source TO
-    ///     RECEIVING line id (<c>tolineid</c>), its shipped quantity, and Item
-    ///     Receipt quantities allocated specifically to that fulfillment.
-    ///     <para>
-    ///     All correlation is resolved INSIDE the derived table; the outer join
-    ///     predicate only correlates the table's own output columns (ifdoc/ifline)
-    ///     to the driving alias. A previous shape embedded the same mapping as
-    ///     correlated scalar subqueries in the SELECT list (the QuantityReceived one
-    ///     nested two levels deep, reaching the outer <c>uom</c> alias), which
-    ///     NetSuite rejects with <c>400 [INVALID_PARAMETER] ... Invalid or
-    ///     unsupported search</c> — see .opencode/docs/SuiteQL-Shape-Rules.md.
-    ///     </para>
-    /// </summary>
-    /// <returns>A parenthesised subquery. Append the join alias, e.g. $"{IF_TO_LINE_MAP} ifmap".</returns>
-    const string IF_TO_LINE_MAP = """
-            SELECT
-                tolink.nextdoc AS ifdoc,
-                tolink.nextline AS ifline,
-                ttl.id AS tolineid,
-                ABS(ttl.quantity) AS quantityplanned,
-                ABS(ifline.quantity) AS quantityfulfilled,
-                NVL(receipts.qtyrecv, 0) AS qtyrecv
-        	FROM
-        		previoustransactionlinelink tolink
-            JOIN
-                transactionline ifline ON ifline.id = tolink.nextline AND ifline.transaction = tolink.nextdoc
-            JOIN
-                transactionline shippingline ON shippingline.id = tolink.previousline and shippingline.transaction = tolink.previousdoc
-            JOIN
-                transactionline ttl on ttl.transferorderitemlineid = shippingline.transferorderitemlineid and ttl.transaction = shippingline.transaction
-            LEFT JOIN
-                (
-                    SELECT
-                        ifreceipt.previousdoc AS ifdoc,
-                        receiptlink.previousdoc AS todoc,
-                        receiptlink.previousline AS tolineid,
-                        SUM(ABS(receiptline.quantity)) AS qtyrecv
-                    FROM
-                        previoustransactionlinelink receiptlink
-                    JOIN
-                        nexttransactionlinelink ifreceipt ON ifreceipt.nextdoc = receiptlink.nextdoc
-                            AND ifreceipt.previoustype = 'ItemShip'
-                            AND ifreceipt.nexttype = 'ItemRcpt'
-                            AND ifreceipt.linktype = 'TOrdCost'
-                    JOIN
-                        transaction receipt ON receipt.id = receiptlink.nextdoc AND receipt.recordtype = 'itemreceipt'
-                    JOIN
-                        transactionline receiptline ON receiptline.id = receiptlink.nextline AND receiptline.transaction = receipt.id
-                    WHERE
-                        receiptlink.previoustype = 'TrnfrOrd'
-                    GROUP BY
-                        ifreceipt.previousdoc,
-                        receiptlink.previousdoc,
-                        receiptlink.previousline
-                ) receipts ON receipts.ifdoc = tolink.nextdoc
-                    AND receipts.todoc = tolink.previousdoc
-                    AND receipts.tolineid = tolink.previousline
-        	WHERE
-                ttl.transactionlinetype = 'RECEIVING'
-        		AND tolink.previoustype = 'TrnfrOrd'
-        """;
-
     public async Task<IEnumerable<ItemReceiptLineDTO>> GetItemReceiptItemFulfillmentLinesAsync(string docEntry)
     {
-
-        var builder = builderFactory.Create()
-            .Select(
-                ("item.itemid", "ItemCode"),
-                ("item.id", "ItemId"),
-                ("ifmap.tolineid", "LineNumber"),
-                ("uom.unitname", "UoM"),
-                ("uom.conversionrate", "UoMRate"),
-                ("loc.name", nameof(ItemReceiptLineDTO.LocationName)),
-                ("loc.id", nameof(ItemReceiptLineDTO.LocationId)),
-                ("barcode.name", nameof(ItemReceiptLineDTO.ItemBarcode)),
-                ("loc.usebins", "LocationUsesBins"),
-                ("item.displayname", "ItemDescription"),
-                ("pb.bin", "PrefferedBinAssignmentId"),
-                ("item.weight", nameof(ItemReceiptLineDTO.WeightPerItem)),
-                ("tl.custcol_dbti_actual_weight", nameof(ItemReceiptLineDTO.WeightActual)),
-                ("ABS(ifmap.quantityplanned / uom.conversionrate)", "QuantityPlanned"),
-                ("ABS(ifmap.quantityfulfilled / uom.conversionrate)", nameof(ItemReceiptLineDTO.QuantityFulfilled)),
-                ("item.usebins", "ItemUseBins"),
-                ("NVL(ifmap.qtyrecv / uom.conversionrate, 0)", "QuantityReceived")
-            )
-            .From("transactionline tl")
-            .Join("item", on: "tl.item = item.id")
-            .Join("transaction t", on: "tl.transaction = t.id")
-            .Join("location loc", on: "tl.location = loc.id")
-            .Join("unitstypeuom uom", on: "tl.units = uom.internalid")
-            .LeftJoin($"({IF_TO_LINE_MAP}) ifmap", "ifmap.ifdoc = tl.transaction AND ifmap.ifline = tl.id")
-            .LeftJoin("CUSTOMRECORD_BARCODE_PER_UOM barcode", "barcode.custrecord_bpu_uom = tl.units AND barcode.custrecord_bpu_item = tl.item")
-            .LeftJoin("(SELECT ibq.bin, ibq.item, b.location FROM itembinquantity ibq JOIN bin b ON ibq.bin = b.id WHERE preferredbin = \'T\') pb", on: "pb.item = item.id AND pb.location = tl.location")
-            .WithFilters(
-                Equal("t.tranid", docEntry)
-            );
-
-        var query = builder.Build();
-
-        var response = await netsuiteService.ExecuteSuiteQLQuery<ItemReceiptLineDTO>(query.Query);
-        return [.. response.items];
+        var query = builderFactory.Create().Select(("t.id", "Id"))
+            .From("transaction t").WithFilters(Equal("t.tranid", docEntry),
+                Equal("t.recordtype", "itemfulfillment")).Build();
+        var matches = await ReadCompleteAsync<OperationalDocumentIdentity>(query.Query);
+        if (matches.Count != 1 || matches[0].Id <= 0)
+            throw new InvalidOperationException("Could not uniquely identify the Item Fulfillment. Reload and retry.");
+        return await ReadOperationalFulfillmentAsync(matches[0].Id);
     }
 
 
@@ -782,8 +689,7 @@ public class ReceivingIntegration(
 
         var query = builder.Build();
 
-        var response = await netsuiteService.ExecuteSuiteQLQuery<ItemReceiptLineDTO>(query.Query);
-        return [.. response.items];
+        return await ReadCompleteAsync<ItemReceiptLineDTO>(query.Query);
     }
 
     /// <summary>
@@ -815,12 +721,11 @@ public class ReceivingIntegration(
                 Equal("tl.transactionlinetype", "RECEIVING")
             ).Build();
 
-        var response = await netsuiteService.ExecuteSuiteQLQuery<TransferOrderLineRemaining>(query.Query);
-
-        return response.items.ToDictionary(x => x.LineId);
+        var items = await ReadCompleteAsync<TransferOrderLineRemaining>(query.Query);
+        return items.ToDictionary(x => x.LineId);
     }
 
-    private sealed record TransferOrderLineRemaining
+    public sealed record TransferOrderLineRemaining
     {
         public int LineId { get; init; }
         public string ItemCode { get; init; } = string.Empty;
@@ -830,42 +735,15 @@ public class ReceivingIntegration(
         public decimal QuantityRemaining => QuantityPlanned - QuantityReceived;
     }
 
-    private async Task<IReadOnlyDictionary<int, ItemFulfillmentLineRemainingDTO>> GetItemFulfillmentLineRemainingAsync(int itemFulfillmentId)
+    private async Task<IReadOnlyDictionary<int, ItemFulfillmentLineRemainingDTO>> GetItemFulfillmentLineRemainingAsync(int itemFulfillmentId, int sourceId)
     {
-        var query = builderFactory.Create()
-            .Select(
-                ("ifmap.tolineid", nameof(ItemFulfillmentLineRemainingDTO.LineNumber)),
-                ("item.itemid", nameof(ItemFulfillmentLineRemainingDTO.ItemCode)),
-                ("item.displayname", nameof(ItemFulfillmentLineRemainingDTO.ItemDescription)),
-                ("ABS(ifmap.quantityplanned / NVL(uom.conversionrate, 1))", nameof(ItemFulfillmentLineRemainingDTO.QuantityPlanned)),
-                ("ABS(ifmap.quantityfulfilled / NVL(uom.conversionrate, 1))", nameof(ItemFulfillmentLineRemainingDTO.QuantityFulfilled)),
-                ("NVL(ifmap.qtyrecv / NVL(uom.conversionrate, 1), 0)", nameof(ItemFulfillmentLineRemainingDTO.QuantityReceived))
-            )
-            .From("transactionline tl")
-            .Join("transaction ifdoc", on: "ifdoc.id = tl.transaction")
-            .Join("item", on: "tl.item = item.id")
-            .Join("unitstypeuom uom", on: "tl.units = uom.internalid")
-            .LeftJoin($"({IF_TO_LINE_MAP}) ifmap", "ifmap.ifdoc = tl.transaction AND ifmap.ifline = tl.id")
-            .WithFilters(
-                Equal("ifdoc.recordtype", "itemfulfillment"),
-                Equal("ifdoc.id", itemFulfillmentId),
-                Equal("tl.mainline", "F")
-            ).Build();
-
-        var response = await netsuiteService.ExecuteSuiteQLQuery<ItemFulfillmentLineRemainingDTO>(query.Query);
-        var items = response.items ?? [];
-        if (items.Count == 0 || items.Any(line => line.LineNumber <= 0))
-            throw new InvalidOperationException(
-                $"Could not verify receipt quantities for Item Fulfillment {itemFulfillmentId}. " +
-                "Reload the fulfillment and retry; contact support if the error persists.");
-
-        var duplicates = items.GroupBy(line => line.LineNumber).FirstOrDefault(group => group.Count() > 1);
-        if (duplicates is not null)
-            throw new InvalidOperationException(
-                $"Item Fulfillment {itemFulfillmentId} maps more than one line to Transfer Order line {duplicates.Key}; " +
-                "receipt quantities cannot be verified safely.");
-
-        return items.ToDictionary(line => line.LineNumber);
+        var items = await ReadOperationalFulfillmentAsync(itemFulfillmentId, sourceId);
+        return items.ToDictionary(line => line.LineNumber, line => new ItemFulfillmentLineRemainingDTO
+        {
+            LineNumber = line.LineNumber, ItemCode = line.ItemCode, ItemDescription = line.ItemDescription,
+            QuantityPlanned = line.QuantityPlanned, QuantityFulfilled = line.QuantityFulfilled!.Value,
+            QuantityReceived = line.QuantityReceived
+        });
     }
 
     const int INVENTORY_STATUS_ID_GOOD = 1;
@@ -911,12 +789,12 @@ public class ReceivingIntegration(
             // another device already received against the same Transfer Order, because such
             // receipts are linked TO→IR and invisible to the IF-based math. Re-read the TO
             // ledger and refuse anything beyond what is left, before any HTTP post, so the
-            // failure is an actionable message instead of a terse NetSuite 400. Lines that
-            // the lookup does not resolve are left to the orderLine guard above.
+            // failure is an actionable message instead of a terse NetSuite 400. Missing
+            // ledger lines fail closed as well; their ceiling cannot be established.
             if (dto.SourceType != ItemReceiptDTO.SourceTypes.PurchaseOrder)
             {
                 var fulfillmentId = dto.ItemFulfillmentId!.Value;
-                var fulfillmentRemaining = await GetItemFulfillmentLineRemainingAsync(fulfillmentId);
+                var fulfillmentRemaining = await GetItemFulfillmentLineRemainingAsync(fulfillmentId, dto.SourceInternalId);
 
                 foreach (var line in dto.Lines.Where(x => x.InventoryDetails.Sum(y => y.QuantityAlloted) > 0))
                 {
@@ -938,7 +816,7 @@ public class ReceivingIntegration(
                 foreach (var line in dto.Lines.Where(x => x.InventoryDetails.Sum(y => y.QuantityAlloted) > 0))
                 {
                     if (!remainingByLineId.TryGetValue(line.LineNumber, out var remaining))
-                        continue;
+                        throw OperationalReadError($"source order line {line.LineNumber} is missing from the fresh ledger");
 
                     var allotted = line.InventoryDetails.Sum(y => y.QuantityAlloted);
 
@@ -958,7 +836,7 @@ public class ReceivingIntegration(
                         dto.SourceType,
                         dto.SourceInternalId);
 
-                    throw new Exception(
+                    throw new InvalidOperationException(
                         $"Line '{remaining.ItemCode}' ({remaining.ItemDescription}): allotted {allotted} " +
                         $"exceeds remaining {remaining.QuantityRemaining} ({remaining.QuantityReceived} already " +
                         "received, possibly from another device). Reload and adjust quantities.");
@@ -1239,75 +1117,15 @@ public class ReceivingIntegration(
                 $"Transfer Order {strId} has more than 1,000 Item Fulfillments; " +
                 "the receiving picker cannot verify all remaining quantities safely.");
 
-        var fulfilledQuery = builderFactory.Create()
-            .Select(
-                ("tl.transaction", nameof(ItemFulfillmentQuantityDTO.Id)),
-                ("SUM(ABS(tl.quantity))", nameof(ItemFulfillmentQuantityDTO.Quantity)))
-            .From("transactionline tl")
-            .WithFilters(
-                In("tl.transaction", candidateIds),
-                Equal("tl.mainline", "F"),
-                NotNull("tl.item"))
-            .GroupBy("tl.transaction")
-            .Build();
-        var fulfilledResponse = await netsuiteService.ExecuteSuiteQLQuery<ItemFulfillmentQuantityDTO>(
-            fulfilledQuery.Query,
-            limit: 1000);
-
-        var receiptLinksQuery = builderFactory.Create()
-            .Select(
-                ("iflink.previousdoc", nameof(ItemFulfillmentReceiptLinkDTO.ItemFulfillmentId)),
-                ("iflink.nextdoc", nameof(ItemFulfillmentReceiptLinkDTO.ItemReceiptId)))
-            .From("nexttransactionlinelink iflink")
-            .WithFilters(
-                In("iflink.previousdoc", candidateIds),
-                Equal("iflink.previoustype", "ItemShip"),
-                Equal("iflink.nexttype", "ItemRcpt"),
-                Equal("iflink.linktype", "TOrdCost"))
-            .Build();
-        var receiptLinksResponse = await netsuiteService.ExecuteSuiteQLQuery<ItemFulfillmentReceiptLinkDTO>(
-            receiptLinksQuery.Query,
-            limit: 1000);
-
-        var receiptLinks = receiptLinksResponse.items
-            .DistinctBy(link => (link.ItemFulfillmentId, link.ItemReceiptId))
-            .ToArray();
-        if (receiptLinksResponse.hasMore || receiptLinksResponse.totalResults > receiptLinksResponse.items.Count)
-            throw new InvalidOperationException(
-                $"Item Fulfillments for Transfer Order {strId} have more than 1,000 receipt links; " +
-                "the receiving picker cannot verify all remaining quantities safely.");
-
-        Dictionary<int, decimal> receiptQuantityById = [];
-        if (receiptLinks.Length > 0)
+        // Accounting-line totals can count both +INTRANSIT and -inventory rows.
+        // Use the same verified operational quantities as the grid and preflight.
+        List<int> pendingIds = [];
+        foreach (var candidateId in candidateIds)
         {
-            var receiptIds = receiptLinks.Select(link => link.ItemReceiptId).Distinct().ToArray();
-            var receiptTotalsQuery = builderFactory.Create()
-                .Select(
-                    ("receiptline.transaction", nameof(ItemFulfillmentQuantityDTO.Id)),
-                    ("SUM(ABS(receiptline.quantity))", nameof(ItemFulfillmentQuantityDTO.Quantity)))
-                .From("transactionline receiptline")
-                .WithFilters(
-                    In("receiptline.transaction", receiptIds),
-                    Equal("receiptline.mainline", "F"),
-                    NotNull("receiptline.item"))
-                .GroupBy("receiptline.transaction")
-                .Build();
-            var receiptTotalsResponse = await netsuiteService.ExecuteSuiteQLQuery<ItemFulfillmentQuantityDTO>(
-                receiptTotalsQuery.Query,
-                limit: 1000);
-            receiptQuantityById = receiptTotalsResponse.items.ToDictionary(item => item.Id, item => item.Quantity);
+            var lines = await ReadOperationalFulfillmentAsync(candidateId, strId);
+            if (lines.Any(line => line.QuantityOpen > 0)) pendingIds.Add(candidateId);
         }
-
-        var receivedByFulfillment = receiptLinks
-            .GroupBy(link => link.ItemFulfillmentId)
-            .ToDictionary(
-                group => group.Key,
-                group => group.Sum(link => receiptQuantityById.GetValueOrDefault(link.ItemReceiptId)));
-        var pendingIds = fulfilledResponse.items
-            .Where(item => receivedByFulfillment.GetValueOrDefault(item.Id) < item.Quantity)
-            .Select(item => item.Id)
-            .ToArray();
-        if (pendingIds.Length == 0) return ([], 0);
+        if (pendingIds.Count == 0) return ([], 0);
 
         var query = builderFactory.Create()
             .Select(
@@ -1334,18 +1152,6 @@ public class ReceivingIntegration(
         var response = await query.ExecuteWithPaging<ItemFulfillmentDTO>(netsuiteService);
 
         return (response.items, response.totalResults);
-    }
-
-    public sealed class ItemFulfillmentQuantityDTO
-    {
-        public int Id { get; set; }
-        public decimal Quantity { get; set; }
-    }
-
-    public sealed class ItemFulfillmentReceiptLinkDTO
-    {
-        public int ItemFulfillmentId { get; set; }
-        public int ItemReceiptId { get; set; }
     }
 
     public async Task<IEnumerable<ItemFulfillmentLineDTO>> GetItemFulfillmentLines(int ifId, DataGridIntent intent)

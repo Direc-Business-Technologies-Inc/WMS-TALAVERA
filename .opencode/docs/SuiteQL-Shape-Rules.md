@@ -44,7 +44,11 @@ NetSuite rejects the correlated form with `400 [INVALID_PARAMETER] ... Search er
   `uom` alias) in `ReceivingIntegration.GetItemReceiptItemFulfillmentLinesAsync`.
   Fix: `IF_TO_LINE_MAP` derived table. Only the Item Fulfillment branch was affected,
   which is why the error appeared user-specific — it was actually path-specific
-  (STR/Returns web flow vs. the PO flow).
+   (STR/Returns web flow vs. the PO flow).
+  **2026-10-27 follow-up:** the derived-table example illustrates SQL shape only;
+  native operational `nextline` is not an IF accounting `transactionline.id`.
+  Receiving now validates expanded operational records against native source-line
+  links. See `changes/2026-10-27-receiving-operational-fulfillment-lines.md`.
 - 2026-10-08 — barcode search: scoping `itemvendor` in the outer join predicate
   (`pv.subsidiary = loc.subsidiary`) against an unscoped derived table was rejected;
   the subsidiary had to be resolved inside the table

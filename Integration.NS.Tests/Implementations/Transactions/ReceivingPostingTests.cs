@@ -8,6 +8,7 @@ using Integration.NS.Tests.Fakes;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
+using static Integration.NS.Implementations.Transactions.ReceivingIntegration;
 
 namespace Integration.NS.Tests.Implementations.Transactions;
 
@@ -25,6 +26,60 @@ public class ReceivingPostingTests
             QuantityFulfilled = 10,
             QuantityReceived = 0
         });
+        client.QueryItems.Add(new OperationalTransferLink
+        {
+            SourceId = 123, ShippingLine = 9, OperationalLine = 0,
+            ReceivingLine = 10, ItemId = 49312, UnitId = 1
+        });
+        client.QueryItems.Add(new OperationalSourceDocument { TranId = "TO123" });
+        client.QueryItems.Add(new OperationalDocumentIdentity { Id = 456 });
+        // Retain each test's fresh-quantity setup, but run it through the actual
+        // REST operational reader and TO metadata mapping rather than bypassing it.
+        client.OnRead = url =>
+        {
+            var remaining = client.QueryItems.OfType<ItemFulfillmentLineRemainingDTO>().Single();
+            var receipt = url.Contains("itemReceipt");
+            return JsonSerializer.SerializeToElement(new
+            {
+                id = receipt ? 789 : 456, createdFrom = new { id = "123" },
+                item = new { items = new[] { new
+                {
+                    line = 0, orderLine = receipt ? 10 : 9, item = new { id = "49312" },
+                    units = new { id = "1" }, quantity = receipt ? remaining.QuantityReceived : remaining.QuantityFulfilled
+                } } }
+            });
+        };
+        client.OnQuery = (query, type) =>
+        {
+            var remaining = client.QueryItems.OfType<ItemFulfillmentLineRemainingDTO>().SingleOrDefault();
+            if (remaining is null) return null;
+            if (type == typeof(TransferOrderLineRemaining))
+                return new Application.DataTransferObjects.Others.NS.NetSuiteResponse<TransferOrderLineRemaining>
+                { items = [new() { LineId = 10, QuantityPlanned = 10 }], totalResults = 1 };
+            if (type == typeof(ItemReceiptLineDTO))
+                return new Application.DataTransferObjects.Others.NS.NetSuiteResponse<ItemReceiptLineDTO>
+                {
+                    items = [new() { LineNumber = 10, ItemId = 49312, ItemCode = "ITEM-1",
+                        UoMRate = 1, QuantityPlanned = remaining.QuantityPlanned }], totalResults = 1
+                };
+            if (type == typeof(OperationalReceiptLink))
+                return new Application.DataTransferObjects.Others.NS.NetSuiteResponse<OperationalReceiptLink>
+                {
+                    items = remaining.QuantityReceived > 0 ? [new() { FulfillmentId = 456, ReceiptId = 789 }] : [],
+                    totalResults = remaining.QuantityReceived > 0 ? 1 : 0
+                };
+            if (type == typeof(OperationalReceiptLineLink))
+                return new Application.DataTransferObjects.Others.NS.NetSuiteResponse<OperationalReceiptLineLink>
+                { items = [new() { SourceId = 123, ReceivingLine = 10, OperationalLine = 0 }], totalResults = 1 };
+            if (type == typeof(OperationalTransferLink))
+                return new Application.DataTransferObjects.Others.NS.NetSuiteResponse<OperationalTransferLink>
+                { items = [new() { SourceId = 123, ShippingLine = 9, OperationalLine = 0,
+                    ReceivingLine = 10, ItemId = 49312, UnitId = 1 }], totalResults = 1 };
+            if (type == typeof(OperationalSourceDocument))
+                return new Application.DataTransferObjects.Others.NS.NetSuiteResponse<OperationalSourceDocument>
+                { items = [new() { TranId = "TO123" }], totalResults = 1 };
+            return null;
+        };
         return (new ReceivingIntegration(client, new HttpContextAccessor(),
             new SuiteQLQueryBuilderFactoryService(), NullLogger<ReceivingIntegration>.Instance), client);
     }
