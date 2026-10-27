@@ -235,7 +235,7 @@
                             <Template Context="data">
                                 <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center">
                                     <RadzenText Visible="@ReadOnly" TextStyle="TextStyle.Body2">@(data.UoM?.Name ?? "No UoM given")</RadzenText>
-                                    <QuickVirtualizedDropdown Disabled="@Disabled" Visible="@(!ReadOnly)" TItem="ItemUnitVM" DataGetter="@(x => ItemUnitProvider(data.ItemId, x))" ActionName="@ActionGetItemUnits" @bind-Value:get="@data.UoM" @bind-Value:set="@(val => SetLineUoM(data, val))" TextProperty="@nameof(ItemUnitVM.Name)" />
+                                    <QuickVirtualizedDropdown Disabled="@Disabled" Visible="@(!ReadOnly)" TItem="ItemUnitVM" DataGetter="@(x => ItemUnitProvider(data.ItemId, x))" ActionName="@ActionGetItemUnits" @bind-Value:get="@data.UoM" @bind-Value:set="@(val => SetLineUoM(data, val))" TextProperty="@nameof(ItemUnitVM.Name)" FilterTarget="@nameof(ItemUnitVM.Name)" />
                                 </RadzenStack>
                             </Template>
                         </RadzenDataGridColumn>
