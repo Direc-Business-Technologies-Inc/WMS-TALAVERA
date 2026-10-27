@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https:-/keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+### Fixed
+- (Receiving → PO Item Receipt) Added fresh NetSuite quantity validation before
+  posting and mobile revalidation after Refresh, manual entry, and before Save.
+  The API now validates combined GOOD + BAD quantities per PO line, rejects
+  stale/mismatched line state before either receipt post, and preserves the
+  existing open-line filler and bin-detail payload behavior. Posting failures
+  advise checking NetSuite receipts before retrying because a response failure
+  does not prove that a receipt was not created.
+- Spec: `.github/specs/2026-10-27-po-item-receipt-fresh-quantity-validation.md`.
+
 ## [0.12.14] - 2026-10-20
 ### Fixed
 - (Receiving / Packing / Counting → Mobile) "Unknown barcode" still appeared for

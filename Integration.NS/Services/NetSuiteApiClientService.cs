@@ -963,7 +963,18 @@ namespace Integration.NS.Services
         #region Receiving
         public async Task<bool> SavePOItemReceipt(List<PostPurchaseOrderDTO> Data, int userId, string remarks)
         {
+            if (Data is null || Data.Count == 0 || Data[0].NetsuiteOrderInternalId <= 0 ||
+                Data.Any(x => x.NetsuiteOrderInternalId != Data[0].NetsuiteOrderInternalId))
+            {
+                throw new InvalidOperationException("Cannot post PO Item Receipt: select one valid purchase order and reload its lines.");
+            }
+
             var orderId = Data.Select(x => x.NetsuiteOrderInternalId).FirstOrDefault();
+
+            // The device's received quantities are a load-time snapshot. Validate the complete
+            // GOOD + BAD receipt against NetSuite's current line state before either transform.
+            var freshLines = await GetFreshPOReceiptLineStateAsync(orderId);
+            Data = ValidatePOReceiptLines(Data, freshLines);
 
             // A PO line that is already fully received is absent from the transform's item
             // sublist, so any orderLine reference for it - the scanned entry or the zero-qty
@@ -1028,7 +1039,7 @@ namespace Integration.NS.Services
                     logger.LogError(ex, "BAD PO Item Receipt failed. Url: {Url}. Payload: {Payload}", url, jsonStringBad);
                     var diag = $"[diag replace={url.Contains("replace=")} usedBin={isUsedBin} scannedLines={badPO.Count(x => x.ScannedQuantity > 0)} totalLines={Data.Count} build={BuildStamp}]"
                         + DecodeItemReceiptLine(ex.Message, Data, isGoodPost: false);
-                    throw new Exception($"Error while posting BAD PO Item Receipt. {ex.Message} {diag}", ex);
+                    throw new Exception($"Error while posting BAD PO Item Receipt. Check NetSuite item receipts before retrying; the post may have succeeded despite this error. {ex.Message} {diag}", ex);
                 }
             }
 
@@ -1050,7 +1061,10 @@ namespace Integration.NS.Services
                     logger.LogError(ex, "GOOD PO Item Receipt failed. Url: {Url}. Payload: {Payload}", url, jsonStringGood);
                     var diag = $"[diag replace={url.Contains("replace=")} usedBin={isUsedBin} scannedLines={goodPO.Count(x => x.ScannedQuantity > 0)} totalLines={Data.Count} build={BuildStamp}]"
                         + DecodeItemReceiptLine(ex.Message, Data, isGoodPost: true);
-                    throw new Exception($"Error while posting GOOD PO Item Receipt. {ex.Message} {diag}", ex);
+                    var partial = badPO.Any()
+                        ? "The BAD receipt may already have posted. Check NetSuite item receipts before retrying. "
+                        : "Check NetSuite item receipts before retrying; the post may have succeeded despite this error. ";
+                    throw new Exception($"Error while posting GOOD PO Item Receipt. {partial}{ex.Message} {diag}", ex);
                 }
             }
 
@@ -1099,6 +1113,123 @@ namespace Integration.NS.Services
         {
             var rate = line.UoMRate > 0 ? line.UoMRate : 1m;
             return (line.LineQuantity - line.LineQuantityReceived) / rate;
+        }
+
+        internal sealed class POReceiptFreshLineState
+        {
+            public int LineId { get; set; }
+            public int Item { get; set; }
+            public decimal LineQuantity { get; set; }
+            public decimal QuantityReceived { get; set; }
+            public decimal UoMRate { get; set; }
+        }
+
+        private async Task<IReadOnlyCollection<POReceiptFreshLineState>> GetFreshPOReceiptLineStateAsync(int orderId)
+        {
+            // Read raw PO lines, without the display query's bin/vendor joins: those joins
+            // must not decide which lines NetSuite's item-receipt transform exposes.
+            var query = $"""
+                SELECT tl.id AS LineId, tl.item AS Item,
+                    tl.quantity AS LineQuantity,
+                    NVL(tl.quantityshiprecv, 0) AS QuantityReceived,
+                    NVL(u.conversionrate, 0) AS UoMRate
+                FROM transactionline tl
+                JOIN transaction t ON t.id = tl.transaction
+                LEFT JOIN unitstypeuom u ON u.internalid = tl.units
+                WHERE t.id = {orderId} AND t.recordtype = 'purchaseorder'
+                    AND t.status IN ('B', 'E')
+                    AND tl.mainline = 'F' AND tl.item IS NOT NULL
+                ORDER BY tl.id
+                """;
+
+            return await ReadAllSuiteQLPagesAsync(
+                (limit, offset) => ExecuteSuiteQLQuery<POReceiptFreshLineState>(query, limit, offset),
+                1000, 100, $"PO receipt line read for order {orderId}");
+        }
+
+        /// <summary>
+        /// Reject a stale or ambiguous request before posting either quality bucket. Preserve
+        /// the existing open-line fillers and payload builder; only refresh quantity fields.
+        /// </summary>
+        internal static List<PostPurchaseOrderDTO> ValidatePOReceiptLines(
+            IReadOnlyCollection<PostPurchaseOrderDTO> submitted,
+            IReadOnlyCollection<POReceiptFreshLineState> freshLines)
+        {
+            if (freshLines.Count == 0 || freshLines.GroupBy(x => x.LineId).Any(x => x.Count() != 1))
+                throw new InvalidOperationException("Cannot post PO Item Receipt: current PO lines could not be verified. Reload the order.");
+
+            var freshById = freshLines.ToDictionary(x => x.LineId);
+            var openIds = freshLines.Where(x => x.LineQuantity > x.QuantityReceived)
+                .Select(x => x.LineId).ToHashSet();
+            var errors = new List<string>();
+            var postable = new List<PostPurchaseOrderDTO>();
+
+            foreach (var group in submitted.GroupBy(x => x.LineSequenceNumber))
+            {
+                if (!freshById.TryGetValue(group.Key, out var fresh))
+                {
+                    errors.Add($"WMS line {group.Key} is no longer on the PO");
+                    continue;
+                }
+
+                if (group.Any(x => x.NetsuiteMaterialInternalId != fresh.Item))
+                {
+                    errors.Add($"WMS line {group.Key} now refers to a different item");
+                    continue;
+                }
+
+                if (fresh.UoMRate <= 0 || fresh.LineQuantity < 0 || fresh.QuantityReceived < 0)
+                {
+                    errors.Add($"WMS line {group.Key} has invalid current quantity or UoM data");
+                    continue;
+                }
+
+                if (group.Any(x => x.UoMRate != fresh.UoMRate))
+                {
+                    errors.Add($"WMS line {group.Key} changed its unit of measure; reload and rescan");
+                    continue;
+                }
+
+                if (group.Any(x => x.ScannedQuantity < 0) ||
+                    group.GroupBy(x => x.IsBad).Any(x => x.Count() > 1))
+                {
+                    errors.Add($"WMS line {group.Key} has duplicate or invalid scan rows");
+                    continue;
+                }
+
+                var scanned = group.Sum(x => x.ScannedQuantity);
+                var remaining = (fresh.LineQuantity - fresh.QuantityReceived) / fresh.UoMRate;
+                if (scanned > remaining)
+                {
+                    errors.Add($"WMS line {group.Key} ({group.First().MaterialCode}): scanned GOOD + BAD {scanned}, remaining {Math.Max(remaining, 0)}");
+                    continue;
+                }
+
+                if (!openIds.Contains(group.Key)) continue; // unscanned closed filler
+
+                foreach (var line in group)
+                {
+                    line.LineQuantity = fresh.LineQuantity;
+                    line.LineQuantityReceived = fresh.QuantityReceived;
+                    line.UoMRate = fresh.UoMRate;
+                    postable.Add(line);
+                }
+            }
+
+            var missing = openIds.Except(postable.Select(x => x.LineSequenceNumber)).ToList();
+            if (missing.Count > 0)
+                errors.Add($"open WMS line(s) {string.Join(", ", missing)} were not included in the receipt");
+
+            if (errors.Count > 0)
+            {
+                var more = errors.Count > 3 ? $"; and {errors.Count - 3} more line(s)" : string.Empty;
+                throw new InvalidOperationException($"Cannot post PO Item Receipt: {string.Join("; ", errors.Take(3))}{more}. Reload the order and reconcile scans before saving.");
+            }
+
+            if (!postable.Any(x => x.ScannedQuantity > 0))
+                throw new InvalidOperationException("Cannot post PO Item Receipt: no open scanned lines remain. Check existing receipts and reload the order.");
+
+            return postable;
         }
 
         /// <summary>

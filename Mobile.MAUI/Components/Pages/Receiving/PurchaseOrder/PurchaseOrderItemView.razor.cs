@@ -33,6 +33,7 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
     PurchaseOrderLineVM? LastScanned;
 
     List<PurchaseOrderLineVM> POItems = [];
+    private bool _saveInProgress;
 
     PurchaseOrderLineVM? GoodSelectedLine;
     PurchaseOrderLineVM? BadSelectedLine;
@@ -50,7 +51,7 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
     }
     int ActiveTabIndex { get; set; } = 0;
 
-    bool SaveBtnDisabled => ScanCount == 0;
+    bool SaveBtnDisabled => ScanCount == 0 || _saveInProgress;
 
     bool MoveOn = false;
     bool IsMissing { get; set; }
@@ -337,6 +338,15 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
 
                 if (result is ManualEntryDialog.ManualEntryResult entry)
                 {
+                    if (_saveInProgress) return;
+
+                    if (entry.GoodQty < 0 || entry.BadQty < 0 ||
+                        entry.GoodQty + entry.BadQty > item.NSLineQuantityReceived)
+                    {
+                        await Toast.Warning($"Quantity exceeds remaining for {item.MaterialCode}. Reload the order and correct the entry.");
+                        return;
+                    }
+
                     ScanCount = 1;
 
                     item.ScannedQuantity = entry.GoodQty;
@@ -433,6 +443,8 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
     {
         try
         {
+            if (_saveInProgress) return;
+
             if (ScanState == ToggleState.Base &&
                 !MoveOn &&
                 !NegateQuantity)
@@ -557,6 +569,13 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
                     ChangeWeight = 0;
                 }
 
+                if (_saveInProgress ||
+                    goodLine.ScannedQuantity + badLine.ScannedQuantity + scanQty > goodLine.NSLineQuantityReceived)
+                {
+                    await Toast.Warning($"Scan quantity exceeds remaining quantity for item: {goodLine.MaterialCode}.");
+                    return;
+                }
+
                 badLine.ScannedQuantity +=
                     barcode.UoMRate / badLine.UoMRate;
 
@@ -604,6 +623,13 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
                     weight = barcode.DefaultWeight;
                 }
 
+                if (_saveInProgress ||
+                    goodLine.ScannedQuantity + (badLine?.ScannedQuantity ?? 0) + scanQty > goodLine.NSLineQuantityReceived)
+                {
+                    await Toast.Warning($"Scan quantity exceeds remaining quantity for item: {goodLine.MaterialCode}.");
+                    return;
+                }
+
                 goodLine.ScannedQuantity +=
                     barcode.UoMRate / goodLine.UoMRate;
 
@@ -632,6 +658,80 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
 
     async Task SaveScan()
     {
+        if (_saveInProgress) return;
+
+        var invalidLines = FindInvalidPOScans();
+        if (invalidLines.Count > 0)
+        {
+            await Toast.Warning($"Scans exceed the remaining PO quantity for: {string.Join(", ", invalidLines)}. Correct the scans or reload the order before saving.");
+            return;
+        }
+
+        _saveInProgress = true;
+        try
+        {
+            var result = await Dialog.OpenAsync<RemarksDialog>(
+                "Add Remarks",
+                new Dictionary<string, object> { },
+                new DialogOptions { ShowClose = true });
+
+            if (result is not RemarksDialog.RemarksResult remarksResult) return;
+            if (string.IsNullOrWhiteSpace(remarksResult.Remarks))
+            {
+                await Toast.Warning("Please add remarks.");
+                return;
+            }
+
+            invalidLines = FindInvalidPOScans();
+            if (invalidLines.Count > 0)
+            {
+                await Toast.Warning($"Scans exceed the remaining PO quantity for: {string.Join(", ", invalidLines)}. Correct the scans or reload the order before saving.");
+                return;
+            }
+
+            Remarks = remarksResult.Remarks;
+            POItems = BuildPOReceiptLines();
+            if (!POItems.Any(x => x.ScannedQuantity > 0))
+            {
+                await Toast.Warning("There are no scanned items to save.");
+                return;
+            }
+
+            await ActionFactory.ExecuteAppActionAsync(ActionSaveScan, confirm: true, showToast: true);
+        }
+        catch (Exception e)
+        {
+            await Toast.Error($"Error: {e.Message}");
+        }
+        finally
+        {
+            _saveInProgress = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private List<string> FindInvalidPOScans()
+    {
+        var invalid = new List<string>();
+        foreach (var good in GoodPOItems)
+        {
+            var bad = BadPOItems.FirstOrDefault(x =>
+                x.LineSequenceNumber == good.LineSequenceNumber &&
+                x.NetsuiteMaterialInternalId == good.NetsuiteMaterialInternalId);
+            var scanned = RoundOfNearestHundredThousands(good.ScannedQuantity) +
+                          RoundOfNearestHundredThousands(bad?.ScannedQuantity ?? 0);
+            if (scanned == 0 && good.ScannedQuantity >= 0 && (bad?.ScannedQuantity ?? 0) >= 0) continue;
+
+            if (good.UoMRate <= 0 || good.ScannedQuantity < 0 || (bad?.ScannedQuantity ?? 0) < 0 ||
+                scanned > good.NSLineQuantityReceived)
+                invalid.Add($"{good.MaterialCode} (line {good.LineSequenceNumber})");
+        }
+
+        return invalid;
+    }
+
+    private List<PurchaseOrderLineVM> BuildPOReceiptLines()
+    {
         // Post every OPEN line, not just the scanned ones. The PO !transform/itemReceipt seeds
         // its item sublist from the whole set of open lines, so a body carrying only the scanned
         // entries addresses a partial sublist and NetSuite rejects the save ("configure the
@@ -639,7 +739,7 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
         // ones travel as detail-free fillers (isReceived=false) exactly as the Returns receipt
         // does. Scanned bad rows are appended so a line scanned only as bad is still received.
         // Over-scans are left to the server's remaining-quantity guard, which names the line.
-        POItems = GoodPOItems
+        return GoodPOItems
             .Where(g => g.NSLineQuantityReceived != 0)
             .Concat(BadPOItems.Where(x => x.ScannedQuantity > 0 && x.NSLineQuantityReceived != 0))
             .Select(x => new PurchaseOrderLineVM
@@ -682,45 +782,6 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
                 ScannedWeight = x.ScannedWeight
             })
             .ToList();
-
-        if (POItems.Count == 0)
-        {
-            await Toast.Warning("There are no scanned items to save.");
-            return;
-        }
-
-        try
-        {
-            var result = await Dialog.OpenAsync<RemarksDialog>(
-                "Add Remarks",
-                new Dictionary<string, object> { },
-                new DialogOptions
-                {
-                    ShowClose = true
-                });
-
-            if (result is RemarksDialog.RemarksResult remarksResult)
-            {
-                if (string.IsNullOrWhiteSpace(remarksResult.Remarks))
-                {
-                   await Toast.Warning($"Please add remarks.");
-                   return;
-                }
-
-                Remarks = remarksResult.Remarks;
-
-                await ActionFactory.ExecuteAppActionAsync(
-                    ActionSaveScan,
-                    confirm: true,
-                    showToast: true);
-            }
-        }
-        catch (Exception e)
-        {
-            await Toast.Error($"Error: {e.Message}");
-        }
-
-        await InvokeAsync(StateHasChanged);
     }
 
     private bool IsActionPanelCollapsed;
@@ -1212,6 +1273,8 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
 
     private async Task Refresh()
     {
+        if (_saveInProgress) return;
+
         // Snapshot current scanned state before refreshing
         var scannedState = GoodPOItems
             .Concat(BadPOItems)
@@ -1252,6 +1315,10 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
                 item.PhysicalQuantity = scanned.PhysicalQuantity;
             }
         }
+
+        var invalidLines = FindInvalidPOScans();
+        if (invalidLines.Count > 0)
+            await Toast.Warning($"Previous scans exceed the refreshed PO balance for: {string.Join(", ", invalidLines)}. Correct or rescan these lines before saving.");
 
         await InvokeAsync(StateHasChanged);
     }
