@@ -30,10 +30,11 @@ SELECT
 	ibi2.quantityavailable AS PreferredBinQuantityAvailableBad,
 
 	ibli1.quantityavailable AS LocationItemQuantityAvailableGood,
-    ibli2.quantityavailable AS LocationItemQuantityAvailableBad,
+	ibli2.quantityavailable AS LocationItemQuantityAvailableBad,
 
 	i.weight AS MaterialWeight,
 	ail.quantityavailable as LocationItemQuantityAvailable,
+	ail.quantityonhand as LocationItemQuantityOnHand,
 
 	ABS(tl.quantity) AS LineQuantity,
 	tl.quantityshiprecv AS LineQuantityPacked,
@@ -86,7 +87,8 @@ LEFT JOIN (
 	SELECT
 		item,
 		location,
-		quantityavailable
+		quantityavailable,
+		quantityonhand
 	FROM
 		AggregateItemLocation
 	WHERE item IN (

@@ -26,7 +26,7 @@ public partial class VendorReturnAuthorizationItemReceiptForm
     List<VendorReturnAuthorizationItemReceiptLinePackingVM>? sourceLines;
     List<VendorReturnAuthorizationItemReceiptLinePackingVM> fulfillableLines = [];
 
-    bool isPlannedGreaterOpen => Data.Lines.Any(line => line.QuantityAvailable < line.QuantityOpen);
+    bool isPlannedGreaterOpen => Data.Lines.Any(line => line.QuantityOnHand < line.QuantityOpen);
 
     protected override void OnParametersSet()
     {
