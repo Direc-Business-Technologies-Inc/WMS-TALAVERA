@@ -211,6 +211,7 @@ internal class VendorReturnAuthorizationPackingIntegration(
             UoM = nsdto.UoM,
             Warehouse = nsdto.Warehouse,
             QuantityAvailable = nsdto.QuantityAvailable,
+            QuantityOnHand = nsdto.QuantityOnHand,
             QuantityPlanned = nsdto.QuantityPlanned,
             QuantityReceived = nsdto.QuantityReceived,
         };
