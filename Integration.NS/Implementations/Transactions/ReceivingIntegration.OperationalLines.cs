@@ -65,19 +65,31 @@ public partial class ReceivingIntegration
             throw OperationalReadError($"{recordType} {id} item pagination is incomplete");
 
         var sourceId = ReadReference(record, "createdFrom");
+        if (sourceId is null or <= 0)
+            throw OperationalReadError($"{recordType} {id}: createdFrom.id is missing or invalid");
         List<OperationalItem> result = [];
+        var itemIndex = 0;
         foreach (var item in items.EnumerateArray())
         {
             var line = ReadInteger(item, "line");
             var orderLine = ReadInteger(item, "orderLine");
             var itemId = ReadReference(item, "item");
-            var unitId = ReadReference(item, "units");
-            var orderDoc = item.TryGetProperty("orderDoc", out _) ? ReadInteger(item, "orderDoc") : sourceId;
+            var unitId = ReadIdOrReference(item, "units");
+            // NetSuite may return orderDoc as a REST reference ({ id, links, refName })
+            // or as a scalar ID. Both must still agree with the fulfillment source.
+            var orderDoc = item.TryGetProperty("orderDoc", out _)
+                ? ReadIdOrReference(item, "orderDoc")
+                : sourceId;
             var quantity = ReadDecimal(item, "quantity");
-            if (line is null or < 0 || orderLine is null or <= 0 || sourceId is null or <= 0 ||
-                orderDoc != sourceId || itemId is null or <= 0 || unitId is null or <= 0 || quantity is null or <= 0)
-                throw OperationalReadError($"{recordType} {id} has missing or invalid operational identity, quantity or units");
+            var rowContext = $"{recordType} {id} item row {itemIndex}";
+            if (line is null or < 0) throw OperationalReadError($"{rowContext}: line is missing or invalid");
+            if (orderLine is null or <= 0) throw OperationalReadError($"{rowContext} (line {line}): orderLine is missing or invalid");
+            if (orderDoc != sourceId) throw OperationalReadError($"{rowContext} (line {line}): orderDoc does not match createdFrom");
+            if (itemId is null or <= 0) throw OperationalReadError($"{rowContext} (line {line}): item.id is missing or invalid");
+            if (unitId is null or <= 0) throw OperationalReadError($"{rowContext} (line {line}): units.id is missing or invalid");
+            if (quantity is null or <= 0) throw OperationalReadError($"{rowContext} (line {line}): quantity is missing or invalid");
             result.Add(new(line.Value, orderLine.Value, sourceId.Value, itemId.Value, unitId.Value, quantity.Value));
+            itemIndex++;
         }
         if (result.Count == 0 || result.GroupBy(line => line.Line).Any(group => group.Count() != 1))
             throw OperationalReadError($"{recordType} {id} has empty or duplicate operational lines");
@@ -102,6 +114,23 @@ public partial class ReceivingIntegration
     private static int? ReadReference(JsonElement element, string name) =>
         element.ValueKind == JsonValueKind.Object && element.TryGetProperty(name, out var reference)
             ? ReadInteger(reference, "id") : null;
+
+    private static int? ReadIdOrReference(JsonElement element, string name)
+    {
+        if (element.ValueKind != JsonValueKind.Object || !element.TryGetProperty(name, out var value))
+            return null;
+
+        return value.ValueKind == JsonValueKind.Object
+            ? ReadInteger(value, "id")
+            : ReadInteger(value);
+    }
+
+    private static int? ReadInteger(JsonElement value)
+    {
+        if (value.ValueKind == JsonValueKind.Number && value.TryGetInt32(out var number)) return number;
+        return value.ValueKind == JsonValueKind.String && int.TryParse(value.GetString(), NumberStyles.Integer,
+            CultureInfo.InvariantCulture, out number) ? number : null;
+    }
 
     private async Task<List<ItemReceiptLineDTO>> ReadOperationalFulfillmentAsync(int fulfillmentId, int? expectedSourceId = null)
     {

@@ -1090,7 +1090,7 @@ public partial class ReceivingIntegration(
     }
 
 
-    public async Task<(IEnumerable<ItemFulfillmentDTO>, int)> GetSTRItemFulfillments(int strId, DataGridIntent intent)
+    public async Task<ItemFulfillmentPickerResult> GetSTRItemFulfillments(int strId, DataGridIntent intent)
     {
         intent = intent.Adapt<DataGridIntent>();
         if (intent.Sorts.Count == 0)
@@ -1111,7 +1111,7 @@ public partial class ReceivingIntegration(
             candidatesQuery.Query,
             limit: 1000);
         var candidateIds = candidatesResponse.items.Select(item => item.Id).Distinct().ToArray();
-        if (candidateIds.Length == 0) return ([], 0);
+        if (candidateIds.Length == 0) return new([], 0, 0);
         if (candidatesResponse.hasMore || candidatesResponse.totalResults > candidateIds.Length)
             throw new InvalidOperationException(
                 $"Transfer Order {strId} has more than 1,000 Item Fulfillments; " +
@@ -1120,12 +1120,27 @@ public partial class ReceivingIntegration(
         // Accounting-line totals can count both +INTRANSIT and -inventory rows.
         // Use the same verified operational quantities as the grid and preflight.
         List<int> pendingIds = [];
+        var skippedUnverifiableCount = 0;
         foreach (var candidateId in candidateIds)
         {
-            var lines = await ReadOperationalFulfillmentAsync(candidateId, strId);
-            if (lines.Any(line => line.QuantityOpen > 0)) pendingIds.Add(candidateId);
+            try
+            {
+                var lines = await ReadOperationalFulfillmentAsync(candidateId, strId);
+                if (lines.Any(line => line.QuantityOpen > 0)) pendingIds.Add(candidateId);
+            }
+            catch (InvalidOperationException exception)
+            {
+                // Picker discovery is best-effort per candidate: one stale or
+                // unverifiable fulfillment must not hide other receivable ones.
+                // Selection and posting repeat this verification and still fail
+                // closed for the chosen fulfillment.
+                skippedUnverifiableCount++;
+                logger.LogWarning(exception,
+                    "Skipping Item Fulfillment {ItemFulfillmentId} in the receiving picker for Transfer Order {TransferOrderId}; operational lines could not be verified.",
+                    candidateId, strId);
+            }
         }
-        if (pendingIds.Count == 0) return ([], 0);
+        if (pendingIds.Count == 0) return new([], 0, skippedUnverifiableCount);
 
         var query = builderFactory.Create()
             .Select(
@@ -1151,7 +1166,7 @@ public partial class ReceivingIntegration(
 
         var response = await query.ExecuteWithPaging<ItemFulfillmentDTO>(netsuiteService);
 
-        return (response.items, response.totalResults);
+        return new(response.items, response.totalResults, skippedUnverifiableCount);
     }
 
     public async Task<IEnumerable<ItemFulfillmentLineDTO>> GetItemFulfillmentLines(int ifId, DataGridIntent intent)

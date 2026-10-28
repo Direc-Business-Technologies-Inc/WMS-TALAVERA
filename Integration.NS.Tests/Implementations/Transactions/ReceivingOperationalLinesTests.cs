@@ -100,6 +100,68 @@ public sealed class ReceivingOperationalLinesTests
     }
 
     [Theory]
+    [InlineData("{\"id\":\"208281\",\"links\":[],\"refName\":\"TO208281\"}")]
+    [InlineData("208281")]
+    [InlineData("\"208281\"")]
+    public async Task Matching_orderDoc_reference_or_scalar_allows_verified_receipt(string orderDocJson)
+    {
+        var fixture = new Fixture();
+        fixture.Fulfillment["item"]!["items"]![0]!["orderDoc"] = JsonNode.Parse(orderDocJson);
+
+        var row = Assert.Single(await fixture.Sut.GetItemReceiptItemFulfillmentLinesAsync("IF230512"));
+        Assert.Equal(300, row.LineNumber);
+        Assert.True(await fixture.Sut.PostItemReceipt(fixture.Receipt(1)));
+        Assert.Single(fixture.Client.Writes);
+    }
+
+    [Theory]
+    [InlineData("{\"id\":\"999\"}")]
+    [InlineData("{\"links\":[]}")]
+    [InlineData("{\"id\":\"invalid\"}")]
+    [InlineData("null")]
+    [InlineData("999")]
+    public async Task Invalid_or_different_orderDoc_reference_fails_before_receipt_write(string orderDocJson)
+    {
+        var fixture = new Fixture();
+        fixture.Fulfillment["item"]!["items"]![0]!["orderDoc"] = JsonNode.Parse(orderDocJson);
+
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => fixture.Sut.GetItemReceiptItemFulfillmentLinesAsync("IF230512"));
+        Assert.Contains("orderDoc does not match createdFrom", error.Message);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => fixture.Sut.PostItemReceipt(fixture.Receipt(1)));
+        Assert.Empty(fixture.Client.Writes);
+    }
+
+    [Theory]
+    [InlineData("\"134\"")]
+    [InlineData("134")]
+    [InlineData("{\"id\":\"134\",\"links\":[],\"refName\":\"PC\"}")]
+    public async Task Matching_units_scalar_or_reference_maps_and_posts(string unitsJson)
+    {
+        var fixture = new Fixture();
+        fixture.Mappings[0].UnitId = 134;
+        fixture.Fulfillment["item"]!["items"]![0]!["units"] = JsonNode.Parse(unitsJson);
+
+        var row = Assert.Single(await fixture.Sut.GetItemReceiptItemFulfillmentLinesAsync("IF230512"));
+        Assert.Equal(300, row.LineNumber);
+        Assert.True(await fixture.Sut.PostItemReceipt(fixture.Receipt(1)));
+        Assert.Single(fixture.Client.Writes);
+    }
+
+    [Fact]
+    public async Task Different_scalar_unit_id_fails_mapping_before_receipt_write()
+    {
+        var fixture = new Fixture();
+        fixture.Fulfillment["item"]!["items"]![0]!["units"] = JsonValue.Create("134");
+
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => fixture.Sut.GetItemReceiptItemFulfillmentLinesAsync("IF230512"));
+        Assert.Contains("no unique native receiving-line mapping", error.Message);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => fixture.Sut.PostItemReceipt(fixture.Receipt(1)));
+        Assert.Empty(fixture.Client.Writes);
+    }
+
+    [Theory]
     [InlineData("line")]
     [InlineData("orderLine")]
     [InlineData("quantity")]
@@ -109,7 +171,13 @@ public sealed class ReceivingOperationalLinesTests
     {
         var fixture = new Fixture();
         fixture.Fulfillment["item"]!["items"]![0]!.AsObject().Remove(field);
-        await Assert.ThrowsAsync<InvalidOperationException>(() => fixture.Sut.GetItemReceiptItemFulfillmentLinesAsync("IF230512"));
+        var uiError = await Assert.ThrowsAsync<InvalidOperationException>(() => fixture.Sut.GetItemReceiptItemFulfillmentLinesAsync("IF230512"));
+        Assert.Contains(field switch
+        {
+            "item" => "item.id",
+            "units" => "units.id",
+            _ => field
+        }, uiError.Message);
         await Assert.ThrowsAsync<InvalidOperationException>(() => fixture.Sut.PostItemReceipt(fixture.Receipt(1)));
         Assert.Empty(fixture.Client.Writes);
     }

@@ -213,12 +213,12 @@ public class ReceivingHandler(
         return await Sender.Send(cmd);
     }
 
-    public async Task<(IEnumerable<ItemFulfillmentVM>, int)> GetTransferOrderItemFulfillments(int toId, DataGridIntent intent)
+    public async Task<(IEnumerable<ItemFulfillmentVM>, int, int)> GetTransferOrderItemFulfillments(int toId, DataGridIntent intent)
     {
         GetItemFulfillmentsForTransferOrderQry query = new GetItemFulfillmentsForTransferOrderQry(toId, intent);
         var response = await Sender.Send(query);
 
-        return (response.Item1.Adapt<IEnumerable<ItemFulfillmentVM>>(), response.Item2);
+        return (response.Items.Adapt<IEnumerable<ItemFulfillmentVM>>(), response.TotalResults, response.SkippedUnverifiableCount);
     }
 
     public async Task<IEnumerable<ItemFulfillmentLineVM>> GetItemFulfillmentLinesAsync(int ifid, DataGridIntent intent)

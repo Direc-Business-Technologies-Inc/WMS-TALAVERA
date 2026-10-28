@@ -37,7 +37,12 @@ contains the shared operational read and validation path. It is used by:
   is the submitted source order before accepting its line quantities.
 - `GetSTRItemFulfillments`: evaluate each candidate's operational line remainder
   before paging pending fulfillments. It no longer sums IF accounting quantities
-  or whole-receipt accounting quantities.
+  or whole-receipt accounting quantities. Candidate verification failures are
+  logged and isolated to that candidate so one malformed/stale fulfillment cannot
+  make the entire "Create Item Receipt" picker fail to open. The selected
+  fulfillment is still reverified strictly on load/post; no posting validation is
+  swallowed. The picker result reports the skipped count, and the dialog displays
+  a warning when one or more candidates were excluded.
 
 The mapping is an explicit identity chain:
 
@@ -80,9 +85,13 @@ against this account's record service and integration role:
 
 - Record `id` and `createdFrom.id`; expanded `item.items` array.
 - Per item: `line` (integer, zero allowed), `orderLine` (positive source line),
-  `item.id`, `units.id`, and positive `quantity` in the referenced units.
-- An optional `orderDoc`, when present, must equal `createdFrom.id`. The root source
-  plus the native previous-document link provides source identity when it is absent.
+  `item.id`, `units` as either a numeric/string ID or an object with numeric `id`,
+  and positive `quantity` in the referenced units.
+- An optional `orderDoc`, when present, must equal `createdFrom.id`. It may be a
+  numeric ID, numeric string, or REST reference object with a numeric `id`;
+  missing/invalid reference IDs or genuinely different sources fail verification.
+  The root source plus the native previous-document link provides source identity
+  when `orderDoc` is absent.
 - Numeric JSON values and numeric strings are accepted for IDs/quantities; missing,
   fractional IDs, invalid reference objects, null units, and invalid quantities fail.
 - IF native `nextline` must identify REST operational `line`. Receipt `orderLine`
@@ -105,6 +114,12 @@ with a verification error until an evidenced adapter/contract is supplied.
 - Duplicate operational line IDs, ambiguous receiving mappings, multiple IF lines
   targeting one receiving line, missing source metadata, and shared receipt owners
   fail before a write. Distinct native receipt-document links prevent fanout.
+- Picker-only candidate failures are logged with fulfillment and source-order IDs
+  and a field-specific validation reason, then skipped. The count is returned to
+  the dialog so exclusion is visible even when no verified rows remain. This
+  improves discovery availability but does not mark the candidate received or
+  permit posting it; direct selection/fresh posting verification still blocks
+  unverified candidates.
 - Preferred-bin and barcode lookup aggregation continues to prevent metadata
   joins from multiplying source rows.
 
@@ -139,12 +154,66 @@ assumption while retaining:
   with null units, 299→300 mapping, repeated items, missing fields, incomplete REST
   and SuiteQL reads, ambiguous native links, distinct equal-quantity receipts,
   duplicate receipt links, shared receipt owners, non-base conversion handling,
-  missing TO ledger lines, both quantity ceilings, and pending-picker behavior.
+  missing TO ledger lines, both quantity ceilings, pending-picker behavior, and an
+  invalid candidate alongside a valid candidate (the valid one remains visible and
+  the excluded count is surfaced). Missing operational fields assert field-specific
+  diagnostics.
 - `git diff --check` completed without whitespace errors.
 - `graphify update .` completed: 19,866 nodes / 46,832 edges. The existing
   missing `tree_sitter_sql` dependency warning remains; SQL extraction was skipped.
 
-## Pending live sandbox acceptance and operational limits
+## Follow-up: REST `orderDoc` reference shape (2026-10-28)
+
+The picker warning for IF `252575` and `253295` on TO `249543` reported
+`orderDoc does not match createdFrom`. SuiteQL confirmed both IFs have source
+`249543` and native `ShipRcpt` TO-to-IF line links. Visual Studio Watch on
+IF `252575`, operational row 0, confirmed that the expanded REST response
+contains `createdFrom.id = "249543"` and `orderDoc = {"id":"249543", ...}`.
+The old `ReadInteger(item, "orderDoc")` only accepted scalar JSON and produced
+null for the reference object, causing a false mismatch. The operational reader
+now accepts the observed reference-object `id` and the previously supported
+numeric/string IDs, retaining the `orderDoc == createdFrom.id` check and the
+separate native link and source-order checks. Regression tests cover matching
+reference and scalar forms and fail closed on missing, invalid, or mismatched
+reference IDs before any write. The snapshot establishes the JSON *shape* for
+one live IF; complete receipt creation and receipt record shapes still require
+live verification.
+
+## Follow-up: REST `units` scalar shape (2026-10-28)
+
+After the `orderDoc` correction, the picker reported `units.id is missing or
+invalid` on the same fulfillment. Visual Studio Watch confirmed the item row has
+`units` as the JSON string `"134"`; the parser only accepted a reference object
+with an `id`. The shared ID parser now accepts numeric/string unit IDs and
+reference objects, while retaining the unique TO receiving-line unit match. Thus
+an absent, malformed, or different unit still fails before posting. Regression
+tests cover string, numeric, and object unit forms plus a unit ID that disagrees
+with the verified TO receiving line. This fix derives identity only; it does not
+assume a conversion rate or permit posting in a mismatched unit.
+
+## Live picker verification (2026-10-28)
+
+After both REST shape fixes (`orderDoc` reference object and scalar `units` ID)
+were run in the application, the user confirmed the **Select Item Fulfillment**
+picker now displays fulfillment records for the previously affected Transfer
+Order. This resolves the reported picker symptom (“No records to display” despite
+eligible fulfillments) for the observed case. The local screenshot is retained by
+the user; no machine-specific screenshot path is required for this record.
+
+This confirms picker discovery and the two REST parsing paths, but is not evidence
+of a successful live Item Receipt POST. Posting still independently re-reads and
+validates line identity, unit, fulfillment remainder, and TO ledger remainder.
+Live receipt creation, partial receipt behavior, and the receipt GET/link contract
+remain to be acceptance-tested.
+
+After the `units` scalar support and tests were added, the targeted receiving suite
+passed **39 tests** using:
+
+```powershell
+dotnet test "Integration.NS.Tests/Integration.NS.Tests.csproj" --no-restore --filter "FullyQualifiedName~ReceivingOperationalLinesTests|FullyQualifiedName~GetSTRItemFulfillmentsQueryShapeTests" --verbosity quiet --nologo -p:WarningLevel=0
+```
+
+## Remaining live sandbox acceptance and operational limits
 
 1. With the integration role, GET expanded IF230512 and confirm the field contract
    above; require one item with quantity 3 PC mapped to receiving line 300.
@@ -156,10 +225,10 @@ assumption while retaining:
 4. Verify the picker removes an IF after its operational quantities are received;
    exercise non-base units and large/incomplete sublists.
 
-No live posting or REST contract verification was performed during this change.
-The picker now makes per-candidate operational reads, plus per-receipt reads and
-identity queries; assess latency on large orders. It intentionally blocks the
-picker if any candidate cannot be verified safely. Fresh reads are not an atomic
+The picker makes per-candidate operational reads, plus per-receipt reads and
+identity queries; assess latency on large orders. A candidate that cannot be
+verified is logged and excluded individually, with the skipped count shown in the
+picker; valid verified candidates remain available. Fresh reads are not an atomic
 NetSuite reservation: another actor can receive between validation and posting.
 Independent status receipts still require reconciliation after partial/uncertain
 responses; no distributed transaction or idempotency mechanism is added.

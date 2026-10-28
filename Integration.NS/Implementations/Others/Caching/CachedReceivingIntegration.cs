@@ -33,7 +33,7 @@ public class CachedReceivingIntegration(
         => cache.GetOrAddAsync(EntityName, nameof(GetItemReceiptsDatagrid), intent,
             () => inner.GetItemReceiptsDatagrid(intent));
 
-    public Task<(IEnumerable<ItemFulfillmentDTO>, int)> GetSTRItemFulfillments(int strId, DataGridIntent intent)
+    public Task<ItemFulfillmentPickerResult> GetSTRItemFulfillments(int strId, DataGridIntent intent)
         => cache.GetOrAddAsync(EntityName, nameof(GetSTRItemFulfillments), intent,
             () => inner.GetSTRItemFulfillments(strId, intent), default, strId);
 
