@@ -1,6 +1,8 @@
 using Mobile.MAUI.Services;
 using Microsoft.AspNetCore.Components.Web;
 using Shared.Libraries.ViewModel.TransferOrder;
+using Shared.Libraries.ViewModel.Authentication;
+using System.Text.Json;
 using static Mobile.MAUI.MauiProgram;
 
 namespace Mobile.MAUI.Components.Pages.Receiving.TransferOrder;
@@ -11,6 +13,14 @@ public partial class TransferOrderView : IDisposable
     private string ErrorMessage { get; set; } = string.Empty;
     private int _lookupInProgress;
     private bool IsLoading => Volatile.Read(ref _lookupInProgress) != 0;
+    private List<TransferOrderVM> Data { get; set; } = [];
+    private List<TransferOrderVM> FilteredData { get; set; } = [];
+    private const int PageSize = 50;
+    private int Offset { get; set; }
+    private bool HasMore { get; set; }
+    private bool IsListLoading { get; set; }
+    private bool IsLoadingMore { get; set; }
+    private string ListErrorMessage { get; set; } = string.Empty;
 
     protected override Task OnInitializedAsync()
     {
@@ -18,12 +28,42 @@ public partial class TransferOrderView : IDisposable
         return Task.CompletedTask;
     }
 
-    private Task OnSearchInput(ChangeEventArgs args) { SearchText = args.Value?.ToString() ?? string.Empty; return Task.CompletedTask; }
+    private Task OnSearchInput(ChangeEventArgs args) { SearchText = args.Value?.ToString() ?? string.Empty; ApplySearch(); return Task.CompletedTask; }
+    private void ApplySearch() => FilteredData = string.IsNullOrWhiteSpace(SearchText) ? Data.ToList() : Data.Where(x => new[] { x.OrderNumber, x.OrderStatus, x.OrderType }.Any(v => v?.Contains(SearchText.Trim(), StringComparison.OrdinalIgnoreCase) == true) || x.NetsuiteOrderCreatedDate.ToString("MMMM d, yyyy").Contains(SearchText.Trim(), StringComparison.OrdinalIgnoreCase)).ToList();
+    private Task ClearSearch() { SearchText = string.Empty; ApplySearch(); return Task.CompletedTask; }
+    private async Task LoadData()
+    {
+        if (IsListLoading) return; IsListLoading = true; ListErrorMessage = string.Empty; await InvokeAsync(StateHasChanged);
+        try
+        {
+            var userAuth = await SecureStorage.GetAsync("UserAuth"); var auth = userAuth is null ? null : JsonSerializer.Deserialize<AuthenticationVM>(userAuth);
+            if (auth is null) { ListErrorMessage = "Unable to read your user information. Sign in again and retry."; return; }
+            var result = await Client.Post<List<TransferOrderVM>>($"/Receiving/TransferOrder/PendingReceipt?limit={PageSize}&offset=0", new { NetsuiteUserSubsidiaryInternalId = auth.NetsuiteSubsidiaryInternalId, NetsuiteUserInternalId = auth.NetsuiteEmployeeInternalId });
+            if (result is null || !result.Success) { ListErrorMessage = result?.ErrorMessage ?? "Unable to load pending transfer orders. Try again."; return; }
+            Data = result.Data ?? []; Offset = Data.Count; HasMore = Data.Count == PageSize; ApplySearch();
+        }
+        catch (Exception ex) when (ex is not NotAuthorizedException) { ListErrorMessage = "Unable to load pending transfer orders. Check your connection and try again."; }
+        finally { IsListLoading = false; await InvokeAsync(StateHasChanged); }
+    }
+    private async Task LoadMore()
+    {
+        if (!HasMore || IsLoadingMore) return; IsLoadingMore = true; await InvokeAsync(StateHasChanged);
+        try
+        {
+            var userAuth = await SecureStorage.GetAsync("UserAuth"); var auth = userAuth is null ? null : JsonSerializer.Deserialize<AuthenticationVM>(userAuth);
+            if (auth is null) { ListErrorMessage = "Unable to read your user information. Sign in again and retry."; return; }
+            var result = await Client.Post<List<TransferOrderVM>>($"/Receiving/TransferOrder/PendingReceipt?limit={PageSize}&offset={Offset}", new { NetsuiteUserSubsidiaryInternalId = auth.NetsuiteSubsidiaryInternalId, NetsuiteUserInternalId = auth.NetsuiteEmployeeInternalId });
+            if (result is null || !result.Success) { ListErrorMessage = result?.ErrorMessage ?? "Unable to load more transfer orders. Try again."; return; }
+            var page = result.Data ?? []; Data.AddRange(page); Offset += page.Count; HasMore = page.Count == PageSize; ApplySearch();
+        }
+        catch (Exception ex) when (ex is not NotAuthorizedException) { ListErrorMessage = "Unable to load more transfer orders. Check your connection and try again."; }
+        finally { IsLoadingMore = false; await InvokeAsync(StateHasChanged); }
+    }
     private async Task HandleEnter(KeyboardEventArgs args) { if (args.Key == "Enter") await SubmitLookup(); }
 
     private async void HandleItemScan(object? sender, string message)
     {
-        if (!string.IsNullOrWhiteSpace(message)) { SearchText = message.Trim(); try { await InvokeAsync(SubmitLookup); } catch { } }
+        if (!string.IsNullOrWhiteSpace(message)) { SearchText = message.Trim(); ApplySearch(); try { await InvokeAsync(SubmitLookup); } catch { } }
     }
 
     private async Task SubmitLookup()
