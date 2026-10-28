@@ -84,6 +84,10 @@ The planner excludes lines exhausted by an earlier category from later payloads,
 avoiding references to lines no longer present on the transform's static sublist.
 Bin-tracked PO transforms use
 `?replace=item.inventoryDetail.inventoryAssignment` to preserve supplied assignments.
+For the 2026-10-28 partial-PO follow-up, see
+[Web PO receiving `InventoryDetail` replacement failure](web-po-receiving-inventory-detail-replace-fix.md):
+the active web PO builder now includes an empty assignment on every unreceived
+filler whenever that replacement query parameter is present.
 
 The command handler no longer turns an exception with the text
 `Empty response from NetSuite API` into success. Actual empty HTTP-success bodies

@@ -196,6 +196,9 @@ public partial class ReceivingIntegration(
             .WithFilters(
                 Equal("t.recordtype", "purchaseorder"),
                 In("t.status", new string[] { "B", "E" }),
+                Any(
+                    IsNull("t.custbody_dbti_custom_approval_status"),
+                    NotEqual("t.custbody_dbti_custom_approval_status", "20")),
                 In("tl.location", AllowedLocations),
                 Any(
                     NotEqual("t.custbody_dbti_purchase_category", NonTradePurchaseCategoryId),
@@ -762,8 +765,9 @@ public partial class ReceivingIntegration(
             $"{netsuiteService.GetRestAPIURI}/record/v1/purchaseOrder/{dto.SourceInternalId}/!transform/itemReceipt" :
             $"{netsuiteService.GetRestletURI}?script=1853&deploy=1";
 
-        if (dto.SourceType == ItemReceiptDTO.SourceTypes.PurchaseOrder &&
-            dto.Lines.Any(line => line.IsReceived && line.QuantityAlloted > 0 && line.IsLocationBinUsed))
+        var replaceInventoryAssignment = dto.SourceType == ItemReceiptDTO.SourceTypes.PurchaseOrder &&
+            dto.Lines.Any(line => line.IsReceived && line.QuantityAlloted > 0 && line.IsLocationBinUsed);
+        if (replaceInventoryAssignment)
             uri += "?replace=item.inventoryDetail.inventoryAssignment";
 
         List<(int StatusId, string Payload)> posts = [];
@@ -867,7 +871,7 @@ public partial class ReceivingIntegration(
                 return dto.SourceType switch
                 {
                     ItemReceiptDTO.SourceTypes.PurchaseOrder =>
-                        CreatePOJson(dto, statusId, exhaustedPOLines),
+                        CreatePOJson(dto, statusId, replaceInventoryAssignment, exhaustedPOLines),
 
                     ItemReceiptDTO.SourceTypes.TransferOrder =>
                         CreateTOJson(dto, statusId),
@@ -1365,7 +1369,7 @@ public partial class ReceivingIntegration(
         return JsonSerializer.Serialize(obj, JSON_OPTS);
     }
 
-    private string CreatePOJson(ItemReceiptDTO dto, int statusId, HashSet<int>? exhaustedLines = null)
+    private string CreatePOJson(ItemReceiptDTO dto, int statusId, bool replaceInventoryAssignment, HashSet<int>? exhaustedLines = null)
     {
         var lines = dto.Lines
             .Where(x => x.QuantityPlanned > x.QuantityReceived && !(exhaustedLines?.Contains(x.LineNumber) ?? false))
@@ -1399,12 +1403,15 @@ public partial class ReceivingIntegration(
                         quantity = isItemReceived ? lineQuantity : (decimal?)null,
                         custcol_dbti_actual_weight = isItemReceived ? line.WeightActual : (decimal?)null,
                         rate = isItemReceived && isGood ? (decimal?)null : 0,
-                        inventoryDetail = isItemReceived ? new
+                        // When the transform replaces inventory assignments, every item entry
+                        // must include the sub-resource. Unreceived fillers get an empty list;
+                        // never forward stale allocations from an unchecked line.
+                        inventoryDetail = isItemReceived || replaceInventoryAssignment ? new
                         {
                             inventoryAssignment = new
                             {
                                 items = line.InventoryDetails.Where(x =>
-                                    x.Status?.Id == statusId && x.QuantityAlloted > 0).Select(x =>
+                                    isItemReceived && x.Status?.Id == statusId && x.QuantityAlloted > 0).Select(x =>
                                 new
                                 {
                                     inventoryStatus = statusId,

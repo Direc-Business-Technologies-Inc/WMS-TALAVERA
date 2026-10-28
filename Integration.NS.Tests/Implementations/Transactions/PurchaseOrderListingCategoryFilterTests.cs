@@ -54,6 +54,21 @@ public class PurchaseOrderListingCategoryFilterTests
             where);
     }
 
+    [Fact]
+    public async Task Purchase_order_list_query_excludes_custom_closed_status_but_allows_unset_status()
+    {
+        var (sut, client) = CreateCapturing();
+
+        await sut.GetPurchaseOrdersListAsync(new DataGridIntent { Take = 10 });
+
+        Assert.NotNull(client.LastQuery);
+        var query = System.Text.RegularExpressions.Regex.Replace(client.LastQuery, @"\s+", " ");
+        Assert.Contains(
+            "(t.custbody_dbti_custom_approval_status IS NULL OR t.custbody_dbti_custom_approval_status != '20')",
+            query);
+        Assert.Contains("t.status IN ('B', 'E')", query);
+    }
+
     /// <summary>
     /// 2026-10-15: the pushdown IN-list is derived from the shared
     /// <c>PurchaseCategoryRules</c> whitelist rather than hardcoded, so the PO

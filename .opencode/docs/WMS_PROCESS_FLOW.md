@@ -136,6 +136,7 @@ Read via SuiteQL as `t.custbody_dbti_custom_approval_status`.
 | 1 | None / initial | Yes |
 | 2 | Draft | **Yes** |
 | 3 | Rejected | **Yes** |
+| 20 | Closed / excluded from Receiving PO grid (NetSuite admin-confirmed) | — |
 
 **Editability rule** (identical in STR and ITR):
 ```csharp
@@ -411,6 +412,14 @@ up to 3 sequential posts split by inventory status, ordered **bad → good → m
   and invisible to IF-based math
 
 **Receiving list filters:**
+- Purchase Orders: native status `IN ('B','E')` and custom approval status
+  `(custbody_dbti_custom_approval_status IS NULL OR
+  custbody_dbti_custom_approval_status != '20')`. NetSuite admin confirmed `20`
+  is the custom status used for closed orders; these records are hidden from the
+  web Receiving PO grid even if the native `t.status` still maps to Pending
+  Receipt or Pending Billing. An unset custom status remains eligible (subject
+  to all other filters); native closed status `G` remains excluded. The filter is in
+  `ReceivingIntegration.GetPurchaseOrdersListAsync`.
 - Direct TO: `status IN ('F','E')`, `transactionlinetype = 'RECEIVING'`
 - Via IF: `NS_TO_Get_Itemfulfillments.sql` **requires `t.status='C'`** ← the trip-ticket gate
 

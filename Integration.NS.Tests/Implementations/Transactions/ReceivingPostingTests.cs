@@ -232,6 +232,91 @@ public class ReceivingPostingTests
         Assert.Contains("?replace=item.inventoryDetail.inventoryAssignment", client.LastUrl);
     }
 
+    [Theory]
+    [InlineData(1)]
+    [InlineData(3)]
+    [InlineData(6)]
+    public async Task Bin_tracked_PO_replace_covers_unreceived_lines_with_empty_assignments(int status)
+    {
+        var (sut, client) = Create();
+        var dto = Receipt();
+        dto.Lines[0].IsLocationBinUsed = true;
+        dto.Lines[0].ItemUseBins = "T";
+        dto.Lines[0].InventoryDetails = [Detail(status, 5)];
+        dto.Lines[0].InventoryDetails[0].Bin = new() { Id = 7 };
+        dto.Lines.Add(new()
+        {
+            LineNumber = 20, QuantityPlanned = 10, IsReceived = false,
+            QuantityAlloted = 2, InventoryDetails = [Detail(status, 2)]
+        });
+
+        Assert.True(await sut.PostItemReceipt(dto));
+        var write = Assert.Single(client.Writes);
+        Assert.Contains("?replace=item.inventoryDetail.inventoryAssignment", write.Url);
+        using var body = JsonDocument.Parse(write.Body!);
+        var items = body.RootElement.GetProperty("item").GetProperty("items");
+        Assert.Equal(2, items.GetArrayLength());
+        Assert.True(items[0].GetProperty("itemreceive").GetBoolean());
+        var assigned = items[0].GetProperty("inventoryDetail").GetProperty("inventoryAssignment")
+            .GetProperty("items");
+        Assert.Equal(1, assigned.GetArrayLength());
+        Assert.Equal(status, assigned[0].GetProperty("inventoryStatus").GetInt32());
+        Assert.Equal(7, assigned[0].GetProperty("binNumber").GetInt32());
+        Assert.False(items[1].GetProperty("itemreceive").GetBoolean());
+        Assert.False(items[1].TryGetProperty("quantity", out _));
+        Assert.Equal(0, items[1].GetProperty("inventoryDetail").GetProperty("inventoryAssignment")
+            .GetProperty("items").GetArrayLength());
+    }
+
+    [Fact]
+    public async Task Non_bin_PO_keeps_plain_transform_and_detail_free_fillers()
+    {
+        var (sut, client) = Create();
+        var dto = Receipt();
+        dto.Lines.Add(new() { LineNumber = 20, QuantityPlanned = 10, IsReceived = false });
+
+        Assert.True(await sut.PostItemReceipt(dto));
+        var write = Assert.Single(client.Writes);
+        Assert.DoesNotContain("replace=", write.Url);
+        using var body = JsonDocument.Parse(write.Body!);
+        var items = body.RootElement.GetProperty("item").GetProperty("items");
+        Assert.Equal(5, items[0].GetProperty("inventoryDetail").GetProperty("inventoryAssignment")
+            .GetProperty("items")[0].GetProperty("quantity").GetDecimal());
+        Assert.False(items[1].GetProperty("itemreceive").GetBoolean());
+        Assert.False(items[1].TryGetProperty("inventoryDetail", out _));
+    }
+
+    [Fact]
+    public async Task Bin_tracked_PO_mixed_status_buckets_keep_fillers_empty_and_received_assignments()
+    {
+        var (sut, client) = Create();
+        var dto = Receipt();
+        dto.Lines[0].IsLocationBinUsed = true;
+        dto.Lines[0].ItemUseBins = "T";
+        dto.Lines[0].InventoryDetails = [Detail(3, 2), Detail(1, 3)];
+        foreach (var detail in dto.Lines[0].InventoryDetails)
+            detail.Bin = new() { Id = 7 };
+        dto.Lines.Add(new() { LineNumber = 20, QuantityPlanned = 10, IsReceived = false });
+
+        Assert.True(await sut.PostItemReceipt(dto));
+        Assert.Equal(2, client.Writes.Count);
+        foreach (var (write, status) in client.Writes.Zip(new[] { 3, 1 }))
+        {
+            Assert.Contains("?replace=item.inventoryDetail.inventoryAssignment", write.Url);
+            using var body = JsonDocument.Parse(write.Body!);
+            var items = body.RootElement.GetProperty("item").GetProperty("items");
+            Assert.Equal(2, items.GetArrayLength());
+            Assert.True(items[0].GetProperty("itemreceive").GetBoolean());
+            var assigned = items[0].GetProperty("inventoryDetail").GetProperty("inventoryAssignment")
+                .GetProperty("items");
+            Assert.Equal(1, assigned.GetArrayLength());
+            Assert.Equal(status, assigned[0].GetProperty("inventoryStatus").GetInt32());
+            Assert.False(items[1].GetProperty("itemreceive").GetBoolean());
+            Assert.Equal(0, items[1].GetProperty("inventoryDetail").GetProperty("inventoryAssignment")
+                .GetProperty("items").GetArrayLength());
+        }
+    }
+
     private static ItemReceiptDTO MixedReceipt()
     {
         var dto = Receipt(ItemReceiptDTO.SourceTypes.TransferOrder);
