@@ -13,6 +13,6 @@ public class SupplierReturnLineVM
     public decimal QuantityOnHand { get; set; }
     public decimal QuantityAlloted { get; set; }
     public decimal QuantityAvailable { get; set; }
-    public decimal QuantityOnHandByUoM => QuantityAvailable / (UoM?.ConversionRate ?? 1);
+    public decimal QuantityOnHandByUoM => QuantityOnHand / (UoM is { ConversionRate: > 0 } uom ? uom.ConversionRate : 1);
     public int? LineNumber { get; set; }
 }

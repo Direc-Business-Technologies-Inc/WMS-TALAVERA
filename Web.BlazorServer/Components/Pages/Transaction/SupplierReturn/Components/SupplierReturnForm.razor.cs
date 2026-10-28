@@ -265,11 +265,23 @@ public partial class SupplierReturnForm
 
     async Task ApprovalAction()
     {
+        if (!TryValidateOnHand(out var quantityError))
+        {
+            ToastService.Error(quantityError, "Invalid Quantity");
+            return;
+        }
+
         if (OnApprovalAction.HasDelegate) await OnApprovalAction.InvokeAsync(Model);
     }
 
     async Task SubmitClicked()
     {
+        if (!TryValidateOnHand(out var quantityError))
+        {
+            ToastService.Error(quantityError, "Invalid Quantity");
+            return;
+        }
+
         // Per-line Preferred Vendor is required on every line (posted to
         // custcol_dbti_vendor). Name the offending lines so the user can find
         // them; per-row RadzenRequiredValidator cannot work here because grid
@@ -287,6 +299,43 @@ public partial class SupplierReturnForm
 
         if (OnSubmit.HasDelegate)
             await OnSubmit.InvokeAsync(Model);
+    }
+
+    bool TryValidateOnHand(out string error)
+    {
+        var invalidLineNumbers = new HashSet<string>();
+        foreach (var (line, index) in Model.Lines.Select((line, index) => (line, index)))
+        {
+            if (line.QuantityAlloted < 0 || line.UoM is { ConversionRate: <= 0 })
+                invalidLineNumbers.Add(line.LineNumber?.ToString() ?? (index + 1).ToString());
+        }
+
+        foreach (var sameItemLines in Model.Lines.GroupBy(line => line.ItemId))
+        {
+            var totalAllotedInBaseUnits = sameItemLines.Sum(line =>
+                line.QuantityAlloted * (line.UoM?.ConversionRate > 0 ? line.UoM.ConversionRate : 1m));
+            var quantityOnHand = sameItemLines.First().QuantityOnHand;
+            if (totalAllotedInBaseUnits > quantityOnHand)
+            {
+                foreach (var (line, index) in sameItemLines.Select(line => (line, Model.Lines.IndexOf(line))))
+                    invalidLineNumbers.Add(line.LineNumber?.ToString() ?? (index + 1).ToString());
+            }
+        }
+
+        error = invalidLineNumbers.Count == 0
+            ? string.Empty
+            : $"Total allotted quantity must be between 0 and On Hand on line(s): {string.Join(", ", invalidLineNumbers)}.";
+        return invalidLineNumbers.Count == 0;
+    }
+
+    decimal GetMaxAllotedQuantity(SupplierReturnLineVM line)
+    {
+        var conversionRate = line.UoM?.ConversionRate > 0 ? line.UoM.ConversionRate : 1m;
+        var otherLinesBaseQuantity = Model.Lines
+            .Where(otherLine => otherLine.ItemId == line.ItemId && !ReferenceEquals(otherLine, line))
+            .Sum(otherLine => otherLine.QuantityAlloted * (otherLine.UoM?.ConversionRate ?? 1m));
+
+        return Math.Max(0, (line.QuantityOnHand - otherLinesBaseQuantity) / conversionRate);
     }
 
     async Task AddItems(List<ItemsVM> items)
@@ -331,6 +380,11 @@ public partial class SupplierReturnForm
                 QuantityAvailable = x.QuantityAvailable,
                 QuantityAlloted = 0
             }));
+
+        if (!TryValidateOnHand(out var quantityError))
+        {
+            ToastService.Error(quantityError, "Invalid Quantity");
+        }
 
         await InvokeAsync(StateHasChanged);
 
@@ -478,15 +532,24 @@ public partial class SupplierReturnForm
             }
         }
 
-        if (line is null)
+        if (line is null && barcode.Item is null)
         {
-            reason = $"The item {barcode.Item?.ItemNumber} does not exist in the current document";
+            reason = "The scanned barcode has no item data.";
             return false;
         }
 
-        var uomRate = line.UoM?.ConversionRate ?? 1;
-        var itemCount = BarcodeStore.CountItemQuantity(line.ItemId) / uomRate;
-        var incomingCount = (barcode.UoM?.ConversionRate ?? 0) / uomRate;
+        var incomingBaseQuantity = barcode.UoM?.ConversionRate ?? 0;
+        var itemId = barcode.Item?.Id ?? line!.ItemId;
+        var alreadyScannedBaseQuantity = BarcodeStore.CountItemQuantity(itemId);
+        var allocatedBaseQuantity = Model.Lines
+            .Where(existingLine => existingLine.ItemId == itemId)
+            .Sum(existingLine => existingLine.QuantityAlloted * (existingLine.UoM?.ConversionRate ?? 1));
+        var onHand = line?.QuantityOnHand ?? barcode.Item!.QuantityOnHand;
+        if (allocatedBaseQuantity + alreadyScannedBaseQuantity + incomingBaseQuantity > onHand)
+        {
+            reason = $"The scan would exceed On Hand for item {barcode.Item?.ItemNumber ?? line?.ItemCode}.";
+            return false;
+        }
 
         reason = "";
         return true;

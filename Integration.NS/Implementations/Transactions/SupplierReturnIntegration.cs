@@ -4,6 +4,7 @@ using Application.DataTransferObjects.Transactions.StockTransferRequest;
 using Application.DataTransferObjects.Transactions.SupplierReturn;
 using Application.UseCases.Repositories.Integration.Others;
 using Application.UseCases.Repositories.Integration.Transaction.SupplierReturn;
+using Integration.NS.DataTransferObjects.Others;
 using Integration.NS.DataTransferObjects.StockTransferRequest;
 using Integration.NS.DataTransferObjects.SupplierReturn;
 using Integration.NS.Helpers;
@@ -111,6 +112,7 @@ public class SupplierReturnIntegration(
                 ("item.displayname", nameof(SupplierReturnLineNSDTO.ItemDescription)),
                 ("-(tl.quantity / uom.conversionrate)", nameof(SupplierReturnLineNSDTO.QuantityAlloted)),
                 ("(iil.quantityavailable / uom.conversionrate)", nameof(SupplierReturnLineNSDTO.QuantityAvailable)),
+                ("iil.quantityonhand", nameof(SupplierReturnLineNSDTO.QuantityOnHand)),
                 ("BUILTIN.DF(tl.custcol_dbti_vendor)", nameof(SupplierReturnLineNSDTO.VendorName)),
                 ("tl.custcol_dbti_vendor", nameof(SupplierReturnLineNSDTO.VendorId))
             )
@@ -182,12 +184,14 @@ public class SupplierReturnIntegration(
 
     public async Task<bool> CreateSupplierReturn(SupplierReturnDTO data)
     {
+        await ValidateOnHandQuantitiesAsync(data);
         if (data.SourcePO is null) return await CreateNewSupplierReturn(data);
         return await CreateSupplierReturnFromPurchaseOrder(data);
     }
 
     public async Task<bool> SubmitSupplierReturnForApproval(SupplierReturnDTO dto)
     {
+        await ValidateOnHandQuantitiesAsync(dto);
         string payloadString = "{\"custbody_dbti_submitted_for_approval\":true}";
         var url = $"{netsuiteService.GetRestAPIURI}/record/v1/vendorReturnAuthorization/{dto.Id}";
 
@@ -221,6 +225,7 @@ public class SupplierReturnIntegration(
 
     public async Task<bool> UpdateSupplierReturn(SupplierReturnDTO data)
     {
+        await ValidateOnHandQuantitiesAsync(data);
         string payload = CreatePayload(data);
         var uri = netsuiteService.GetRestAPIURI + $"/record/v1/vendorReturnAuthorization/{data.Id}?replace=item";
 
@@ -321,6 +326,7 @@ public class SupplierReturnIntegration(
                 ("tl.location", nameof(SupplierReturnLineNSDTO.LocationId)),
                 ("item.displayname", nameof(SupplierReturnLineNSDTO.ItemDescription)),
                 ("(iil.quantityavailable / uom.conversionrate)", nameof(SupplierReturnLineNSDTO.QuantityAvailable)),
+                ("iil.quantityonhand", nameof(SupplierReturnLineNSDTO.QuantityOnHand)),
                 ("(tl.quantity / uom.conversionrate)", nameof(SupplierReturnLineNSDTO.QuantityAlloted)),
                 ("BUILTIN.DF(tl.custcol_dbti_vendor)", nameof(SupplierReturnLineNSDTO.VendorName)),
                 ("tl.custcol_dbti_vendor", nameof(SupplierReturnLineNSDTO.VendorId))
@@ -444,5 +450,48 @@ public class SupplierReturnIntegration(
             Location = new () { Id = nsdto.LocationId, Name = nsdto.LocationName },
             Vendor = nsdto.VendorId.HasValue ? new Application.DataTransferObjects.Others.VendorDTO { Id = nsdto.VendorId.Value, Name = nsdto.VendorName ?? string.Empty } : null
         });
+    }
+
+    private async Task ValidateOnHandQuantitiesAsync(SupplierReturnDTO data)
+    {
+        if (data.Lines is null || !data.Lines.Any()) return;
+
+        var locationId = data.Location?.Id ?? data.Lines.FirstOrDefault()?.Location?.Id;
+        if (locationId is null || locationId <= 0)
+            throw new InvalidOperationException("A warehouse is required to validate RTS On Hand quantities.");
+
+        var itemIds = data.Lines.Select(line => line.ItemId).Distinct().ToArray();
+        var query = builderFactory.Create()
+            .Select(
+                ("ail.item", nameof(ItemsNSDTO.Id)),
+                ("ail.quantityonhand", nameof(ItemsNSDTO.QuantityOnHand))
+            )
+            .From("aggregateitemlocation ail")
+            .WithFilters(
+                DataGridFilterUtilities.Equal("ail.location", locationId.Value),
+                DataGridFilterUtilities.In("ail.item", itemIds.Select(id => id.ToString()).ToArray())
+            )
+            .Build();
+
+        var response = await netsuiteService.ExecuteSuiteQLQuery<ItemsNSDTO>(query.Query);
+        var onHandByItem = response.items.ToDictionary(item => item.Id, item => item.QuantityOnHand);
+        var invalidLines = data.Lines
+            .Where(line =>
+            {
+                var rate = line.UoM?.ConversionRate ?? 1m;
+                return line.QuantityAlloted < 0 || rate <= 0;
+            })
+            .Select(line => line.LineNumber?.ToString() ?? line.ItemCode)
+            .ToList();
+
+        foreach (var itemLines in data.Lines.GroupBy(line => line.ItemId))
+        {
+            var totalAllotedInBaseUnits = itemLines.Sum(line => line.QuantityAlloted * (line.UoM?.ConversionRate ?? 1m));
+            if (totalAllotedInBaseUnits > onHandByItem.GetValueOrDefault(itemLines.Key))
+                invalidLines.AddRange(itemLines.Select(line => line.LineNumber?.ToString() ?? line.ItemCode));
+        }
+
+        if (invalidLines.Count > 0)
+            throw new InvalidOperationException($"Allotted quantity exceeds current On Hand or is invalid on RTS line(s): {string.Join(", ", invalidLines)}.");
     }
 }

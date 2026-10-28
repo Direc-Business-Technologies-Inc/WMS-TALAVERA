@@ -19,6 +19,7 @@ public class SupplierReturnLineNSDTO
     public int LocationId { get; set; } 
     public decimal QuantityAlloted { get; set; }
     public decimal QuantityAvailable { get; set; }
+    public decimal QuantityOnHand { get; set; }
     public int? LineNumber { get; set; }
     public int? VendorId { get; set; }
     public string? VendorName { get; set; }

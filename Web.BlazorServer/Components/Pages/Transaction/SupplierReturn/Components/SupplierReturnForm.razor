@@ -126,7 +126,7 @@
                                 <RadzenText TextStyle="TextStyle.Body2" Text="@(data.Vendor?.Name ?? "Not set")" />
                             </Template>
                         </RadzenDataGridColumn>
-                        <RadzenDataGridColumn TItem="SupplierReturnLineVM" Title="Available Quantity" Property="@nameof(SupplierReturnLineVM.QuantityOnHandByUoM)" Type="typeof(decimal)" FormatString="{0:#,##0.##}" />
+                        <RadzenDataGridColumn TItem="SupplierReturnLineVM" Title="On Hand Quantity" Property="@nameof(SupplierReturnLineVM.QuantityOnHandByUoM)" Type="typeof(decimal)" FormatString="{0:#,##0.##}" />
                         <RadzenDataGridColumn TItem="SupplierReturnLineVM" Title="Alloted Quantity">
                             <Template Context="data">
 
@@ -134,7 +134,7 @@
                                     <RadzenText Visible="@(!IsEditable)" TextStyle="TextStyle.Body2" Text="@data.QuantityAlloted.ToString("#,##0.##")" />
                                     <RadzenFormField Visible="IsEditable">
                                         <ChildContent>
-                                            <RadzenNumeric Disabled="IsDisabled" @bind-Value="@data.QuantityAlloted" Format="#,##0.##" />
+                                            <RadzenNumeric Disabled="IsDisabled" @bind-Value="@data.QuantityAlloted" Min="0" Max="@GetMaxAllotedQuantity(data)" Format="#,##0.##" />
                                         </ChildContent>
                                     </RadzenFormField>
                                 </RadzenStack>
@@ -231,7 +231,7 @@
     {
         bool? save = await DialogService.OpenAsync(
            "Scan Barcodes",
-            ds => @<BarcodeScannerDialog BarcodeStore="BarcodeStore" Verifier="IsValidBarcode" Location="@(Model.Location?.Id ?? null)" />,
+             ds => @<BarcodeScannerDialog BarcodeStore="BarcodeStore" Verifier="IsValidBarcode" Verify Location="@(Model.Location?.Id ?? null)" />,
             options: GridSettingsService.GetDialogOptions());
 
         if (save == false)
