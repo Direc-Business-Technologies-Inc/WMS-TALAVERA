@@ -1221,6 +1221,7 @@ public partial class ReceivingIntegration(
                 Equal("t.recordtype", "itemreceipt")
             )
             .WithFromOrToSubsidiaries(httpContext, "t")
+            .WithPropertyMap(nameof(ItemReceiptDataGridDTO.Date), "t.trandate")
             .WithDatagridIntent(intent)
             .Build();
 

@@ -159,6 +159,7 @@ public class SupplierReturnIntegration(
                     DataGridFilterUtilities.Equal("t.recordtype", "vendorreturnauthorization"),
                     DataGridFilterUtilities.In("t.custbody_dbti_purchase_subcategory", new string[] { "1", "2", "5" })
                 )
+                .WithPropertyMap(nameof(SupplierReturnDataGridDTO.Date), "t.trandate")
                 .WithDatagridIntent(intent)
                 .Build();
 

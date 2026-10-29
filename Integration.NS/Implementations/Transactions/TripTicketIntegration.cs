@@ -25,6 +25,7 @@ public class TripTicketIntegration(
     {
         if (intent.Sorts.Count == 0) intent.Sorts.Add(DataGridSortUtilities.Descending(nameof(TripTicketDataGridDTO.TripDate)));
         var query = CreateTripTicketListQuery()
+            .WithPropertyMap(nameof(TripTicketDataGridDTO.TripDate), "tt.custrecord_dbti_trt_date")
             .WithDatagridIntent(intent)
             .Build();
 

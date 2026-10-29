@@ -240,6 +240,7 @@ internal class ReturnPackingIntegration(
                 Equal("t.recordtype", "itemfulfillment"),
                 Equal("t.custbody_dbti_print_label", "T")
             )
+            .WithPropertyMap(nameof(PackedItemFulfillmentDTO.Date), "t.trandate")
             .WithDatagridIntent(intent)
             .Build();
 

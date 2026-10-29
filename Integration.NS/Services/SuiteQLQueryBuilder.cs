@@ -380,7 +380,10 @@ public class SuiteQLQueryBuilder
     {
         if (value is null) throw new InvalidOperationException($"no value given for {prop}");
 
-        if (value is DateTime dtVal) return $"TO_DATE({prop}, '{NETSUITE_DATETIME_FORMAT_STRING}') {op} TO_DATE({_stringifyValue(dtVal)}, '{NETSUITE_DATETIME_FORMAT_STRING}')";
+        // SuiteQL transaction/custom-record date columns are already DATE values.
+        // TO_DATE(column, ...) attempts to parse a DATE as text and NetSuite rejects
+        // the resulting search with INVALID_PARAMETER. Convert only the literal.
+        if (value is DateTime dtVal) return $"{prop} {op} TO_DATE({_stringifyValue(dtVal)}, '{NETSUITE_DATETIME_FORMAT_STRING}')";
         return $"{prop} {op} {_stringifyValue(value)}";
     }
 

@@ -75,6 +75,7 @@ internal class StockTransferRequestIntegration(
                     DataGridFilterUtilities.Equal("t.custbody_dbti_transfer_category", 2)
                 )
                 .WithFromOrToSubsidiaries(httpContextAccessor, "t")
+                .WithPropertyMap(nameof(StockTransferRequestDataGridNSDTO.Date), "t.trandate")
                 .WithDatagridIntent(intent);
 
     public async Task<(IEnumerable<StockTransferRequestDataGridDTO> Data, int Count)> GetReturnsList(DataGridIntent intent)
@@ -112,6 +113,7 @@ internal class StockTransferRequestIntegration(
                     DataGridFilterUtilities.In("t.custbody_dbti_transfer_category", new string[] { "3", "4" })
                 )
                 .WithFromOrToSubsidiaries(httpContextAccessor, "t")
+                .WithPropertyMap(nameof(StockTransferRequestDataGridNSDTO.Date), "t.trandate")
                 .WithDatagridIntent(intent)
                 .Build();
         var response = await query.ExecuteWithPaging<StockTransferRequestDataGridNSDTO>(netsuiteService);
@@ -163,6 +165,7 @@ internal class StockTransferRequestIntegration(
                     DataGridFilterUtilities.Equal("t.custbody_dbti_transfer_category", 1)
                 )
                 .WithFromOrToSubsidiaries(httpContextAccessor, "t")
+                .WithPropertyMap(nameof(StockTransferRequestDataGridNSDTO.Date), "t.trandate")
                 .WithDatagridIntent(intent);
 
     /// <summary>

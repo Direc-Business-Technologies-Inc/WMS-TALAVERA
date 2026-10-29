@@ -24,6 +24,22 @@ namespace Integration.NS.Tests.Implementations.Transactions;
 /// </summary>
 public class PurchaseOrderListingCategoryFilterTests
 {
+    [Fact]
+    public async Task Date_range_filters_purchase_order_date_without_converting_the_column()
+    {
+        var (sut, client) = CreateCapturing();
+        var intent = new DataGridIntent { Take = 10 };
+        intent.Filters.Add(DataGridFilterUtilities.GreaterThanOrEqual("Date", new DateTime(2026, 10, 29)));
+        intent.Filters.Add(DataGridFilterUtilities.LessThan("Date", new DateTime(2026, 10, 30)));
+
+        await sut.GetPurchaseOrdersListAsync(intent);
+
+        Assert.NotNull(client.LastQuery);
+        Assert.Contains("t.trandate >= TO_DATE('2026-10-29T00:00:00'", client.LastQuery);
+        Assert.Contains("t.trandate < TO_DATE('2026-10-30T00:00:00'", client.LastQuery);
+        Assert.DoesNotContain("TO_DATE(t.trandate", client.LastQuery);
+    }
+
     private static (ReceivingIntegration Sut, CapturingNetSuiteClient Client) CreateCapturing()
     {
         var client = new CapturingNetSuiteClient();
