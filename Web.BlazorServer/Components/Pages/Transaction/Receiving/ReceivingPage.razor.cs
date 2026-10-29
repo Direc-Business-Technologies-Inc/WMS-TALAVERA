@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Components;
 using Shared.Entities;
+using Web.BlazorServer.Components.Custom;
 using Web.BlazorServer.Handlers.Repositories.Transaction.Receiving;
 using Web.BlazorServer.ViewModels.Transaction.Receiving;
 
@@ -15,6 +16,8 @@ public partial class ReceivingPage
 
     #region Primitives
     int SelectedTab { get; set; } = 0;
+    PrintStatus ReceiptPrintStatus = PrintStatus.ForPrinting;
+    QuickDataGrid<ItemReceiptDataGridVM> ReceiptGrid { get; set; } = default!;
     const string PRINTABLE_URL = "https://11608969.extforms.netsuite.com/app/site/hosting/scriptlet.nl?script=1914&deploy=1&compid=11608969&ns-at=AAEJ7tMQcHYZi6TWg02Efsn9l54jzr_F0odqnZsroaLYQ2W7pXI";
     #endregion Primitives
 
@@ -46,7 +49,15 @@ public partial class ReceivingPage
 
     Task<(IEnumerable<ItemReceiptDataGridVM>, int)> ItemReceiptsProvider(DataGridIntent intent)
     {
+        PrintStatusFilter.Apply(intent, ReceiptPrintStatus);
         return receivingHandler.GetItemReceiptsDatagridAsync(intent);
+    }
+    Task<int> ReceiptCountAsync(PrintStatus status) =>
+        PrintStatusFilter.CountAsync(status, receivingHandler.GetItemReceiptsDatagridAsync);
+    async Task ReceiptPrintStatusChanged(PrintStatus status)
+    {
+        ReceiptPrintStatus = status;
+        await ReceiptGrid.ReloadFirstPage();
     }
     string PrintableURL(ItemReceiptDataGridVM ir) => $"{PRINTABLE_URL}&id={ir.Id}";
     #endregion Custom Functions

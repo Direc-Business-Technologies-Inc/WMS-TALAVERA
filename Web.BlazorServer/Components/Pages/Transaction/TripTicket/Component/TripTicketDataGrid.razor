@@ -4,9 +4,11 @@
 <AppDataGrid @ref="@TTDataGrid" Id="trip_ticket_grid" TItem="TripTicketDataGridVM" DataGetter="@LoadDataAsync" GridSettings="@TTDataGridSettings" @bind-GridSettingsLoaded="@GridSettingsLoaded" ActionName="@ActionGetTripTickets">
     <HeaderTemplate>
         <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" AlignItems="AlignItems.Center" Gap="8px">
-            <RadzenButton Icon="settings" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@OpenTableSettings" />
-            <RadzenButton Icon="sync" Size="ButtonSize.Small" Click="TTDataGrid.ReloadDataAsync" />
-            <RadzenButton Icon="add" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Success" Click="@CreateTT" Visible="@(Can.Create("OTTX"))" />
+            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" AlignItems="AlignItems.Center" Gap="8px">
+                <RadzenButton Icon="settings" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@OpenTableSettings" />
+                <RadzenButton Icon="sync" Size="ButtonSize.Small" Click="TTDataGrid.ReloadDataAsync" />
+                <RadzenButton Icon="add" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Success" Click="@CreateTT" Visible="@(Can.Create("OTTX"))" />
+            </RadzenStack>
         </RadzenStack>
     </HeaderTemplate>
     <GridColumns>

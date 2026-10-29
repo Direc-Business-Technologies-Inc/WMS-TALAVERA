@@ -16,11 +16,13 @@ public partial class SupplierReturnsDataGrid
     readonly string ActionGetReturnsToSupplier = "Get Returns to Supplier";
 
     ReturnStatusVM? FilterStatus = null;
+    PrintStatus SelectedPrintStatus = PrintStatus.ForPrinting;
 
     QuickDataGrid<SupplierReturnDataGridVM> Grid { get; set; } = default!;
 
     async Task<(IEnumerable<SupplierReturnDataGridVM>, int)> LoadDataAsync(DataGridIntent intent)
     {
+        PrintStatusFilter.Apply(intent, SelectedPrintStatus);
         if (FilterStatus is not null)
         {
             intent.Filters.Add(
@@ -30,6 +32,13 @@ public partial class SupplierReturnsDataGrid
         }
 
         return await returnHandler.GetReturnsDataGridAsync(intent);
+    }
+    Task<int> PrintCountAsync(PrintStatus status) =>
+        PrintStatusFilter.CountAsync(status, returnHandler.GetReturnsDataGridAsync);
+    async Task PrintStatusChanged(PrintStatus status)
+    {
+        SelectedPrintStatus = status;
+        await Grid.ReloadFirstPage();
     }
     async Task<(IEnumerable<ReturnStatusVM>, int)> StatusProvider(DataGridIntent intent)
     {

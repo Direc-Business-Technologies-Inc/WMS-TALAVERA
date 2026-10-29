@@ -5,6 +5,7 @@
 
 @inherits BaseComponent
 
+<PrintStatusView Value="@SelectedPrintStatus" ValueChanged="@PrintStatusChanged" CountGetter="@PrintCountAsync" />
 <AppDataGrid @ref="@TransferOrderDataGrid" Id="transfer_order_grid" TItem="TransferOrderDataGridVM" DataGetter="@LoadDataAsync" GridSettings="@DataGridSettings" @bind-GridSettingsLoaded="@GridSettingsLoaded" ActionName="@ActionGetPurchaseOrders">
     <HeaderTemplate>
         <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" AlignItems="AlignItems.Center" Gap="8px">

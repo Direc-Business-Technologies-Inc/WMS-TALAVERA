@@ -1,0 +1,49 @@
+.print-status-tabs {
+    display: flex;
+    align-items: stretch;
+    min-height: 48px;
+    border-bottom: 1px solid var(--rz-base-300);
+    padding-left: 12px;
+    margin-bottom: 12px;
+}
+
+.print-status-tab {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-width: 76px;
+    padding: 0 16px;
+    border: 0;
+    border-bottom: 3px solid transparent;
+    background: transparent;
+    color: var(--rz-text-color);
+    font: inherit;
+    cursor: pointer;
+}
+
+.print-status-tab.active {
+    border-bottom-color: var(--rz-primary);
+    font-weight: 600;
+}
+
+.print-status-tab.for-printing > :first-child,
+.print-status-tab.for-printing > strong {
+    color: #d65b1e;
+}
+
+.print-status-tab.printed > :first-child,
+.print-status-tab.printed > strong {
+    color: #16834a;
+}
+
+.print-status-tab:focus-visible {
+    outline: 2px solid var(--rz-primary);
+    outline-offset: -2px;
+}
+
+.print-status-tab:disabled {
+    cursor: not-allowed;
+    opacity: .6;
+}

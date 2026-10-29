@@ -2,6 +2,7 @@
 @using Web.BlazorServer.ViewModels.Transaction.SupplierReturn
 @inherits BaseComponent 
 
+<PrintStatusView Value="@SelectedPrintStatus" ValueChanged="@PrintStatusChanged" CountGetter="@PrintCountAsync" />
 <QuickDataGrid @ref="@Grid" DataGetter="@LoadDataAsync" ActionName="@ActionGetReturnsToSupplier" Id="returns_to_supplier_datagrid" ActionWidth="55">
     <HeaderStart>
         <RadzenFormField Text="Filter by Status" Style="margin-top:-10px!important">

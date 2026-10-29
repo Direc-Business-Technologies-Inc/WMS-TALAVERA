@@ -3,6 +3,7 @@ using Radzen;
 using Radzen.Blazor;
 using Shared.Entities;
 using Shared.Libraries.Utilities;
+using Web.BlazorServer.Components.Custom;
 using Web.BlazorServer.Components.Shared.Abstraction;
 using Web.BlazorServer.Components.Shared.Others;
 using Web.BlazorServer.Defaults;
@@ -34,6 +35,19 @@ partial class STRDataGrid
     AppDataGrid<StockTransferRequestDataGridVM> DataGrid { get; set; }
     DataGridSettings DataGridSettings { get; set; }
     TransferOrderStatusVM? StatusFilter { get; set; } = null;
+    PrintStatus SelectedPrintStatus = PrintStatus.ForPrinting;
+
+    Task<int> PrintCountAsync(PrintStatus status) =>
+        PrintStatusFilter.CountAsync<StockTransferRequestDataGridVM>(status, intent => DataGetter(intent));
+
+    async Task PrintStatusChanged(PrintStatus status)
+    {
+        SelectedPrintStatus = status;
+        if (DataGrid.DataGrid.CurrentPage == 0)
+            await DataGrid.DataGrid.Reload();
+        else
+            await DataGrid.DataGrid.GoToPage(0);
+    }
 
     [Parameter] public string ActionName { get; set; } = "str_datagrid";
     readonly string ActionGetTranferOrderStatuses = "Get Transfer Order Status";
@@ -65,6 +79,7 @@ partial class STRDataGrid
 
     async Task<DataGridResultVM<StockTransferRequestDataGridVM>> LoadDataAsync(DataGridIntent intent)
     {
+        PrintStatusFilter.Apply(intent, SelectedPrintStatus);
         var action = await AppActionFactory.RunAsync(async () =>
         {
             AppBusyService.SetBusy(ActionName, true);

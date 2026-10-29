@@ -3,6 +3,7 @@ using Radzen;
 using Radzen.Blazor;
 using Shared.Entities;
 using Shared.Kernel;
+using Web.BlazorServer.Components.Custom;
 using Web.BlazorServer.Components.Shared.Abstraction;
 using Web.BlazorServer.Defaults;
 using Web.BlazorServer.Handlers.Repositories.Transaction.Receiving;
@@ -22,6 +23,19 @@ partial class ReturnsGrid
     string ActionGetPurchaseOrders { get; } = EnumHelper.GetEnumDescription(AppActions.GetAllReturns);
 
     TransferOrderStatusVM? StatusFilter = null;
+    PrintStatus SelectedPrintStatus = PrintStatus.ForPrinting;
+
+    Task<int> PrintCountAsync(PrintStatus status) =>
+        PrintStatusFilter.CountAsync(status, ReceivingHandler.GetReturnsDataGridAsync);
+
+    async Task PrintStatusChanged(PrintStatus status)
+    {
+        SelectedPrintStatus = status;
+        if (DataGrid.DataGrid.CurrentPage == 0)
+            await DataGrid.DataGrid.Reload();
+        else
+            await DataGrid.DataGrid.GoToPage(0);
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -45,6 +59,7 @@ partial class ReturnsGrid
 
     async Task<DataGridResultVM<ReturnsDataGridVM>> LoadDataAsync(DataGridIntent intent)
     {
+        PrintStatusFilter.Apply(intent, SelectedPrintStatus);
         var action = await AppActionFactory.RunAsync(async () =>
         {
             AppBusyService.SetBusy(ActionGetPurchaseOrders, true);

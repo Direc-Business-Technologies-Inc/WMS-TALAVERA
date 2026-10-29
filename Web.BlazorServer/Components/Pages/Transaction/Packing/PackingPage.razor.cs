@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Components;
 using Shared.Entities;
 using Shared.Libraries.Utilities;
+using Web.BlazorServer.Components.Custom;
 using Web.BlazorServer.Handlers.Repositories.Transaction.Packing.Returns;
 using Web.BlazorServer.ViewModels.Transaction.Packing;
 
@@ -16,6 +17,8 @@ partial class PackingPage
 
     #region Primitives
     int SelectedTab { get; set; } = 0;
+    PrintStatus LabelsPrintStatus = PrintStatus.ForPrinting;
+    QuickDataGrid<PackedItemFulfillmentVM> LabelsGrid { get; set; } = default!;
     #endregion Primitives
 
     #region Overrides
@@ -49,6 +52,7 @@ partial class PackingPage
     #endregion Custom Functions
     public Task<(IEnumerable<PackedItemFulfillmentVM>, int)> ItemFulfillmentsProvider(DataGridIntent intent)
     {
+        PrintStatusFilter.Apply(intent, LabelsPrintStatus);
         if (intent.Sorts.Count == 0)
         {
             intent.Sorts.Add(
@@ -60,6 +64,13 @@ partial class PackingPage
             );
         }
         return packingHandler.GetPackedItemFulfillments(intent);
+    }
+    Task<int> LabelsCountAsync(PrintStatus status) =>
+        PrintStatusFilter.CountAsync(status, packingHandler.GetPackedItemFulfillments);
+    async Task LabelsPrintStatusChanged(PrintStatus status)
+    {
+        LabelsPrintStatus = status;
+        await LabelsGrid.ReloadFirstPage();
     }
     const string PRINTABLE_URL = "https://11608969.extforms.netsuite.com/app/site/hosting/scriptlet.nl?script=1922&deploy=1&compid=11608969&ns-at=AAEJ7tMQ70cbDMgsewbx6YHr0oQkl5HAZi1-qpSrLgdV9mevdZI";
     string PrintableURL(PackedItemFulfillmentVM Model) => $"{PRINTABLE_URL}&id={Model.Id}";

@@ -1,0 +1,62 @@
+<nav class="print-status-tabs" aria-label="Print status views">
+    <button type="button" class="print-status-tab for-printing @(SelectedIndex == 0 ? "active" : null)"
+            aria-pressed="@(SelectedIndex == 0)" disabled="@Disabled" @onclick="() => SelectAsync(PrintStatus.ForPrinting)">
+        <RadzenIcon Icon="print" />
+        <strong>@(ForPrintingCount?.ToString() ?? "—")</strong>
+        <span>For Printing</span>
+    </button>
+    <button type="button" class="print-status-tab printed @(SelectedIndex == 1 ? "active" : null)"
+            aria-pressed="@(SelectedIndex == 1)" disabled="@Disabled" @onclick="() => SelectAsync(PrintStatus.Printed)">
+        <RadzenIcon Icon="check_circle" />
+        <strong>@(PrintedCount?.ToString() ?? "—")</strong>
+        <span>Printed</span>
+    </button>
+    <button type="button" class="print-status-tab all @(SelectedIndex == 2 ? "active" : null)"
+            aria-pressed="@(SelectedIndex == 2)" disabled="@Disabled" @onclick="() => SelectAsync(PrintStatus.All)">
+        <span>All</span>
+    </button>
+</nav>
+
+@code {
+    [Parameter] public PrintStatus Value { get; set; } = PrintStatus.ForPrinting;
+    [Parameter] public EventCallback<PrintStatus> ValueChanged { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public Func<PrintStatus, Task<int>>? CountGetter { get; set; }
+
+    private int? ForPrintingCount;
+    private int? PrintedCount;
+
+    private int SelectedIndex => (int)Value;
+
+    protected override async Task OnInitializedAsync() => await RefreshCountsAsync();
+
+    public async Task RefreshCountsAsync()
+    {
+        if (Disabled || CountGetter is null) return;
+
+        try
+        {
+            var forPrinting = CountGetter(PrintStatus.ForPrinting);
+            var printed = CountGetter(PrintStatus.Printed);
+            await Task.WhenAll(forPrinting, printed);
+            ForPrintingCount = await forPrinting;
+            PrintedCount = await printed;
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Could not load print-status counts");
+        }
+    }
+
+    private async Task SelectAsync(PrintStatus status)
+    {
+        if (!Disabled && status != Value)
+        {
+            await ValueChanged.InvokeAsync(status);
+            await RefreshCountsAsync();
+        }
+    }
+
+    [Inject] private ILogger<PrintStatusView> Logger { get; set; } = default!;
+}

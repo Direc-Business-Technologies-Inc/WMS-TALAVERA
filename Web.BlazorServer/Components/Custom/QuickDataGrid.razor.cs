@@ -105,5 +105,9 @@ public partial class QuickDataGrid<TItem> : BaseComponent where TItem : class
 
     public Task Reload() => DataGrid.DataGrid.Reload();
 
+    public Task ReloadFirstPage() => DataGrid.DataGrid.CurrentPage == 0
+        ? DataGrid.DataGrid.Reload()
+        : DataGrid.DataGrid.GoToPage(0);
+
     public delegate Task<(IEnumerable<TItem> Data, int Count)> DataDelegate(DataGridIntent intent);
 }

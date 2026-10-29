@@ -1,3 +1,4 @@
+@using Web.BlazorServer.Components.Custom
 @using Web.BlazorServer.Components.Pages.Transaction.TripTicket.Component
 @using Web.BlazorServer.Components.Security
 
@@ -13,5 +14,13 @@
 </RadzenStack>
 
 <AppContent>
-    <TripTicketDataGrid />
+    <RadzenTabs SelectedIndex="0">
+        <Tabs>
+            <RadzenTabsItem Text="Trip Tickets">
+                <PrintStatusView Disabled="true" />
+                <p class="rz-text-secondary rz-mb-2">Print status is awaiting the NetSuite field mapping for Trip Tickets. Showing all tickets.</p>
+                <TripTicketDataGrid />
+            </RadzenTabsItem>
+        </Tabs>
+    </RadzenTabs>
 </AppContent>
