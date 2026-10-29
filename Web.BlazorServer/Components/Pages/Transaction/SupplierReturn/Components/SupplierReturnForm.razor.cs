@@ -165,6 +165,9 @@ public partial class SupplierReturnForm
         LocationDropdown.Reset();
 
         Model.Lines.Clear();
+        BarcodeStore.Clear();
+        selectedItems.Clear();
+        selectedItemIndex = -1;
         await InvokeAsync(StateHasChanged);
     }
 
@@ -179,6 +182,9 @@ public partial class SupplierReturnForm
         }
 
         Model.Location = vm;
+        BarcodeStore.Clear();
+        selectedItems.Clear();
+        selectedItemIndex = -1;
         //Model.Lines.Clear();
 
         if (Model.Location is null) return;
@@ -220,6 +226,9 @@ public partial class SupplierReturnForm
         SubsidiaryDropdown.Reset();
 
         Model.Lines.Clear();
+        BarcodeStore.Clear();
+        selectedItems.Clear();
+        selectedItemIndex = -1;
         await InvokeAsync(StateHasChanged);
     }
 
@@ -340,41 +349,45 @@ public partial class SupplierReturnForm
 
     async Task AddItems(List<ItemsVM> items)
     {
-        if (Model.Location is null) return;
+        var selectedVendor = Model.Vendor;
+        if (Model.Location is null || selectedVendor is null) return;
+
+        var eligibleItems = items
+            .Where(item => item.PreferredVendorId == selectedVendor.Id)
+            .ToList();
+        if (eligibleItems.Count != items.Count)
+        {
+            ToastService.Error("Some selected items are not under the selected preferred vendor.", "Invalid Item");
+        }
+        if (eligibleItems.Count == 0) return;
 
         canSelectPO = false;
 
-        // A fresh RTS is created against one header vendor, so default every new
-        // line to it. Fall back to the item master default when no header vendor
-        // is picked yet (the submit guard still blocks nulls). Clone the header
-        // VM per line so editing one line can never mutate the others.
-        VendorVM? headerVendor = Model.Vendor is null
-            ? null
-            : new VendorVM
-            {
-                Id = Model.Vendor.Id,
-                ReferenceNumber = Model.Vendor.ReferenceNumber,
-                Name = Model.Vendor.Name,
-                CompanyName = Model.Vendor.CompanyName,
-                Category = Model.Vendor.Category
-            };
+        // New lines use the selected header vendor. Clone it per row so editing
+        // one line can never mutate the others.
+        var headerVendor = new VendorVM
+        {
+            Id = selectedVendor.Id,
+            ReferenceNumber = selectedVendor.ReferenceNumber,
+            Name = selectedVendor.Name,
+            CompanyName = selectedVendor.CompanyName,
+            Category = selectedVendor.Category
+        };
         Model.Lines.AddRange(
-            items.Select(x => new SupplierReturnLineVM
+            eligibleItems.Select(x => new SupplierReturnLineVM
             {
                 ItemId = x.Id,
                 ItemCode = x.Name,
                 ItemDescription = x.Description,
                 UoM = x.StockUnit,
-                Vendor = headerVendor is not null
-                    ? new VendorVM
-                    {
-                        Id = headerVendor.Id,
-                        ReferenceNumber = headerVendor.ReferenceNumber,
-                        Name = headerVendor.Name,
-                        CompanyName = headerVendor.CompanyName,
-                        Category = headerVendor.Category
-                    }
-                    : x.PreferredVendorId.HasValue ? new VendorVM { Id = x.PreferredVendorId.Value, Name = x.PreferredVendorName ?? string.Empty } : null,
+                Vendor = new VendorVM
+                {
+                    Id = headerVendor.Id,
+                    ReferenceNumber = headerVendor.ReferenceNumber,
+                    Name = headerVendor.Name,
+                    CompanyName = headerVendor.CompanyName,
+                    Category = headerVendor.Category
+                },
                 Location = Model.Location,
                 QuantityOnHand = x.QuantityOnHand,
                 QuantityAvailable = x.QuantityAvailable,
@@ -517,6 +530,12 @@ public partial class SupplierReturnForm
 
     bool IsValidBarcode(BarcodeVM barcode, out string reason)
     {
+        if (Model.Vendor is null || barcode.Item?.PreferredVendorId != Model.Vendor.Id)
+        {
+            reason = "This item is not under the selected preferred vendor.";
+            return false;
+        }
+
         var line = Model.Lines.FirstOrDefault(x => x.ItemId == barcode.Item?.Id && barcode.UoM?.Id == x.UoM?.Id && barcode.UoM is not null) ??
             Model.Lines.FirstOrDefault(x => x.ItemId == barcode.Item?.Id);
 

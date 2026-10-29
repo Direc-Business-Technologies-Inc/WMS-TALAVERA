@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Fixed
+- (Return to Supplier → WMS Web) Item selection and barcode scans are now
+  restricted to items whose preferred vendor matches the selected header vendor
+  for the actual subsidiary of each warehouse. The API verifies each written
+  line vendor, checks standard create/update and approval requests, and fetches
+  source PO lines before validating and posting a transform. Vendor/location/
+  subsidiary changes clear staged scans and row selection. See
+  `.opencode/docs/changes/2026-10-29-rts-preferred-vendor-item-restriction.md`.
 - (Receiving → PO Item Receipt) Added fresh NetSuite quantity validation before
   posting and mobile revalidation after Refresh, manual entry, and before Save.
   The API now validates combined GOOD + BAD quantities per PO line, rejects

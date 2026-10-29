@@ -34,5 +34,6 @@ public class ItemsNSDTO
     public string? PreferredBin { get; set; }
     public int? PreferredVendorId { get; set; }
     public string? PreferredVendorName { get; set; }
+    public int? SubsidiaryId { get; set; }
     public bool UsesBins { get; set; }
 }

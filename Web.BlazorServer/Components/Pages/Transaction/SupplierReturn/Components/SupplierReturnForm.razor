@@ -2,6 +2,7 @@
 @using Web.BlazorServer.Components.Pages.Transaction.Others.BarcodeScanning
 @using Web.BlazorServer.ViewModels.Others
 @using Web.BlazorServer.ViewModels.Transaction.SupplierReturn
+@using global::Shared.Libraries.Utilities
 
 @inherits BaseComponent
 
@@ -195,6 +196,15 @@
 
     async Task OpenItemDialog()
     {
+        if (Model.Vendor is null || Model.Subsidiary is null)
+        {
+            ToastService.Error("Select a preferred vendor and subsidiary before adding items.", "Missing Selection");
+            return;
+        }
+
+        ItemFilters.Clear();
+        ItemFilters.Add(DataGridFilterUtilities.Equal(nameof(ItemsVM.PreferredVendorId), Model.Vendor.Id));
+
         List<ItemsVM> items = await DialogService.OpenAsync(
             "Select Items",
             ds => @<ItemSelectionDialog Location="@(Model.Location?.Id ?? null)" SubsidiaryId="@Model.Subsidiary?.Id" Filters="ItemFilters" />,
