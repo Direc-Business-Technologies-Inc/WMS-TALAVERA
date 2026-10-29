@@ -26,6 +26,27 @@ public static class PrintStatusFilter
             intent.Filters.Add(DataGridFilterUtilities.GreaterThanOrEqual(PrintCountColumn, 1));
     }
 
+    public static void ApplyDateRange(DataGridIntent intent, DateTime? start, DateTime? end, string property = "Date")
+    {
+        if (start.HasValue)
+            intent.Filters.Add(DataGridFilterUtilities.GreaterThanOrEqual(property, start.Value.Date));
+        if (end.HasValue)
+            intent.Filters.Add(DataGridFilterUtilities.LessThan(property, end.Value.Date.AddDays(1)));
+    }
+
+    public static bool TryGetDateRange<T>(IEnumerable<T> rows, Func<T, DateTime?> date, out (DateTime Start, DateTime End) range)
+    {
+        var dates = rows.Select(date).Where(value => value.HasValue).Select(value => value!.Value.Date).ToArray();
+        if (dates.Length == 0)
+        {
+            range = default;
+            return false;
+        }
+
+        range = (dates.Min(), dates.Max());
+        return true;
+    }
+
     public static async Task<int> CountAsync<T>(
         PrintStatus status,
         Func<DataGridIntent, Task<(IEnumerable<T>, int)>> getter)

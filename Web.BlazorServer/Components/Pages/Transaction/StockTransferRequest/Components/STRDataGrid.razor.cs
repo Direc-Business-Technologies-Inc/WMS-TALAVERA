@@ -36,9 +36,25 @@ partial class STRDataGrid
     DataGridSettings DataGridSettings { get; set; }
     TransferOrderStatusVM? StatusFilter { get; set; } = null;
     PrintStatus SelectedPrintStatus = PrintStatus.ForPrinting;
+    DateTime? DateRangeStart;
+    DateTime? DateRangeEnd;
+    PrintStatusView PrintStatusView = default!;
 
-    Task<int> PrintCountAsync(PrintStatus status) =>
-        PrintStatusFilter.CountAsync<StockTransferRequestDataGridVM>(status, intent => DataGetter(intent));
+    Task<int> PrintCountAsync(PrintStatus status) => PrintStatusFilter.CountAsync<StockTransferRequestDataGridVM>(status, async intent =>
+    {
+        PrintStatusFilter.ApplyDateRange(intent, DateRangeStart, DateRangeEnd);
+        return await DataGetter(intent);
+    });
+
+    async Task DateRangeChanged((DateTime Start, DateTime End) range)
+    {
+        DateRangeStart = range.Start;
+        DateRangeEnd = range.End;
+        if (DataGrid.DataGrid.CurrentPage == 0)
+            await DataGrid.DataGrid.Reload();
+        else
+            await DataGrid.DataGrid.GoToPage(0);
+    }
 
     async Task PrintStatusChanged(PrintStatus status)
     {
@@ -80,6 +96,7 @@ partial class STRDataGrid
     async Task<DataGridResultVM<StockTransferRequestDataGridVM>> LoadDataAsync(DataGridIntent intent)
     {
         PrintStatusFilter.Apply(intent, SelectedPrintStatus);
+        PrintStatusFilter.ApplyDateRange(intent, DateRangeStart, DateRangeEnd);
         var action = await AppActionFactory.RunAsync(async () =>
         {
             AppBusyService.SetBusy(ActionName, true);
@@ -105,7 +122,20 @@ partial class STRDataGrid
                 );
             }
 
-            return await DataGetter(intent);
+            var result = await DataGetter(intent);
+            if (!DateRangeStart.HasValue && result.data.Any(x => x.Date != default))
+            {
+                DateRangeStart = result.data.Min(x => x.Date).Date;
+                DateRangeEnd = result.data.Max(x => x.Date).Date;
+                await InvokeAsync(StateHasChanged);
+                _ = InvokeAsync(async () =>
+                {
+                    await Task.Yield();
+                    await DataGrid.DataGrid.Reload();
+                    await PrintStatusView.RefreshCountsAsync();
+                });
+            }
+            return result;
         }, AppActionOptionPresets.Loading(ActionName));
 
         AppBusyService.SetBusy(ActionName, false);

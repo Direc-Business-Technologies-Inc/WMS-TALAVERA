@@ -24,9 +24,31 @@ public partial class PurchaseOrderGrid
 
     PurchaseOrderStatusVM? StatusFilter = null;
     PrintStatus SelectedPrintStatus = PrintStatus.ForPrinting;
+    DateTime? DateRangeStart;
+    DateTime? DateRangeEnd;
+    PrintStatusView PrintStatusView = default!;
 
-    Task<int> PrintCountAsync(PrintStatus status) =>
-        PrintStatusFilter.CountAsync(status, ReceivingHandler.GetPurchaseOrderDataGridAsync);
+    Task<int> PrintCountAsync(PrintStatus status) => PrintStatusFilter.CountAsync(status, async intent =>
+    {
+        PrintStatusFilter.ApplyDateRange(intent, DateRangeStart, DateRangeEnd);
+        return await ReceivingHandler.GetPurchaseOrderDataGridAsync(intent);
+    });
+
+    async Task DateRangeChanged((DateTime Start, DateTime End) range)
+    {
+        DateRangeStart = range.Start;
+        DateRangeEnd = range.End;
+        await ReloadFirstPageAsync();
+        await PrintStatusView.RefreshCountsAsync();
+    }
+
+    async Task ReloadFirstPageAsync()
+    {
+        if (PurchaseOrderDataGrid.DataGrid.CurrentPage == 0)
+            await PurchaseOrderDataGrid.DataGrid.Reload();
+        else
+            await PurchaseOrderDataGrid.DataGrid.GoToPage(0);
+    }
 
     async Task PrintStatusChanged(PrintStatus status)
     {
@@ -62,6 +84,7 @@ public partial class PurchaseOrderGrid
     async Task<DataGridResultVM<PurchaseOrderDataGridVM>> LoadDataAsync(DataGridIntent intent)
     {
         PrintStatusFilter.Apply(intent, SelectedPrintStatus);
+        PrintStatusFilter.ApplyDateRange(intent, DateRangeStart, DateRangeEnd);
         var action = await AppActionFactory.RunAsync(async () =>
         {
             AppBusyService.SetBusy(ActionGetPurchaseOrders, true);
@@ -81,7 +104,20 @@ public partial class PurchaseOrderGrid
                 });
             }
 
-            return await ReceivingHandler.GetPurchaseOrderDataGridAsync(intent);
+            var result = await ReceivingHandler.GetPurchaseOrderDataGridAsync(intent);
+            if (!DateRangeStart.HasValue && result.Data.Any(x => x.Date.HasValue))
+            {
+                DateRangeStart = result.Data.Where(x => x.Date.HasValue).Min(x => x.Date!.Value).Date;
+                DateRangeEnd = result.Data.Where(x => x.Date.HasValue).Max(x => x.Date!.Value).Date;
+                await InvokeAsync(StateHasChanged);
+                _ = InvokeAsync(async () =>
+                {
+                    await Task.Yield();
+                    await PurchaseOrderDataGrid.DataGrid.Reload();
+                    await PrintStatusView.RefreshCountsAsync();
+                });
+            }
+            return result;
 
             throw new Exception("Invalid source for receiving grid");
         }, AppActionOptionPresets.Loading(ActionGetPurchaseOrders));

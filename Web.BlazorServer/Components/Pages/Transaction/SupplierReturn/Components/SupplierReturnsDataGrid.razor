@@ -2,12 +2,13 @@
 @using Web.BlazorServer.ViewModels.Transaction.SupplierReturn
 @inherits BaseComponent 
 
-<PrintStatusView Value="@SelectedPrintStatus" ValueChanged="@PrintStatusChanged" CountGetter="@PrintCountAsync" />
+<PrintStatusView @ref="PrintStatusView" Value="@SelectedPrintStatus" ValueChanged="@PrintStatusChanged" CountGetter="@PrintCountAsync" />
 <QuickDataGrid @ref="@Grid" DataGetter="@LoadDataAsync" ActionName="@ActionGetReturnsToSupplier" Id="returns_to_supplier_datagrid" ActionWidth="55">
     <HeaderStart>
         <RadzenFormField Text="Filter by Status" Style="margin-top:-10px!important">
             <QuickVirtualizedDropdown TItem="ReturnStatusVM" DataGetter="StatusProvider" @bind-Value:get="@FilterStatus" @bind-Value:set="FilterSet" TextProperty="@nameof(ReturnStatusVM.Name)"/>
         </RadzenFormField>
+        <GridDateRange StartDate="@DateRangeStart" EndDate="@DateRangeEnd" OnApply="@DateRangeChanged" />
     </HeaderStart>
     <HeaderEnd>
         <RadzenButton Icon="add" Size="ButtonSize.Small" Click="@(() => NavManager.NavigateTo(SupplierReturnRoutes.CREATE))" ButtonStyle="ButtonStyle.Success" />

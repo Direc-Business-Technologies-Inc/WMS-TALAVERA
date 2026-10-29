@@ -19,6 +19,9 @@ partial class PackingPage
     int SelectedTab { get; set; } = 0;
     PrintStatus LabelsPrintStatus = PrintStatus.ForPrinting;
     QuickDataGrid<PackedItemFulfillmentVM> LabelsGrid { get; set; } = default!;
+    PrintStatusView LabelsPrintStatusView { get; set; } = default!;
+    DateTime? LabelsDateRangeStart;
+    DateTime? LabelsDateRangeEnd;
     #endregion Primitives
 
     #region Overrides
@@ -53,6 +56,7 @@ partial class PackingPage
     public Task<(IEnumerable<PackedItemFulfillmentVM>, int)> ItemFulfillmentsProvider(DataGridIntent intent)
     {
         PrintStatusFilter.Apply(intent, LabelsPrintStatus);
+        PrintStatusFilter.ApplyDateRange(intent, LabelsDateRangeStart, LabelsDateRangeEnd);
         if (intent.Sorts.Count == 0)
         {
             intent.Sorts.Add(
@@ -63,10 +67,37 @@ partial class PackingPage
                 DataGridSortUtilities.Descending(nameof(PackedItemFulfillmentVM.ReferenceNumber))
             );
         }
-        return packingHandler.GetPackedItemFulfillments(intent);
+        return LoadPackedLabelsAsync(intent);
     }
-    Task<int> LabelsCountAsync(PrintStatus status) =>
-        PrintStatusFilter.CountAsync(status, packingHandler.GetPackedItemFulfillments);
+    async Task<(IEnumerable<PackedItemFulfillmentVM>, int)> LoadPackedLabelsAsync(DataGridIntent intent)
+    {
+        var result = await packingHandler.GetPackedItemFulfillments(intent);
+        if (!LabelsDateRangeStart.HasValue && PrintStatusFilter.TryGetDateRange(result.Item1, row => row.Date, out var range))
+        {
+            LabelsDateRangeStart = range.Start;
+            LabelsDateRangeEnd = range.End;
+            await InvokeAsync(StateHasChanged);
+            _ = InvokeAsync(async () =>
+            {
+                await Task.Yield();
+                await LabelsGrid.Reload();
+                await LabelsPrintStatusView.RefreshCountsAsync();
+            });
+        }
+        return result;
+    }
+    Task<int> LabelsCountAsync(PrintStatus status) => PrintStatusFilter.CountAsync(status, async intent =>
+    {
+        PrintStatusFilter.ApplyDateRange(intent, LabelsDateRangeStart, LabelsDateRangeEnd);
+        return await packingHandler.GetPackedItemFulfillments(intent);
+    });
+    async Task LabelsDateRangeChanged((DateTime Start, DateTime End) range)
+    {
+        LabelsDateRangeStart = range.Start;
+        LabelsDateRangeEnd = range.End;
+        await LabelsGrid.ReloadFirstPage();
+        await LabelsPrintStatusView.RefreshCountsAsync();
+    }
     async Task LabelsPrintStatusChanged(PrintStatus status)
     {
         LabelsPrintStatus = status;

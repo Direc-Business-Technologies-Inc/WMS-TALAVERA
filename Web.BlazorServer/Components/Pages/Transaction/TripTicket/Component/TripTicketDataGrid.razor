@@ -1,6 +1,7 @@
 @using Web.BlazorServer.ViewModels.Transaction.TripTicket
 @inherits BaseComponent
 
+<GridDateRange StartDate="@DateRangeStart" EndDate="@DateRangeEnd" OnApply="@DateRangeChanged" />
 <AppDataGrid @ref="@TTDataGrid" Id="trip_ticket_grid" TItem="TripTicketDataGridVM" DataGetter="@LoadDataAsync" GridSettings="@TTDataGridSettings" @bind-GridSettingsLoaded="@GridSettingsLoaded" ActionName="@ActionGetTripTickets">
     <HeaderTemplate>
         <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" AlignItems="AlignItems.Center" Gap="8px">

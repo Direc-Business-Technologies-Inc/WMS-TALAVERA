@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Components;
 using Radzen;
 using Shared.Entities;
 using Shared.Kernel;
+using Web.BlazorServer.Components.Custom;
 using Web.BlazorServer.Components.Shared.Abstraction;
 using Web.BlazorServer.Defaults;
 using Web.BlazorServer.Handlers.Repositories.Transaction.TripTicket;
@@ -18,8 +19,20 @@ partial class TripTicketDataGrid
 
     AppDataGrid<TripTicketDataGridVM> TTDataGrid { get; set; } = default!;
     DataGridSettings TTDataGridSettings { get; set; } = new();
+    DateTime? DateRangeStart;
+    DateTime? DateRangeEnd;
 
     string ActionGetTripTickets { get; } = EnumHelper.GetEnumDescription(AppActions.GetAllTripTickets);
+
+    async Task DateRangeChanged((DateTime Start, DateTime End) range)
+    {
+        DateRangeStart = range.Start;
+        DateRangeEnd = range.End;
+        if (TTDataGrid.DataGrid.CurrentPage == 0)
+            await TTDataGrid.DataGrid.Reload();
+        else
+            await TTDataGrid.DataGrid.GoToPage(0);
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -62,7 +75,20 @@ partial class TripTicketDataGrid
                 });
             }
 
-            return await TripTicketHandler.GetTTDataGridAsync(intent, CurrentUserService.NsSubsidiaryId);
+            PrintStatusFilter.ApplyDateRange(intent, DateRangeStart, DateRangeEnd, nameof(TripTicketDataGridVM.TripDate));
+            var result = await TripTicketHandler.GetTTDataGridAsync(intent, CurrentUserService.NsSubsidiaryId);
+            if (!DateRangeStart.HasValue && PrintStatusFilter.TryGetDateRange(result.Data, row => row.TripDate, out var range))
+            {
+                DateRangeStart = range.Start;
+                DateRangeEnd = range.End;
+                await InvokeAsync(StateHasChanged);
+                _ = InvokeAsync(async () =>
+                {
+                    await Task.Yield();
+                    await TTDataGrid.DataGrid.Reload();
+                });
+            }
+            return result;
 
         }, AppActionOptionPresets.Loading(ActionGetTripTickets));
 

@@ -29,8 +29,11 @@
                 <ReturnsGrid />
             </RadzenTabsItem>
             <RadzenTabsItem Text="Receiving Reports">
-                <PrintStatusView Value="@ReceiptPrintStatus" ValueChanged="@ReceiptPrintStatusChanged" CountGetter="@ReceiptCountAsync" />
+                <PrintStatusView @ref="ReceiptPrintStatusView" Value="@ReceiptPrintStatus" ValueChanged="@ReceiptPrintStatusChanged" CountGetter="@ReceiptCountAsync" />
                 <QuickDataGrid @ref="ReceiptGrid" Id="ir_item_receipts_grid" DataGetter="ItemReceiptsProvider" ActionWidth="72">
+                    <HeaderStart>
+                        <GridDateRange StartDate="@ReceiptDateRangeStart" EndDate="@ReceiptDateRangeEnd" OnApply="@ReceiptDateRangeChanged" />
+                    </HeaderStart>
                     <RowActions>
                         <RadzenButton Icon="print" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light">
                             <RadzenLink Path="@PrintableURL(context)" Text="Print" target="_blank" Icon="print" />

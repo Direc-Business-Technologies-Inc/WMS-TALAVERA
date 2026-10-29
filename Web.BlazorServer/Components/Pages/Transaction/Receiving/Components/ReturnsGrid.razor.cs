@@ -24,9 +24,26 @@ partial class ReturnsGrid
 
     TransferOrderStatusVM? StatusFilter = null;
     PrintStatus SelectedPrintStatus = PrintStatus.ForPrinting;
+    DateTime? DateRangeStart;
+    DateTime? DateRangeEnd;
+    PrintStatusView PrintStatusView = default!;
 
-    Task<int> PrintCountAsync(PrintStatus status) =>
-        PrintStatusFilter.CountAsync(status, ReceivingHandler.GetReturnsDataGridAsync);
+    Task<int> PrintCountAsync(PrintStatus status) => PrintStatusFilter.CountAsync(status, async intent =>
+    {
+        PrintStatusFilter.ApplyDateRange(intent, DateRangeStart, DateRangeEnd);
+        return await ReceivingHandler.GetReturnsDataGridAsync(intent);
+    });
+
+    async Task DateRangeChanged((DateTime Start, DateTime End) range)
+    {
+        DateRangeStart = range.Start;
+        DateRangeEnd = range.End;
+        if (DataGrid.DataGrid.CurrentPage == 0)
+            await DataGrid.DataGrid.Reload();
+        else
+            await DataGrid.DataGrid.GoToPage(0);
+        await PrintStatusView.RefreshCountsAsync();
+    }
 
     async Task PrintStatusChanged(PrintStatus status)
     {
@@ -60,6 +77,7 @@ partial class ReturnsGrid
     async Task<DataGridResultVM<ReturnsDataGridVM>> LoadDataAsync(DataGridIntent intent)
     {
         PrintStatusFilter.Apply(intent, SelectedPrintStatus);
+        PrintStatusFilter.ApplyDateRange(intent, DateRangeStart, DateRangeEnd);
         var action = await AppActionFactory.RunAsync(async () =>
         {
             AppBusyService.SetBusy(ActionGetPurchaseOrders, true);
@@ -78,7 +96,20 @@ partial class ReturnsGrid
                     Direction = SortDirectionEnum.Descending
                 });
             }
-            return await ReceivingHandler.GetReturnsDataGridAsync(intent);
+            var result = await ReceivingHandler.GetReturnsDataGridAsync(intent);
+            if (!DateRangeStart.HasValue && PrintStatusFilter.TryGetDateRange(result.Data, row => row.Date, out var range))
+            {
+                DateRangeStart = range.Start;
+                DateRangeEnd = range.End;
+                await InvokeAsync(StateHasChanged);
+                _ = InvokeAsync(async () =>
+                {
+                    await Task.Yield();
+                    await DataGrid.DataGrid.Reload();
+                    await PrintStatusView.RefreshCountsAsync();
+                });
+            }
+            return result;
 
             throw new Exception("Invalid source for receiving grid");
         }, AppActionOptionPresets.Loading(ActionGetPurchaseOrders));
