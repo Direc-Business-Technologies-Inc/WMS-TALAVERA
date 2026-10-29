@@ -418,8 +418,14 @@ up to 3 sequential posts split by inventory status, ordered **bad → good → m
   is the custom status used for closed orders; these records are hidden from the
   web Receiving PO grid even if the native `t.status` still maps to Pending
   Receipt or Pending Billing. An unset custom status remains eligible (subject
-  to all other filters); native closed status `G` remains excluded. The filter is in
-  `ReceivingIntegration.GetPurchaseOrdersListAsync`.
+  to all other filters); native closed status `G` remains excluded. The web
+  filter is in `ReceivingIntegration.GetPurchaseOrdersListAsync`.
+- Mobile Purchase Orders: `NS_PurchaseOrder_Get_PendingReceipt.sql` and
+  `NS_PurchaseOrder_Get_ByOrderNumber.sql` use the same native `B`/`E` eligibility
+  and exclude custom approval status `20`; they explicitly exclude native `G`
+  (Closed) as well. The `B`/`E` allowlist already excludes `G`; the explicit
+  predicate documents the closed-state rule. A null custom approval status remains
+  eligible.
 - Direct TO: `status IN ('F','E')`, `transactionlinetype = 'RECEIVING'`
 - Via IF: `NS_TO_Get_Itemfulfillments.sql` **requires `t.status='C'`** ← the trip-ticket gate
 
