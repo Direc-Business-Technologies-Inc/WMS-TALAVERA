@@ -7,6 +7,9 @@ namespace Web.BlazorServer.Components.Base;
 
 public abstract partial class BaseForm<TItem> : BaseComponent, IDisposable where TItem : class, new()
 {
+    protected SubmitOnce SubmitOnce { get; } = new();
+    protected bool IsSubmitting => SubmitOnce.IsSubmitting;
+    protected string SubmitButtonText(string idleText = "Save") => IsSubmitting ? "Saving..." : idleText;
     
     public TItem FormData { get; set; } = default!;
     public TItem FormDataClone { get; set; } = default!;

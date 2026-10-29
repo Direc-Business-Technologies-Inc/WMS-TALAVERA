@@ -92,13 +92,13 @@ public partial class RoleManagementCVU
         NavManager.NavigateTo($"/administration/user/role-management/view?ref={Ref}", true);
     }
 
-    protected override async Task HandleSubmit()
+    protected override Task HandleSubmit() => SubmitOnce.RunAsync(async () =>
     {
         if (Creating)
             await Create();
         if (Updating)
             await Update();
-    }
+    });
 
     protected override async Task InitializeEditing()
     {

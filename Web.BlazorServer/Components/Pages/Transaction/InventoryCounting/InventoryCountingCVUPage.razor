@@ -261,9 +261,7 @@
                         <RadzenButton Text="Back" ButtonStyle="ButtonStyle.Base" Click="@GoBack" />
                         <RadzenStack Orientation="Orientation.Horizontal" Gap="8px" AlignItems="AlignItems.Center">
                             @* Creating *@
-                            <RadzenButton Visible="@Creating" ButtonStyle="ButtonStyle.Success" ButtonType="ButtonType.Submit">
-                                Submit
-                            </RadzenButton>
+                            <RadzenButton Visible="@Creating" Disabled="@IsSubmitting" ButtonStyle="ButtonStyle.Success" ButtonType="ButtonType.Submit" Text="@SubmitButtonText("Submit")" />
                             @* Viewing — editable statuses only *@
                             <RadzenButton Visible="@(Viewing && IsEditableStatus)"
                                           Text="Save" ButtonStyle="ButtonStyle.Info"

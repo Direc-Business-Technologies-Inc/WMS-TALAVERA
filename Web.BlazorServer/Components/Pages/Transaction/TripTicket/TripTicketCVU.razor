@@ -394,10 +394,11 @@
                                           Click="@CancelEditing" />
 
                             <RadzenButton Visible="@(Creating || IsEditable)"
+                                          Disabled="@IsSubmitting"
                                           ButtonStyle="ButtonStyle.Success"
                                           ButtonType="ButtonType.Submit"
                                           IsBusy="@AppBusyService.IsBusy(ActionCreate)"
-                                          Text="@(Creating ? "Submit" : "Save")" />
+                                          Text="@SubmitButtonText(Creating ? "Submit" : "Save")" />
                         </RadzenStack>
                     </RadzenStack>
                 </RadzenColumn>

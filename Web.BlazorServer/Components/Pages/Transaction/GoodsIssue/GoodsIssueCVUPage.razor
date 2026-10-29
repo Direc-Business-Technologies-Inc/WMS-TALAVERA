@@ -289,9 +289,7 @@
                     <RadzenStack class="rz-mt-8" Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
                         <RadzenButton IsBusy="@IsBusy" Text="Back" Disabled="@(IsBusy && Creating)" ButtonStyle="ButtonStyle.Base" Click="@Issue" />
                         <RadzenStack Visible="@(Can.Create("OGRN") && Creating)" Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="16px">
-                            <RadzenButton IsBusy="@IsBusy" Visible="@(Creating)" ButtonStyle="ButtonStyle.Success" ButtonType="ButtonType.Submit">
-                                Save
-                            </RadzenButton>
+                            <RadzenButton IsBusy="@IsBusy" Disabled="@IsSubmitting" Visible="@(Creating)" ButtonStyle="ButtonStyle.Success" ButtonType="ButtonType.Submit" Text="@SubmitButtonText()" />
                         </RadzenStack>
                     </RadzenStack>
                 </RadzenColumn>

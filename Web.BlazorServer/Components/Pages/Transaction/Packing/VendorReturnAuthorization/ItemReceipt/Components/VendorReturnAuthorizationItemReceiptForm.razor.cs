@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
+using Web.BlazorServer.Components.Base;
 using Radzen;
 using Web.BlazorServer.Components.Pages.Transaction.Others.BarcodeScanning;
 using Web.BlazorServer.Components.Pages.Transaction.Packing;
@@ -13,6 +14,8 @@ namespace Web.BlazorServer.Components.Pages.Transaction.Packing.VendorReturnAuth
 
 public partial class VendorReturnAuthorizationItemReceiptForm
 {
+    SubmitOnce SubmitOnce { get; } = new();
+    bool IsSubmitting => SubmitOnce.IsSubmitting;
     [Parameter] public VendorReturnAuthorizationItemReceiptPackingVM Data { get; set; } = new();
     [Parameter] public EditContext? EditContext { get; set; }
     [Parameter] public EventCallback<VendorReturnAuthorizationItemReceiptPackingVM> OnValidSubmit { get; set; }
@@ -39,7 +42,9 @@ public partial class VendorReturnAuthorizationItemReceiptForm
         }
     }
 
-    public async Task Submit()
+    public Task Submit() => SubmitOnce.RunAsync(SubmitCore);
+
+    async Task SubmitCore()
     {
         if (OnValidSubmit.HasDelegate && EditContext is not null && EditContext.Validate())
             await OnValidSubmit.InvokeAsync(Data);

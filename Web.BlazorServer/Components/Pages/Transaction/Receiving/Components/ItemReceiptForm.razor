@@ -175,7 +175,7 @@
         </RadzenFieldset>
         <RadzenStack JustifyContent="JustifyContent.SpaceBetween" Orientation="Orientation.Horizontal">
             <RadzenButton Disabled="Disabled" ButtonStyle="ButtonStyle.Light" ButtonType="ButtonType.Button" Click="@Return" Text="Return" />
-            <RadzenButton Disabled="Disabled" ButtonStyle="ButtonStyle.Success" ButtonType="ButtonType.Submit" Text="Submit" />
+            <RadzenButton Disabled="@(Disabled || IsSubmitting)" ButtonStyle="ButtonStyle.Success" ButtonType="ButtonType.Submit" Text="@(IsSubmitting ? "Saving..." : "Submit")" />
         </RadzenStack>
     </RadzenStack>
 </RadzenTemplateForm>

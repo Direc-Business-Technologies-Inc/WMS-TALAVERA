@@ -115,7 +115,9 @@ public partial class InventoryTransferRequestCVUPage
         throw new NotImplementedException();
     }
 
-    protected override async Task HandleSubmit()
+    protected override Task HandleSubmit() => SubmitOnce.RunAsync(HandleSubmitCore);
+
+    async Task HandleSubmitCore()
     {
 
         if (FormData.Lines.Count() <= 0)

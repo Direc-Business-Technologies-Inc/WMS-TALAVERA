@@ -88,10 +88,8 @@
                     <RadzenStack class="rz-mt-4" Orientation="Orientation.Horizontal"
                                  AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
                         <RadzenButton Text="Back" ButtonStyle="ButtonStyle.Base" Click="@GoBack" />
-                        <RadzenButton ButtonStyle="ButtonStyle.Success" ButtonType="ButtonType.Submit"
-                                      IsBusy="@AppBusyService.IsBusy(ActionCreate)">
-                            Save Sheet
-                        </RadzenButton>
+                        <RadzenButton Disabled="@IsSubmitting" ButtonStyle="ButtonStyle.Success" ButtonType="ButtonType.Submit"
+                                      IsBusy="@AppBusyService.IsBusy(ActionCreate)" Text="@SubmitButtonText("Save Sheet")" />
                     </RadzenStack>
                 </RadzenColumn>
             </RadzenRow>

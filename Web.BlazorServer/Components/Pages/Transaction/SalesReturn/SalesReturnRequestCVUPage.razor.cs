@@ -87,7 +87,9 @@ public partial class SalesReturnRequestCVUPage
         NavManager.NavigateTo($"/transactions/sales/sales-return/request/view?Ref={FormData.SapReference.DocEntry}", true);
     }
 
-    protected override async Task HandleSubmit()
+    protected override Task HandleSubmit() => SubmitOnce.RunAsync(HandleSubmitCore);
+
+    async Task HandleSubmitCore()
     {
         if (FormData.DocumentLines.Count <= 0)
         {

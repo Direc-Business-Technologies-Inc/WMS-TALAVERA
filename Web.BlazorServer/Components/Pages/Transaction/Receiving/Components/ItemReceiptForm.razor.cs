@@ -8,6 +8,7 @@ using Radzen.Blazor.Rendering;
 using Shared.Entities;
 using Shared.Libraries.Utilities;
 using Web.BlazorServer.Components.Pages.Transaction.Others.BarcodeScanning;
+using Web.BlazorServer.Components.Base;
 using Web.BlazorServer.Components.Shared.Abstraction;
 using Web.BlazorServer.Handlers.Repositories.Transaction.Receiving;
 using Web.BlazorServer.ViewModels.Others;
@@ -19,6 +20,8 @@ namespace Web.BlazorServer.Components.Pages.Transaction.Receiving.Components;
 
 partial class ItemReceiptForm
 {
+    SubmitOnce SubmitOnce { get; } = new();
+    bool IsSubmitting => SubmitOnce.IsSubmitting;
     [Parameter] public ItemReceiptVM Data { get; set; } = new();
     [Parameter] public EditContext? EditContext { get; set; } = null;
     [Parameter] public EventCallback<ItemReceiptVM> OnValidSubmit { get; set; }
@@ -51,7 +54,9 @@ partial class ItemReceiptForm
 
     BarcodeStore BarcodeStore = new();
 
-    public async Task Submit()
+    public Task Submit() => SubmitOnce.RunAsync(SubmitCore);
+
+    async Task SubmitCore()
     {
         ApplyBarcodes();
 

@@ -6,6 +6,7 @@ using Radzen;
 using Shared.Entities;
 using Shared.Libraries.Utilities;
 using Web.BlazorServer.Components.Custom;
+using Web.BlazorServer.Components.Base;
 using Web.BlazorServer.Components.Pages.Transaction.Others.BarcodeScanning;
 using Web.BlazorServer.Components.Shared.Abstraction;
 using Web.BlazorServer.Components.Shared.Others;
@@ -22,6 +23,8 @@ namespace Web.BlazorServer.Components.Pages.Transaction.StockTransferRequest.Com
 
 public partial class STRForm
 {
+    SubmitOnce SubmitOnce { get; } = new();
+    bool IsSubmitGuardActive => SubmitOnce.IsSubmitting;
     [Parameter][EditorRequired] public StockTransferRequestInfoVM Model { get; set; } = new();
     [Parameter] public Func<StockTransferRequestInfoVM, Task<bool>>? OnSubmit { get; set; }
     [Parameter] public EditContext? EditContext { get; set; }
@@ -95,7 +98,9 @@ public partial class STRForm
         await LinesTable.DataGrid.Reload();
     }
 
-    async Task HandleSubmit()
+    Task HandleSubmit() => SubmitOnce.RunAsync(HandleSubmitCore);
+
+    async Task HandleSubmitCore()
     {
         if (Model.Lines.Count == 0)
         {

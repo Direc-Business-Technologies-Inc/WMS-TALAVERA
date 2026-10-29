@@ -109,7 +109,9 @@ public partial class GoodsReceiptCVUPage
         throw new NotImplementedException();
     }
 
-    protected override async Task HandleSubmit()
+    protected override Task HandleSubmit() => SubmitOnce.RunAsync(HandleSubmitCore);
+
+    async Task HandleSubmitCore()
     {
         if (FormData.DocumentLines.Count() <= 0)
         {

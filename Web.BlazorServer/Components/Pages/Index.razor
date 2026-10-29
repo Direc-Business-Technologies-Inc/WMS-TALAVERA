@@ -42,7 +42,7 @@
             </RadzenRow>
             <RadzenRow>
                 <RadzenColumn Size="12">
-                    <RadzenButton Text="Login" ButtonType="ButtonType.Submit" Disabled="@IsBusy" class="rz-w-100 rz-mt-4" />
+                    <RadzenButton Text="@(IsSubmitting ? "Signing in..." : "Login")" ButtonType="ButtonType.Submit" Disabled="@(IsBusy || IsSubmitting)" class="rz-w-100 rz-mt-4" />
                 </RadzenColumn>
             </RadzenRow>
         </RadzenTemplateForm>

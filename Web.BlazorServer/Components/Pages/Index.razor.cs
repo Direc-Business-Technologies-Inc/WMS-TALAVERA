@@ -55,7 +55,9 @@ public partial class Index
         }, AppActionOptionPresets.Loading(ActionLogin));
     }
 
-    protected override async Task HandleSubmit()
+    protected override Task HandleSubmit() => SubmitOnce.RunAsync(HandleLogin);
+
+    async Task HandleLogin()
     {
 
         var action = await AppActionFactory.RunAsync(async () =>

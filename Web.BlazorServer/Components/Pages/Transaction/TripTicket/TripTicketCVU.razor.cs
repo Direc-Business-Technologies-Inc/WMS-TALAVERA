@@ -176,7 +176,9 @@ partial class TripTicketCVU
         await InvokeAsync(StateHasChanged);
     }
 
-    protected override async Task HandleSubmit()
+    protected override Task HandleSubmit() => SubmitOnce.RunAsync(HandleTripTicketSubmit);
+
+    async Task HandleTripTicketSubmit()
     {
         if (!ValidateFormData())
             return;

@@ -114,7 +114,9 @@ public partial class InventoryCountingCVUPage
         GoBack();
     }
 
-    protected override async Task HandleSubmit()
+    protected override Task HandleSubmit() => SubmitOnce.RunAsync(HandleSubmitCore);
+
+    async Task HandleSubmitCore()
     {
         if (!FormData.DocumentLines.Any())
         {

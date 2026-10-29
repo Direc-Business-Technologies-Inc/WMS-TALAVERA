@@ -6,6 +6,7 @@ using Radzen.Blazor.Rendering;
 using Shared.Entities;
 using Shared.Libraries.Utilities;
 using Web.BlazorServer.Components.Custom;
+using Web.BlazorServer.Components.Base;
 using Web.BlazorServer.Components.Pages.Transaction.Others.BarcodeScanning;
 using Web.BlazorServer.Components.Shared.Abstraction;
 using Web.BlazorServer.Components.Shared.Others;
@@ -24,6 +25,8 @@ namespace Web.BlazorServer.Components.Pages.Transaction.SupplierReturn.Component
 
 public partial class SupplierReturnForm
 {
+    SubmitOnce SubmitOnce { get; } = new();
+    bool IsSubmitting => SubmitOnce.IsSubmitting;
     [Inject] ISupplierReturnHandler returnHandler { get; set; } = default!;
     [Inject] ILocationHandler locationHandler { get; set; } = default!;
     [Inject] IVendorHandler vendorHandler { get; set; } = default!;
@@ -283,7 +286,9 @@ public partial class SupplierReturnForm
         if (OnApprovalAction.HasDelegate) await OnApprovalAction.InvokeAsync(Model);
     }
 
-    async Task SubmitClicked()
+    Task SubmitClicked() => SubmitOnce.RunAsync(SubmitCore);
+
+    async Task SubmitCore()
     {
         if (!TryValidateOnHand(out var quantityError))
         {
