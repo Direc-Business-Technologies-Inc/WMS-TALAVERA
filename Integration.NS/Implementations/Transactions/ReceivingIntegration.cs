@@ -643,6 +643,10 @@ public partial class ReceivingIntegration(
 
 
     public async Task<IEnumerable<ItemReceiptLineDTO>> GetItemReceiptLinesAsync(string docEntry, bool transferorder = false)
+        => await GetItemReceiptLinesAsync(docEntry, transferorder, null);
+
+    private async Task<IEnumerable<ItemReceiptLineDTO>> GetItemReceiptLinesAsync(
+        string docEntry, bool transferorder, IReadOnlyCollection<int>? receivingLineIds)
     {
 
         var builder = builderFactory.Create()
@@ -690,6 +694,14 @@ public partial class ReceivingIntegration(
             builder = builder.WithFilters(Equal("tl.transactionlinetype", "RECEIVING"));
         }
 
+        // IF verification only needs its mapped TO lines. Reading the entire TO
+        // here exceeds NetSuite's 1,000-row page for large transfer orders.
+        if (receivingLineIds is not null)
+        {
+            if (receivingLineIds.Count == 0) throw OperationalReadError("fulfillment has no mapped receiving lines");
+            builder = builder.WithFilters(In("tl.id", receivingLineIds));
+        }
+
         var query = builder.Build();
 
         return await ReadCompleteAsync<ItemReceiptLineDTO>(query.Query);
@@ -703,8 +715,10 @@ public partial class ReceivingIntegration(
     /// <c>ItemReceiptLineDTO.LineNumber</c> already carries on both the IF and the
     /// non-IF load paths.
     /// </summary>
-    private async Task<IReadOnlyDictionary<int, TransferOrderLineRemaining>> GetTransferOrderLineRemainingAsync(int sourceInternalId)
+    private async Task<IReadOnlyDictionary<int, TransferOrderLineRemaining>> GetTransferOrderLineRemainingAsync(
+        int sourceInternalId, IReadOnlyCollection<int> receivingLineIds)
     {
+        if (receivingLineIds.Count == 0) throw OperationalReadError("receipt has no selected receiving lines");
         var query = builderFactory.Create()
             .Select(
                 ("tl.id", "LineId"),
@@ -721,7 +735,8 @@ public partial class ReceivingIntegration(
                 Equal("t.id", sourceInternalId),
                 In("t.recordtype", new[] { "transferorder", "intercompanytransferorder" }),
                 Equal("tl.mainline", "F"),
-                Equal("tl.transactionlinetype", "RECEIVING")
+                Equal("tl.transactionlinetype", "RECEIVING"),
+                In("tl.id", receivingLineIds)
             ).Build();
 
         var items = await ReadCompleteAsync<TransferOrderLineRemaining>(query.Query);
@@ -815,7 +830,9 @@ public partial class ReceivingIntegration(
                             "Reload and adjust quantities.");
                 }
 
-                var remainingByLineId = await GetTransferOrderLineRemainingAsync(dto.SourceInternalId);
+                var remainingByLineId = await GetTransferOrderLineRemainingAsync(dto.SourceInternalId,
+                    dto.Lines.Where(x => x.InventoryDetails.Sum(y => y.QuantityAlloted) > 0)
+                        .Select(x => x.LineNumber).Distinct().ToArray());
 
                 foreach (var line in dto.Lines.Where(x => x.InventoryDetails.Sum(y => y.QuantityAlloted) > 0))
                 {
@@ -1096,6 +1113,7 @@ public partial class ReceivingIntegration(
 
     public async Task<ItemFulfillmentPickerResult> GetSTRItemFulfillments(int strId, DataGridIntent intent)
     {
+        var pickerTimer = System.Diagnostics.Stopwatch.StartNew();
         intent = intent.Adapt<DataGridIntent>();
         if (intent.Sorts.Count == 0)
             intent.Sorts.Add(DataGridSortUtilities.Descending(nameof(ItemFulfillmentDTO.DateLastModified)));
@@ -1121,16 +1139,45 @@ public partial class ReceivingIntegration(
                 $"Transfer Order {strId} has more than 1,000 Item Fulfillments; " +
                 "the receiving picker cannot verify all remaining quantities safely.");
 
+        PickerReceiptLinks? pickerLinks = null;
+        try
+        {
+            pickerLinks = await ReadPickerReceiptLinksAsync(candidateIds);
+        }
+        catch (InvalidOperationException exception)
+        {
+            // A large or unverifiable batch must never be used to decide that an
+            // IF has no receipts. The original fresh per-IF reads remain the safe fallback.
+            logger.LogWarning(exception,
+                "Receiving picker could not batch native receipt links for Transfer Order {TransferOrderId}; verifying each fulfillment separately.", strId);
+        }
+
+        PickerSourceMetadata? pickerSource = null;
+        try
+        {
+            pickerSource = await ReadPickerSourceMetadataAsync(strId, candidateIds);
+        }
+        catch (InvalidOperationException exception)
+        {
+            // A truncated batch cannot be trusted. Keep the complete per-IF
+            // mapping and metadata verification for this request.
+            logger.LogWarning(exception,
+                "Receiving picker could not batch source metadata for Transfer Order {TransferOrderId}; verifying each fulfillment separately.", strId);
+        }
+
         // Accounting-line totals can count both +INTRANSIT and -inventory rows.
         // Use the same verified operational quantities as the grid and preflight.
-        List<int> pendingIds = [];
-        var skippedUnverifiableCount = 0;
-        foreach (var candidateId in candidateIds)
+        // Verification makes several NetSuite calls per IF. Keep a small bound so
+        // a large STR does not serialize every IF, or flood the account with 24+
+        // simultaneous verification chains. Each candidate remains independent.
+        using var verificationSlots = new SemaphoreSlim(3);
+        var checks = candidateIds.Select(async candidateId =>
         {
+            await verificationSlots.WaitAsync();
             try
             {
-                var lines = await ReadOperationalFulfillmentAsync(candidateId, strId);
-                if (lines.Any(line => line.QuantityOpen > 0)) pendingIds.Add(candidateId);
+                var lines = await ReadOperationalFulfillmentAsync(candidateId, strId, pickerLinks, pickerSource);
+                return (Id: candidateId, Pending: lines.Any(line => line.QuantityOpen > 0), Skipped: false);
             }
             catch (InvalidOperationException exception)
             {
@@ -1138,12 +1185,22 @@ public partial class ReceivingIntegration(
                 // unverifiable fulfillment must not hide other receivable ones.
                 // Selection and posting repeat this verification and still fail
                 // closed for the chosen fulfillment.
-                skippedUnverifiableCount++;
                 logger.LogWarning(exception,
                     "Skipping Item Fulfillment {ItemFulfillmentId} in the receiving picker for Transfer Order {TransferOrderId}; operational lines could not be verified.",
                     candidateId, strId);
+                return (Id: candidateId, Pending: false, Skipped: true);
             }
-        }
+            finally
+            {
+                verificationSlots.Release();
+            }
+        }).ToArray();
+        var verified = await Task.WhenAll(checks);
+        List<int> pendingIds = verified.Where(result => result.Pending).Select(result => result.Id).ToList();
+        var skippedUnverifiableCount = verified.Count(result => result.Skipped);
+        logger.LogInformation(
+            "Receiving picker TO {TransferOrderId}: verified {CandidateCount} IF candidates in {ElapsedMs}ms; {PendingCount} pending, {SkippedCount} unverifiable.",
+            strId, candidateIds.Length, pickerTimer.ElapsedMilliseconds, pendingIds.Count, skippedUnverifiableCount);
         if (pendingIds.Count == 0) return new([], 0, skippedUnverifiableCount);
 
         var query = builderFactory.Create()

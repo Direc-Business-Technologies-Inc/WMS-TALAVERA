@@ -1,6 +1,8 @@
 using System.Globalization;
 using System.Text.Json;
 using Application.DataTransferObjects.Transactions.Receiving;
+using Mapster;
+using Microsoft.Extensions.Logging;
 using static Shared.Libraries.Utilities.DataGridFilterUtilities;
 
 namespace Integration.NS.Implementations.Transactions;
@@ -16,6 +18,7 @@ public partial class ReceivingIntegration
 
     public sealed class OperationalTransferLink
     {
+        public int FulfillmentId { get; set; }
         public int SourceId { get; set; }
         public int ShippingLine { get; set; }
         public int? OperationalLine { get; set; }
@@ -28,6 +31,76 @@ public partial class ReceivingIntegration
     {
         public int FulfillmentId { get; set; }
         public int ReceiptId { get; set; }
+    }
+
+    private sealed record PickerReceiptLinks(
+        IReadOnlyDictionary<int, List<OperationalReceiptLink>> ByFulfillment,
+        IReadOnlyDictionary<int, List<OperationalReceiptLink>> OwnersByReceipt);
+
+    private sealed record PickerSourceMetadata(
+        IReadOnlyDictionary<int, List<OperationalTransferLink>> MappingsByFulfillment,
+        IReadOnlyDictionary<int, List<ItemReceiptLineDTO>> MetadataByLine);
+
+    // Snapshot only for this picker load. The per-IF and posting paths still read
+    // the source afresh. Reject incomplete SuiteQL sets instead of using a subset.
+    private async Task<PickerSourceMetadata> ReadPickerSourceMetadataAsync(int sourceId, int[] fulfillmentIds)
+    {
+        var query = builderFactory.Create().Distinct().Select(
+                ("link.nextdoc", "FulfillmentId"), ("link.previousdoc", "SourceId"),
+                ("link.previousline", "ShippingLine"), ("link.nextline", "OperationalLine"),
+                ("receiving.id", "ReceivingLine"), ("receiving.item", "ItemId"),
+                ("receiving.units", "UnitId"))
+            .From("previoustransactionlinelink link")
+            .Join("transactionline shipping", "shipping.transaction = link.previousdoc AND shipping.id = link.previousline AND shipping.transactionlinetype = 'SHIPPING'")
+            .Join("transactionline receiving", "receiving.transaction = shipping.transaction AND receiving.transferorderitemlineid = shipping.transferorderitemlineid AND receiving.transactionlinetype = 'RECEIVING' AND receiving.item = shipping.item")
+            .WithFilters(In("link.nextdoc", fulfillmentIds), Equal("link.previousdoc", sourceId),
+                Equal("link.previoustype", "TrnfrOrd"), Equal("link.nexttype", "ItemShip"), Equal("link.linktype", "ShipRcpt"))
+            .Build();
+        var mappings = await ReadCompleteAsync<OperationalTransferLink>(query.Query);
+        if (mappings.Any(map => !fulfillmentIds.Contains(map.FulfillmentId) || map.SourceId != sourceId || map.ReceivingLine <= 0))
+            throw OperationalReadError("picker returned an invalid source line mapping");
+        var lineIds = mappings.Select(map => map.ReceivingLine).Distinct().ToArray();
+        if (lineIds.Length == 0) throw OperationalReadError("picker has no mapped receiving lines");
+        // A single NetSuite SuiteQL page cannot prove completeness above 1,000
+        // mapped rows. Fall back to the existing per-IF path in that case.
+        if (lineIds.Length > 1000) throw OperationalReadError("picker mapping exceeds one metadata page");
+        var sourceQuery = builderFactory.Create().Select(("t.tranid", "TranId"))
+            .From("transaction t").WithFilters(Equal("t.id", sourceId)).Build();
+        var source = await ReadCompleteAsync<OperationalSourceDocument>(sourceQuery.Query);
+        if (source.Count != 1 || string.IsNullOrWhiteSpace(source[0].TranId))
+            throw OperationalReadError("source order is not uniquely identified");
+        var metadata = (await GetItemReceiptLinesAsync(source[0].TranId, transferorder: true, lineIds)).ToList();
+        if (metadata.Any(row => !lineIds.Contains(row.LineNumber)))
+            throw OperationalReadError("picker returned unexpected receiving-line metadata");
+        return new(mappings.GroupBy(map => map.FulfillmentId).ToDictionary(group => group.Key, group => group.ToList()),
+            metadata.GroupBy(row => row.LineNumber).ToDictionary(group => group.Key, group => group.ToList()));
+    }
+
+    // Only discovery shares these immutable-per-request link snapshots. Selection
+    // and posting use fresh native links and REST receipt lines as before.
+    private async Task<PickerReceiptLinks> ReadPickerReceiptLinksAsync(int[] fulfillmentIds)
+    {
+        var linksQuery = builderFactory.Create().Distinct().Select(
+                ("link.previousdoc", "FulfillmentId"), ("link.nextdoc", "ReceiptId"))
+            .From("nexttransactionlinelink link")
+            .WithFilters(In("link.previousdoc", fulfillmentIds), Equal("link.previoustype", "ItemShip"),
+                Equal("link.nexttype", "ItemRcpt"), Equal("link.linktype", "TOrdCost")).Build();
+        var links = await ReadCompleteAsync<OperationalReceiptLink>(linksQuery.Query);
+        if (links.Any(link => !fulfillmentIds.Contains(link.FulfillmentId) || link.ReceiptId <= 0))
+            throw OperationalReadError("picker returned an invalid fulfillment/receipt link");
+        var receiptIds = links.Select(link => link.ReceiptId).Distinct().ToArray();
+        List<OperationalReceiptLink> owners = [];
+        if (receiptIds.Length > 0)
+        {
+            var ownersQuery = builderFactory.Create().Distinct().Select(
+                    ("link.previousdoc", "FulfillmentId"), ("link.nextdoc", "ReceiptId"))
+                .From("nexttransactionlinelink link")
+                .WithFilters(In("link.nextdoc", receiptIds), Equal("link.previoustype", "ItemShip"),
+                    Equal("link.nexttype", "ItemRcpt"), Equal("link.linktype", "TOrdCost")).Build();
+            owners = await ReadCompleteAsync<OperationalReceiptLink>(ownersQuery.Query);
+        }
+        return new(links.GroupBy(link => link.FulfillmentId).ToDictionary(group => group.Key, group => group.ToList()),
+            owners.GroupBy(link => link.ReceiptId).ToDictionary(group => group.Key, group => group.ToList()));
     }
 
     private sealed record OperationalItem(int Line, int OrderLine, int SourceId, int ItemId, int UnitId, decimal Quantity);
@@ -132,9 +205,13 @@ public partial class ReceivingIntegration
             CultureInfo.InvariantCulture, out number) ? number : null;
     }
 
-    private async Task<List<ItemReceiptLineDTO>> ReadOperationalFulfillmentAsync(int fulfillmentId, int? expectedSourceId = null)
+    private async Task<List<ItemReceiptLineDTO>> ReadOperationalFulfillmentAsync(
+        int fulfillmentId, int? expectedSourceId = null, PickerReceiptLinks? pickerLinks = null,
+        PickerSourceMetadata? pickerSource = null)
     {
+        var stageTimer = System.Diagnostics.Stopwatch.StartNew();
         var operational = await ReadOperationalItemsAsync("itemFulfillment", fulfillmentId);
+        var operationalMs = stageTimer.ElapsedMilliseconds;
         var sourceId = operational[0].SourceId;
         if (expectedSourceId.HasValue && sourceId != expectedSourceId.Value)
             throw OperationalReadError("the selected fulfillment belongs to a different source order");
@@ -148,17 +225,31 @@ public partial class ReceivingIntegration
             .WithFilters(Equal("link.nextdoc", fulfillmentId), Equal("link.previousdoc", sourceId),
                 Equal("link.previoustype", "TrnfrOrd"), Equal("link.nexttype", "ItemShip"), Equal("link.linktype", "ShipRcpt"))
             .Build();
-        var mappings = await ReadCompleteAsync<OperationalTransferLink>(mappingQuery.Query);
+        var mappings = pickerSource is null
+            ? await ReadCompleteAsync<OperationalTransferLink>(mappingQuery.Query)
+            : pickerSource.MappingsByFulfillment.GetValueOrDefault(fulfillmentId) ?? [];
+        var mappingMs = stageTimer.ElapsedMilliseconds - operationalMs;
         if (mappings.Count != operational.Count)
             throw OperationalReadError("expanded fulfillment and native link line sets differ");
         // UI metadata comes from the TO RECEIVING line, including its destination
         // location and UoM. IF accounting rows (including null units) are never read.
-        var sourceQuery = builderFactory.Create().Select(("t.tranid", "TranId"))
-            .From("transaction t").WithFilters(Equal("t.id", sourceId)).Build();
-        var source = await ReadCompleteAsync<OperationalSourceDocument>(sourceQuery.Query);
-        if (source.Count != 1 || string.IsNullOrWhiteSpace(source[0].TranId))
-            throw OperationalReadError("source order is not uniquely identified");
-        var metadata = (await GetItemReceiptLinesAsync(source[0].TranId, transferorder: true)).ToList();
+        List<ItemReceiptLineDTO> metadata;
+        if (pickerSource is null)
+        {
+            var sourceQuery = builderFactory.Create().Select(("t.tranid", "TranId"))
+                .From("transaction t").WithFilters(Equal("t.id", sourceId)).Build();
+            var source = await ReadCompleteAsync<OperationalSourceDocument>(sourceQuery.Query);
+            if (source.Count != 1 || string.IsNullOrWhiteSpace(source[0].TranId))
+                throw OperationalReadError("source order is not uniquely identified");
+            metadata = (await GetItemReceiptLinesAsync(source[0].TranId, transferorder: true,
+                mappings.Select(map => map.ReceivingLine).Distinct().ToArray())).ToList();
+        }
+        else
+        {
+            metadata = mappings.SelectMany(map => pickerSource.MetadataByLine.GetValueOrDefault(map.ReceivingLine) ?? [])
+                .Distinct().ToList();
+        }
+        var metadataMs = stageTimer.ElapsedMilliseconds - operationalMs - mappingMs;
         List<ItemReceiptLineDTO> result = [];
         foreach (var line in operational)
         {
@@ -170,7 +261,9 @@ public partial class ReceivingIntegration
             var rows = metadata.Where(row => row.LineNumber == matches[0].ReceivingLine).ToArray();
             if (rows.Length != 1 || rows[0].ItemId != line.ItemId || rows[0].UoMRate <= 0)
                 throw OperationalReadError("source receiving-line metadata is missing or ambiguous");
-            var row = rows[0];
+            // The same TO receiving line can be shared across IFs. Never mutate
+            // a DTO held by the request-scoped metadata snapshot.
+            var row = pickerSource is null ? rows[0] : rows[0].Adapt<ItemReceiptLineDTO>();
             row.QuantityFulfilled = line.Quantity;
             row.QuantityReceived = 0;
             result.Add(row);
@@ -183,7 +276,9 @@ public partial class ReceivingIntegration
             .From("nexttransactionlinelink link")
             .WithFilters(Equal("link.previousdoc", fulfillmentId), Equal("link.previoustype", "ItemShip"),
                 Equal("link.nexttype", "ItemRcpt"), Equal("link.linktype", "TOrdCost")).Build();
-        var receipts = await ReadCompleteAsync<OperationalReceiptLink>(receiptQuery.Query);
+        var receipts = pickerLinks is null
+            ? await ReadCompleteAsync<OperationalReceiptLink>(receiptQuery.Query)
+            : pickerLinks.ByFulfillment.GetValueOrDefault(fulfillmentId) ?? [];
         foreach (var receiptId in receipts.Select(link => link.ReceiptId).Distinct())
         {
             if (receiptId <= 0) throw OperationalReadError("invalid receipt identity");
@@ -192,7 +287,9 @@ public partial class ReceivingIntegration
                 .From("nexttransactionlinelink link")
                 .WithFilters(Equal("link.nextdoc", receiptId), Equal("link.previoustype", "ItemShip"),
                     Equal("link.nexttype", "ItemRcpt"), Equal("link.linktype", "TOrdCost")).Build();
-            var owners = await ReadCompleteAsync<OperationalReceiptLink>(ownersQuery.Query);
+            var owners = pickerLinks is null
+                ? await ReadCompleteAsync<OperationalReceiptLink>(ownersQuery.Query)
+                : pickerLinks.OwnersByReceipt.GetValueOrDefault(receiptId) ?? [];
             if (owners.Count == 0 || owners.Any(link => link.FulfillmentId != fulfillmentId || link.ReceiptId != receiptId))
                 throw OperationalReadError($"receipt {receiptId} cannot be attributed to one fulfillment");
             var nativeReceiptQuery = builderFactory.Create().Distinct().Select(
@@ -218,6 +315,12 @@ public partial class ReceivingIntegration
                 row.QuantityReceived += received.Quantity;
             }
         }
+        if (expectedSourceId.HasValue)
+            logger.LogInformation(
+                "Receiving picker verified IF {ItemFulfillmentId} on TO {TransferOrderId}: operational REST {OperationalMs}ms, native mapping {MappingMs}ms, source/metadata {MetadataMs}ms, receipt verification {ReceiptMs}ms, {ReceiptCount} receipt(s), {LineCount} line(s).",
+                fulfillmentId, sourceId, operationalMs, mappingMs, metadataMs,
+                stageTimer.ElapsedMilliseconds - operationalMs - mappingMs - metadataMs,
+                receipts.Select(link => link.ReceiptId).Distinct().Count(), result.Count);
         return result;
     }
 
