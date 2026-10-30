@@ -21,7 +21,7 @@ public sealed class ReceivingOperationalLinesTests
         public JsonObject Fulfillment { get; } = Record(456, 299, 3);
         public Dictionary<int, JsonObject> Receipts { get; } = [];
         public List<OperationalTransferLink> Mappings { get; } =
-            [new() { SourceId = 208281, ShippingLine = 299, OperationalLine = 0,
+            [new() { FulfillmentId = 456, SourceId = 208281, ShippingLine = 299, OperationalLine = 0,
                 ReceivingLine = 300, ItemId = 49312, UnitId = 1 }];
         public List<TransferOrderLineRemaining> Ledger { get; } =
             [new() { LineId = 300, ItemCode = "ITEM-49312", QuantityPlanned = 10 }];
@@ -201,6 +201,31 @@ public sealed class ReceivingOperationalLinesTests
         var fixture = new Fixture { Incomplete = true };
         await Assert.ThrowsAsync<InvalidOperationException>(() => fixture.Sut.PostItemReceipt(fixture.Receipt(1)));
         Assert.Empty(fixture.Client.Writes);
+    }
+
+    [Fact]
+    public async Task Large_source_order_reads_only_the_fulfillment_lines_for_picker_and_post()
+    {
+        var fixture = new Fixture();
+        var original = fixture.Client.OnQuery!;
+        fixture.Client.OnQuery = (query, type) =>
+        {
+            // The source order contains more than one SuiteQL page. An unscoped
+            // metadata or TO ledger read would be incomplete in NetSuite.
+            if ((type == typeof(ItemReceiptLineDTO) || type == typeof(TransferOrderLineRemaining)) &&
+                !query.Contains("tl.id IN (300)"))
+                return type == typeof(ItemReceiptLineDTO)
+                    ? new NetSuiteResponse<ItemReceiptLineDTO> { items = [], totalResults = 1197, hasMore = true }
+                    : new NetSuiteResponse<TransferOrderLineRemaining> { items = [], totalResults = 1197, hasMore = true };
+            return original(query, type);
+        };
+
+        var lines = await fixture.Sut.GetItemReceiptItemFulfillmentLinesAsync("IF230512");
+        Assert.Equal(3m, Assert.Single(lines).QuantityOpen);
+        Assert.True(await fixture.Sut.PostItemReceipt(fixture.Receipt(1)));
+        Assert.Single(fixture.Client.Writes);
+        Assert.Contains(fixture.Client.Queries, query => query.Contains("tl.id IN (300)") && query.Contains("item.usebins"));
+        Assert.Contains(fixture.Client.Queries, query => query.Contains("tl.id IN (300)") && query.Contains("quantityshiprecv"));
     }
 
     [Fact]
