@@ -2701,6 +2701,19 @@ namespace Integration.NS.Services
         }
 
         public async Task<bool> SaveTOItemFulfillment(List<PostTransferOrderDTO> Data)
+            => await SaveTOItemFulfillmentCore(Data, forceShipped: false);
+
+        /// <summary>Dedicated unattended path: never infer shipment from trip-ticket exemption.</summary>
+        public async Task<bool> SaveAutoTOItemFulfillment(List<PostTransferOrderDTO> Data)
+        {
+            if (UseRestletForTOFulfillment)
+                throw new InvalidOperationException("Unattended Shipped fulfillment requires the verified REST transform, not the optional RESTlet.");
+            if (Data.Any(x => x.VerifiedInventoryStatusId is not (InventoryStatusMap.Good or InventoryStatusMap.Bad or InventoryStatusMap.Missing)))
+                throw new InvalidOperationException("Every automatic fulfillment line requires a verified inventory status.");
+            return await SaveTOItemFulfillmentCore(Data, forceShipped: true);
+        }
+
+        private async Task<bool> SaveTOItemFulfillmentCore(List<PostTransferOrderDTO> Data, bool forceShipped)
         {
             if (UseRestletForTOFulfillment)
             {
@@ -2759,7 +2772,7 @@ namespace Integration.NS.Services
             }
             catch (Exception ex)
             {
-                if (FailClosedRevalidationEnabled)
+                if (forceShipped || FailClosedRevalidationEnabled)
                 {
                     throw new Exception($"Cannot post TO Item Fulfillment for order {orderNumber}: the current open-line state could not be read. Nothing was saved. {ex.Message}", ex);
                 }
@@ -2771,7 +2784,7 @@ namespace Integration.NS.Services
             {
                 openLineIds = freshLines.Where(x => x.IsOpen).Select(x => x.LineId).ToHashSet();
 
-                if (ReconciliationEnabled)
+                if (forceShipped || ReconciliationEnabled)
                 {
                     var reconciled = ReconcileTOFulfillmentLines(Data, freshLines, orderId, isUsedBin);
 
@@ -2890,7 +2903,7 @@ namespace Integration.NS.Services
             }
 
             var isTripTicketExempt = Data.FirstOrDefault()?.IsTripTicketExempt == true;
-            var itemFulfillmentStatus = isTripTicketExempt ? "C" : "B";
+            var itemFulfillmentStatus = forceShipped || isTripTicketExempt ? "C" : "B";
             var printLabel = true; // Packing labels are required regardless of trip-ticket exemption.
 
             // The rest of the save builds the bucket payload from Data; its size IS the

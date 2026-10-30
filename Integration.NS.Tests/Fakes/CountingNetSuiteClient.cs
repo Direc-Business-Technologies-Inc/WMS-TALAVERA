@@ -70,6 +70,7 @@ public sealed class CountingNetSuiteClient : INetSuiteApiClientService
     public string GetRestletURI => string.Empty;
 
     public Task<bool> SaveTOItemFulfillment(List<PostTransferOrderDTO> Data) => throw new NotSupportedException();
+    public Task<bool> SaveAutoTOItemFulfillment(List<PostTransferOrderDTO> Data) => throw new NotSupportedException();
     public Task<bool> SaveReturnsItemFulfillment(List<PostReturnsDTO> Data) => throw new NotSupportedException();
     public Task<bool> SaveVRAItemFulfillment(List<PostVendorReturnAuthorizationDTO> Data) => throw new NotSupportedException();
     public Task<bool> UpdateTripTicket(PostTripTicketDTO Data, List<ItemFulfillmentDTO> RemovedIF, List<ItemFulfillmentDTO> AddedIF) => throw new NotSupportedException();

@@ -20,6 +20,7 @@ public interface INetSuiteApiClientService : INotifyPropertyChanged
 
 
     Task<bool> SaveTOItemFulfillment(List<PostTransferOrderDTO> Data);
+    Task<bool> SaveAutoTOItemFulfillment(List<PostTransferOrderDTO> Data);
     Task<bool> SaveReturnsItemFulfillment(List<PostReturnsDTO> Data);
     Task<bool> SaveVRAItemFulfillment(List<PostVendorReturnAuthorizationDTO> Data);
 

@@ -37,6 +37,10 @@ public class PostTransferOrderDTO : TransactionDTO
     public bool IsBad { get; set; }
     public bool IsMissing { get; set; }
 
+    // Only unattended fulfillment supplies a separately verified per-line
+    // NetSuite inventory status. Manual packing retains its existing mapping.
+    public string? VerifiedInventoryStatusId { get; set; }
+
     // NetSuite 'T'/'F' closed flag on the transaction line (transactionline.isclosed).
     public string IsClosed { get; set; } = string.Empty;
 

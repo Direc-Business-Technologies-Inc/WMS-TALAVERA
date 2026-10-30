@@ -4,6 +4,7 @@ using Domain.Entities.Entities.Administration.User.Management;
 using Domain.Entities.Entities.Transaction.InventoryCounting;
 using Domain.Entities.System;
 using Domain.Entities.Transaction.Common;
+using Domain.Entities.Transaction.StockTransferRequest;
 using Microsoft.EntityFrameworkCore;
 
 namespace Database.MsSql.Core;
@@ -23,6 +24,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<ModulePermissionDEM> OMPR { get; set; }
     public DbSet<InventoryCountingDocumentDEM> OICD { get; set; }
     public DbSet<SettingsDEM> OSTN { get; set; }
+    public DbSet<StrFulfillmentLeaseDEM> StrFulfillmentLeases { get; set; }
+    public DbSet<StrAutoFulfillmentProcessDEM> StrAutoFulfillmentProcesses { get; set; }
+    public DbSet<StrAutoRouteActivationDEM> StrAutoRouteActivations { get; set; }
     #endregion DbSets
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)

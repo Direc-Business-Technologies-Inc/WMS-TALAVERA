@@ -163,6 +163,18 @@ public class PackingIFPayloadDTOTests
         Assert.Equal(expected, StatusId(LineEntry(document, 1)));
     }
 
+    [Fact]
+    public void Transfer_order_auto_status_override_wins_and_ships_directly()
+    {
+        var line = TransferOrderLine(18);
+        line.VerifiedInventoryStatusId = InventoryStatusMap.Bad;
+        var payload = TransferOrderIFPayloadDTO.CreateForItemFulfillment([line], "C", true, UseBin);
+
+        using var document = JsonDocument.Parse(JsonSerializer.Serialize(payload, Options));
+        Assert.Equal(InventoryStatusMap.Bad, StatusId(LineEntry(document, 18)));
+        Assert.Equal("C", document.RootElement.GetProperty("shipStatus").GetString());
+    }
+
     [Theory]
     [InlineData(false, InventoryStatusMap.Good)]
     [InlineData(true, InventoryStatusMap.Bad)]

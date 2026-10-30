@@ -356,6 +356,84 @@ namespace Database.MsSql.Migrations
                     b.ToTable("ODCT", (string)null);
                 });
 
+            modelBuilder.Entity("Domain.Entities.Transaction.StockTransferRequest.StrAutoFulfillmentProcessDEM", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("FulfillmentIds")
+                        .HasMaxLength(512)
+                        .HasColumnType("nvarchar(512)");
+
+                    b.Property<int>("NetsuiteOrderId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(2048)
+                        .HasColumnType("nvarchar(2048)");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NetsuiteOrderId")
+                        .IsUnique();
+
+                    b.ToTable("STR_AUTO_FULFILLMENT_PROCESS", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.Transaction.StockTransferRequest.StrAutoRouteActivationDEM", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("ActivatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("RouteKey")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RouteKey")
+                        .IsUnique();
+
+                    b.ToTable("STR_AUTO_ROUTE_ACTIVATION", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.Transaction.StockTransferRequest.StrFulfillmentLeaseDEM", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("ExpiresAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("NetsuiteOrderId")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("OwnerToken")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NetsuiteOrderId")
+                        .IsUnique();
+
+                    b.ToTable("STR_FULFILLMENT_LEASE", (string)null);
+                });
+
             modelBuilder.Entity("Domain.Entities.Administration.User.Management.LoginDEM", b =>
                 {
                     b.HasOne("Domain.Entities.Administration.User.Management.UserDEM", null)
