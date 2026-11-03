@@ -17,7 +17,7 @@ namespace Integration.NS.Tests.Implementations.Transactions;
 public class SupplierReturnPreferredVendorValidationTests
 {
     private static (SupplierReturnIntegration Sut, RestCapturingNetSuiteClient Client) Create(
-        int preferredVendorId = 42,
+        int? preferredVendorId = 42,
         int locationSubsidiaryId = 7,
         int? poLineVendorId = 42,
         int? poHeaderVendorId = 42,
@@ -68,7 +68,7 @@ public class SupplierReturnPreferredVendorValidationTests
         return (sut, client);
     }
 
-    private static SupplierReturnDTO SampleReturn(int lineVendorId = 42) => new()
+    private static SupplierReturnDTO SampleReturn(int? lineVendorId = 42) => new()
     {
         Vendor = new VendorDTO { Id = 42 },
         Subsidiary = new SubsidiaryDTO { Id = 7 },
@@ -80,7 +80,7 @@ public class SupplierReturnPreferredVendorValidationTests
                 ItemId = 101,
                 ItemCode = "ITEM-101",
                 LineNumber = 1,
-                Vendor = new VendorDTO { Id = lineVendorId },
+                Vendor = lineVendorId.HasValue ? new VendorDTO { Id = lineVendorId.Value } : null,
                 QuantityAlloted = 1
             }
         ]
@@ -93,7 +93,7 @@ public class SupplierReturnPreferredVendorValidationTests
 
         var error = await Assert.ThrowsAsync<InvalidOperationException>(() => sut.CreateSupplierReturn(SampleReturn()));
 
-        Assert.Contains("not under the selected preferred vendor", error.Message);
+        Assert.Contains("item preferred vendor 99 does not match selected header vendor 42", error.Message);
         Assert.Empty(client.Writes);
         Assert.Contains(client.Queries, query => query.Contains("itemvendor")
             && query.Contains("iv.subsidiary = (SELECT l.subsidiary FROM location l WHERE l.id = 5)")
@@ -107,7 +107,7 @@ public class SupplierReturnPreferredVendorValidationTests
 
         var error = await Assert.ThrowsAsync<InvalidOperationException>(() => sut.CreateSupplierReturn(SampleReturn(lineVendorId: 99)));
 
-        Assert.Contains("not under the selected preferred vendor", error.Message);
+        Assert.Contains("RTS line vendor 99 does not match selected header vendor 42", error.Message);
         Assert.Empty(client.Writes);
     }
 
@@ -118,7 +118,7 @@ public class SupplierReturnPreferredVendorValidationTests
 
         var error = await Assert.ThrowsAsync<InvalidOperationException>(() => sut.CreateNewSupplierReturn(SampleReturn()));
 
-        Assert.Contains("not under the selected preferred vendor", error.Message);
+        Assert.Contains("item preferred vendor 99 does not match selected header vendor 42", error.Message);
         Assert.Empty(client.Writes);
     }
 
@@ -129,7 +129,7 @@ public class SupplierReturnPreferredVendorValidationTests
 
         var error = await Assert.ThrowsAsync<InvalidOperationException>(() => sut.CreateSupplierReturn(SampleReturn()));
 
-        Assert.Contains("not under the selected preferred vendor", error.Message);
+        Assert.Contains("location 5 resolves to subsidiary 8, not selected subsidiary 7", error.Message);
         Assert.Empty(client.Writes);
     }
 
@@ -153,7 +153,7 @@ public class SupplierReturnPreferredVendorValidationTests
 
         var error = await Assert.ThrowsAsync<InvalidOperationException>(() => sut.CreateSupplierReturnFromPurchaseOrder(data));
 
-        Assert.Contains("not under the selected preferred vendor", error.Message);
+        Assert.Contains("item preferred vendor 99 does not match selected header vendor 42", error.Message);
         Assert.Empty(client.Writes);
         Assert.Contains(client.Queries, query => query.Contains("t.id = 456") && query.Contains("purchaseorder"));
     }
@@ -187,12 +187,38 @@ public class SupplierReturnPreferredVendorValidationTests
     [Fact]
     public async Task Approval_rejects_item_without_a_preferred_vendor_before_patching()
     {
-        var (sut, client) = Create(preferredVendorId: 0);
+        var (sut, client) = Create(preferredVendorId: null);
 
         var error = await Assert.ThrowsAsync<InvalidOperationException>(() => sut.SubmitSupplierReturnForApproval(SampleReturn()));
 
-        Assert.Contains("not under the selected preferred vendor", error.Message);
+        Assert.Contains("item has no preferred vendor for location 5's subsidiary", error.Message);
+        Assert.DoesNotContain("RTS line vendor is missing", error.Message);
         Assert.Empty(client.Writes);
+    }
+
+    [Fact]
+    public async Task Approval_allows_missing_transaction_line_vendor_when_item_master_vendor_matches()
+    {
+        var (sut, client) = Create();
+
+        await sut.SubmitSupplierReturnForApproval(SampleReturn(lineVendorId: null));
+
+        Assert.Single(client.Writes);
+        Assert.Contains("custbody_dbti_submitted_for_approval", client.LastBody);
+    }
+
+    [Fact]
+    public async Task Update_backfills_missing_transaction_line_vendor_from_header_after_validation()
+    {
+        var (sut, client) = Create();
+        var data = SampleReturn(lineVendorId: null);
+        data.Id = 123;
+
+        await sut.UpdateSupplierReturn(data);
+
+        Assert.Single(client.Writes);
+        Assert.Contains("custcol_dbti_vendor", client.LastBody);
+        Assert.Contains("42", client.LastBody);
     }
 
     [Fact]

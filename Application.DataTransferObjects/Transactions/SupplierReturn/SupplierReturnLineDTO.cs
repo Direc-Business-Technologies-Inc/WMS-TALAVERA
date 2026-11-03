@@ -14,6 +14,7 @@ public class SupplierReturnLineDTO
     public string ItemDescription { get; set; } = string.Empty;
     public ItemUnitDTO? UoM { get; set; }
     public VendorDTO? Vendor { get; set; } = null;
+    public VendorDTO? PreferredVendor { get; set; }
     public LocationDTO? Location { get; set; }
     public decimal QuantityAlloted { get; set; }
     public decimal QuantityAvailable { get; set; }

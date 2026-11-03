@@ -124,7 +124,7 @@
                         </RadzenDataGridColumn>
                         <RadzenDataGridColumn TItem="SupplierReturnLineVM" Title="Preferred Vendor" Property="@nameof(SupplierReturnLineVM.Vendor)">
                             <Template Context="data">
-                                <RadzenText TextStyle="TextStyle.Body2" Text="@(data.Vendor?.Name ?? "Not set")" />
+                                <RadzenText TextStyle="TextStyle.Body2" Text="@(data.PreferredVendor?.Name ?? "Not set")" />
                             </Template>
                         </RadzenDataGridColumn>
                         <RadzenDataGridColumn TItem="SupplierReturnLineVM" Title="On Hand Quantity" Property="@nameof(SupplierReturnLineVM.QuantityOnHandByUoM)" Type="typeof(decimal)" FormatString="{0:#,##0.##}" />
