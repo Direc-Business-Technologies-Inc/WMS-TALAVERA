@@ -23,4 +23,7 @@ public class SupplierReturnLineNSDTO
     public int? LineNumber { get; set; }
     public int? VendorId { get; set; }
     public string? VendorName { get; set; }
+    public int? PreferredVendorId { get; set; }
+    public string? PreferredVendorName { get; set; }
+    public int? HeaderLocationId { get; set; }
 }

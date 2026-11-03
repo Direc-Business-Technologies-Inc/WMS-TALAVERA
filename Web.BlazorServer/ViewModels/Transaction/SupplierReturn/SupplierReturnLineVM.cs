@@ -9,6 +9,7 @@ public class SupplierReturnLineVM
     public string ItemDescription { get; set; } = string.Empty;
     public ItemUnitVM? UoM { get; set; }
     public VendorVM? Vendor { get; set; } = null;
+    public VendorVM? PreferredVendor { get; set; }
     public LocationVM? Location { get; set; }
     public decimal QuantityOnHand { get; set; }
     public decimal QuantityAlloted { get; set; }

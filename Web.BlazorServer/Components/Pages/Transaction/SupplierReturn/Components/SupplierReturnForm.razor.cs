@@ -296,21 +296,6 @@ public partial class SupplierReturnForm
             return;
         }
 
-        // Per-line Preferred Vendor is required on every line (posted to
-        // custcol_dbti_vendor). Name the offending lines so the user can find
-        // them; per-row RadzenRequiredValidator cannot work here because grid
-        // rows share one column template.
-        var linesMissingVendor = Model.Lines
-            .Select((line, index) => (line, index))
-            .Where(x => x.line.Vendor is null)
-            .Select(x => (x.line.LineNumber ?? x.index + 1).ToString())
-            .ToList();
-        if (linesMissingVendor.Count > 0)
-        {
-            ToastService.Error($"Preferred Vendor is required on line(s): {string.Join(", ", linesMissingVendor)}", "Error");
-            return;
-        }
-
         if (OnSubmit.HasDelegate)
             await OnSubmit.InvokeAsync(Model);
     }
@@ -385,6 +370,7 @@ public partial class SupplierReturnForm
                 ItemCode = x.Name,
                 ItemDescription = x.Description,
                 UoM = x.StockUnit,
+                PreferredVendor = x.PreferredVendorId.HasValue ? new VendorVM { Id = x.PreferredVendorId.Value, Name = x.PreferredVendorName ?? string.Empty } : null,
                 Vendor = new VendorVM
                 {
                     Id = headerVendor.Id,
@@ -496,6 +482,7 @@ public partial class SupplierReturnForm
                     ItemDescription = item.Name,
                     UoM = targetUom,
                     Vendor = lineVendor,
+                    PreferredVendor = item.PreferredVendorId.HasValue ? new VendorVM { Id = item.PreferredVendorId.Value, Name = item.PreferredVendorName ?? string.Empty } : null,
                     Location = Model.Location,
                     QuantityOnHand = item.QuantityOnHand,
                     QuantityAvailable = item.QuantityAvailable,
