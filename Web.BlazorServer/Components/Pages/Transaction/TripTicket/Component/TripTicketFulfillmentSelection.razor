@@ -59,7 +59,7 @@
                 </HeaderTemplate>
                 <Template>
                     <RadzenCheckBox TValue="bool"
-                                    Value="@(SelectedFulfillments.Any(x => x.OrderNumber == context.OrderNumber))"
+                                     Value="@(SelectedFulfillments.Any(x => x is not null && x.NetsuiteOrderInternalId == context.NetsuiteOrderInternalId))"
                                     Change="@(_ => SelectItem(context))" />
                 </Template>
             </RadzenDataGridColumn>

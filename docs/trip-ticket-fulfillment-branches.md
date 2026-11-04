@@ -11,7 +11,7 @@ When creating or editing a trip ticket in WMS Web, users need to identify each I
 | From Location | Item Fulfillment transaction line location (`transactionline.location`) |
 | To Location | Item Fulfillment transfer location (`transaction.transferlocation`) |
 | From Subsidiary | Item Fulfillment subsidiary (`transaction.subsidiary`) |
-| To Subsidiary | Item Fulfillment destination subsidiary (`transaction.tosubsidiary`) |
+| To Subsidiary | Subsidiary mapped to the Item Fulfillment transfer location (`locationSubsidiaryMap.subsidiary`) |
 
 Location and subsidiary internal IDs are also included in the fulfillment DTO/view model alongside their display names. The selection and saved-trip-ticket fulfillment queries return the same branch metadata so the columns remain available after saving and when viewing or editing a trip ticket.
 
@@ -22,4 +22,4 @@ Location and subsidiary internal IDs are also included in the fulfillment DTO/vi
 - `Shared.Libraries/ViewModel/ItemFulfillment/ItemFulfillmentVM.cs` exposes that data to the web UI.
 - `Web.BlazorServer/Components/Pages/Transaction/TripTicket/Component/TripTicketFulfillmentSelection.razor` and `Web.BlazorServer/Components/Pages/Transaction/TripTicket/TripTicketCVU.razor` display the four columns.
 
-The source location comes from the main transaction line; the destination location comes from the transaction transfer location. The query scopes the transaction-line join to its mainline row to keep one result per fulfillment.
+The source location comes from the main transaction line; the destination location comes from the transaction transfer location. The destination subsidiary is resolved through `locationSubsidiaryMap` because Item Fulfillment `transaction.tosubsidiary` is not populated for the records in this workflow. The query scopes the transaction-line join to its mainline row to keep one result per fulfillment. Missing lookup results are not added to the trip-ticket destination lists, and the display helpers ignore any legacy null entries.

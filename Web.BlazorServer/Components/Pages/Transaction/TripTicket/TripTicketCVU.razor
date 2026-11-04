@@ -188,7 +188,7 @@
                                     </ChildContent>
                                     <Helper>
                                         <RadzenCustomValidator Visible="@(Creating || IsEditable)" Component="tt_to_subsidiary" Popup
-                                                               Validator="() => FormData.ToSubsidiaries?.Any(x => x.NetsuiteSubsidiaryInternalId > 0) == true"
+                                                                Validator="() => FormData.ToSubsidiaries?.Any(x => x is not null && x.NetsuiteSubsidiaryInternalId > 0) == true"
                                                                Text="To Subsidiary is required" />
                                     </Helper>
                                 </RadzenFormField>
@@ -240,7 +240,7 @@
                                     </ChildContent>
                                     <Helper>
                                         <RadzenCustomValidator Visible="@(Creating || IsEditable)" Component="tt_destinations" Popup
-                                                               Validator="() => FormData.Destinations?.Any(x => x.NetsuiteLocationInternalId > 0) == true"
+                                                                Validator="() => FormData.Destinations?.Any(x => x is not null && x.NetsuiteLocationInternalId > 0) == true"
                                                                Text="Destination is required" />
                                     </Helper>
                                 </RadzenFormField>
