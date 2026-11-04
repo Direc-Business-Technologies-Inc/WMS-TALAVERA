@@ -353,6 +353,24 @@ public class PackingPendingFulfillmentFilterShapeTests
         SuiteQLAssert.NoTrailingComma(sql);
     }
 
+    [Fact]
+    public void Transfer_order_packing_pending_script_does_not_filter_purchase_category()
+    {
+        var path = ScriptsPath("NS_TO_x_Packing_Get_PendingFulfillment.sql");
+        var sql = Normalize(File.ReadAllText(path));
+
+        Assert.DoesNotContain("custbody_dbti_purchase_category", sql);
+    }
+
+    [Fact]
+    public void Transfer_order_packing_lookup_does_not_filter_purchase_category()
+    {
+        var path = ScriptsPath("NS_TO_x_Packing_Get_PendingFulfillment_ByOrderNumber.sql");
+        var sql = Normalize(File.ReadAllText(path));
+
+        Assert.DoesNotContain("custbody_dbti_purchase_category", sql);
+    }
+
 
     private static string ScriptsPath(string fileName)
     {

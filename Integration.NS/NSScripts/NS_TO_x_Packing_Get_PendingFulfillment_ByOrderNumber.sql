@@ -10,6 +10,5 @@ JOIN (SELECT opk.transaction AS packtran FROM transactionline opk
 WHERE t.recordtype IN ('intercompanytransferorder', 'transferorder')
 	AND t.custbody_dbti_transfer_category IN ('1', '2')
 	AND t.ordpicked = 'F' AND t.status IN ('B', 'D', 'E')
-	AND BUILTIN.DF(t.custbody_dbti_purchase_category) = 'Trade'
 	AND t.subsidiary = @subsidiaryid
 	AND t.tranid = @ordernumber
