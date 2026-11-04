@@ -120,6 +120,24 @@ public partial class SupplierReturnForm
 
     async Task<(IEnumerable<VendorVM>, int)> VendorProvider(DataGridIntent intent)
     {
+        // Radzen's dropdown filter is initially expressed against ReferenceNumber
+        // so vendor references can be searched even though the displayed text is Name.
+        // Expand that leaf into an OR-group to also match vendor names server-side.
+        var searchFilter = intent.Filters.FirstOrDefault(x =>
+            x.Filters.Count == 0 &&
+            x.Property == VendorSearchProperty &&
+            x.Value is string search &&
+            !string.IsNullOrWhiteSpace(search));
+
+        if (searchFilter is not null)
+        {
+            var search = (string)searchFilter.Value!;
+            intent.Filters.Remove(searchFilter);
+            intent.Filters.Add(DataGridFilterUtilities.Any(
+                DataGridFilterUtilities.Contains(VendorSearchProperty, search),
+                DataGridFilterUtilities.Contains(nameof(VendorVM.Name), search)));
+        }
+
         return await vendorHandler.GetVendorsListAsync(intent);
     }
 
