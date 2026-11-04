@@ -18,6 +18,8 @@ public interface INetSuiteApiClientService : INotifyPropertyChanged
     string GetRestAPIURI { get; }
     string GetRestletURI { get; }
 
+    Task IncrementPrintCountAsync(string recordType, int recordId, CancellationToken ct = default);
+
 
     Task<bool> SaveTOItemFulfillment(List<PostTransferOrderDTO> Data);
     Task<bool> SaveAutoTOItemFulfillment(List<PostTransferOrderDTO> Data);

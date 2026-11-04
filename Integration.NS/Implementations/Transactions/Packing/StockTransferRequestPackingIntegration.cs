@@ -10,6 +10,7 @@ using Integration.NS.Helpers;
 using Integration.NS.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
+using System.Diagnostics;
 using Shared.Entities;
 using Shared.Libraries.Utilities;
 using static Shared.Libraries.Utilities.DataGridFilterUtilities;
@@ -65,9 +66,19 @@ internal class StockTransferRequestPackingIntegration(
 
             if (skipOverride.HasValue) query.Offset = skipOverride.Value;
 
-            var response = await query.ExecuteWithPaging<StrPackingDataGridNSDTO>(netsuiteService);
-
-            return response;
+            var started = Stopwatch.GetTimestamp();
+            var succeeded = false;
+            try
+            {
+                var response = await query.ExecuteWithPaging<StrPackingDataGridNSDTO>(netsuiteService);
+                succeeded = true;
+                return response;
+            }
+            finally
+            {
+                logger.LogInformation("Packing STR NetSuite query skip {Skip} take {Take} completed in {ElapsedMs} ms; success: {Succeeded}",
+                    query.Offset, query.Limit, Stopwatch.GetElapsedTime(started).TotalMilliseconds, succeeded);
+            }
         });
 
         return (items.Select(MapDataGridDto), totalResults);

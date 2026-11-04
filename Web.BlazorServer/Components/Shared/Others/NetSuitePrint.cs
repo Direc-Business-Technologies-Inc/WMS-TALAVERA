@@ -42,6 +42,11 @@ public static class NetSuitePrint
     public static string? TransferOrder(int? recordId) =>
         Build(recordId, "tranferOrder", "&isPickingTicket=true");
 
+    /// <summary>Printout for a Purchase Order.</summary>
+    /// <param name="recordId">NetSuite internal id of the purchase order (<c>t.id</c>).</param>
+    public static string? PurchaseOrder(int? recordId) =>
+        Build(recordId, "purchaseorder", "&transactionDefault=true");
+
     /// <summary>Printout for a Returns to Supplier (Vendor Return Authorization).</summary>
     /// <param name="recordId">NetSuite internal id of the transaction (<c>t.id</c>).</param>
     public static string? VendorReturn(int? recordId) =>

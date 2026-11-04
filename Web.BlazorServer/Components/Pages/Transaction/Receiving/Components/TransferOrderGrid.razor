@@ -68,9 +68,12 @@
                               Frozen
                               FrozenPosition="FrozenColumnPosition.Right"
                               Pickable="false" Sortable="false" Filterable="false"
-                              Width="35px">
+                              Width="72px">
             <Template>
-                <RadzenButton Icon="arrow_right_alt" Size="ButtonSize.ExtraSmall" Click="() => ViewTransferOrder(context)" />
+                <RadzenStack Orientation="Orientation.Horizontal" Gap="4px">
+                    <AppPrintLink Url="@NetSuitePrint.TransferOrder(context.Id)" RecordType="transferOrder" RecordId="@context.Id" OnPrint="@ReloadFirstPageAsync" Size="ButtonSize.ExtraSmall" />
+                    <RadzenButton Icon="arrow_right_alt" Size="ButtonSize.ExtraSmall" Click="() => ViewTransferOrder(context)" />
+                </RadzenStack>
             </Template>
         </RadzenDataGridColumn>
     </GridColumns>

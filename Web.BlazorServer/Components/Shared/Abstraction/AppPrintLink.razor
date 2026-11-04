@@ -1,3 +1,6 @@
+@using Application.UseCases.Repositories.Integration.Others
+@inject INetSuiteApiClientService NetSuiteClient
+@inject NotificationService Notifications
 @* Opens a NetSuite printout in a new browser tab. Renders nothing when no URL is supplied,
    so grid rows for documents that cannot be printed simply omit the control.
    Icon-only by design: the label lives in the tooltip so the control stays compact in a grid row. *@
@@ -6,7 +9,7 @@
               ButtonStyle="ButtonStyle.Light"
               Visible="@CanPrint"
               title="Print">
-    <RadzenLink Path="@Url" Icon="print" target="_blank" title="Print" aria-label="Print" />
+    <span @onclick="OnPrintClick"><RadzenLink Path="@Url" Icon="print" target="_blank" title="Print" aria-label="Print" /></span>
 </RadzenButton>
 
 @code {
@@ -17,6 +20,25 @@
 
     /// <summary>Caller-side gate, e.g. ReadOnly on a form. Combined with the URL check.</summary>
     [Parameter] public bool Visible { get; set; } = true;
+
+    [Parameter] public EventCallback OnPrint { get; set; }
+
+    [Parameter] public string? RecordType { get; set; }
+    [Parameter] public int? RecordId { get; set; }
+
+    private async Task OnPrintClick()
+    {
+        if (!CanPrint || RecordType is null || RecordId is not > 0) return;
+        try
+        {
+            await NetSuiteClient.IncrementPrintCountAsync(RecordType, RecordId.Value);
+            await OnPrint.InvokeAsync();
+        }
+        catch (Exception)
+        {
+            Notifications.Notify(NotificationSeverity.Error, "Print count", "Could not update the NetSuite print count.");
+        }
+    }
 
     bool CanPrint => Visible && !string.IsNullOrWhiteSpace(Url);
 }

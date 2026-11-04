@@ -18,6 +18,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
 using System.Net;
@@ -387,6 +388,27 @@ namespace Integration.NS.Services
         //    throw new Exception(errorBody?.DisplayString ?? $"Request failed with status code: {httpResponse.StatusCode}");
         //}
 
+        private sealed class PrintCountRow
+        {
+            public int? PrintCount { get; set; }
+        }
+
+        public async Task IncrementPrintCountAsync(string recordType, int recordId, CancellationToken ct = default)
+        {
+            if (recordId <= 0) throw new ArgumentOutOfRangeException(nameof(recordId));
+            if (recordType is not ("purchaseOrder" or "transferOrder" or "returnAuthorization" or "vendorReturnAuthorization" or "itemFulfillment"))
+                throw new ArgumentException("Unsupported print record type", nameof(recordType));
+
+            var result = await ExecuteSuiteQLQuery<PrintCountRow>(
+                $"SELECT custbody_wms_print_count AS PrintCount FROM transaction WHERE id = {recordId}", ct: ct);
+            var current = result.items.SingleOrDefault()
+                ?? throw new InvalidOperationException($"NetSuite transaction {recordId} was not found.");
+            var next = checked((current.PrintCount ?? 0) + 1);
+            var url = $"{RecordApiRoot}/{recordType}/{recordId}";
+            await MakeRequest<object>(url, JsonSerializer.Serialize(new { custbody_wms_print_count = next }),
+                HttpMethod.Patch, ct: ct);
+        }
+
         public async Task<T> MakeRequest<T>(
         string url,
         string? reqBody,
@@ -395,6 +417,9 @@ namespace Integration.NS.Services
         NetSuiteRetryProfile profile = NetSuiteRetryProfile.Interactive,
         CancellationToken ct = default)
         {
+            var isSuiteQL = url.StartsWith(SuiteQLRoot, StringComparison.OrdinalIgnoreCase);
+            var traceId = isSuiteQL ? Guid.NewGuid().ToString("N") : string.Empty;
+            var requestStarted = Stopwatch.GetTimestamp();
             var accessToken = await GetValidAccessToken(ct);
 
             var requestKind = kind ?? NetSuiteRequestClassifier.Classify(url, method);
@@ -403,17 +428,44 @@ namespace Integration.NS.Services
             // Limit concurrent calls to NetSuite. The retry pipeline executes
             // inside the permit hold (D5) so a 429 storm cannot starve the
             // limiter by re-acquiring between attempts.
+            var waitStarted = Stopwatch.GetTimestamp();
             await _requestSemaphore.WaitAsync(ct);
+            if (isSuiteQL)
+                logger.LogInformation("NetSuite SuiteQL {TraceId} permit wait {ElapsedMs} ms", traceId,
+                    Stopwatch.GetElapsedTime(waitStarted).TotalMilliseconds);
 
+            var attempts = 0;
+            var completed = false;
             try
             {
-                return await pipeline.ExecuteAsync(
-                    pipelineCt => SendAndHandleOAuth2<T>(url, reqBody, method, accessToken, pipelineCt),
+                var result = await pipeline.ExecuteAsync(async pipelineCt =>
+                    {
+                        var attempt = ++attempts;
+                        var attemptStarted = Stopwatch.GetTimestamp();
+                        var succeeded = false;
+                        try
+                        {
+                            var response = await SendAndHandleOAuth2<T>(url, reqBody, method, accessToken, pipelineCt);
+                            succeeded = true;
+                            return response;
+                        }
+                        finally
+                        {
+                            if (isSuiteQL)
+                                logger.LogInformation("NetSuite SuiteQL {TraceId} HTTP attempt {Attempt} took {ElapsedMs} ms; success: {Succeeded}",
+                                    traceId, attempt, Stopwatch.GetElapsedTime(attemptStarted).TotalMilliseconds, succeeded);
+                        }
+                    },
                     ct);
+                completed = true;
+                return result;
             }
             finally
             {
                 _requestSemaphore.Release();
+                if (isSuiteQL)
+                    logger.LogInformation("NetSuite SuiteQL {TraceId} total {ElapsedMs} ms; attempts: {Attempts}; success: {Succeeded}",
+                        traceId, Stopwatch.GetElapsedTime(requestStarted).TotalMilliseconds, attempts, completed);
             }
         }
 

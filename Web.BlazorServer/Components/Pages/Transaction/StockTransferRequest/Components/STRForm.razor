@@ -215,7 +215,7 @@
                         JustifyContent="JustifyContent.End"
                         AlignItems="AlignItems.Center"
                         Gap="8px">
-                            <AppPrintLink Url="@PrintableURL" Visible="@ReadOnly" />
+                            <AppPrintLink Url="@PrintableURL" Visible="@ReadOnly" RecordType="transferOrder" RecordId="@Model.Id" />
                             <RadzenButton Disabled="@(Model.SourceLocation is null)" Visible="@(!ReadOnly)" Text="Scan Barcodes" Icon="barcode" Click="OpenBarcodeDialog" ButtonType="ButtonType.Button" Size="ButtonSize.Small" />
                             <RadzenButton Icon="settings" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@OpenTableSettings" />
                             <RadzenButton Visible="@(!ReadOnly)" Disabled="@(Model.SourceLocation is null)" Icon="add" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Success" Click="@OpenItemDialog" />

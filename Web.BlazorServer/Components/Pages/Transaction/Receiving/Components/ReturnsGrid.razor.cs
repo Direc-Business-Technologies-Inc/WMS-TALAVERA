@@ -3,8 +3,10 @@ using Radzen;
 using Radzen.Blazor;
 using Shared.Entities;
 using Shared.Kernel;
+using Shared.Libraries.Utilities;
 using Web.BlazorServer.Components.Custom;
 using Web.BlazorServer.Components.Shared.Abstraction;
+using Web.BlazorServer.Components.Shared.Others;
 using Web.BlazorServer.Defaults;
 using Web.BlazorServer.Handlers.Repositories.Transaction.Receiving;
 using Web.BlazorServer.Services.Repositories;
@@ -30,8 +32,11 @@ partial class ReturnsGrid
 
     Task<int> PrintCountAsync(PrintStatus status) => PrintStatusFilter.CountAsync(status, async intent =>
     {
-        PrintStatusFilter.ApplyDateRange(intent, DateRangeStart, DateRangeEnd);
         return await ReceivingHandler.GetReturnsDataGridAsync(intent);
+    }, intent =>
+    {
+        PrintStatusFilter.ApplyDateRange(intent, DateRangeStart, DateRangeEnd);
+        ApplyStatusCountFilter(intent);
     });
 
     async Task DateRangeChanged((DateTime Start, DateTime End) range)
@@ -52,6 +57,15 @@ partial class ReturnsGrid
             await DataGrid.DataGrid.Reload();
         else
             await DataGrid.DataGrid.GoToPage(0);
+    }
+
+    async Task ReloadFirstPageAsync()
+    {
+        if (DataGrid.DataGrid.CurrentPage == 0)
+            await DataGrid.DataGrid.Reload();
+        else
+            await DataGrid.DataGrid.GoToPage(0);
+        await PrintStatusView.RefreshCountsAsync();
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -130,6 +144,7 @@ partial class ReturnsGrid
         if (StatusFilter is null)
         {
             await DataGrid.DataGrid.Reload();
+            await PrintStatusView.RefreshCountsAsync();
             return;
         }
 
@@ -138,6 +153,13 @@ partial class ReturnsGrid
         column.SetLogicalFilterOperator(LogicalFilterOperator.And);
 
         await DataGrid.DataGrid.Reload();
+        await PrintStatusView.RefreshCountsAsync();
+    }
+
+    void ApplyStatusCountFilter(DataGridIntent intent)
+    {
+        if (StatusFilter is not null)
+            intent.Filters.Add(DataGridFilterUtilities.Equal(nameof(ReturnsDataGridVM.Status), StatusFilter.Name));
     }
 
     void ViewItem(ReturnsDataGridVM purchaseOrder) => NavManager.NavigateTo($"/transactions/purchasing/receiving/returns/view?ref={purchaseOrder.ReferenceNumber}", true);

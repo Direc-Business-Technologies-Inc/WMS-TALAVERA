@@ -15,7 +15,7 @@
     </HeaderEnd>
     <RowActions>
         <RadzenStack Orientation="Orientation.Horizontal" Gap="4px" JustifyContent="JustifyContent.End">
-            <AppPrintLink Url="@PrintUrl(context)" Size="ButtonSize.ExtraSmall" />
+            <AppPrintLink Url="@PrintUrl(context)" RecordType="vendorReturnAuthorization" RecordId="@context.Id" OnPrint="@RefreshPrintStatusAsync" Size="ButtonSize.ExtraSmall" />
             <RadzenButton Icon="arrow_right_alt" Size="ButtonSize.ExtraSmall" Click="() => OnRowAction(context)" />
         </RadzenStack>
     </RowActions>

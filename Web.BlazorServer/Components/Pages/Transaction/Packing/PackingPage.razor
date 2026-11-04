@@ -28,19 +28,6 @@
             <RadzenTabsItem Text="Returns to Supplier">
                 <VendorReturnAuthorizationPackingDataGrid />
             </RadzenTabsItem>
-            <RadzenTabsItem Text="Packing Labels">
-                <PrintStatusView @ref="LabelsPrintStatusView" Value="@LabelsPrintStatus" ValueChanged="@LabelsPrintStatusChanged" CountGetter="@LabelsCountAsync" />
-                <QuickDataGrid @ref="LabelsGrid" DataGetter="ItemFulfillmentsProvider" ActionWidth="72">
-                    <HeaderStart>
-                        <GridDateRange StartDate="@LabelsDateRangeStart" EndDate="@LabelsDateRangeEnd" OnApply="@LabelsDateRangeChanged" />
-                    </HeaderStart>
-                    <RowActions>
-                        <RadzenButton Icon="print" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light">
-                            <RadzenLink Path="@PrintableURL(context)" Text="Print" target="_blank" Icon="print" />
-                        </RadzenButton>
-                    </RowActions>
-                </QuickDataGrid>
-            </RadzenTabsItem>
         </Tabs>
     </RadzenTabs>
 </AppContent>

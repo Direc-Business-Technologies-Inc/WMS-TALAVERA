@@ -30,8 +30,11 @@ public partial class PurchaseOrderGrid
 
     Task<int> PrintCountAsync(PrintStatus status) => PrintStatusFilter.CountAsync(status, async intent =>
     {
-        PrintStatusFilter.ApplyDateRange(intent, DateRangeStart, DateRangeEnd);
         return await ReceivingHandler.GetPurchaseOrderDataGridAsync(intent);
+    }, intent =>
+    {
+        PrintStatusFilter.ApplyDateRange(intent, DateRangeStart, DateRangeEnd);
+        ApplyStatusCountFilter(intent);
     });
 
     async Task DateRangeChanged((DateTime Start, DateTime End) range)
@@ -138,6 +141,7 @@ public partial class PurchaseOrderGrid
         if (StatusFilter is null)
         {
             await PurchaseOrderDataGrid.DataGrid.Reload();
+            await PrintStatusView.RefreshCountsAsync();
             return;
         }
 
@@ -146,6 +150,13 @@ public partial class PurchaseOrderGrid
         column.SetLogicalFilterOperator(LogicalFilterOperator.And);
 
         await PurchaseOrderDataGrid.DataGrid.Reload();
+        await PrintStatusView.RefreshCountsAsync();
+    }
+
+    void ApplyStatusCountFilter(DataGridIntent intent)
+    {
+        if (StatusFilter is not null)
+            intent.Filters.Add(DataGridFilterUtilities.Equal(nameof(PurchaseOrderDataGridVM.Status), StatusFilter.Name));
     }
 
     void ViewPurchaseOrder(PurchaseOrderDataGridVM purchaseOrder) => NavManager.NavigateTo($"/transactions/purchasing/receiving/purchase-order/view?ref={purchaseOrder.ReferenceNumber}", true);

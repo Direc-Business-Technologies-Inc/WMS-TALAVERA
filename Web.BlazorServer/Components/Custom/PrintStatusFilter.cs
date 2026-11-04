@@ -49,10 +49,12 @@ public static class PrintStatusFilter
 
     public static async Task<int> CountAsync<T>(
         PrintStatus status,
-        Func<DataGridIntent, Task<(IEnumerable<T>, int)>> getter)
+        Func<DataGridIntent, Task<(IEnumerable<T>, int)>> getter,
+        Action<DataGridIntent>? configureIntent = null)
     {
         var intent = new DataGridIntent { Skip = 0, Take = 1 };
         Apply(intent, status);
+        configureIntent?.Invoke(intent);
         var (_, count) = await getter(intent);
         return count;
     }

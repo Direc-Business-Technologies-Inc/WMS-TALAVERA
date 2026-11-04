@@ -59,6 +59,7 @@ public class ReceivingHandler(
         (var data, var count) = await Sender.Send(qry);
         var x = data.Select(x => new ReturnsDataGridVM
         {
+            Id = x.Id,
             Status = x.Status,
             ReferenceNumber = x.ReferenceNumber,
             Date = x.Date,

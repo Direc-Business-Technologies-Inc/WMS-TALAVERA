@@ -4,7 +4,7 @@
 @inherits BaseComponent
 @typeparam TItem where TItem : class
 
-<AppDataGridSkeleton TItem="TItem" Loading="@(!GridSettingsLoaded && !IsBusy)" />
+<AppDataGridSkeleton TItem="TItem" Loading="@(!GridSettingsLoaded)" />
 <RadzenDataGrid TItem="TItem"
                 Visible="@GridSettingsLoaded"
                 @ref=@(DataGrid)

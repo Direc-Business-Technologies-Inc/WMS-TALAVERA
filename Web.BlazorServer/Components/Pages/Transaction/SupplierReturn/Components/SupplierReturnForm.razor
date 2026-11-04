@@ -105,7 +105,7 @@
                                      JustifyContent="JustifyContent.End"
                                      AlignItems="AlignItems.Center"
                                      Gap="8px">
-                            <AppPrintLink Url="@PrintableURL" Visible="@ReadOnly" />
+                            <AppPrintLink Url="@PrintableURL" Visible="@ReadOnly" RecordType="vendorReturnAuthorization" RecordId="@Model.Id" />
                             <RadzenButton Disabled="@(Model.Location is null)" Visible="@IsEditable" Text="Scan Barcodes" Icon="barcode" Click="OpenBarcodeDialog" ButtonType="ButtonType.Button" Size="ButtonSize.Small" />
                             <RadzenButton ButtonType="ButtonType.Button" Icon="add" Visible="@IsEditable" Disabled="@(Model.Location is null)" Size="ButtonSize.Small" Click="OpenItemDialog" ButtonStyle="ButtonStyle.Success" />
                             <RadzenButton Icon="settings" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@OpenTableSettings" />

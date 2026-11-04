@@ -3,9 +3,11 @@ using Radzen;
 using Radzen.Blazor;
 using Shared.Entities;
 using Shared.Kernel;
+using Shared.Libraries.Utilities;
 using Web.BlazorServer.Components.Custom;
 using Web.BlazorServer.Components.Pages.Transaction.InventoryTransfer.Components;
 using Web.BlazorServer.Components.Shared.Abstraction;
+using Web.BlazorServer.Components.Shared.Others;
 using Web.BlazorServer.Defaults;
 using Web.BlazorServer.Handlers.Repositories.Transaction.Receiving;
 using Web.BlazorServer.Services.Repositories;
@@ -34,8 +36,11 @@ public partial class TransferOrderGrid
 
     Task<int> PrintCountAsync(PrintStatus status) => PrintStatusFilter.CountAsync(status, async intent =>
     {
-        PrintStatusFilter.ApplyDateRange(intent, DateRangeStart, DateRangeEnd);
         return await ReceivingHandler.GetTransferOrderDataGridAsync(intent);
+    }, intent =>
+    {
+        PrintStatusFilter.ApplyDateRange(intent, DateRangeStart, DateRangeEnd);
+        ApplyStatusCountFilter(intent);
     });
 
     async Task DateRangeChanged((DateTime Start, DateTime End) range)
@@ -140,6 +145,7 @@ public partial class TransferOrderGrid
         if (StatusFilter is null)
         {
             await TransferOrderDataGrid.DataGrid.Reload();
+            await PrintStatusView.RefreshCountsAsync();
             return;
         }
 
@@ -148,6 +154,13 @@ public partial class TransferOrderGrid
         column.SetLogicalFilterOperator(LogicalFilterOperator.And);
 
         await TransferOrderDataGrid.DataGrid.Reload();
+        await PrintStatusView.RefreshCountsAsync();
+    }
+
+    void ApplyStatusCountFilter(DataGridIntent intent)
+    {
+        if (StatusFilter is not null)
+            intent.Filters.Add(DataGridFilterUtilities.Equal(nameof(TransferOrderDataGridVM.Status), StatusFilter.Name));
     }
 
     void ViewTransferOrder(TransferOrderDataGridVM purchaseOrder) => NavManager.NavigateTo($"/transactions/purchasing/receiving/transfer-order/view?ref={purchaseOrder.ReferenceNumber}", true);

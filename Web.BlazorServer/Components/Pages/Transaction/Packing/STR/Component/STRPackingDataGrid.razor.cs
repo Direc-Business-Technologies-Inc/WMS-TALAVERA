@@ -1,8 +1,10 @@
 using Microsoft.AspNetCore.Components;
+using System.Diagnostics;
 using Radzen;
 using Shared.Entities;
 using Shared.Kernel;
 using Web.BlazorServer.Components.Pages.Transaction.Packing;
+using Web.BlazorServer.Components.Custom;
 using Web.BlazorServer.Components.Shared.Abstraction;
 using Web.BlazorServer.Defaults;
 using Web.BlazorServer.Handlers.Repositories.Transaction.Packing.STR;
@@ -16,9 +18,48 @@ partial class STRPackingDataGrid
 {
     [Inject] IGridSettingsService GridSettingsService { get; set; } = default!;
     [Inject] IStockTransferRequestPackingHandler StrHandler { get; set; } = default!;
+    [Inject] ILogger<STRPackingDataGrid> Logger { get; set; } = default!;
 
     AppDataGrid<StockTransferRequestPackingDataGridVM> DataGrid { get; set; } = default!;
     DataGridSettings DataGridSettings { get; set; } = new();
+    PrintStatus SelectedPrintStatus = PrintStatus.ForPrinting;
+    PrintStatusView PrintStatusView = default!;
+    bool loadCountsAfterGrid;
+    bool gridReadyToLoad;
+    const string PRINTABLE_URL = "https://11608969.extforms.netsuite.com/app/site/hosting/scriptlet.nl?script=1922&deploy=1&compid=11608969&ns-at=AAEJ7tMQ70cbDMgsewbx6YHr0oQkl5HAZi1-qpSrLgdV9mevdZI";
+
+    async Task<int> PrintCountAsync(PrintStatus status)
+    {
+        var started = Stopwatch.GetTimestamp();
+        var succeeded = false;
+        try
+        {
+            var count = await PrintStatusFilter.CountAsync<StockTransferRequestPackingDataGridVM>(status,
+                intent => StrHandler.GetStockTransferRequestsList(intent, CurrentUserService.NsSubsidiaryId));
+            succeeded = true;
+            return count;
+        }
+        finally
+        {
+            Logger.LogInformation("Packing grid {Grid} {Operation} status {PrintStatus} completed in {ElapsedMs} ms; success: {Succeeded}",
+                "STR", "Count", status, Stopwatch.GetElapsedTime(started).TotalMilliseconds, succeeded);
+        }
+    }
+
+    async Task PrintStatusChanged(PrintStatus status)
+    {
+        SelectedPrintStatus = status;
+        if (DataGrid.DataGrid.CurrentPage == 0)
+            await DataGrid.DataGrid.Reload();
+        else
+            await DataGrid.DataGrid.GoToPage(0);
+    }
+
+    async Task RefreshPrintStatusAsync()
+    {
+        await DataGrid.DataGrid.Reload();
+        await PrintStatusView.RefreshCountsAsync();
+    }
 
     string ActionGetStockTransferRequests { get; } = EnumHelper.GetEnumDescription(AppActions.GetAllPackingStockTransferRequest);
 
@@ -31,19 +72,28 @@ partial class STRPackingDataGrid
             await LoadGridSettings();
             await InvokeAsync(StateHasChanged);
         }
+        if (loadCountsAfterGrid && PrintStatusView is not null)
+        {
+            loadCountsAfterGrid = false;
+            _ = InvokeAsync(PrintStatusView.RefreshCountsAsync);
+        }
     }
 
     async Task LoadGridSettings()
     {
         await GridSettingsService.SetGridSettings(DataGrid.DataGrid, settings => DataGridSettings = settings ?? new());
-        GridSettingsLoaded = true;
+        gridReadyToLoad = true;
+        await InvokeAsync(StateHasChanged);
 
         await DataGrid.DataGrid.ReloadSettings();
         await DataGrid.DataGrid.Reload();
+        GridSettingsLoaded = true;
+        loadCountsAfterGrid = true;
     }
 
     async Task<DataGridResultVM<StockTransferRequestPackingDataGridVM>> LoadDataAsync(DataGridIntent intent)
     {
+        PrintStatusFilter.Apply(intent, SelectedPrintStatus);
         var action = await AppActionFactory.RunAsync(async () =>
         {
             AppBusyService.SetBusy(ActionGetStockTransferRequests, true);
@@ -63,12 +113,27 @@ partial class STRPackingDataGrid
                 });
             }
 
-            return await StrHandler.GetStockTransferRequestsList(intent, CurrentUserService.NsSubsidiaryId);
+            var started = Stopwatch.GetTimestamp();
+            var succeeded = false;
+            try
+            {
+                var result = await StrHandler.GetStockTransferRequestsList(intent, CurrentUserService.NsSubsidiaryId);
+                succeeded = true;
+                return result;
+            }
+            finally
+            {
+                Logger.LogInformation("Packing grid {Grid} {Operation} status {PrintStatus} skip {Skip} take {Take} completed in {ElapsedMs} ms; success: {Succeeded}",
+                    "STR", "Records", SelectedPrintStatus, intent.Skip, intent.Take,
+                    Stopwatch.GetElapsedTime(started).TotalMilliseconds, succeeded);
+            }
         }, AppActionOptionPresets.Loading(ActionGetStockTransferRequests));
 
         AppBusyService.SetBusy(ActionGetStockTransferRequests, false);
         return DataGridResultVM<StockTransferRequestPackingDataGridVM>.New(action.Result.Data ?? [], action.Result.Count);
     }
+
+    static string? PrintUrl(StockTransferRequestPackingDataGridVM item) => item.Id > 0 ? $"{PRINTABLE_URL}&id={item.Id}" : null;
 
     void ViewSTR(StockTransferRequestPackingDataGridVM item)
     {

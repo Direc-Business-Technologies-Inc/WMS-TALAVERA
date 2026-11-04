@@ -37,6 +37,9 @@ public partial class AppDataGrid<TItem> : BaseComponent where TItem : class
     [Parameter] public EventCallback<TItem> OnRowDeselect { get; set; }
     [Parameter] public DataGridSelectionMode DataGridSelectionMode { get; set; } = DataGridSelectionMode.Single;
     [Parameter] public bool GridSettingsLoaded { get; set; } = false;
+    // Some existing grids load persisted settings in their owning component.
+    // Let them opt out of the wrapper's own first-render settings load.
+    [Parameter] public bool AutoLoadGridSettings { get; set; } = true;
     [Parameter] public EventCallback<bool> GridSettingsLoadedChanged { get; set; }
     [Parameter] public IList<TItem> SelectedItems { get; set; } = new List<TItem>();
     [Parameter] public EventCallback<IList<TItem>> SelectedItemsChanged { get; set; }
@@ -97,7 +100,7 @@ public partial class AppDataGrid<TItem> : BaseComponent where TItem : class
         if (firstRender)
         {
             await base.OnAfterRenderAsync(firstRender);
-            await LoadGridSettings();
+            if (AutoLoadGridSettings) await LoadGridSettings();
             if (Template is not null) DataGrid.Template = Template;
         }
     }

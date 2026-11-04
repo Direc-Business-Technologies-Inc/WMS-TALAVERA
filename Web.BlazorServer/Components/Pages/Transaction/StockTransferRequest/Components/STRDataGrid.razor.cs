@@ -65,6 +65,12 @@ partial class STRDataGrid
             await DataGrid.DataGrid.GoToPage(0);
     }
 
+    async Task RefreshPrintStatusAsync()
+    {
+        await DataGrid.DataGrid.Reload();
+        await PrintStatusView.RefreshCountsAsync();
+    }
+
     [Parameter] public string ActionName { get; set; } = "str_datagrid";
     readonly string ActionGetTranferOrderStatuses = "Get Transfer Order Status";
 

@@ -70,6 +70,11 @@ public partial class SupplierReturnsDataGrid
         SelectedPrintStatus = status;
         await Grid.ReloadFirstPage();
     }
+    async Task RefreshPrintStatusAsync()
+    {
+        await Grid.Reload();
+        await PrintStatusView.RefreshCountsAsync();
+    }
     async Task<(IEnumerable<ReturnStatusVM>, int)> StatusProvider(DataGridIntent intent)
     {
         return await returnHandler.GetReturnStatuses(intent);
