@@ -108,7 +108,7 @@ public partial class STRForm
             return;
         }
 
-        if (Model.Lines.Any(x => x.QuantityAlloted > x.QuantityOnHandByUoM))
+        if (Model.Lines.Any(x => x.QuantityAlloted > x.QuantityAvailableByUoM))
         {
             ToastService.Error("Some alloted items exceed the available quantity", "Error");
             return;
@@ -182,19 +182,21 @@ public partial class STRForm
         return result;
     }
 
-    async Task<(IEnumerable<ItemsVM>, int)> SourceLocationItems()
+    async Task<(IEnumerable<ItemsVM>, int)> SourceLocationItems(bool includeUnavailable = false)
     {
         var itemIds = Model.Lines.Select(x => x.ItemId).Distinct().ToList();
 
         DataGridIntent intent = new DataGridIntent
         {
-            Filters = [
-                DataGridFilterUtilities.GreaterThan(nameof(ItemsVM.QuantityAvailable), 0),
-                DataGridFilterUtilities.In(nameof(ItemsVM.Id), itemIds)
-                ],
+            Filters = [DataGridFilterUtilities.In(nameof(ItemsVM.Id), itemIds)],
 
             Take = 1000
         };
+
+        if (!includeUnavailable)
+        {
+            intent.Filters.Insert(0, DataGridFilterUtilities.GreaterThan(nameof(ItemsVM.QuantityAvailable), 0));
+        }
 
         int location = Model.SourceLocation.Id;
 
@@ -435,7 +437,7 @@ public partial class STRForm
         var itemCount = BarcodeStore.CountItemQuantity(line.ItemId) / uomRate;
         var incomingCount = (barcode.UoM?.ConversionRate ?? 0) / uomRate;
 
-        if (line.QuantityOnHandByUoM - line.QuantityAlloted - itemCount < incomingCount)
+        if (line.QuantityAvailableByUoM - line.QuantityAlloted - itemCount < incomingCount)
         {
             reason = $"The quantity of the item {line.ItemCode} exceeds the expected amount";
             return false;

@@ -261,9 +261,8 @@
                             </Template>
                         </RadzenDataGridColumn>
 
-                        @* Show Onhand Rather than Available for Stock Transfer *@
                         <RadzenDataGridColumn TItem="StockTransferRequestLineVM"
-                        Property="@nameof(StockTransferRequestLineVM.QuantityOnHandByUoM)"
+                        Property="@nameof(StockTransferRequestLineVM.QuantityAvailableByUoM)"
                         Type="@typeof(decimal)"
                         FormatString="{0:#,##0.##}"
                         Title="Available Quantity" /> 
@@ -280,7 +279,7 @@
                                             <RadzenNumeric Disabled="@Disabled" Min="0" Value="@GetLineQuantity(data)" Change="@(x => SetLineQuantity(data, x))" TValue="decimal" ReadOnly="@ReadOnly" class="rz-w-100" ShowUpDown="@(!ReadOnly)" Format="#,##0.##" />
                                         </ChildContent>
                                         <Helper>
-                                            <RadzenText Visible="@(data.QuantityAlloted > data.QuantityOnHandByUoM)" TextStyle="TextStyle.Caption" class="rz-color-danger" Text="Quantity exceeds available" />
+                                            <RadzenText Visible="@(data.QuantityAlloted > data.QuantityAvailableByUoM)" TextStyle="TextStyle.Caption" class="rz-color-danger" Text="Quantity exceeds available" />
                                         </Helper>
                                     </RadzenFormField>
                                 </RadzenStack>
