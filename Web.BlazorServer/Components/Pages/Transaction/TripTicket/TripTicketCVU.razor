@@ -313,6 +313,10 @@
                                     <RadzenDataGridColumn TItem="ItemFulfillmentVM"
                                                           Property="@nameof(ItemFulfillmentVM.OrderNumber)"
                                                           Title="Fulfillment No." Type="@typeof(string)" />
+                                    <RadzenDataGridColumn TItem="ItemFulfillmentVM" Property="@nameof(ItemFulfillmentVM.SourceLocation)" Title="From Location" Type="@typeof(string)" />
+                                    <RadzenDataGridColumn TItem="ItemFulfillmentVM" Property="@nameof(ItemFulfillmentVM.DestinationLocation)" Title="To Location" Type="@typeof(string)" />
+                                    <RadzenDataGridColumn TItem="ItemFulfillmentVM" Property="@nameof(ItemFulfillmentVM.FromSubsidiary)" Title="From Subsidiary" Type="@typeof(string)" />
+                                    <RadzenDataGridColumn TItem="ItemFulfillmentVM" Property="@nameof(ItemFulfillmentVM.ToSubsidiary)" Title="To Subsidiary" Type="@typeof(string)" />
                                     <RadzenDataGridColumn TItem="ItemFulfillmentVM"
                                                           Property="@nameof(ItemFulfillmentVM.OrderStatus)"
                                                           Title="Status" Type="@typeof(string)">
@@ -355,9 +359,10 @@
                                     <RadzenDataGridColumn TItem="ItemFulfillmentVM"
                                                           Property="@nameof(ItemFulfillmentVM.OrderNumber)"
                                                           Title="Fulfillment No." Type="@typeof(string)" />
-                                    <RadzenDataGridColumn TItem="ItemFulfillmentVM"
-                                                          Property="@nameof(ItemFulfillmentVM.DestinationLocation)"
-                                                          Title="Destination Location" Type="@typeof(string)" />
+                                    <RadzenDataGridColumn TItem="ItemFulfillmentVM" Property="@nameof(ItemFulfillmentVM.SourceLocation)" Title="From Location" Type="@typeof(string)" />
+                                    <RadzenDataGridColumn TItem="ItemFulfillmentVM" Property="@nameof(ItemFulfillmentVM.DestinationLocation)" Title="To Location" Type="@typeof(string)" />
+                                    <RadzenDataGridColumn TItem="ItemFulfillmentVM" Property="@nameof(ItemFulfillmentVM.FromSubsidiary)" Title="From Subsidiary" Type="@typeof(string)" />
+                                    <RadzenDataGridColumn TItem="ItemFulfillmentVM" Property="@nameof(ItemFulfillmentVM.ToSubsidiary)" Title="To Subsidiary" Type="@typeof(string)" />
                                 </Columns>
                             </RadzenDataGrid>
                         </RadzenColumn>
