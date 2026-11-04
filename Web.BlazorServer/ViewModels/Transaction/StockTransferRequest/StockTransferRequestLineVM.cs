@@ -15,6 +15,7 @@ public class StockTransferRequestLineVM
     public decimal QuantityOnHand { get; set; }
     public decimal QuantityAvailable { get; set; }
     public decimal QuantityOnHandByUoM => QuantityOnHand / (UoM?.ConversionRate ?? 1);
+    public decimal QuantityAvailableByUoM => QuantityAvailable / (UoM is { ConversionRate: > 0 } uom ? uom.ConversionRate : 1);
     public decimal QuantityAlloted { get; set; }
 
 }

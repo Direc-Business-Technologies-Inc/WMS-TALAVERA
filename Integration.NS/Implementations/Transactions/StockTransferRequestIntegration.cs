@@ -326,6 +326,7 @@ internal class StockTransferRequestIntegration(
                 ("item.displayname", nameof(StockTransferRequestLineNSDTO.ItemDescription)),
                 ("tl.linesequencenumber", nameof(StockTransferRequestLineNSDTO.LineNumber)),
                 ("(iil.quantityavailable / uom.conversionrate)", nameof(StockTransferRequestLineNSDTO.QuantityOnHand)),
+                ("iil.quantityavailable", nameof(StockTransferRequestLineNSDTO.QuantityAvailable)),
                 ("(-tl.quantity / uom.conversionrate)", nameof(StockTransferRequestLineNSDTO.QuantityAlloted)), // idk why this is negative
                 ("BUILTIN.DF(tl.custcol_dbti_vendor)", nameof(StockTransferRequestLineNSDTO.VendorName)),
                 ("tl.custcol_dbti_vendor", nameof(StockTransferRequestLineNSDTO.VendorId))

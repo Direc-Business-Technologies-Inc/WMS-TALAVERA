@@ -249,8 +249,16 @@ Used only by `MarketingDocumentDEM` / `ReceivingDocumentDEM`. **STR/ITR do not u
 **Steps:**
 
 1. **Create** — `StockTransferRequestCreate.razor`
-   - Validations in `Components/STRForm.razor.cs`: ≥1 line, allotted ≤ on-hand,
+   - Validations in `Components/STRForm.razor.cs`: ≥1 line, allotted ≤ available quantity,
      **Preferred Vendor required on every line**, Requested By required
+   - **Inventory availability business decision:** STR uses NetSuite's location-level
+     `quantityavailable`, not on-hand. Item selection and source-location refresh use
+     `aggregateitemlocation.quantityavailable`; saved document lines use
+     `inventoryitemlocations.quantityavailable` for the document's source location. Both
+     sources are treated as base-unit quantities and converted for the selected line UoM
+     by dividing by its `ConversionRate` (for example, 440 base units / rate 40 = 11 units).
+     Display, barcode checks, and submit validation use this line-UoM value, which updates
+     automatically when the UoM changes.
    - `CreateStockTransferRequestCmd` → `StockTransferRequestIntegration.CreateStockTransferRequest`
    - `POST /record/v1/transferOrder` or `/record/v1/interCompanyTransferOrder`
    - Payload: `orderStatus = "A"`, `custbody_dbti_created_in_wms = true`,
