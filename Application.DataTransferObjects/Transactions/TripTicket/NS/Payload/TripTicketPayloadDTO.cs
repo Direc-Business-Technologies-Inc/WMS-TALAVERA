@@ -62,6 +62,7 @@ public class TripTicketPayloadDTO
                 Ids = tripticket.ToSubsidiaries == null
                     ? new List<string>()
                     : tripticket.ToSubsidiaries
+                        .Where(d => d is not null)
                         .Select(d => d.NetsuiteSubsidiaryInternalId.ToString())
                         .ToList()
             },
@@ -70,6 +71,7 @@ public class TripTicketPayloadDTO
                 Ids = tripticket.Destinations == null
                     ? new List<string>()
                     : tripticket.Destinations
+                        .Where(d => d is not null)
                         .Select(d => d.NetsuiteLocationInternalId.ToString())
                         .ToList()
             },
