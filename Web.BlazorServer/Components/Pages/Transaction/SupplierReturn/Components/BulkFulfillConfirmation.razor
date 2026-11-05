@@ -1,0 +1,42 @@
+@using Web.BlazorServer.ViewModels.Transaction.SupplierReturn
+@inject Radzen.DialogService DialogService
+
+<div class="rts-bulk-confirmation">
+    <p>Are you sure you want to fulfill the following transactions?</p>
+    <div class="rts-bulk-confirmation-grid">
+        <div class="rts-bulk-confirmation-search">
+            <RadzenIcon Icon="search" />
+            <RadzenTextBox @bind-Value="SearchText" Placeholder="Search transactions..." aria-label="Search selected transactions" />
+        </div>
+        <RadzenDataGrid TItem="SupplierReturnDataGridVM" Data="@FilteredRows" AllowPaging="true" PageSize="5" PageSizeOptions="@(Array.Empty<int>())"
+                        AllowSorting="false" AllowFiltering="false" Density="Density.Compact" EmptyText="No transactions found"
+                        ShowPagingSummary="true" PagingSummaryFormat="Page {0} of {1} ({2} items)"
+                        PagerHorizontalAlign="HorizontalAlign.Right">
+            <Columns>
+                <RadzenDataGridColumn TItem="SupplierReturnDataGridVM" Property="ReferenceNumber" Title="Reference No." Width="27%" />
+                <RadzenDataGridColumn TItem="SupplierReturnDataGridVM" Property="VendorName" Title="Vendor" Width="29%" />
+                <RadzenDataGridColumn TItem="SupplierReturnDataGridVM" Property="Date" Title="Date" Width="16%">
+                    <Template Context="row">@row.Date.ToString("dd-MMM-yyyy")</Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="SupplierReturnDataGridVM" Property="CategoryName" Title="Category" Width="14%" />
+                <RadzenDataGridColumn TItem="SupplierReturnDataGridVM" Property="PreparedBy" Title="Prepared By" Width="14%" />
+            </Columns>
+        </RadzenDataGrid>
+    </div>
+    <div class="rts-bulk-confirmation-actions">
+        <RadzenButton Text="Back" ButtonStyle="ButtonStyle.Light" Click="@(() => DialogService.Close())" />
+        <RadzenButton Text="Select" ButtonStyle="ButtonStyle.Success" Disabled="true" />
+    </div>
+</div>
+
+@code {
+    [Parameter] public IReadOnlyList<SupplierReturnDataGridVM> Rows { get; set; } = [];
+    string SearchText = string.Empty;
+
+    IEnumerable<SupplierReturnDataGridVM> FilteredRows => Rows.Where(row =>
+        string.IsNullOrWhiteSpace(SearchText) ||
+        row.ReferenceNumber.Contains(SearchText, StringComparison.OrdinalIgnoreCase) ||
+        row.VendorName.Contains(SearchText, StringComparison.OrdinalIgnoreCase) ||
+        row.CategoryName.Contains(SearchText, StringComparison.OrdinalIgnoreCase) ||
+        row.PreparedBy.Contains(SearchText, StringComparison.OrdinalIgnoreCase));
+}

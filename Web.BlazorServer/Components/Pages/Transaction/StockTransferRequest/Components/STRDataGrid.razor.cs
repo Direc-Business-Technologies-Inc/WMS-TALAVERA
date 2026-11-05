@@ -39,6 +39,23 @@ partial class STRDataGrid
     DateTime? DateRangeStart;
     DateTime? DateRangeEnd;
     PrintStatusView PrintStatusView = default!;
+    bool InitialGridLoadSucceeded;
+    bool InitialCountsRequested;
+
+    Task OnGridDataLoaded()
+    {
+        if (!InitialGridLoadSucceeded || InitialCountsRequested) return Task.CompletedTask;
+
+        InitialCountsRequested = true;
+        // The grid has its result and has requested a render. Start the independent
+        // counts on the next UI turn so they cannot hold up the first grid load.
+        _ = InvokeAsync(async () =>
+        {
+            await Task.Yield();
+            await PrintStatusView.RefreshCountsAsync();
+        });
+        return Task.CompletedTask;
+    }
 
     Task<int> PrintCountAsync(PrintStatus status) => PrintStatusFilter.CountAsync<StockTransferRequestDataGridVM>(status, async intent =>
     {
@@ -128,23 +145,11 @@ partial class STRDataGrid
                 );
             }
 
-            var result = await DataGetter(intent);
-            if (!DateRangeStart.HasValue && result.data.Any(x => x.Date != default))
-            {
-                DateRangeStart = result.data.Min(x => x.Date).Date;
-                DateRangeEnd = result.data.Max(x => x.Date).Date;
-                await InvokeAsync(StateHasChanged);
-                _ = InvokeAsync(async () =>
-                {
-                    await Task.Yield();
-                    await DataGrid.DataGrid.Reload();
-                    await PrintStatusView.RefreshCountsAsync();
-                });
-            }
-            return result;
+            return await DataGetter(intent);
         }, AppActionOptionPresets.Loading(ActionName));
 
         AppBusyService.SetBusy(ActionName, false);
+        if (action.IsSuccess) InitialGridLoadSucceeded = true;
         return DataGridResultVM<StockTransferRequestDataGridVM>.New(action.Result.data ?? [], action.Result.count);
     }
 

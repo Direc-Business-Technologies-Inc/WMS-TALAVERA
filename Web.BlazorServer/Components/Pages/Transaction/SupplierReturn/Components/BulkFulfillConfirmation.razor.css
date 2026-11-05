@@ -1,0 +1,60 @@
+.rts-bulk-confirmation p {
+    margin: 0 0 8px;
+    font-size: 0.875rem;
+}
+
+.rts-bulk-confirmation-grid {
+    border: 1px solid var(--rz-base-300);
+    border-radius: 4px;
+    padding: 12px;
+}
+
+.rts-bulk-confirmation-search {
+    display: flex;
+    align-items: center;
+    width: 240px;
+    margin-bottom: 10px;
+    position: relative;
+}
+
+.rts-bulk-confirmation-search ::deep .rzi {
+    position: absolute;
+    left: 10px;
+    z-index: 1;
+    pointer-events: none;
+    color: var(--rz-text-secondary-color);
+}
+
+.rts-bulk-confirmation-search ::deep .rz-textbox {
+    width: 100%;
+    padding-left: 36px;
+}
+
+.rts-bulk-confirmation-grid ::deep .rz-grid-table td .rz-cell-data {
+    display: block;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    overflow: visible;
+    text-overflow: clip;
+    line-height: 1.35;
+}
+
+.rts-bulk-confirmation-grid ::deep .rz-paginator .rz-paginator-page-size,
+.rts-bulk-confirmation-grid ::deep .rz-paginator .rz-paginator-pagesize,
+.rts-bulk-confirmation-grid ::deep .rz-paginator .rz-paginator-page-size-text,
+.rts-bulk-confirmation-grid ::deep .rz-paginator .rz-paginator-page-size select,
+.rts-bulk-confirmation-grid ::deep .rz-paginator .rz-paginator-page-size .rz-dropdown,
+.rts-bulk-confirmation-grid ::deep .rz-paginator .rz-paginator-page-size + span {
+    display: none;
+}
+
+.rts-bulk-confirmation-grid ::deep .rz-paginator-summary {
+    margin-right: auto;
+}
+
+.rts-bulk-confirmation-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 12px;
+}

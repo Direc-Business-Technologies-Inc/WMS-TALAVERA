@@ -22,6 +22,7 @@ public partial class AppDataGrid<TItem> : BaseComponent where TItem : class
     [Parameter] public List<TItem> Data { get; set; } = new List<TItem>();
     [Parameter] public EventCallback<List<TItem>> DataChanged { get; set; }
     [Parameter] public Func<DataGridIntent, Task<DataGridResultVM<TItem>>>? DataGetter { get; set; }
+    [Parameter] public EventCallback OnDataLoaded { get; set; }
     [Parameter] public RenderFragment HeaderTemplate { get; set; }
     [Parameter] public RenderFragment<TItem>? Template { get; set; }
     [Parameter] public RenderFragment Footer { get; set; }
@@ -199,6 +200,8 @@ public partial class AppDataGrid<TItem> : BaseComponent where TItem : class
         }
 
         await InvokeAsync(StateHasChanged);
+        if (DataGetter is not null)
+            await OnDataLoaded.InvokeAsync();
     }
 
     public async Task ReloadDataAsync()
@@ -223,6 +226,7 @@ public partial class AppDataGrid<TItem> : BaseComponent where TItem : class
             DGResult = await DataGetter(DatagridAdapter is null ? new() : DatagridAdapter.QueryIntent);
 
             await InvokeAsync(StateHasChanged);
+            await OnDataLoaded.InvokeAsync();
         }
     }
 
@@ -236,6 +240,7 @@ public partial class AppDataGrid<TItem> : BaseComponent where TItem : class
             DGResult = await DataGetter(DatagridAdapter.QueryIntent);
 
             await InvokeAsync(StateHasChanged);
+            await OnDataLoaded.InvokeAsync();
         }
     }
 

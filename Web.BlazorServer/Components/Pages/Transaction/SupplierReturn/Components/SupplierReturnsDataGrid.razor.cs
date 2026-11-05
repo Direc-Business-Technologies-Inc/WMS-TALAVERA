@@ -22,6 +22,35 @@ public partial class SupplierReturnsDataGrid
     PrintStatusView PrintStatusView = default!;
 
     QuickDataGrid<SupplierReturnDataGridVM> Grid { get; set; } = default!;
+    readonly Dictionary<int, SupplierReturnDataGridVM> SelectedRows = new();
+    List<SupplierReturnDataGridVM> VisibleRows = new();
+    bool AllVisibleSelected => VisibleRows.Count > 0 && VisibleRows.All(row => SelectedRows.ContainsKey(row.Id));
+
+    void ToggleRow(SupplierReturnDataGridVM row, bool selected)
+    {
+        if (selected) SelectedRows[row.Id] = row;
+        else SelectedRows.Remove(row.Id);
+    }
+
+    void ToggleAllVisible(bool selected)
+    {
+        foreach (var row in VisibleRows)
+            ToggleRow(row, selected);
+    }
+
+    async Task OpenBulkFulfillConfirmation()
+    {
+        if (SelectedRows.Count < 2) return;
+        var rows = SelectedRows.Values.ToList();
+        await DialogService.OpenAsync("Fulfill Orders",
+            ds => builder =>
+            {
+                builder.OpenComponent<BulkFulfillConfirmation>(0);
+                builder.AddAttribute(1, nameof(BulkFulfillConfirmation.Rows), rows);
+                builder.CloseComponent();
+            },
+            new() { Width = "700px" });
+    }
 
     async Task<(IEnumerable<SupplierReturnDataGridVM>, int)> LoadDataAsync(DataGridIntent intent)
     {
@@ -36,6 +65,9 @@ public partial class SupplierReturnsDataGrid
         }
 
         var result = await returnHandler.GetReturnsDataGridAsync(intent);
+        // Selection applies to the current page only; discard it when the grid loads another page or filter.
+        SelectedRows.Clear();
+        VisibleRows = result.Data.ToList();
         if (!DateRangeStart.HasValue && PrintStatusFilter.TryGetDateRange(result.Data, row => row.Date, out var range))
         {
             DateRangeStart = range.Start;
@@ -48,7 +80,7 @@ public partial class SupplierReturnsDataGrid
                 await PrintStatusView.RefreshCountsAsync();
             });
         }
-        return result;
+        return (VisibleRows, result.Item2);
     }
     Task<int> PrintCountAsync(PrintStatus status) => PrintStatusFilter.CountAsync(status, async intent =>
     {

@@ -12,7 +12,28 @@
     </HeaderStart>
     <HeaderEnd>
         <RadzenButton Icon="add" Size="ButtonSize.Small" Click="@(() => NavManager.NavigateTo(SupplierReturnRoutes.CREATE))" ButtonStyle="ButtonStyle.Success" />
+        <RadzenButton Icon="content_copy" Text="Bulk Fulfill" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Success"
+                      Disabled="@(SelectedRows.Count < 2)" Click="@OpenBulkFulfillConfirmation" />
     </HeaderEnd>
+    <Columns>
+        <RadzenDataGridColumn TItem="SupplierReturnDataGridVM" Width="55px" Filterable="false" Sortable="false" Pickable="false">
+            <HeaderTemplate>
+                <RadzenCheckBox TValue="bool" Value="@AllVisibleSelected" Change="@ToggleAllVisible" Name="rts_select_all" />
+            </HeaderTemplate>
+            <Template Context="row">
+                <RadzenCheckBox TValue="bool" Value="@(SelectedRows.ContainsKey(row.Id))"
+                                Change="@(selected => ToggleRow(row, selected))" />
+            </Template>
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn TItem="SupplierReturnDataGridVM" Property="ReferenceNumber" Title="Document Number" />
+        <RadzenDataGridColumn TItem="SupplierReturnDataGridVM" Property="Date" Title="Date" FormatString="{0:MMMM dd, yyyy}" />
+        <RadzenDataGridColumn TItem="SupplierReturnDataGridVM" Property="VendorName" Title="Vendor" />
+        <RadzenDataGridColumn TItem="SupplierReturnDataGridVM" Property="CreatedFrom" Title="Created From" />
+        <RadzenDataGridColumn TItem="SupplierReturnDataGridVM" Property="CategoryName" Title="Category" />
+        <RadzenDataGridColumn TItem="SupplierReturnDataGridVM" Property="Memo" Title="Remarks" />
+        <RadzenDataGridColumn TItem="SupplierReturnDataGridVM" Property="PreparedBy" Title="Prepared By" />
+        <RadzenDataGridColumn TItem="SupplierReturnDataGridVM" Property="StatusName" Title="Status" />
+    </Columns>
     <RowActions>
         <RadzenStack Orientation="Orientation.Horizontal" Gap="4px" JustifyContent="JustifyContent.End">
             <AppPrintLink Url="@PrintUrl(context)" RecordType="vendorReturnAuthorization" RecordId="@context.Id" OnPrint="@RefreshPrintStatusAsync" Size="ButtonSize.ExtraSmall" />
