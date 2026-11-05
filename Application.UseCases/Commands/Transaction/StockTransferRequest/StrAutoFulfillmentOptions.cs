@@ -24,10 +24,25 @@ public sealed class StrAutoFulfillmentOptions
     public IReadOnlyList<int> SubsidiaryIds { get; init; } = [];
     public int PollSeconds { get; init; } = 120;
 
-    public bool Ready => Enabled && ApprovedStatusId > 0 && !string.IsNullOrWhiteSpace(YesListValueId)
-        && IsApprovalTimeField(ApprovalTimeField) && ApprovalTimeIsUtcVerified && TemplateApplicationVerified
-        && (IsLineStatusField(LineStatusField) || CategoryStatusPolicyVerified)
-        && SubsidiaryIds.Count > 0 && SubsidiaryIds.All(id => id > 0);
+    public bool Ready => GetReadinessIssues().Count == 0;
+
+    public IReadOnlyList<string> GetReadinessIssues()
+    {
+        var issues = new List<string>();
+        if (!Enabled) issues.Add("WMS_STR_AUTO_ENABLED must be true.");
+        if (ApprovedStatusId <= 0) issues.Add("WMS_STR_AUTO_APPROVED_STATUS_ID must be a positive internal ID.");
+        if (string.IsNullOrWhiteSpace(YesListValueId)) issues.Add("WMS_STR_AUTO_YES_LIST_VALUE_ID is required.");
+        if (!IsApprovalTimeField(ApprovalTimeField)) issues.Add("WMS_STR_AUTO_APPROVAL_TIME_FIELD must be an approval timestamp custbody_ field.");
+        if (!ApprovalTimeIsUtcVerified) issues.Add("WMS_STR_AUTO_APPROVAL_TIME_IS_UTC_VERIFIED must be true after verifying SuiteQL timestamp timezone behavior.");
+        if (!TemplateApplicationVerified) issues.Add("WMS_STR_AUTO_TEMPLATE_APPLICATION_VERIFIED must be true after verifying label template behavior.");
+        if (!string.IsNullOrWhiteSpace(LineStatusField) && !IsLineStatusField(LineStatusField))
+            issues.Add("WMS_STR_AUTO_LINE_STATUS_FIELD must be a custcol_ field without a table prefix.");
+        if (!IsLineStatusField(LineStatusField) && !CategoryStatusPolicyVerified)
+            issues.Add("Configure WMS_STR_AUTO_LINE_STATUS_FIELD or verify WMS_STR_AUTO_CATEGORY_STATUS_POLICY_VERIFIED.");
+        if (SubsidiaryIds.Count == 0 || SubsidiaryIds.Any(id => id <= 0))
+            issues.Add("WMS_STR_AUTO_SUBSIDIARY_IDS must contain positive subsidiary internal IDs.");
+        return issues;
+    }
 
     public static bool IsApprovalTimeField(string? field) =>
         !string.IsNullOrWhiteSpace(field) && Regex.IsMatch(field, @"^custbody_[a-z0-9_]+$", RegexOptions.CultureInvariant);

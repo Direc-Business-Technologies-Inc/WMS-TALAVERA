@@ -1,4 +1,5 @@
 using Application.DataTransferObjects.Transactions.StockTransferRequest;
+using Application.UseCases.Commands.Transaction.StockTransferRequest;
 using Application.UseCases.Repositories.Domain.Transaction.StockTransferRequest;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -9,8 +10,18 @@ namespace Api.CoreWebAPI.Controllers.StockTransferRequest;
 [ApiController]
 [Authorize(AuthenticationSchemes = "Bearer")]
 [Route("api/StockTransferRequest/AutoFulfillment")]
-public sealed class AutoStrFulfillmentController(IStrAutoFulfillmentStore store) : ControllerBase
+public sealed class AutoStrFulfillmentController(IStrAutoFulfillmentStore store, StrAutoFulfillmentOptions options) : ControllerBase
 {
+    [HttpGet("status")]
+    public IActionResult GetStatus() => Ok(new
+    {
+        options.Enabled,
+        options.Ready,
+        options.PollSeconds,
+        Policy = "Exact active Yes/Yes rule; approval strictly after persisted route activation; direct to Shipped (C).",
+        ReadinessIssues = options.GetReadinessIssues()
+    });
+
     [HttpGet("outcomes")]
     public Task<IReadOnlyList<StrAutoFulfillmentOutcomeDTO>> GetOutcomes(CancellationToken ct) =>
         store.RecentOutcomesAsync(100, ct);

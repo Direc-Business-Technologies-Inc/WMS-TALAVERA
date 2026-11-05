@@ -19,7 +19,8 @@ public sealed class StrAutoFulfillmentWorker(
     {
         if (!options.Ready)
         {
-            logger.LogInformation("STR auto-fulfillment worker disabled or awaiting verified NetSuite contract");
+            logger.LogInformation("STR auto-fulfillment worker disabled or awaiting verified NetSuite contract: {ReadinessIssues}",
+                string.Join(" ", options.GetReadinessIssues()));
             return;
         }
 
@@ -49,7 +50,8 @@ public sealed class StrAutoFulfillmentWorker(
         // Route activation is recorded before discovery. An already-approved
         // STR cannot suddenly ship because a new Yes/Yes rule was entered.
         DateTime? oldestCutoff = null;
-        foreach (var rule in await rules.GetActiveFulfillmentExemptionRules())
+        var activeRules = await rules.GetActiveFulfillmentExemptionRules();
+        foreach (var rule in activeRules)
         {
             if (rule.IsInactive || rule.AutomatedPackingValue != options.YesListValueId ||
                 rule.AutomatedShippingValue != options.YesListValueId ||
@@ -57,6 +59,11 @@ public sealed class StrAutoFulfillmentWorker(
                 !int.TryParse(rule.FromLocationId, out var from) ||
                 !int.TryParse(rule.ToLocationId, out var to) ||
                 string.IsNullOrWhiteSpace(rule.LabelTemplateId)) continue;
+            // Use the same evaluator as the posting handler: conflicting rules
+            // must not activate a route that can never safely be fulfilled.
+            var evaluation = FulfillmentExemptionRuleEvaluator.Evaluate(activeRules,
+                rule.TransferCategoryId, rule.FromLocationId, rule.ToLocationId, options.YesListValueId);
+            if (evaluation.Decision != FulfillmentExemptionDecision.Eligible) continue;
             var cutoff = await store.GetOrCreateRouteCutoffAsync($"{category}:{from}:{to}", ct);
             if (oldestCutoff is null || cutoff < oldestCutoff) oldestCutoff = cutoff;
         }

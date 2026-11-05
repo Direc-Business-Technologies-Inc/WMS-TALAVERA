@@ -6,6 +6,29 @@ namespace Integration.NS.Tests.Helpers;
 public class StrAutoFulfillmentOptionsTests
 {
     [Fact]
+    public void Missing_contract_reports_actionable_environment_names()
+    {
+        var issues = new StrAutoFulfillmentOptions().GetReadinessIssues();
+        Assert.Contains(issues, x => x.Contains("WMS_STR_AUTO_ENABLED"));
+        Assert.Contains(issues, x => x.Contains("WMS_STR_AUTO_APPROVAL_TIME_FIELD"));
+        Assert.Contains(issues, x => x.Contains("WMS_STR_AUTO_SUBSIDIARY_IDS"));
+    }
+
+    [Fact]
+    public void Malformed_explicit_line_field_cannot_silently_use_category_fallback()
+    {
+        var options = new StrAutoFulfillmentOptions
+        {
+            Enabled = true, ApprovedStatusId = 4, YesListValueId = "1",
+            ApprovalTimeField = "custbody_approved_at", ApprovalTimeIsUtcVerified = true,
+            TemplateApplicationVerified = true, SubsidiaryIds = [1],
+            CategoryStatusPolicyVerified = true, LineStatusField = "tl.custcol_condition"
+        };
+        Assert.False(options.Ready);
+        Assert.Contains(options.GetReadinessIssues(), x => x.Contains("without a table prefix"));
+    }
+
+    [Fact]
     public void Account_settings_must_all_be_verified_before_worker_is_ready()
     {
         var options = new StrAutoFulfillmentOptions
