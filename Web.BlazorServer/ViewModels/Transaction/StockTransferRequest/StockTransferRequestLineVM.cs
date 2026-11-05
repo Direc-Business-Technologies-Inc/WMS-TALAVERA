@@ -9,12 +9,13 @@ public class StockTransferRequestLineVM
     public string ItemCode { get; set; } = string.Empty;
     public string ItemDescription { get; set; } = string.Empty;
     public ItemUnitVM? UoM { get; set; }
-    public VendorVM Vendor { get; set; } = new();
+    public VendorVM? Vendor { get; set; } = null;
     public string Warehouse { get; set; } = string.Empty;
     public string? PreferredBin { get; set; }
     public decimal QuantityOnHand { get; set; }
     public decimal QuantityAvailable { get; set; }
     public decimal QuantityOnHandByUoM => QuantityOnHand / (UoM?.ConversionRate ?? 1);
+    public decimal QuantityAvailableByUoM => QuantityAvailable / (UoM is { ConversionRate: > 0 } uom ? uom.ConversionRate : 1);
     public decimal QuantityAlloted { get; set; }
 
 }

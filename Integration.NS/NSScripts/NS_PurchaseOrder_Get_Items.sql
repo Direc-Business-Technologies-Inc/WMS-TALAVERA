@@ -16,7 +16,7 @@ SELECT
 	
 	t.entity AS NetsuiteVendorInternalId,
 	e.fullname AS VendorName,
-	ba.custrecord_dbti_vba_assigned_bin AS VendorBinAssignmentId,
+	ivb.custrecord_dbti_vba_assigned_bin AS VendorBinAssignmentId,
 	
 	i.id AS NetsuiteMaterialInternalId,
 	tl.item as MaterialInternalId,
@@ -41,15 +41,28 @@ FROM item i
     LEFT JOIN (
 	   SELECT
 		   ibq.item,
-		   ibq.bin,
+		   MIN(ibq.bin) AS bin,
 		   b.location
 	   FROM itembinquantity ibq
 	   JOIN bin b
 		   ON b.id = ibq.bin
 	   WHERE ibq.preferredbin = 'T'
+	   GROUP BY ibq.item, b.location
    ) ibq ON ibq.item = i.id  AND ibq.location = tl.location
 	LEFT JOIN bin b ON b.id = ibq.bin
-	LEFT JOIN customrecord_dbti_vendor_bin_assignment ba ON t.entity = ba.custrecord_dbti_vba_vendor
+	LEFT JOIN (
+		SELECT
+			iv.item,
+			iv.subsidiary,
+			MIN(ba.custrecord_dbti_vba_assigned_bin) AS custrecord_dbti_vba_assigned_bin,
+			ba.custrecord_dbti_vba_location
+		FROM itemvendor iv
+		JOIN customrecord_dbti_vendor_bin_assignment ba ON iv.vendor = ba.custrecord_dbti_vba_vendor
+		WHERE iv.preferredvendor = 'T'
+		GROUP BY iv.item, iv.subsidiary, ba.custrecord_dbti_vba_location
+	) ivb ON ivb.item = i.id
+		AND ivb.subsidiary = t.subsidiary
+		AND ivb.custrecord_dbti_vba_location = tl.location
     JOIN unitstypeuom uom ON tl.units = uom.internalid
 WHERE
 	t.recordtype = 'purchaseorder'

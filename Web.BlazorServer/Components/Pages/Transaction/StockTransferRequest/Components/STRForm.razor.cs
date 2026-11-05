@@ -6,8 +6,11 @@ using Radzen;
 using Shared.Entities;
 using Shared.Libraries.Utilities;
 using Web.BlazorServer.Components.Custom;
+using Web.BlazorServer.Components.Base;
 using Web.BlazorServer.Components.Pages.Transaction.Others.BarcodeScanning;
 using Web.BlazorServer.Components.Shared.Abstraction;
+using Web.BlazorServer.Components.Shared.Others;
+using Web.BlazorServer.Handlers.Repositories.Administration.User;
 using Web.BlazorServer.Handlers.Repositories.Others;
 using Web.BlazorServer.Handlers.Repositories.Transaction.StockTransferRequest;
 using Web.BlazorServer.Helpers;
@@ -20,6 +23,8 @@ namespace Web.BlazorServer.Components.Pages.Transaction.StockTransferRequest.Com
 
 public partial class STRForm
 {
+    SubmitOnce SubmitOnce { get; } = new();
+    bool IsSubmitGuardActive => SubmitOnce.IsSubmitting;
     [Parameter][EditorRequired] public StockTransferRequestInfoVM Model { get; set; } = new();
     [Parameter] public Func<StockTransferRequestInfoVM, Task<bool>>? OnSubmit { get; set; }
     [Parameter] public EditContext? EditContext { get; set; }
@@ -39,6 +44,7 @@ public partial class STRForm
     [Inject] IVendorHandler VendorHandler { get; set; } = default!;
     [Inject] IItemsHandler ItemsHandler { get; set; } = default!;
     [Inject] IHttpContextAccessor httpContextAccessor { get; set; } = default!;
+    [Inject] IUserManagementHandler UserManagementHandler { get; set; } = default!;
 
     AppTable<StockTransferRequestLineVM> LinesTable = default!;
     DataGridSettings TableSettings { get; set; } = new();
@@ -47,6 +53,7 @@ public partial class STRForm
     readonly string ActionGetSubsidiaries = "Get Subsidiaries";
     readonly string ActionGetVendors = "Get Vendors";
     readonly string ActionGetItemUnits = "Get Item Units";
+    readonly string ActionGetEmployees = "Get Employees";
 
     private QuickVirtualizedDropdown<LocationVM>? SourceLocationDropdown { get; set; }
     private QuickVirtualizedDropdown<LocationVM>? DestinationLocationDropdown { get; set; }
@@ -58,14 +65,9 @@ public partial class STRForm
 
     private List<ItemsVM> Items = new();
 
-    private readonly SemaphoreSlim _concurrencySemaphore = new SemaphoreSlim(2, 2);
-
     private BarcodeStore BarcodeStore = new();
 
     bool DefaultSubsidiaryLoading = false;
-
-    const string PRINTABLE_URL_INTERCOMPANY = "https://11608969.extforms.netsuite.com/app/site/hosting/scriptlet.nl?script=1671&deploy=1&compid=11608969&ns-at=AAEJ7tMQ9evIwFEEUifIBokQgQ0jhowAItpfjv5Smu7B76K41lU&recordType=tranferOrder&isPickingTicket=true";
-    const string PRINTABLE_URL_TO = "https://11608969.extforms.netsuite.com/app/site/hosting/scriptlet.nl?script=1671&deploy=1&compid=11608969&ns-at=AAEJ7tMQ9evIwFEEUifIBokQgQ0jhowAItpfjv5Smu7B76K41lU&recordType=tranferOrder&isPickingTicket=true";
 
     public string ReferenceString => string.IsNullOrEmpty(Model.ReferenceNumber) ?
         ReadOnly ? "N/A" : "Auto-Generated" :
@@ -96,7 +98,9 @@ public partial class STRForm
         await LinesTable.DataGrid.Reload();
     }
 
-    async Task HandleSubmit()
+    Task HandleSubmit() => SubmitOnce.RunAsync(HandleSubmitCore);
+
+    async Task HandleSubmitCore()
     {
         if (Model.Lines.Count == 0)
         {
@@ -104,11 +108,35 @@ public partial class STRForm
             return;
         }
 
-        if (Model.Lines.Any(x => x.QuantityAlloted > x.QuantityOnHandByUoM))
+        if (Model.Lines.Any(x => x.QuantityAlloted > x.QuantityAvailableByUoM))
         {
             ToastService.Error("Some alloted items exceed the available quantity", "Error");
             return;
         }
+
+        // Per-line Preferred Vendor is required on every line of every category
+        // (posted to custcol_dbti_vendor). Name the offending lines so the user
+        // can find them; per-row RadzenRequiredValidator cannot work here because
+        // grid rows share one column template.
+        var linesMissingVendor = Model.Lines
+            .Select((line, index) => (line, index))
+            .Where(x => x.line.Vendor is null)
+            .Select(x => (x.line.LineNumber ?? x.index + 1).ToString())
+            .ToList();
+        if (linesMissingVendor.Count > 0)
+        {
+            ToastService.Error($"Preferred Vendor is required on line(s): {string.Join(", ", linesMissingVendor)}", "Error");
+            return;
+        }
+
+        if (Model.RequestedBy is null)
+        {
+            ToastService.Error("Please select a Requested By employee", "Error");
+            return;
+        }
+
+        // Return categories no longer require a header Preferred Vendor; the
+        // per-line check above is the vendor capture requirement.
 
         bool success = true;
         if (OnSubmit is not null) success = await OnSubmit(Model);
@@ -130,6 +158,7 @@ public partial class STRForm
                 Warehouse = Model.SourceLocation?.Name ?? string.Empty,
                 PreferredBin = item.PreferredBin,
                 UoM = item.PurchaseUnit,
+                Vendor = item.PreferredVendorId.HasValue ? new VendorVM { Id = item.PreferredVendorId.Value, Name = item.PreferredVendorName ?? string.Empty } : null,
                 QuantityOnHand = item.QuantityOnHand,
                 QuantityAvailable = item.QuantityAvailable,
                 QuantityAlloted = 0
@@ -148,39 +177,35 @@ public partial class STRForm
     {
         if (Model.Subsidiary is null) return ([], 0);
 
-        await _concurrencySemaphore.WaitAsync();
-        
         var result = await LocationHandler.GetLocationsBySubsidiaryAsync(intent, Model.Subsidiary.Id);
 
-        _concurrencySemaphore.Release();
         return result;
     }
 
-    async Task<(IEnumerable<ItemsVM>, int)> SourceLocationItems()
+    async Task<(IEnumerable<ItemsVM>, int)> SourceLocationItems(bool includeUnavailable = false)
     {
         var itemIds = Model.Lines.Select(x => x.ItemId).Distinct().ToList();
 
         DataGridIntent intent = new DataGridIntent
         {
-            Filters = [
-                DataGridFilterUtilities.GreaterThan(nameof(ItemsVM.QuantityAvailable), 0),
-                DataGridFilterUtilities.In(nameof(ItemsVM.Id), itemIds)
-                ],
+            Filters = [DataGridFilterUtilities.In(nameof(ItemsVM.Id), itemIds)],
 
             Take = 1000
         };
 
-        await _concurrencySemaphore.WaitAsync();
+        if (!includeUnavailable)
+        {
+            intent.Filters.Insert(0, DataGridFilterUtilities.GreaterThan(nameof(ItemsVM.QuantityAvailable), 0));
+        }
 
         int location = Model.SourceLocation.Id;
 
         var result = location == 0 ?
         await ItemsHandler.GetItemsDataGridAsync(intent) :
-        await ItemsHandler.GetItemsAtLocationDataGridAsync(intent, location);
+        await ItemsHandler.GetItemsAtLocationDataGridAsync(intent, location, VendorSubsidiary?.Id ?? Model.Subsidiary?.Id);
 
         Items = result.Data.ToList();
 
-        _concurrencySemaphore.Release();
         return result;
     }
 
@@ -188,79 +213,71 @@ public partial class STRForm
     {
         if (Model.ToSubsidiary is null) return ([], 0);
 
-        await _concurrencySemaphore.WaitAsync();
-
-        try
+        if (Model.IsIntercompany)
         {
-            if (Model.IsIntercompany)
-            {
-                return await LocationHandler.GetLocationsBySubsidiaryAsync(
-                    intent,
-                    Model.ToSubsidiary.Id);
-            }
-
             return await LocationHandler.GetLocationsBySubsidiaryAsync(
-                    intent,
-                    Model.Subsidiary.Id);
+                intent,
+                Model.ToSubsidiary.Id);
         }
-        finally
-        {
-            _concurrencySemaphore.Release();
-        }
+
+        return await LocationHandler.GetLocationsBySubsidiaryAsync(
+                intent,
+                Model.Subsidiary.Id);
     }
+
+    /// <summary>
+    ///     Owning subsidiary for Preferred Vendor. Intercompany documents scope the
+    ///     vendor to the To Subsidiary, everything else to the source Subsidiary.
+    ///     Single-sourced so the dropdown and the reset-on-subsidiary-change check
+    ///     can never disagree.
+    /// </summary>
+    private SubsidiaryVM? VendorSubsidiary =>
+        Model.IsIntercompany && Model.ToSubsidiary is not null ? Model.ToSubsidiary : Model.Subsidiary;
 
     async Task<(IEnumerable<VendorVM>, int)> VendorProvider(DataGridIntent intent)
     {
-        if (Model.ToSubsidiary is null) return ([], 0);
+        // Preferred Vendor is a header-level concept on the transfer order
+        // (custbody_dbti_return_to_vendor), scoped to the owning subsidiary.
+        // Previously this keyed off ToSubsidiary alone, which returned an empty
+        // list for every non-intercompany document and left the dropdown unusable.
+        var subsidiary = VendorSubsidiary;
 
-        await _concurrencySemaphore.WaitAsync();
+        if (subsidiary is null) return ([], 0);
 
-        var result = await VendorHandler.GetTradeVendorsListBySubsidiaryAsync(intent, Model.ToSubsidiary.Id);
-
-        _concurrencySemaphore.Release();
-        return result;
+        return await VendorHandler.GetTradeVendorsListBySubsidiaryAsync(intent, subsidiary.Id);
     }
 
     async Task<(IEnumerable<SubsidiaryVM>, int)> SubsidiaryProvider(DataGridIntent intent)
     {
-
-        await _concurrencySemaphore.WaitAsync();
-
         var result = await SubsidiaryHandler.GetSubsidiariesAsync(intent);
 
-        _concurrencySemaphore.Release();
         return result;
     }
 
     async Task<(IEnumerable<SubsidiaryVM>, int)> ToSubsidiaryProvider(DataGridIntent intent)
     {
-
-        await _concurrencySemaphore.WaitAsync();
-
         var result = await SubsidiaryHandler.GetSubsidiariesAsync(intent);
 
-        _concurrencySemaphore.Release();
         return result;
+    }
+
+    async Task<(IEnumerable<EmployeeNsVM>, int)> EmployeeProvider(DataGridIntent intent)
+    {
+        return await UserManagementHandler.GetAllEmployeesAsync(intent);
     }
 
     async Task<(IEnumerable<PurchaseCategoryVM>, int)> PurchaseCategoryProvider(DataGridIntent intent)
     {
-        await _concurrencySemaphore.WaitAsync();
-
         var result = await SubsidiaryHandler.GetPurchaseCategoriesAsync(intent);
 
-        _concurrencySemaphore.Release();
         return result;
     }
 
     async Task<(IEnumerable<PurchaseSubcategoryVM>, int)> PurchaseSubcategoryProvider(DataGridIntent intent)
     {
-        await _concurrencySemaphore.WaitAsync();
-
         if (Model.PurchaseCategory is null) return ([], 0);
         var result = await SubsidiaryHandler.GetPurchaseSubCategoriesAsync(Model.PurchaseCategory, intent);
 
-        _concurrencySemaphore.Release();
         return result;
     }
 
@@ -275,11 +292,8 @@ public partial class STRForm
 
     async Task<(IEnumerable<ItemUnitVM>, int)> ItemUnitProvider(int itemId, DataGridIntent intent)
     {
-
-        await _concurrencySemaphore.WaitAsync();
         var result = await ItemsHandler.GetItemUnits(itemId, intent);
 
-        _concurrencySemaphore.Release();
         return result;
     }
 
@@ -287,14 +301,6 @@ public partial class STRForm
     {
         var originalValue = Model.Subsidiary;
         Model.Subsidiary = value;
-
-        if (Model.IsIntercompany && SameSubsidiary(value, Model.ToSubsidiary))
-        {
-            ToastService.Warning("\"Subsidiary\" cannot be the same as \"To Subsidiary\"");
-            await Task.Yield();
-            Model.Subsidiary = originalValue;
-            return;
-        }
 
         if (Model.Lines.Any())
         {
@@ -339,7 +345,7 @@ public partial class STRForm
         {
             ToastService.Error("Source location may not be the same as the destination location");
             await Task.Yield();
-            Model.DestinationLocation = originalValue;
+            Model.SourceLocation = originalValue;
             return;
         }
 
@@ -431,7 +437,7 @@ public partial class STRForm
         var itemCount = BarcodeStore.CountItemQuantity(line.ItemId) / uomRate;
         var incomingCount = (barcode.UoM?.ConversionRate ?? 0) / uomRate;
 
-        if (line.QuantityOnHandByUoM - line.QuantityAlloted - itemCount < incomingCount)
+        if (line.QuantityAvailableByUoM - line.QuantityAlloted - itemCount < incomingCount)
         {
             reason = $"The quantity of the item {line.ItemCode} exceeds the expected amount";
             return false;
@@ -500,6 +506,7 @@ public partial class STRForm
                     Warehouse = Model.SourceLocation?.Name ?? string.Empty,
                     PreferredBin = item.PreferredBin,
                     UoM = targetUom,
+                    Vendor = item.PreferredVendorId.HasValue ? new VendorVM { Id = item.PreferredVendorId.Value, Name = item.PreferredVendorName ?? string.Empty } : null,
                     QuantityOnHand = item.QuantityOnHand,
                     QuantityAvailable = item.QuantityAvailable,
                     QuantityAlloted = baseItemCount / lineConversionRate
@@ -520,21 +527,23 @@ public partial class STRForm
 
     public async Task OnToSubsidiaryChanged(SubsidiaryVM? value)
     {
-        var originalValue = Model.ToSubsidiary;
         Model.ToSubsidiary = value;
 
-        if (Model.IsIntercompany && SameSubsidiary(value, Model.Subsidiary))
-        {
-            ToastService.Warning("\"To Subsidiary\" cannot be the same as \"Subsidiary\"");
-            await Task.Yield();
-            Model.ToSubsidiary = originalValue;
-            return;
-        }
-
         Model.DestinationLocation = null;
-        Model.Vendor = null;
         DestinationLocationDropdown?.Reset();
-        VendorDropdown?.Reset();
+
+        // Header + line Preferred Vendors are scoped to the owning subsidiary, so
+        // they MUST be cleared when either subsidiary changes - otherwise a vendor
+        // from the previous subsidiary would be posted to NetSuite against the new one.
+        if (Model.Vendor is not null)
+        {
+            Model.Vendor = null;
+            VendorDropdown?.Reset();
+        }
+        foreach (var line in Model.Lines)
+        {
+            line.Vendor = null;
+        }
     }
 
     async Task SubmitForApproval()
@@ -586,13 +595,16 @@ public partial class STRForm
         line.UoM = uom;
     }
 
-    bool SameSubsidiary(SubsidiaryVM? a, SubsidiaryVM? b)
+    async Task LineVendorSet(StockTransferRequestLineVM line, VendorVM? vendor)
     {
-        if (a is null && b is null) return false;
-        return a?.Id == b?.Id;
+        line.Vendor = vendor;
+        await InvokeAsync(StateHasChanged);
     }
 
-    string PrintableURL => Model.Category.IsInterCompany ? $"{PRINTABLE_URL_INTERCOMPANY}&recordId={Model.Id}" : $"{PRINTABLE_URL_TO}&recordId={Model.Id}";
+    // Transfer Order and Intercompany Transfer Order resolve to the same printout scriptlet,
+// so a single builder covers both. Previously this branched on IsInterCompany between two
+// byte-identical constants.
+string? PrintableURL => NetSuitePrint.TransferOrder(Model.Id);
 
     void Return()
     {

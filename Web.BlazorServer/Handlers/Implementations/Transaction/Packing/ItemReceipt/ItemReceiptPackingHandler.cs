@@ -48,12 +48,12 @@ public class ItemReceiptPackingHandler(ISender sender) : IItemReceiptPackingHand
         var submittedLines = data.Lines.ToDictionary(line => line.LineNumber);
 
         var dto = sourceLines
-            .Where(x => GetRemainingQuantity(x.LineQuantity, x.LineQuantityBackOrdered, x.LineQuantityPacked, x.UoMRate) > 0)
+            .Where(x => !IsCompleted(x))
             .SelectMany(line =>
             {
                 submittedLines.TryGetValue(line.LineSequenceNumber, out var submittedLine);
 
-                var quantityOpen = GetRemainingQuantity(line.LineQuantity, line.LineQuantityBackOrdered, line.LineQuantityPacked, line.UoMRate);
+                var quantityOpen = GetRemainingQuantity(line.LineQuantity, line.QuantityAlreadyShipped, line.UoMRate);
                 var goodQty = submittedLine is not null && submittedLine.IsReceived ? submittedLine.QuantityGood : 0;
                 var badQty = submittedLine is not null && submittedLine.IsReceived ? submittedLine.QuantityBad : 0;
 
@@ -83,7 +83,7 @@ public class ItemReceiptPackingHandler(ISender sender) : IItemReceiptPackingHand
     private static ItemReceiptLinePackingVM MapToVm(TransferOrderLineDTO dto)
     {
         var quantityPlanned = ConvertQuantity(dto.LineQuantity, dto.UoMRate);
-        var quantityOpen = GetRemainingQuantity(dto.LineQuantity, dto.LineQuantityBackOrdered, dto.LineQuantityPacked, dto.UoMRate);
+        var quantityOpen = GetRemainingQuantity(dto.LineQuantity, dto.QuantityAlreadyShipped, dto.UoMRate);
         var quantityPacked = ConvertQuantity(dto.LineQuantityPacked, dto.UoMRate);
         var quantityBackOrdered = ConvertQuantity(dto.LineQuantityBackOrdered, dto.UoMRate);
 
@@ -114,7 +114,7 @@ public class ItemReceiptPackingHandler(ISender sender) : IItemReceiptPackingHand
 
         var quantityPlanned = ConvertQuantity(dto.LineQuantity, dto.UoMRate);
         var quantityPacked = ConvertQuantity(dto.LineQuantityPacked, dto.UoMRate);
-        var quantityOpen = GetRemainingQuantity(dto.LineQuantity, dto.LineQuantityBackOrdered, dto.LineQuantityPacked, dto.UoMRate);
+        var quantityOpen = GetRemainingQuantity(dto.LineQuantity, dto.QuantityAlreadyShipped, dto.UoMRate);
 
         return new()
         {
@@ -146,6 +146,8 @@ public class ItemReceiptPackingHandler(ISender sender) : IItemReceiptPackingHand
             LineQuantity = dto.LineQuantity,
             LineQuantityPacked = dto.LineQuantityPacked,
             LineQuantityBackOrdered = dto.LineQuantityBackOrdered,
+            IsClosed = dto.IsClosed,
+            QuantityAlreadyShipped = dto.QuantityAlreadyShipped,
             NetsuiteUoMInternalId = dto.NetsuiteUoMInternalId,
             UoMName = dto.UoMName,
             UoMRate = dto.UoMRate,
@@ -167,8 +169,14 @@ public class ItemReceiptPackingHandler(ISender sender) : IItemReceiptPackingHand
     private static decimal ConvertQuantity(decimal quantity, decimal uoMRate) =>
         uoMRate == 0 ? quantity : quantity / uoMRate;
 
-    private static decimal GetRemainingQuantity(decimal quantity, decimal backOrderedQuantity, decimal fulfilledQuantity, decimal uoMRate) =>
-        Math.Max(0, ConvertQuantity(quantity - (backOrderedQuantity + fulfilledQuantity), uoMRate));
+    private static decimal GetRemainingQuantity(decimal quantity, decimal alreadyShippedQuantity, decimal uoMRate) =>
+        Math.Max(0, ConvertQuantity(quantity - alreadyShippedQuantity, uoMRate));
+
+    private static bool IsLineClosed(TransferOrderLineDTO line) =>
+        string.Equals(line.IsClosed, "T", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsCompleted(TransferOrderLineDTO line) =>
+        IsLineClosed(line) || GetRemainingQuantity(line.LineQuantity, line.QuantityAlreadyShipped, line.UoMRate) <= 0;
 
     private static bool IsNetSuiteTrue(string value) =>
         value.Equals("T", StringComparison.OrdinalIgnoreCase) ||

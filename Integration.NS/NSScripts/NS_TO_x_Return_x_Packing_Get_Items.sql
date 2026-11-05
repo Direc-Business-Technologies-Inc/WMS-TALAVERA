@@ -3,6 +3,7 @@ SELECT
     t.tranid AS OrderNumber,
     t.recordtype AS OrderType,
     t.status AS OrderStatus,
+    t.custbody_dbti_transfer_category AS TransferCategory,
 
     tl.location AS NetsuiteFromLocationInternalId,
     t.transferlocation AS NetsuiteToLocationInternalId,
@@ -57,11 +58,18 @@ JOIN unitstypeuom uom ON tl.units = uom.internalid
 LEFT JOIN (
     SELECT
         ibq.item,
-        ibq.bin,
+        MIN(ibq.bin) AS bin,
         b.location
     FROM itembinquantity ibq
     INNER JOIN bin b ON b.id = ibq.bin
     WHERE ibq.preferredbin = 'T'
+      AND ibq.item IN (
+		SELECT txl.item
+		FROM transaction tx
+		JOIN transactionline txl ON txl.transaction = tx.id
+		WHERE tx.tranid = @tranid
+	)
+    GROUP BY ibq.item, b.location
 ) ibq ON ibq.item = i.id
    AND ibq.location = tl.location
 
@@ -71,11 +79,18 @@ LEFT JOIN (
     SELECT
         iv.item,
         iv.subsidiary,
-        ba.custrecord_dbti_vba_assigned_bin,
+        MIN(ba.custrecord_dbti_vba_assigned_bin) AS custrecord_dbti_vba_assigned_bin,
         ba.custrecord_dbti_vba_location
     FROM itemvendor iv
     JOIN customrecord_dbti_vendor_bin_assignment ba ON iv.vendor = ba.custrecord_dbti_vba_vendor
     WHERE iv.preferredvendor = 'T'
+      AND iv.item IN (
+		SELECT txl.item
+		FROM transaction tx
+		JOIN transactionline txl ON txl.transaction = tx.id
+		WHERE tx.tranid = @tranid
+	)
+    GROUP BY iv.item, iv.subsidiary, ba.custrecord_dbti_vba_location
 ) ba ON ba.item = i.id 
 	AND ba.subsidiary = t.subsidiary 
 	AND ba.custrecord_dbti_vba_location = tl.location
@@ -83,15 +98,16 @@ LEFT JOIN (
 LEFT JOIN (
 	SELECT
 		item,
-		BUILTIN.DF( item ) AS itemname,
 		location,
-		BUILTIN.DF( location ) AS locationname,
 		quantityavailable
 	FROM
 		AggregateItemLocation
-	ORDER BY
-		Item,
-		Location
+	WHERE item IN (
+		SELECT txl.item
+		FROM transaction tx
+		JOIN transactionline txl ON txl.transaction = tx.id
+		WHERE tx.tranid = @tranid
+	)
 ) ail ON ail.item = i.id  AND ail.location = tl.location 
 
 LEFT JOIN inventorybalance ibv1
@@ -128,6 +144,12 @@ LEFT JOIN (
         SUM(ib.quantityavailable) AS quantityavailable
     FROM
         inventorybalance ib
+    WHERE ib.item IN (
+        SELECT txl.item
+        FROM transaction tx
+        JOIN transactionline txl ON txl.transaction = tx.id
+        WHERE tx.tranid = @tranid
+    )
     GROUP BY
         ib.item,
         ib.location,
@@ -144,6 +166,12 @@ LEFT JOIN (
         SUM(ib.quantityavailable) AS quantityavailable
     FROM
         inventorybalance ib
+    WHERE ib.item IN (
+        SELECT txl.item
+        FROM transaction tx
+        JOIN transactionline txl ON txl.transaction = tx.id
+        WHERE tx.tranid = @tranid
+    )
     GROUP BY
         ib.item,
         ib.location,
@@ -153,7 +181,7 @@ LEFT JOIN (
     AND ibli2.inventorystatus = '3'
 
 WHERE
-    t.recordtype IN ('intercompanytransferorder')
+    t.recordtype IN ('intercompanytransferorder', 'transferorder')
     AND t.custbody_dbti_transfer_category IN ('3', '4')
     AND t.status IN ('B', 'D', 'E')
     AND tl.transactionlinetype = 'SHIPPING'

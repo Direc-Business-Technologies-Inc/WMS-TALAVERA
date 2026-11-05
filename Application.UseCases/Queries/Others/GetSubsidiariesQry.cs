@@ -16,6 +16,6 @@ public class GetSubsidiariesQryHandler(ISubsidiaryIntegration subsidiaryIntegrat
 {
     public async Task<(IEnumerable<SubsidiaryDTO> Data, int Count)> Handle(GetSubsidiariesQry request, CancellationToken cancellationToken)
     {
-        return await subsidiaryIntegration.GetSubsidiariesAsync(request.Intent);
+        return await subsidiaryIntegration.GetSubsidiariesAsync(request.Intent, cancellationToken);
     }
 }

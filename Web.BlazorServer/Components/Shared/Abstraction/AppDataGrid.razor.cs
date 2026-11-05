@@ -2,6 +2,7 @@
 using Radzen;
 using Radzen.Blazor;
 using Shared.Entities;
+using System.Reflection;
 using Web.BlazorServer.Components.Base;
 using Web.BlazorServer.Services.Implementation;
 using Web.BlazorServer.Services.Repositories;
@@ -44,12 +45,50 @@ public partial class AppDataGrid<TItem> : BaseComponent where TItem : class
     [Parameter] public IEnumerable<AppFilterDescriptor> DefaultFilters { get; set; } = [];
     #endregion Parameter
 
-    bool _isFirstLoad { get; set; } = true;
     public RadzenDataGrid<TItem>? DataGrid { get; set; } = default!;
     public DataGridResultVM<TItem> DGResult { get; set; } = new DataGridResultVM<TItem>();
     public EventCallback<DataGridResultVM<TItem>> DGResultChanged { get; set; }
     public IDataGridIntentAdapter DatagridAdapter { get; set; } = default!;
     protected bool IsBusy => AppBusyService.IsBusy(ActionName);
+
+    #region Selection identity
+
+    // Server-side loads materialize a brand new instance per row, so selection
+    // has to be re-identified by a business key rather than by reference.
+    private static readonly string[] SelectionKeyPropertyNames = ["ItemCode", "ItemNumber", "OrderNumber", "Id"];
+    private static PropertyInfo? _selectionKeyProperty;
+    private static bool _selectionKeyResolved;
+
+    private static string? SelectionKey(TItem item)
+    {
+        if (item is null)
+            return null;
+
+        if (!_selectionKeyResolved)
+        {
+            _selectionKeyProperty = SelectionKeyPropertyNames
+                .Select(name => typeof(TItem).GetProperty(name, BindingFlags.Public | BindingFlags.Instance))
+                .FirstOrDefault(prop => prop is not null);
+
+            _selectionKeyResolved = true;
+        }
+
+        if (_selectionKeyProperty is null)
+            return null;
+
+        var value = _selectionKeyProperty.GetValue(item)?.ToString();
+        return string.IsNullOrEmpty(value) ? null : value;
+    }
+
+    #endregion Selection identity
+
+    // Paging Radzen last asked for. ClearIntent() (LoadDataAsync) swaps the
+    // intent for a fresh one whose Take/Skip fall back to DataGridIntent's
+    // defaults (10/0), so a direct ReloadDataAsync() - the sync button, or a
+    // grid's search box - would otherwise silently snap the grid back to a
+    // hardcoded page size and page 1, ignoring the user's saved grid settings.
+    private int _lastTake = 10;
+    private int _lastSkip;
 
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -66,10 +105,16 @@ public partial class AppDataGrid<TItem> : BaseComponent where TItem : class
     public async Task LoadDataAsync(LoadDataArgs args)
     {
 
-        if (IsBusy || ClientSide)
+        if (ClientSide)
         {
             DGResult = DataGridResultVM<TItem>.New(Data, Data.Count);
 
+            await InvokeAsync(StateHasChanged);
+            return;
+        }
+
+        if (IsBusy)
+        {
             await InvokeAsync(StateHasChanged);
             return;
         }
@@ -100,11 +145,56 @@ public partial class AppDataGrid<TItem> : BaseComponent where TItem : class
             DGResult = await DataGetter!(DatagridAdapter.QueryIntent);
         }
 
-        SelectedItems = [.. DataGrid?.Data?.Where(d => SelectedItems.Contains(d)) ?? []];
-        if (DatagridAdapter is not null)
-            DatagridAdapter.ClearIntent();
+        // Row instances are re-materialized on every server-side load, so a
+        // reference-identity check would drop the selection on the next load.
+        // Match by business key instead and re-point the stored rows at the new
+        // instances, mutating the list in place so the caller's list stays in sync.
+        // Selections belonging to other pages are intentionally preserved.
+        if (SelectedItems is { Count: > 0 })
+        {
+            var pageItems = (DataGrid?.Data ?? []).ToList();
 
-        _isFirstLoad = false;
+            var freshByKey = new Dictionary<string, TItem>(pageItems.Count);
+            var pageKeysAreUnique = true;
+
+            foreach (var pageItem in pageItems)
+            {
+                var key = SelectionKey(pageItem);
+                if (key is null)
+                    continue;
+
+                if (freshByKey.ContainsKey(key))
+                {
+                    pageKeysAreUnique = false;
+                    break;
+                }
+
+                freshByKey[key] = pageItem;
+            }
+
+            // Only re-point when the key actually identifies a row uniquely;
+            // otherwise keep the existing instances untouched.
+            if (pageKeysAreUnique && freshByKey.Count > 0)
+            {
+                for (var i = 0; i < SelectedItems.Count; i++)
+                {
+                    var key = SelectionKey(SelectedItems[i]);
+                    if (key is not null && freshByKey.TryGetValue(key, out var fresh))
+                        SelectedItems[i] = fresh;
+                }
+            }
+        }
+
+        if (DatagridAdapter is not null)
+        {
+            // Capture before ClearIntent, which replaces QueryIntent and drops
+            // the paging Radzen supplied in LoadDataArgs.
+            _lastTake = DatagridAdapter.QueryIntent.Take;
+            _lastSkip = DatagridAdapter.QueryIntent.Skip;
+
+            DatagridAdapter.ClearIntent();
+        }
+
         await InvokeAsync(StateHasChanged);
     }
 
@@ -112,7 +202,20 @@ public partial class AppDataGrid<TItem> : BaseComponent where TItem : class
     {
         if (DataGetter is not null && !ClientSide)
         {
-            DatagridAdapter?.AddFilters([.. DefaultFilters]);
+            // Render the busy state before awaiting the fetch. LoadDataAsync
+            // does this (line 114); without the same call here the only
+            // StateHasChanged happens after the query returns, so IsLoading
+            // flips true and false inside a single render and the grid's
+            // loading spinner never reaches the client.
+            await InvokeAsync(StateHasChanged);
+
+            if (DatagridAdapter is not null)
+            {
+                DatagridAdapter.AddFilters([.. DefaultFilters]);
+
+                DatagridAdapter.QueryIntent.Take = _lastTake;
+                DatagridAdapter.QueryIntent.Skip = _lastSkip;
+            }
 
             DGResult = await DataGetter(DatagridAdapter is null ? new() : DatagridAdapter.QueryIntent);
 

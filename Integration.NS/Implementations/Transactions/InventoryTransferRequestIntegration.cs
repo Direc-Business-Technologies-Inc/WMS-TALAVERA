@@ -136,7 +136,7 @@ public class InventoryTransferRequestIntegration(
             .WithDatagridIntent(intent)
             .Build();
 
-        var response = await netsuiteService.ExecuteSuiteQLQuery<InventoryTransferRequestDataGridDTO>(query.Query, query.Limit, query.Offset);
+        var response = await query.ExecuteWithPaging<InventoryTransferRequestDataGridDTO>(netsuiteService);
         return (response.items, response.totalResults);
     }
 
@@ -177,7 +177,7 @@ public class InventoryTransferRequestIntegration(
         var url = netsuiteService.GetRestAPIURI + $"/record/v1/inventoryTransfer/{data.Id}";
         var anon = new
         {
-            custbody_dbti_submitted_for_approval = "T",
+            custbody_dbti_submitted_for_approval = true,
         };
         var payload = JsonSerializer.Serialize(anon, jsonOpts);
 

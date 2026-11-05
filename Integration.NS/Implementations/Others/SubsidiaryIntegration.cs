@@ -21,7 +21,7 @@ public class SubsidiaryIntegration(
     SuiteQLQueryBuilderFactoryService builderFactory) : ISubsidiaryIntegration
 {
 
-    public async Task<(IEnumerable<SubsidiaryDTO> Data, int Count)> GetSubsidiariesAsync(DataGridIntent intent)
+    public async Task<(IEnumerable<SubsidiaryDTO> Data, int Count)> GetSubsidiariesAsync(DataGridIntent intent, CancellationToken ct = default)
     {
         var builder = builderFactory.Create()
             .Select(
@@ -51,11 +51,11 @@ public class SubsidiaryIntegration(
 
         var query = builder.Build();
 
-        var result = await query.ExecuteWithPaging<SubsidiaryDTO>(netsuiteService);
+        var result = await query.ExecuteWithPaging<SubsidiaryDTO>(netsuiteService, ct);
         return (result.items, result.totalResults);
     }
 
-    public async Task<SubsidiaryDTO?> GetSubsidiaryAsync(int subsidiaryid)
+    public async Task<SubsidiaryDTO?> GetSubsidiaryAsync(int subsidiaryid, CancellationToken ct = default)
     {
         var query = builderFactory.Create()
             .Select(
@@ -71,11 +71,11 @@ public class SubsidiaryIntegration(
              )
             .Build();
 
-        var result = await query.ExecuteWithPaging<SubsidiaryDTO>(netsuiteService);
+        var result = await query.ExecuteWithPaging<SubsidiaryDTO>(netsuiteService, ct);
         return result.items.FirstOrDefault();
     }
 
-    public async Task<(IEnumerable<SubsidiaryDTO> Data, int Count)> GetSubsidiariesByCustomerAsync(DataGridIntent intent, int customerId)
+    public async Task<(IEnumerable<SubsidiaryDTO> Data, int Count)> GetSubsidiariesByCustomerAsync(DataGridIntent intent, int customerId, CancellationToken ct = default)
     {
         var query = builderFactory.Create()
             .Select(
@@ -91,11 +91,11 @@ public class SubsidiaryIntegration(
             .WithFilters(DataGridFilterUtilities.Equal("csr.entity", customerId))
             .Build();
 
-        var result = await query.ExecuteWithPaging<SubsidiaryDTO>(netsuiteService);
+        var result = await query.ExecuteWithPaging<SubsidiaryDTO>(netsuiteService, ct);
         return (result.items, result.totalResults);
     }
     
-    public async Task<(IEnumerable<SubsidiaryDTO> Data, int Count)> GetSubsidiariesByVendorAsync(DataGridIntent intent, int vendorId)
+    public async Task<(IEnumerable<SubsidiaryDTO> Data, int Count)> GetSubsidiariesByVendorAsync(DataGridIntent intent, int vendorId, CancellationToken ct = default)
     {
         var query = builderFactory.Create()
             .Select(
@@ -111,11 +111,11 @@ public class SubsidiaryIntegration(
             .WithDatagridIntent(intent)
             .Build();
 
-        var result = await query.ExecuteWithPaging<SubsidiaryDTO>(netsuiteService);
+        var result = await query.ExecuteWithPaging<SubsidiaryDTO>(netsuiteService, ct);
         return (result.items, result.totalResults);
     }
 
-    public async Task<IEnumerable<SubsidiaryDTO>> GetChildSubsidiariesAsync(int subsidiaryId)
+    public async Task<IEnumerable<SubsidiaryDTO>> GetChildSubsidiariesAsync(int subsidiaryId, CancellationToken ct = default)
     {
         List<SubsidiaryDTO> result = [];
         List<int> search = [subsidiaryId];
@@ -124,7 +124,7 @@ public class SubsidiaryIntegration(
 
         while (search.Count > 0)
         {
-            var tasks = search.Select(_getChildSubsidiaries);
+            var tasks = search.Select(id => _getChildSubsidiaries(id, ct));
             var results = await Task.WhenAll(tasks);
 
             search.ForEach(x => searchmemo.Add(x));
@@ -147,7 +147,7 @@ public class SubsidiaryIntegration(
         return result;
     }
 
-    private async Task<IEnumerable<SubsidiaryDTO>> _getChildSubsidiaries(int subsidiaryId)
+    private async Task<IEnumerable<SubsidiaryDTO>> _getChildSubsidiaries(int subsidiaryId, CancellationToken ct = default)
     {
 
         var query = builderFactory.Create()
@@ -162,7 +162,7 @@ public class SubsidiaryIntegration(
             .WithFilters(DataGridFilterUtilities.Equal("parent", subsidiaryId))
             .Build();
 
-        var result = await netsuiteService.ExecuteSuiteQLQuery<SubsidiaryDTO>(query.Query);
+        var result = await netsuiteService.ExecuteSuiteQLQuery<SubsidiaryDTO>(query.Query, ct: ct);
         return result.items;
     }
 }

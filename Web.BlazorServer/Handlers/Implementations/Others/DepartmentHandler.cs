@@ -9,11 +9,11 @@ namespace Web.BlazorServer.Handlers.Implementations.Others;
 
 public class DepartmentHandler(ISender sender) : IDepartmentHandler
 {
-    public async Task<(IEnumerable<DepartmentVM> Data, int Count)> GetDepartmentsListAsync(DataGridIntent intent)
+    public async Task<(IEnumerable<DepartmentVM> Data, int Count)> GetDepartmentsListAsync(DataGridIntent intent, CancellationToken ct = default)
     {
         GetDepartmentsListQry qry = new(intent);
 
-        var response = await sender.Send(qry);
+        var response = await sender.Send(qry, ct);
 
         return (response.Item1.Adapt<IEnumerable<DepartmentVM>>(), response.Item2);
     }

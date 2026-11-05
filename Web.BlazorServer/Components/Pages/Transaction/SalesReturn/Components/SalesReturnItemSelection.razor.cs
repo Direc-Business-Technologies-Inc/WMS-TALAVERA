@@ -58,7 +58,7 @@ public partial class SalesReturnItemSelection : IAsyncDisposable
         return DataGridResultVM<ItemVM>.New(action.Result.Data ?? [], action.Result.Count);
     }
 
-    async Task OnRowSelect(ItemVM data)
+    void ApplyRowSelect(ItemVM data)
     {
         if (!SelectedItems.Any(x => x.ItemCode == data.ItemCode))
             SelectedItems.Add(data);
@@ -77,6 +77,21 @@ public partial class SalesReturnItemSelection : IAsyncDisposable
                 Warehouse = Return.Warehouse ?? new(),
             });
         }
+    }
+
+    void ApplyRowDeselect(ItemVM data)
+    {
+        var selected = SelectedItems.FirstOrDefault(x => x.ItemCode == data.ItemCode);
+        if (selected is not null)
+            SelectedItems.Remove(selected);
+
+        if (Return.DocumentLines.Any(x => x.ItemCode == data.ItemCode))
+            Return.DocumentLines.Remove(Return.DocumentLines.First(x => x.ItemCode == data.ItemCode));
+    }
+
+    async Task OnRowSelect(ItemVM data)
+    {
+        ApplyRowSelect(data);
 
         await ReturnChanged.InvokeAsync(Return);
         await InvokeAsync(StateHasChanged);
@@ -84,12 +99,37 @@ public partial class SalesReturnItemSelection : IAsyncDisposable
 
     async Task OnRowDeselect(ItemVM data)
     {
-        if (SelectedItems.Any(x => x.ItemCode == data.ItemCode))
-            SelectedItems.Remove(data);
+        ApplyRowDeselect(data);
 
-        if (Return.DocumentLines.Any(x => x.ItemCode == data.ItemCode))
-            Return.DocumentLines.Remove(Return.DocumentLines.First(x => x.ItemCode == data.ItemCode));
+        await ReturnChanged.InvokeAsync(Return);
+        await InvokeAsync(StateHasChanged);
+    }
 
+    // "All" refers to the rows of the currently loaded page only; paging
+    // through the whole data set is intentionally not triggered from here.
+    List<ItemVM> PageItems => ReturnItemsDataGrid?.DGResult.Items?.ToList() ?? [];
+
+    bool? GetSelectionHeaderState()
+    {
+        var pageItems = PageItems;
+        return SelectAllHeader.Compute(
+            pageItems.Count,
+            pageItems.Count(item => SelectedItems.Any(x => x.ItemCode == item.ItemCode)));
+    }
+
+    async Task ToggleAllItems(bool? value)
+    {
+        bool select = value == true;
+
+        foreach (var item in PageItems)
+        {
+            if (select)
+                ApplyRowSelect(item);
+            else
+                ApplyRowDeselect(item);
+        }
+
+        UnsavedChangesService.MarkDirty();
         await ReturnChanged.InvokeAsync(Return);
         await InvokeAsync(StateHasChanged);
     }

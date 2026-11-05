@@ -18,6 +18,7 @@ public class StockTransferRequestDataGridDTO
     public string Subsidiary { get; set; } = string.Empty;
     public string ToSubsidiary { get; set; } = string.Empty;
     public string PreparedBy { get; set; } = string.Empty;
+    public string RequestedBy { get; set; } = string.Empty;
     public string Remarks { get; set; } = string.Empty;
     public TransferOrderStatus? Status { get; set; } = null;
     public DateTime Date { get; set; }

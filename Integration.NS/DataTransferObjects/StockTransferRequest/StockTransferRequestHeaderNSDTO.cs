@@ -12,7 +12,7 @@ public class StockTransferRequestHeaderNSDTO
     public int Id { get; set; }
     public string ReferenceNumber { get; set; } = string.Empty;
     public string VendorName { get; set; } = string.Empty;
-    public int VendorId { get; set; } 
+    public int? VendorId { get; set; } 
     public string SourceLocationName { get; set; } = string.Empty;
     public int SourceLocationId { get; set; }
     public string DestinationLocationName { get; set; } = string.Empty;
@@ -34,6 +34,11 @@ public class StockTransferRequestHeaderNSDTO
     public string StatusName { get; set; } = string.Empty; 
     public string SubmittedForApprovals { get; set; } = string.Empty; 
     public int StatusId { get; set; }
+
+    public string RequestedByFirstName { get; set; } = string.Empty;
+    public string RequestedByLastName { get; set; } = string.Empty;
+    public int RequestedById { get; set; }
+
     public bool IsSubmittedForApprovals => SubmittedForApprovals.ToLowerInvariant().Equals("t");
     public DateTime Date { get; set; }
     public List<StockTransferRequestLineDTO> Lines { get; set; } = [];

@@ -201,7 +201,7 @@
         <RadzenButton Disabled="Disabled" ButtonType="ButtonType.Button" Text="@ReturnString" Click="ReturnClicked" ButtonStyle="ButtonStyle.Light" />
         <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5em">
             <RadzenButton Disabled="Disabled" ButtonType="ButtonType.Button" Visible="OnSecondaryActionClicked.HasDelegate" Text="@SecondaryActionString" Click="SecondaryActionClicked" />
-            <RadzenButton Disabled="Disabled" ButtonType="ButtonType.Submit" Visible="OnSubmit.HasDelegate" Text="@SubmitString" />
+            <RadzenButton Disabled="@(Disabled || IsSubmitting)" ButtonType="ButtonType.Submit" Visible="OnSubmit.HasDelegate" Text="@(IsSubmitting ? "Saving..." : SubmitString)" />
         </RadzenStack>
     </RadzenStack>
 </RadzenTemplateForm>

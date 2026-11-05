@@ -40,7 +40,9 @@ public partial class UserPasswordManagement
         DialogService.Close(false);
     }
 
-    protected override async Task HandleSubmit()
+    protected override Task HandleSubmit() => SubmitOnce.RunAsync(UpdatePassword);
+
+    async Task UpdatePassword()
     {
         var action = await AppActionFactory.RunAsync(async () =>
         {

@@ -16,10 +16,7 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
     [Parameter]
     public string OrderNumber { get; set; }
 
-    private IJSObjectReference JsObj { get; set; }
-
     AppAction<List<VendorReturnAuthorizationLineVM>> ActionGetVRAItems { get; set; }
-    AppAction<List<ItemBarcodesPerUoMVM>> ActionGetItemBarcodes { get; set; }
     AppAction ActionUpdateStartTime { get; set; }
     AppAction<bool> ActionSaveScan { get; set; }
 
@@ -30,19 +27,25 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
     List<VendorReturnAuthorizationLineVM> FilteredBadVRAItems = [];
 
     VendorReturnAuthorizationLineVM? LastScanned;
-    List<ItemBarcodesPerUoMVM> ItemBarcodes = [];
-    List<BarcodeRequestVM> ItemRequest = [];
 
     List<VendorReturnAuthorizationLineVM> VRAItems = [];
 
     VendorReturnAuthorizationLineVM? GoodSelectedLine;
     VendorReturnAuthorizationLineVM? BadSelectedLine;
 
-    int ScanCount { get; set; }
+    private int _scanCount;
+    int ScanCount
+    {
+        get => _scanCount;
+        set
+        {
+            _scanCount = value;
+            if (value > 0) MarkScansDirty();
+        }
+    }
     int ActiveTabIndex { get; set; } = 0;
 
     bool SaveBtnDisabled => ScanCount == 0;
-    bool NextScanIsBad = false;
     bool MoveOn = false;
     //bool IsWeightDialogOpen = false; // Commented out: Weighing feature
 
@@ -64,7 +67,7 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
             },
             OnSuccess = async (result) =>
             {
-                GoodVRAItems = result.Data.Select(line => new VendorReturnAuthorizationLineVM
+                GoodVRAItems = (result.Data ?? []).Select(line => new VendorReturnAuthorizationLineVM
                 {
                     NetsuiteOrderInternalId = line.NetsuiteOrderInternalId,
                     OrderNumber = line.OrderNumber,
@@ -112,7 +115,7 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
                     IsBad = false,
                 }).ToList() ?? [];
 
-                BadVRAItems = result.Data.Select(line => new VendorReturnAuthorizationLineVM
+                BadVRAItems = (result.Data ?? []).Select(line => new VendorReturnAuthorizationLineVM
                 {
                     NetsuiteOrderInternalId = line.NetsuiteOrderInternalId,
                     OrderNumber = line.OrderNumber,
@@ -164,23 +167,6 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
             },
         };
 
-        ActionGetItemBarcodes = new AppAction<List<ItemBarcodesPerUoMVM>>
-        {
-            Name = "GetItemBarcodes",
-            TaskAsync = async () =>
-            {
-                await InvokeAsync(StateHasChanged);
-                var res = await Client.Post<List<ItemBarcodesPerUoMVM>>("/Item/Barcodes", ItemRequest);
-                return res;
-            },
-            OnSuccess = async (result) =>
-            {
-                ItemBarcodes = result.Data ?? [];
-
-                await InvokeAsync(StateHasChanged);
-            },
-        };
-
         ActionSaveScan = new AppAction<bool>
         {
             Name = "SavePurchaseOrderScan",
@@ -198,6 +184,7 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
                     return;
                 }
 
+                MarkScansClean();
                 await Toast.Success("Scanned items saved sucessfully");
                 NavManager.NavigateTo("/packing");
             }
@@ -211,19 +198,6 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
         if (firstRender)
         {
             await ActionFactory.ExecuteAppActionAsync(ActionGetVRAItems);
-
-            ItemRequest = GoodVRAItems.Select(i => new BarcodeRequestVM
-            {
-                NetsuiteMaterialInternalId = i.NetsuiteMaterialInternalId,
-            }).ToList();
-
-            await ActionFactory.ExecuteAppActionAsync(ActionGetItemBarcodes);
-        }
-
-        if (GoodVRAItems.Count > 0 && JsObj is null)
-        {
-            JsObj = await Js.InvokeAsync<IJSObjectReference>("import", "./js/IntersectionObserver.js");
-            await JsObj.InvokeVoidAsync("ObserveRecentScanned");
         }
     }
 
@@ -408,15 +382,23 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
                 return;
             }
 
-            var barcode = ItemBarcodes.FirstOrDefault(x =>
-                !string.IsNullOrWhiteSpace(x.MaterialBarcode) &&
-                x.MaterialBarcode.Equals(scanned, StringComparison.OrdinalIgnoreCase));
+            var resolution = await BarcodeResolver.ResolveAsync(scanned);
 
-            if (barcode is null)
+            if (!resolution.IsFound)
             {
-                await Toast.Warning($"Unknown barcode: {scanned}");
+                if (resolution.IsFailure)
+                {
+                    await Toast.Error(resolution.Message);
+                }
+                else
+                {
+                    await Toast.Warning(resolution.Message);
+                }
+
                 return;
             }
+
+            var barcode = resolution.Barcode!;
 
             var goodLine = GoodVRAItems.FirstOrDefault(x =>
                     x.NetsuiteMaterialInternalId == barcode.NetsuiteMaterialInternalId &&
@@ -521,6 +503,8 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
                 LastScanned = goodLine;
             }
 
+            await RevealLastScanned();
+
             ScanCount++;
             //ChangeWeight = null; // reset the ChangeWeight after each scan
 
@@ -595,12 +579,6 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
         await InvokeAsync(StateHasChanged);
     }
 
-    void ToggleQuality()
-    {
-        NextScanIsBad = !NextScanIsBad;
-        InvokeAsync(StateHasChanged);
-    }
-
     void ToggleMove()
     {
         MoveOn = !MoveOn;
@@ -660,15 +638,23 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
             VendorReturnAuthorizationLineVM? badLine;
             VendorReturnAuthorizationLineVM? goodLine;
 
-            var barcode = ItemBarcodes.FirstOrDefault(x =>
-                !string.IsNullOrWhiteSpace(x.MaterialBarcode) &&
-                x.MaterialBarcode.Equals(scanned, StringComparison.OrdinalIgnoreCase));
+            var resolution = await BarcodeResolver.ResolveAsync(scanned);
 
-            if (barcode is null)
+            if (!resolution.IsFound)
             {
-                await Toast.Warning($"Unknown barcode: {scanned}");
+                if (resolution.IsFailure)
+                {
+                    await Toast.Error(resolution.Message);
+                }
+                else
+                {
+                    await Toast.Warning(resolution.Message);
+                }
+
                 return;
             }
+
+            var barcode = resolution.Barcode!;
 
             if (ActiveTabIndex == 1)
             {
@@ -795,15 +781,23 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
             VendorReturnAuthorizationLineVM? badLine;
             VendorReturnAuthorizationLineVM? goodLine;
 
-            var barcode = ItemBarcodes.FirstOrDefault(x =>
-                !string.IsNullOrWhiteSpace(x.MaterialBarcode) &&
-                x.MaterialBarcode.Equals(scanned, StringComparison.OrdinalIgnoreCase));
+            var resolution = await BarcodeResolver.ResolveAsync(scanned);
 
-            if (barcode is null)
+            if (!resolution.IsFound)
             {
-                await Toast.Warning($"Unknown barcode: {scanned}");
+                if (resolution.IsFailure)
+                {
+                    await Toast.Error(resolution.Message);
+                }
+                else
+                {
+                    await Toast.Warning(resolution.Message);
+                }
+
                 return;
             }
+
+            var barcode = resolution.Barcode!;
 
             if (ActiveTabIndex == 1)
             {
@@ -976,92 +970,20 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
             }
         }
 
-        // Refresh barcode requests from the refreshed VRA
-        ItemRequest = GoodVRAItems
-            .Select(i => new BarcodeRequestVM
-            {
-                NetsuiteMaterialInternalId = i.NetsuiteMaterialInternalId
-            })
-            .ToList();
-
-        await ActionFactory.ExecuteAppActionAsync(ActionGetItemBarcodes);
-
         await InvokeAsync(StateHasChanged);
     }
 
     public async ValueTask DisposeAsync()
     {
+        MarkScansClean();
         BroadcastService.BroadcastReceived -= HandleItemScan;
 
-        if (JsObj is not null)
-        {
-            try
-            {
-                JsObj.InvokeVoidAsync("UnObserveRecentScanned");
-                await JsObj.InvokeVoidAsync("Dispose");
-            }
-            catch
-            {
-                // ignore cleanup errors
-            }
-
-            try
-            {
-                await JsObj.DisposeAsync();
-            }
-            finally
-            {
-                JsObj = null;
-            }
-        }
+        await DisposeLastScannedPanel();
     }
 
     #region Button States
     private ToggleState ScanState { get; set; } = ToggleState.Base;
 
-    private string ScanStateIcon => ScanState switch
-    {
-        ToggleState.Base => "check",
-        ToggleState.Good => "check",
-        ToggleState.Bad => "block",
-        _ => "check"
-    };
-
-    private string ScanStateLabel => ScanState switch
-    {
-        ToggleState.Base => "Good",
-        ToggleState.Good => "Good",
-        ToggleState.Bad => "Bad",
-        _ => "Good"
-    };
-
-    private ButtonStyle ScanStateButtonStyle => ScanState switch
-    {
-        ToggleState.Base => ButtonStyle.Base,
-        ToggleState.Good => ButtonStyle.Success,
-        ToggleState.Bad => ButtonStyle.Danger,
-        _ => ButtonStyle.Base
-    };
-
-    private void ToggleScanState()
-    {
-        ScanState = ScanState switch
-        {
-            ToggleState.Base => ToggleState.Good,
-            ToggleState.Good => ToggleState.Bad,
-            ToggleState.Bad => ToggleState.Base,
-            _ => ToggleState.Base
-        };
-
-        NextScanIsBad = ScanState switch
-        {
-            ToggleState.Base => false,
-            ToggleState.Good => false,
-            ToggleState.Bad => true,
-            _ => false
-        };
-
-        InvokeAsync(StateHasChanged);
-    }
+    private bool NextScanIsBad => ScanState == ToggleState.Bad;
     #endregion
 }

@@ -1,0 +1,74 @@
+@using static Mobile.MAUI.Enums.CustomEnum
+@inject IJSRuntime Js
+
+<RadzenStack Gap="4px"
+             Orientation="Orientation.Vertical"
+             AlignItems="AlignItems.Center"
+             class="scan-action-item">
+
+    <RadzenButton Class="rz-border-radius-5"
+                  Icon="@StateIcon"
+                  ButtonStyle="@StateButtonStyle"
+                  Size="ButtonSize.Small"
+                  Click="@ToggleAsync"
+                  Disabled="@Disabled" />
+
+    <RadzenText TextStyle="TextStyle.Caption"
+                Class="scan-action-label rz-m-0">
+        @StateLabel
+    </RadzenText>
+</RadzenStack>
+
+@code {
+    [Parameter] public ToggleState ScanState { get; set; } = ToggleState.Base;
+
+    [Parameter] public EventCallback<ToggleState> ScanStateChanged { get; set; }
+
+    [Parameter] public bool Disabled { get; set; }
+
+    private string StateIcon => ScanState switch
+    {
+        ToggleState.Base => "check",
+        ToggleState.Good => "check",
+        ToggleState.Bad => "block",
+        _ => "check"
+    };
+
+    private string StateLabel => ScanState switch
+    {
+        ToggleState.Base => "Good",
+        ToggleState.Good => "Good",
+        ToggleState.Bad => "Bad",
+        _ => "Good"
+    };
+
+    private ButtonStyle StateButtonStyle => ScanState switch
+    {
+        ToggleState.Base => ButtonStyle.Base,
+        ToggleState.Good => ButtonStyle.Success,
+        ToggleState.Bad => ButtonStyle.Danger,
+        _ => ButtonStyle.Base
+    };
+
+    private async Task ToggleAsync()
+    {
+        var next = ScanState switch
+        {
+            ToggleState.Base => ToggleState.Good,
+            ToggleState.Good => ToggleState.Bad,
+            ToggleState.Bad => ToggleState.Base,
+            _ => ToggleState.Base
+        };
+
+        ScanState = next;
+        await ScanStateChanged.InvokeAsync(next);
+
+        try
+        {
+            await Js.InvokeVoidAsync("blurActiveElement");
+        }
+        catch (JSException)
+        {
+        }
+    }
+}

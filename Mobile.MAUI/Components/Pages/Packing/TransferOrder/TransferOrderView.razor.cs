@@ -1,185 +1,60 @@
-using Microsoft.JSInterop;
-using Mobile.MAUI.Helpers.Extensions;
 using Mobile.MAUI.Services;
-using Shared.Libraries.ViewModel.Authentication;
+using Microsoft.AspNetCore.Components.Web;
 using Shared.Libraries.ViewModel.TransferOrder;
-using System.Globalization;
+using Shared.Libraries.ViewModel.Authentication;
 using System.Text.Json;
 using static Mobile.MAUI.MauiProgram;
 
 namespace Mobile.MAUI.Components.Pages.Packing.TransferOrder;
 
-public partial class TransferOrderView : IAsyncDisposable
+public partial class TransferOrderView : IDisposable
 {
-    private IJSObjectReference JsObj { get; set; }
-
-    List<TransferOrderVM> Data { get; set; } = [];
-
-    AppAction<List<TransferOrderVM>> ActionGetTransferOrder;
-
-    int UserSubsidiaryId { get; set; }
-    int UserId { get; set; }
-
-    private List<TransferOrderVM> FilteredData { get; set; } = [];
     private string SearchText { get; set; } = string.Empty;
-
-    protected override async Task OnInitializedAsync()
+    private string ErrorMessage { get; set; } = string.Empty;
+    private int _lookupInProgress;
+    private bool IsLoading => Volatile.Read(ref _lookupInProgress) != 0;
+    private List<TransferOrderVM> Data { get; set; } = [];
+    private List<TransferOrderVM> FilteredData { get; set; } = [];
+    private bool IsListLoading { get; set; }
+    private string ListErrorMessage { get; set; } = string.Empty;
+    protected override Task OnInitializedAsync()
     {
-        string userId = await AuthState.GetAuthenticatedUserId();
-        ActionGetTransferOrder = new AppAction<List<TransferOrderVM>>
-        {
-            Name = "GetTransferOrder",
-            TaskAsync = async () =>
-            {
-                await InvokeAsync(StateHasChanged);
-                var res = await Client.Get<List<TransferOrderVM>>("/Packing/TransferOrder/PendingFulfillment", new { NetsuiteUserSubsidiaryInternalId = UserSubsidiaryId, NetsuiteUserInternalId = UserId });
-                return res;
-            },
-            OnSuccess = async (result) =>
-            {
-                Data = result.Data ?? [];
-                ApplySearch();
-
-                await InvokeAsync(StateHasChanged);
-            }
-        };
-
         BroadcastService.BroadcastReceived += HandleItemScan;
+        return Task.CompletedTask;
     }
-
-    protected override async Task OnAfterRenderAsync(bool firstRender)
+    private Task OnSearchInput(ChangeEventArgs args) { SearchText = args.Value?.ToString() ?? string.Empty; ApplySearch(); return Task.CompletedTask; }
+    private void ApplySearch() => FilteredData = string.IsNullOrWhiteSpace(SearchText) ? Data.ToList() : Data.Where(x => new[] { x.OrderNumber, x.OrderStatus, x.OrderType }.Any(v => v?.Contains(SearchText.Trim(), StringComparison.OrdinalIgnoreCase) == true) || x.NetsuiteOrderCreatedDate.ToString("MMMM d, yyyy").Contains(SearchText.Trim(), StringComparison.OrdinalIgnoreCase)).ToList();
+    private Task ClearSearch() { SearchText = string.Empty; ApplySearch(); return Task.CompletedTask; }
+    private async Task LoadData()
     {
-        if (firstRender)
+        if (IsListLoading) return; IsListLoading = true; ListErrorMessage = string.Empty; await InvokeAsync(StateHasChanged);
+        try
         {
-            string? userAuth = await SecureStorage.GetAsync("UserAuth");
-            if (userAuth is not null)
-            {
-                var auth = JsonSerializer.Deserialize<AuthenticationVM>(userAuth);
-
-                UserSubsidiaryId = auth.NetsuiteSubsidiaryInternalId;
-                UserId = auth.NetsuiteEmployeeInternalId;
-            }
-
-            await LoadData();
+            var userAuth = await SecureStorage.GetAsync("UserAuth"); var auth = userAuth is null ? null : JsonSerializer.Deserialize<AuthenticationVM>(userAuth);
+            if (auth is null) { ListErrorMessage = "Unable to read your user information. Sign in again and retry."; return; }
+            var result = await Client.Post<List<TransferOrderVM>>("/Packing/TransferOrder/PendingFulfillment", new { NetsuiteUserSubsidiaryInternalId = auth.NetsuiteSubsidiaryInternalId, NetsuiteUserInternalId = auth.NetsuiteEmployeeInternalId });
+            if (result is null || !result.Success) { ListErrorMessage = result?.ErrorMessage ?? "Unable to load pending transfer orders. Try again."; return; }
+            Data = result.Data ?? []; ApplySearch();
         }
-
-        if (FilteredData.Count > 0 && JsObj is null)
+        catch (Exception ex) when (ex is not NotAuthorizedException) { ListErrorMessage = "Unable to load pending transfer orders. Check your connection and try again."; }
+        finally { IsListLoading = false; await InvokeAsync(StateHasChanged); }
+    }
+    private async Task HandleEnter(KeyboardEventArgs args) { if (args.Key == "Enter") await SubmitLookup(); }
+    private async void HandleItemScan(object? sender, string message) { if (!string.IsNullOrWhiteSpace(message)) { SearchText = message.Trim(); ApplySearch(); try { await InvokeAsync(SubmitLookup); } catch { } } }
+    private async Task SubmitLookup()
+    {
+        var number = SearchText.Trim();
+        if (number.Length == 0) { ErrorMessage = "Enter or scan a transfer order number."; return; }
+        if (Interlocked.CompareExchange(ref _lookupInProgress, 1, 0) != 0) return;
+        ErrorMessage = string.Empty; await InvokeAsync(StateHasChanged);
+        try
         {
-            JsObj = await Js.InvokeAsync<IJSObjectReference>("import", "./js/IntersectionObserver.js");
-            await JsObj.InvokeVoidAsync("Observe");
+            var result = await Client.Post<TransferOrderVM>("/Packing/TransferOrder/Lookup", new { OrderNumber = number });
+            if (result is null || !result.Success || result.Data is null) { ErrorMessage = result?.ErrorMessage ?? "No eligible transfer order was found."; return; }
+            NavManager.NavigateTo($"/packing/transferorder/{Uri.EscapeDataString(result.Data.OrderNumber)}");
         }
+        catch (Exception ex) when (ex is not NotAuthorizedException) { ErrorMessage = ex.Message.Contains("404", StringComparison.OrdinalIgnoreCase) ? "No eligible transfer order was found." : "Unable to find that transfer order. Check your connection and try again."; }
+        finally { Interlocked.Exchange(ref _lookupInProgress, 0); await InvokeAsync(StateHasChanged); }
     }
-
-    async Task LoadData()
-    {
-        await ActionFactory.ExecuteAppActionAsync(ActionGetTransferOrder);
-    }
-
-    #region Search
-    async void HandleItemScan(object sender, string message)
-    {
-        SearchText = message?.Trim();
-
-        ApplySearch();
-
-        await InvokeAsync(StateHasChanged);
-    }
-
-    private async Task OnSearchInput(ChangeEventArgs args)
-    {
-        SearchText = args.Value?.ToString() ?? string.Empty;
-
-        ApplySearch();
-
-        await InvokeAsync(StateHasChanged);
-    }
-
-    private async Task ClearSearch()
-    {
-        SearchText = string.Empty;
-
-        ApplySearch();
-
-        await InvokeAsync(StateHasChanged);
-    }
-
-    private void ApplySearch()
-    {
-        if (string.IsNullOrWhiteSpace(SearchText))
-        {
-            FilteredData = Data.ToList();
-            return;
-        }
-
-        var search = SearchText.Trim();
-
-        FilteredData = Data
-            .Where(row => MatchesSearch(row, search))
-            .ToList();
-    }
-
-    private static bool MatchesSearch(TransferOrderVM row, string search)
-    {
-        if (ContainsIgnoreCase(row.OrderNumber, search))
-            return true;
-
-        if (ContainsIgnoreCase(row.OrderStatus, search))
-            return true;
-
-        if (ContainsIgnoreCase(row.OrderType, search))
-            return true;
-
-        var createdDateFormats = new[]
-        {
-            row.NetsuiteOrderCreatedDate.ToString("MMMM d, yyyy", CultureInfo.InvariantCulture),
-            row.NetsuiteOrderCreatedDate.ToString("MMM d, yyyy", CultureInfo.InvariantCulture),
-            row.NetsuiteOrderCreatedDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
-            row.NetsuiteOrderCreatedDate.ToString("MM/dd/yyyy", CultureInfo.InvariantCulture),
-            row.NetsuiteOrderCreatedDate.ToString("M/d/yyyy", CultureInfo.InvariantCulture)
-        };
-
-        if (createdDateFormats.Any(date => ContainsIgnoreCase(date, search)))
-            return true;
-
-        if (DateTime.TryParse(search, out var parsedDate))
-        {
-            return row.NetsuiteOrderCreatedDate.Date == parsedDate.Date;
-        }
-
-        return false;
-    }
-
-    private static bool ContainsIgnoreCase(string? source, string search)
-    {
-        return !string.IsNullOrWhiteSpace(source) &&
-               source.Contains(search, StringComparison.OrdinalIgnoreCase);
-    }
-
-    #endregion
-
-    public async ValueTask DisposeAsync()
-    {
-        BroadcastService.BroadcastReceived -= HandleItemScan;
-
-        if (JsObj is not null)
-        {
-            try
-            {
-                await JsObj.InvokeVoidAsync("Dispose");
-            }
-            catch
-            {
-                // ignore cleanup errors
-            }
-
-            try
-            {
-                await JsObj.DisposeAsync();
-            }
-            finally
-            {
-                JsObj = null;
-            }
-        }
-    }
+    public void Dispose() => BroadcastService.BroadcastReceived -= HandleItemScan;
 }

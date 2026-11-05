@@ -84,13 +84,21 @@ public class TripTicketIntegration(
                 ("t.tranid", nameof(ItemFulfillmentDTO.OrderNumber)),
                 ("t.recordtype", nameof(ItemFulfillmentDTO.OrderType)),
                 ("t.status", nameof(ItemFulfillmentDTO.OrderStatus)),
+                ("BUILTIN.DF(tl.location)", nameof(ItemFulfillmentDTO.SourceLocation)),
+                ("BUILTIN.DF(t.transferlocation)", nameof(ItemFulfillmentDTO.DestinationLocation)),
+                ("BUILTIN.DF(t.subsidiary)", nameof(ItemFulfillmentDTO.FromSubsidiary)),
+                ("BUILTIN.DF(lsm.subsidiary)", nameof(ItemFulfillmentDTO.ToSubsidiary)),
+                ("t.subsidiary", nameof(ItemFulfillmentDTO.NetsuiteFromSubsidiaryInternalId)),
                 ("lsm.subsidiary", nameof(ItemFulfillmentDTO.NetsuiteToSubsidiaryInternalId)),
+                ("tl.location", nameof(ItemFulfillmentDTO.NetsuiteFromLocationInternalId)),
                 ("t.transferlocation", nameof(ItemFulfillmentDTO.NetsuiteToLocationInternalId)),
                 ("TO_CHAR(t.createdDate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(ItemFulfillmentDTO.NetsuiteOrderCreatedDate))
             )
             .From("transaction t")
+            .Join("transactionline tl", on: "tl.transaction = t.id")
             .Join("locationSubsidiaryMap lsm", on: "t.transferlocation = lsm.location")
             .WithFilters(
+                Equal("tl.mainline", "T"),
                 Equal("t.type", "ItemShip"),
                 Equal("t.status", "B"),
                 Any(
@@ -114,15 +122,22 @@ public class TripTicketIntegration(
                 ("t.id", nameof(TripTicketFulfillmentDTO.NetsuiteOrderInternalId)),
                  ("t.tranid", nameof(TripTicketFulfillmentDTO.OrderNumber)),
                 ("t.status", nameof(TripTicketFulfillmentDTO.OrderStatus)),
+                ("BUILTIN.DF(tl.location)", nameof(TripTicketFulfillmentDTO.SourceLocation)),
                 ("BUILTIN.DF(t.transferlocation)", nameof(TripTicketFulfillmentDTO.DestinationLocation)),
+                ("BUILTIN.DF(t.subsidiary)", nameof(TripTicketFulfillmentDTO.FromSubsidiary)),
+                ("BUILTIN.DF(lsm.subsidiary)", nameof(TripTicketFulfillmentDTO.ToSubsidiary)),
+                ("t.subsidiary", nameof(TripTicketFulfillmentDTO.NetsuiteFromSubsidiaryInternalId)),
                 ("lsm.subsidiary", nameof(TripTicketFulfillmentDTO.NetsuiteToSubsidiaryInternalId)),
+                ("tl.location", nameof(TripTicketFulfillmentDTO.NetsuiteFromLocationInternalId)),
                 ("t.transferlocation", nameof(TripTicketFulfillmentDTO.NetsuiteToLocationInternalId)),
                 ("TO_CHAR(t.createdDate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(TripTicketFulfillmentDTO.NetsuiteOrderCreatedDate)))
             .From("customrecord_dbti_trip_ticket tt")
             .Join("customrecord_dbti_trip_ticket_if ttif", on: "tt.id = ttif.custrecord_dbti_ttf_trip_ticket_num")
             .Join("transaction t", on: "ttif.custrecord_dbti_ttf_item_fulfillment_num = t.id")
+            .Join("transactionline tl", on: "tl.transaction = t.id")
             .Join("locationSubsidiaryMap lsm", on: "t.transferlocation = lsm.location")
             .WithFilters(
+                Equal("tl.mainline", "T"),
                 Equal("t.type", "ItemShip"),
                 Equal("ttif.custrecord_dbti_ttf_cancelled_trip", "F"),
                 Equal("tt.id", id))
@@ -144,12 +159,22 @@ public class TripTicketIntegration(
                 ("t.id", nameof(TripTicketFulfillmentDTO.NetsuiteOrderInternalId)),
                 ("t.tranid", nameof(TripTicketFulfillmentDTO.OrderNumber)),
                 ("t.status", nameof(TripTicketFulfillmentDTO.OrderStatus)),
+                ("BUILTIN.DF(tl.location)", nameof(TripTicketFulfillmentDTO.SourceLocation)),
                 ("BUILTIN.DF(t.transferlocation)", nameof(TripTicketFulfillmentDTO.DestinationLocation)),
+                ("BUILTIN.DF(t.subsidiary)", nameof(TripTicketFulfillmentDTO.FromSubsidiary)),
+                ("BUILTIN.DF(lsm.subsidiary)", nameof(TripTicketFulfillmentDTO.ToSubsidiary)),
+                ("t.subsidiary", nameof(TripTicketFulfillmentDTO.NetsuiteFromSubsidiaryInternalId)),
+                ("lsm.subsidiary", nameof(TripTicketFulfillmentDTO.NetsuiteToSubsidiaryInternalId)),
+                ("tl.location", nameof(TripTicketFulfillmentDTO.NetsuiteFromLocationInternalId)),
+                ("t.transferlocation", nameof(TripTicketFulfillmentDTO.NetsuiteToLocationInternalId)),
                 ("TO_CHAR(t.createdDate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(TripTicketFulfillmentDTO.NetsuiteOrderCreatedDate)))
             .From("customrecord_dbti_trip_ticket tt")
             .Join("customrecord_dbti_trip_ticket_if ttif", on: "tt.id = ttif.custrecord_dbti_ttf_trip_ticket_num")
             .Join("transaction t", on: "ttif.custrecord_dbti_ttf_item_fulfillment_num = t.id")
+            .Join("transactionline tl", on: "tl.transaction = t.id")
+            .Join("locationSubsidiaryMap lsm", on: "t.transferlocation = lsm.location")
             .WithFilters(
+                Equal("tl.mainline", "T"),
                 Equal("t.type", "ItemShip"),
                 Any(
                     All(

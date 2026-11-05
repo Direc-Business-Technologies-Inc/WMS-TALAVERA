@@ -54,6 +54,10 @@ public class ActionFactoryService(DialogService Dialog, ToastifyService Toast)
             }
             return appAction;
         }
+        catch (NotAuthorizedException e)
+        {
+            appAction.Result = ApiResult<T>.Failed(e.Message);
+        }
         catch (Exception e)
         {
 
@@ -114,6 +118,10 @@ public class ActionFactoryService(DialogService Dialog, ToastifyService Toast)
             return appAction;
 
 
+        }
+        catch (NotAuthorizedException e)
+        {
+            appAction.Result = ApiResult.Failed(e.Message);
         }
         catch (Exception e)
         {

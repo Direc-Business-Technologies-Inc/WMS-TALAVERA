@@ -1,6 +1,7 @@
 ﻿using Application.DataTransferObjects.Others;
 using Application.UseCases.Repositories.Integration.Others;
 using Integration.NS.Services;
+using Integration.NS.Helpers;
 using Shared.Entities;
 
 namespace Integration.NS.Implementations.Others;
@@ -24,6 +25,8 @@ public class EmployeeIntegration(
                 ("BUILTIN.DF(subsidiary)", "SubsidiaryName")
             )
             .From("employee")
+            .WithDatagridIntent(intent)
+            .WithPropertyMap("FullName", "CONCAT(firstname, CONCAT(' ', lastname))")
             .WithFilter(new AppFilterDescriptor
             {
                 Property = "BUILTIN.DF(custentity_dbti_other_roles)",
@@ -31,7 +34,7 @@ public class EmployeeIntegration(
                 Value = "WMS"
             }).Build();
 
-        var response = await netsuiteService.ExecuteSuiteQLQuery<EmployeeNsDTO>(query.Query, limit: query.Limit, query.Offset);
+        var response = await query.ExecuteWithPaging<EmployeeNsDTO>(netsuiteService);
         return (response.items, response.totalResults);
     }
 }

@@ -6,5 +6,5 @@ namespace Web.BlazorServer.Handlers.Repositories.Others;
 
 public interface IWarehouseMasterDataHandler
 {
-    Task<(IEnumerable<WarehouseVM> Data, int Count)> GetWarehousesAsync(DataGridIntent intent);
+    Task<(IEnumerable<WarehouseVM> Data, int Count)> GetWarehousesAsync(DataGridIntent intent, CancellationToken ct = default);
 }

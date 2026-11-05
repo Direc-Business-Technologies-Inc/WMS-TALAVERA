@@ -16,22 +16,8 @@ internal static class SuiteQLScriptResolver
             throw new Exception($"SQL query '{queryName}' not found.");
         }
 
-        if (parameters is null)
-        {
-            return query;
-        }
-
-        foreach (var parameter in parameters)
-        {
-            query = query.Replace(
-                $"@{parameter.Key}",
-                $"'{parameter.Value.Replace("'", "''")}'");
-
-            query = query.Replace(
-                $"{{{parameter.Key}}}",
-                parameter.Value);
-        }
-
-        return query;
+        // Substitution rules (including the {key} raw-splice guard) are shared
+        // with NetSuiteApiClientService.NetsuiteQuery via SuiteQLText.
+        return SuiteQLText.SubstituteScriptParameters(query, parameters);
     }
 }

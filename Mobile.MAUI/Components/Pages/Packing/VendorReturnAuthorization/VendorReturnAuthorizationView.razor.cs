@@ -1,188 +1,60 @@
-using Microsoft.JSInterop;
-using Mobile.MAUI.Helpers.Extensions;
 using Mobile.MAUI.Services;
-using Shared.Libraries.ViewModel.Authentication;
+using Microsoft.AspNetCore.Components.Web;
 using Shared.Libraries.ViewModel.VendorReturnAuthorization;
-using System.Globalization;
+using Shared.Libraries.ViewModel.Authentication;
 using System.Text.Json;
 using static Mobile.MAUI.MauiProgram;
 
 namespace Mobile.MAUI.Components.Pages.Packing.VendorReturnAuthorization;
 
-public partial class VendorReturnAuthorizationView : IAsyncDisposable
+public partial class VendorReturnAuthorizationView : IDisposable
 {
-    private IJSObjectReference JsObj { get; set; }
-
-    List<VendorReturnAuthorizationVM> Data { get; set; } = [];
-
-    AppAction<List<VendorReturnAuthorizationVM>> ActionGetVRA;
-
-    int UserSubsidiaryId { get; set; }
-    int UserId { get; set; }
-
-    private List<VendorReturnAuthorizationVM> FilteredData { get; set; } = [];
     private string SearchText { get; set; } = string.Empty;
-
-    protected override async Task OnInitializedAsync()
+    private string ErrorMessage { get; set; } = string.Empty;
+    private int _lookupInProgress;
+    private bool IsLoading => Volatile.Read(ref _lookupInProgress) != 0;
+    private List<VendorReturnAuthorizationVM> Data { get; set; } = [];
+    private List<VendorReturnAuthorizationVM> FilteredData { get; set; } = [];
+    private bool IsListLoading { get; set; }
+    private string ListErrorMessage { get; set; } = string.Empty;
+    protected override Task OnInitializedAsync()
     {
-        string userId = await AuthState.GetAuthenticatedUserId();
-        ActionGetVRA = new AppAction<List<VendorReturnAuthorizationVM>>
-        {
-            Name = "GetVRA",
-            TaskAsync = async () =>
-            {
-                await InvokeAsync(StateHasChanged);
-                var res = await Client.Get<List<VendorReturnAuthorizationVM>>("/Packing/VendorReturnAuthorization/PendingReturn", new { NetsuiteUserSubsidiaryInternalId = UserSubsidiaryId, NetsuiteUserInternalId = UserId });
-                return res;
-            },
-            OnSuccess = async (result) =>
-            {
-                Data = result.Data ?? [];
-                ApplySearch();
-
-                await InvokeAsync(StateHasChanged);
-            }
-        };
-
         BroadcastService.BroadcastReceived += HandleItemScan;
+        return Task.CompletedTask;
     }
-
-    protected override async Task OnAfterRenderAsync(bool firstRender)
+    private Task OnSearchInput(ChangeEventArgs args) { SearchText = args.Value?.ToString() ?? string.Empty; ApplySearch(); return Task.CompletedTask; }
+    private void ApplySearch() => FilteredData = string.IsNullOrWhiteSpace(SearchText) ? Data.ToList() : Data.Where(x => new[] { x.OrderNumber, x.CustomerName, x.OrderStatus, x.OrderType }.Any(v => v?.Contains(SearchText.Trim(), StringComparison.OrdinalIgnoreCase) == true) || x.NetsuiteOrderCreatedDate.ToString("MMMM d, yyyy").Contains(SearchText.Trim(), StringComparison.OrdinalIgnoreCase)).ToList();
+    private Task ClearSearch() { SearchText = string.Empty; ApplySearch(); return Task.CompletedTask; }
+    private async Task LoadData()
     {
-        if (firstRender)
+        if (IsListLoading) return; IsListLoading = true; ListErrorMessage = string.Empty; await InvokeAsync(StateHasChanged);
+        try
         {
-            string? userAuth = await SecureStorage.GetAsync("UserAuth");
-            if (userAuth is not null)
-            {
-                var auth = JsonSerializer.Deserialize<AuthenticationVM>(userAuth);
-
-                UserSubsidiaryId = auth.NetsuiteSubsidiaryInternalId;
-                UserId = auth.NetsuiteEmployeeInternalId;
-            }
-
-            await LoadData();
+            var userAuth = await SecureStorage.GetAsync("UserAuth"); var auth = userAuth is null ? null : JsonSerializer.Deserialize<AuthenticationVM>(userAuth);
+            if (auth is null) { ListErrorMessage = "Unable to read your user information. Sign in again and retry."; return; }
+            var result = await Client.Post<List<VendorReturnAuthorizationVM>>("/Packing/VendorReturnAuthorization/PendingReturn", new { NetsuiteUserSubsidiaryInternalId = auth.NetsuiteSubsidiaryInternalId, NetsuiteUserInternalId = auth.NetsuiteEmployeeInternalId });
+            if (result is null || !result.Success) { ListErrorMessage = result?.ErrorMessage ?? "Unable to load pending vendor return authorizations. Try again."; return; }
+            Data = result.Data ?? []; ApplySearch();
         }
-
-        if (FilteredData.Count > 0 && JsObj is null)
+        catch (Exception ex) when (ex is not NotAuthorizedException) { ListErrorMessage = "Unable to load pending vendor return authorizations. Check your connection and try again."; }
+        finally { IsListLoading = false; await InvokeAsync(StateHasChanged); }
+    }
+    private async Task HandleEnter(KeyboardEventArgs args) { if (args.Key == "Enter") await SubmitLookup(); }
+    private async void HandleItemScan(object? sender, string message) { if (!string.IsNullOrWhiteSpace(message)) { SearchText = message.Trim(); ApplySearch(); try { await InvokeAsync(SubmitLookup); } catch { } } }
+    private async Task SubmitLookup()
+    {
+        var number = SearchText.Trim();
+        if (number.Length == 0) { ErrorMessage = "Enter or scan a vendor return authorization number."; return; }
+        if (Interlocked.CompareExchange(ref _lookupInProgress, 1, 0) != 0) return;
+        ErrorMessage = string.Empty; await InvokeAsync(StateHasChanged);
+        try
         {
-            JsObj = await Js.InvokeAsync<IJSObjectReference>("import", "./js/IntersectionObserver.js");
-            await JsObj.InvokeVoidAsync("Observe");
+            var result = await Client.Post<VendorReturnAuthorizationVM>("/Packing/VendorReturnAuthorization/Lookup", new { OrderNumber = number });
+            if (result is null || !result.Success || result.Data is null) { ErrorMessage = result?.ErrorMessage ?? "No eligible vendor return authorization was found."; return; }
+            NavManager.NavigateTo($"/packing/vra/{Uri.EscapeDataString(result.Data.OrderNumber)}");
         }
+        catch (Exception ex) when (ex is not NotAuthorizedException) { ErrorMessage = ex.Message.Contains("404", StringComparison.OrdinalIgnoreCase) ? "No eligible vendor return authorization was found." : "Unable to find that vendor return authorization. Check your connection and try again."; }
+        finally { Interlocked.Exchange(ref _lookupInProgress, 0); await InvokeAsync(StateHasChanged); }
     }
-
-    async Task LoadData()
-    {
-        await ActionFactory.ExecuteAppActionAsync(ActionGetVRA);
-    }
-
-    #region Search
-    async void HandleItemScan(object sender, string message)
-    {
-        SearchText = message?.Trim();
-
-        ApplySearch();
-
-        await InvokeAsync(StateHasChanged);
-    }
-
-    private async Task OnSearchInput(ChangeEventArgs args)
-    {
-        SearchText = args.Value?.ToString() ?? string.Empty;
-
-        ApplySearch();
-
-        await InvokeAsync(StateHasChanged);
-    }
-
-    private async Task ClearSearch()
-    {
-        SearchText = string.Empty;
-
-        ApplySearch();
-
-        await InvokeAsync(StateHasChanged);
-    }
-
-    private void ApplySearch()
-    {
-        if (string.IsNullOrWhiteSpace(SearchText))
-        {
-            FilteredData = Data.ToList();
-            return;
-        }
-
-        var search = SearchText.Trim();
-
-        FilteredData = Data
-            .Where(row => MatchesSearch(row, search))
-            .ToList();
-    }
-
-    private static bool MatchesSearch(VendorReturnAuthorizationVM row, string search)
-    {
-        if (ContainsIgnoreCase(row.OrderNumber, search))
-            return true;
-
-        if (ContainsIgnoreCase(row.CustomerName, search))
-            return true;
-
-        if (ContainsIgnoreCase(row.OrderStatus, search))
-            return true;
-
-        if (ContainsIgnoreCase(row.OrderType, search))
-            return true;
-
-        var createdDateFormats = new[]
-        {
-            row.NetsuiteOrderCreatedDate.ToString("MMMM d, yyyy", CultureInfo.InvariantCulture),
-            row.NetsuiteOrderCreatedDate.ToString("MMM d, yyyy", CultureInfo.InvariantCulture),
-            row.NetsuiteOrderCreatedDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
-            row.NetsuiteOrderCreatedDate.ToString("MM/dd/yyyy", CultureInfo.InvariantCulture),
-            row.NetsuiteOrderCreatedDate.ToString("M/d/yyyy", CultureInfo.InvariantCulture)
-        };
-
-        if (createdDateFormats.Any(date => ContainsIgnoreCase(date, search)))
-            return true;
-
-        if (DateTime.TryParse(search, out var parsedDate))
-        {
-            return row.NetsuiteOrderCreatedDate.Date == parsedDate.Date;
-        }
-
-        return false;
-    }
-
-    private static bool ContainsIgnoreCase(string? source, string search)
-    {
-        return !string.IsNullOrWhiteSpace(source) &&
-               source.Contains(search, StringComparison.OrdinalIgnoreCase);
-    }
-
-    #endregion
-
-    public async ValueTask DisposeAsync()
-    {
-        BroadcastService.BroadcastReceived -= HandleItemScan;
-
-        if (JsObj is not null)
-        {
-            try
-            {
-                await JsObj.InvokeVoidAsync("Dispose");
-            }
-            catch
-            {
-                // ignore cleanup errors
-            }
-
-            try
-            {
-                await JsObj.DisposeAsync();
-            }
-            finally
-            {
-                JsObj = null;
-            }
-        }
-    }
+    public void Dispose() => BroadcastService.BroadcastReceived -= HandleItemScan;
 }

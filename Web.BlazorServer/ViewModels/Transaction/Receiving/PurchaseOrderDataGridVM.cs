@@ -11,6 +11,10 @@ public class PurchaseOrderDataGridVM
     public DateTime? Date { get; set; }
     public DateTime? DeliveryDate { get; set; }
     public string VendorName { get; set; } = string.Empty;
+    [QuickDataGridIgnore]
+    public string PurchaseCategory { get; set; } = string.Empty;
+    [QuickDataGridIgnore]
+    public string PurchaseSubcategory { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;
     [QuickDataGridIgnore]
     public string StatusId { get; set; } = string.Empty;

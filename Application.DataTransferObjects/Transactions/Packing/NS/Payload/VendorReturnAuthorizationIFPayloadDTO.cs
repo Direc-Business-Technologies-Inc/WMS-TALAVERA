@@ -7,32 +7,69 @@ public class VendorReturnAuthorizationIFPayloadDTO
 {
     [JsonPropertyName("shipStatus")]
     public string ShipStatus { get; set; }
+    [JsonPropertyName("custbody_dbti_print_label")]
+    public bool PrintLabel { get; set; }
     [JsonPropertyName("item")]
     public ItemContainer Item { get; set; } = new();
 
     public static VendorReturnAuthorizationIFPayloadDTO CreateForItemFulfillment(
         List<PostVendorReturnAuthorizationDTO> lines,
         string shipStatus,
+        bool printLabel,
         bool isUsedBin)
     {
         // Make it nullable if its not included in json
         return new VendorReturnAuthorizationIFPayloadDTO
         {
             ShipStatus = shipStatus,
+            PrintLabel = printLabel,
             Item = new ItemContainer
             {
                 Items = lines.Select(line =>
                 {
                     if (line.ScannedQuantity == 0)
                     {
-                        return new OrderLineItem
+                        // On bin-tracked locations the transform URL carries ?replace=item.inventoryDetail.inventoryAssignment,
+                        // and NetSuite rejects the request unless the body's item entries carry the sub-resource consistently.
+                        // Zero-qty filler lines therefore get an EMPTY assignment so the replace target exists on every line.
+                        //
+                        // Fillers carry NO quantity field. The explicit Quantity = 0 attempt (build ce8da8a7,
+                        // 2026-10-23) was REFUTED in the field: the transform rejects a line quantity of 0 with
+                        // "Value 0.0 outside of valid min/max range for field quantity". WhenWritingNull omits
+                        // the null, restoring the field-proven shape (Transaction A passed, 2026-10-15).
+                        var filler = new OrderLineItem
                         {
                             OrderLine = line.LineSequenceNumber,
                             isReceived = false
                         };
+
+                        if (isUsedBin)
+                        {
+                            filler.InventoryDetail = new InventoryDetail
+                            {
+                                InventoryAssignment = new InventoryAssignment
+                                {
+                                    Items = []
+                                }
+                            };
+                        }
+
+                        return filler;
                     }
                     else
                     {
+                        // Legacy working shape (pre-2026-07): non-bin locations send no inventoryDetail and let NetSuite auto-manage it.
+                        // Bin-tracked locations need the explicit REST-shaped detail plus ?replace= on the transform URL.
+                        if (!isUsedBin)
+                        {
+                            return new OrderLineItem
+                            {
+                                OrderLine = line.LineSequenceNumber,
+                                isReceived = true,
+                                Quantity = line.ScannedQuantity
+                            };
+                        }
+
                         var assignment = new InventoryAssignment
                         {
                             Items =
@@ -41,10 +78,14 @@ public class VendorReturnAuthorizationIFPayloadDTO
                                 {
                                     InventoryStatus = new ReferenceValue
                                     {
-                                        Id = line.IsBad ? "3" : "1"
+                                        // VRA lines carry no transfer category, so condition drives the status.
+                                        Id = InventoryStatusMap.Resolve(line.IsBad, isMissing: false)
                                     },
                                     Quantity = line.ScannedQuantity,
-                                    BinNumber = !line.IsLocationUsedBin ? null :
+                                    // Use the header isUsedBin (same flag that decides ?replace= and filler
+                                    // shape) so a stale per-line flag can never null the bin on one line
+                                    // while the transform still demands inventoryDetail.
+                                    BinNumber = !isUsedBin ? null :
                                         line.NetsuiteMaterialVendorAssignedBin != 0
                                         ? new ReferenceValue
                                         {
@@ -109,10 +150,7 @@ public class VendorReturnAuthorizationIFPayloadDTO
 
                         var inventoryDetail = new InventoryDetail
                         {
-                            InventoryAssignmentList = new InventoryAssignmentList
-                            {
-                                InventoryAssignment = assignment
-                            }
+                            InventoryAssignment = assignment
                         };
 
                         return new OrderLineItem

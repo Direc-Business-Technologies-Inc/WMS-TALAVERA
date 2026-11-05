@@ -16,6 +16,6 @@ public class GetNonTradeVendorsListQryHandler(IVendorIntegration vendorIntegrati
 {
     public async Task<(IEnumerable<VendorDTO> Data, int Count)> Handle(GetNonTradeVendorsListQry request, CancellationToken cancellationToken)
     {
-        return await vendorIntegration.GetNonTradeVendorsListAsync(request.Intent);
+        return await vendorIntegration.GetNonTradeVendorsListAsync(request.Intent, cancellationToken);
     }
 }

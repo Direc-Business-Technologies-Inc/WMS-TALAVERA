@@ -2,6 +2,7 @@
 @using Web.BlazorServer.Components.Pages.Transaction.Others.BarcodeScanning
 @using Web.BlazorServer.ViewModels.Others
 @using Web.BlazorServer.ViewModels.Transaction.SupplierReturn
+@using global::Shared.Libraries.Utilities
 
 @inherits BaseComponent
 
@@ -41,7 +42,7 @@
                         <RadzenFormField Text="Vendor" class="rz-w-100">
                             <ChildContent>
                                 <RadzenTextBox Disabled="IsDisabled" Visible="@(!IsEditable)" Value="@Model.Vendor?.Name" Placeholder="No vendor given" />
-                                <QuickVirtualizedDropdown Disabled="IsDisabled" Name="str_vendor" @bind-Value:get="@Model.Vendor" @bind-Value:set="@VendorSet" Visible="@IsEditable" TItem="VendorVM" DataGetter="@VendorProvider" TextProperty="@nameof(VendorVM.Name)" />
+                                <QuickVirtualizedDropdown Disabled="IsDisabled" Name="str_vendor" @bind-Value:get="@Model.Vendor" @bind-Value:set="@VendorSet" Visible="@IsEditable" TItem="VendorVM" DataGetter="@VendorProvider" TextProperty="@nameof(VendorVM.Name)" FilterTarget="@nameof(VendorVM.ReferenceNumber)" />
                             </ChildContent>
                             <Helper>
                                 <RadzenRequiredValidator Visible="@IsEditable" Component="str_vendor" />
@@ -104,9 +105,7 @@
                                      JustifyContent="JustifyContent.End"
                                      AlignItems="AlignItems.Center"
                                      Gap="8px">
-                            <RadzenButton Icon="print" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Visible="@ReadOnly">
-                                <RadzenLink Path="@PrintableURL" Text="Print" target="_blank" Icon="print" />
-                            </RadzenButton>
+                            <AppPrintLink Url="@PrintableURL" Visible="@ReadOnly" />
                             <RadzenButton Disabled="@(Model.Location is null)" Visible="@IsEditable" Text="Scan Barcodes" Icon="barcode" Click="OpenBarcodeDialog" ButtonType="ButtonType.Button" Size="ButtonSize.Small" />
                             <RadzenButton ButtonType="ButtonType.Button" Icon="add" Visible="@IsEditable" Disabled="@(Model.Location is null)" Size="ButtonSize.Small" Click="OpenItemDialog" ButtonStyle="ButtonStyle.Success" />
                             <RadzenButton Icon="settings" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@OpenTableSettings" />
@@ -123,7 +122,12 @@
                                 </RadzenStack>
                             </Template>
                         </RadzenDataGridColumn>
-                        <RadzenDataGridColumn TItem="SupplierReturnLineVM" Title="Available Quantity" Property="@nameof(SupplierReturnLineVM.QuantityOnHandByUoM)" Type="typeof(decimal)" FormatString="{0:#,##0.##}" />
+                        <RadzenDataGridColumn TItem="SupplierReturnLineVM" Title="Preferred Vendor" Property="@nameof(SupplierReturnLineVM.Vendor)">
+                            <Template Context="data">
+                                <RadzenText TextStyle="TextStyle.Body2" Text="@(data.PreferredVendor?.Name ?? "Not set")" />
+                            </Template>
+                        </RadzenDataGridColumn>
+                        <RadzenDataGridColumn TItem="SupplierReturnLineVM" Title="On Hand Quantity" Property="@nameof(SupplierReturnLineVM.QuantityOnHandByUoM)" Type="typeof(decimal)" FormatString="{0:#,##0.##}" />
                         <RadzenDataGridColumn TItem="SupplierReturnLineVM" Title="Alloted Quantity">
                             <Template Context="data">
 
@@ -131,7 +135,7 @@
                                     <RadzenText Visible="@(!IsEditable)" TextStyle="TextStyle.Body2" Text="@data.QuantityAlloted.ToString("#,##0.##")" />
                                     <RadzenFormField Visible="IsEditable">
                                         <ChildContent>
-                                            <RadzenNumeric Disabled="IsDisabled" @bind-Value="@data.QuantityAlloted" Format="#,##0.##" />
+                                            <RadzenNumeric Disabled="IsDisabled" @bind-Value="@data.QuantityAlloted" Min="0" Max="@GetMaxAllotedQuantity(data)" Format="#,##0.##" />
                                         </ChildContent>
                                     </RadzenFormField>
                                 </RadzenStack>
@@ -172,7 +176,7 @@
                 <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5em">
                     <RadzenButton Disabled="IsDisabled" ButtonType="ButtonType.Button" Variant="Variant.Outlined" Shade="Shade.Dark" Text="@SecondaryActionString" Visible="@OnSecondaryAction.HasDelegate" Click="SecondaryActionClicked" />
                     <RadzenButton Disabled="IsDisabled" Visible="@OnApprovalAction.HasDelegate" ButtonType="ButtonType.Button" ButtonStyle="ButtonStyle.Success" Text="Submit for Approval" Click="@ApprovalAction" />
-                    <RadzenButton Disabled="IsDisabled" ButtonStyle="ButtonStyle.Success" ButtonType="ButtonType.Submit" Text="@SubmitString" Visible="@OnSubmit.HasDelegate" />
+                    <RadzenButton Disabled="@(IsDisabled || IsSubmitting)" ButtonStyle="ButtonStyle.Success" ButtonType="ButtonType.Submit" Text="@(IsSubmitting ? "Saving..." : SubmitString)" Visible="@OnSubmit.HasDelegate" />
                 </RadzenStack>
             </RadzenStack>
         </RadzenStack>
@@ -192,9 +196,18 @@
 
     async Task OpenItemDialog()
     {
+        if (Model.Vendor is null || Model.Subsidiary is null)
+        {
+            ToastService.Error("Select a preferred vendor and subsidiary before adding items.", "Missing Selection");
+            return;
+        }
+
+        ItemFilters.Clear();
+        ItemFilters.Add(DataGridFilterUtilities.Equal(nameof(ItemsVM.PreferredVendorId), Model.Vendor.Id));
+
         List<ItemsVM> items = await DialogService.OpenAsync(
             "Select Items",
-            ds => @<ItemSelectionDialog Location="@(Model.Location?.Id ?? null)" Filters="ItemFilters" />,
+            ds => @<ItemSelectionDialog Location="@(Model.Location?.Id ?? null)" SubsidiaryId="@Model.Subsidiary?.Id" Filters="ItemFilters" />,
     options: dialogOptions);
 
         if (items is not null) await AddItems(items);
@@ -228,7 +241,7 @@
     {
         bool? save = await DialogService.OpenAsync(
            "Scan Barcodes",
-            ds => @<BarcodeScannerDialog BarcodeStore="BarcodeStore" Verifier="IsValidBarcode" Location="@(Model.Location?.Id ?? null)" />,
+             ds => @<BarcodeScannerDialog BarcodeStore="BarcodeStore" Verifier="IsValidBarcode" Verify Location="@(Model.Location?.Id ?? null)" />,
             options: GridSettingsService.GetDialogOptions());
 
         if (save == false)

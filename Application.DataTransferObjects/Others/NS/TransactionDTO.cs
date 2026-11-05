@@ -19,6 +19,7 @@ public class TransactionDTO : InventoryItemDTO
     public string TransactionLineType { get; set; } = string.Empty;
 
     public decimal LocationItemQuantityAvailable { get; set; }
+    public decimal LocationItemQuantityOnHand { get; set; }
 
     public decimal LineQuantity { get; set; }
     public decimal LineQuantityReceived { get; set; }

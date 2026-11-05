@@ -30,10 +30,11 @@ SELECT
 	ibi2.quantityavailable AS PreferredBinQuantityAvailableBad,
 
 	ibli1.quantityavailable AS LocationItemQuantityAvailableGood,
-    ibli2.quantityavailable AS LocationItemQuantityAvailableBad,
+	ibli2.quantityavailable AS LocationItemQuantityAvailableBad,
 
 	i.weight AS MaterialWeight,
 	ail.quantityavailable as LocationItemQuantityAvailable,
+	ail.quantityonhand as LocationItemQuantityOnHand,
 
 	ABS(tl.quantity) AS LineQuantity,
 	tl.quantityshiprecv AS LineQuantityPacked,
@@ -53,16 +54,31 @@ JOIN subsidiary s ON t.subsidiary = s.id
 JOIN location loc ON tl.location = loc.id
 JOIN unitstypeuom uom ON tl.units = uom.internalid
 
-LEFT JOIN customrecord_dbti_vendor_bin_assignment ba ON t.entity = ba.custrecord_dbti_vba_vendor
+LEFT JOIN (
+	SELECT
+		custrecord_dbti_vba_vendor,
+		custrecord_dbti_vba_location,
+		MIN(custrecord_dbti_vba_assigned_bin) AS custrecord_dbti_vba_assigned_bin
+	FROM customrecord_dbti_vendor_bin_assignment
+	GROUP BY custrecord_dbti_vba_vendor, custrecord_dbti_vba_location
+) ba ON t.entity = ba.custrecord_dbti_vba_vendor
+	AND ba.custrecord_dbti_vba_location = tl.location
 
 LEFT JOIN (
 	SELECT
 		ibq.item,
-		ibq.bin,
+		MIN(ibq.bin) AS bin,
 		b.location
 	FROM itembinquantity ibq
 	JOIN bin b ON b.id = ibq.bin
 	WHERE ibq.preferredbin = 'T'
+	  AND ibq.item IN (
+		SELECT txl.item
+		FROM transaction tx
+		JOIN transactionline txl ON txl.transaction = tx.id
+		WHERE tx.tranid = @tranid
+	)
+	GROUP BY ibq.item, b.location
 ) ibq ON ibq.item = i.id  AND ibq.location = tl.location
 
 LEFT JOIN bin b ON b.id = ibq.bin
@@ -70,15 +86,17 @@ LEFT JOIN bin b ON b.id = ibq.bin
 LEFT JOIN (
 	SELECT
 		item,
-		BUILTIN.DF( item ) AS itemname,
 		location,
-		BUILTIN.DF( location ) AS locationname,
-		quantityavailable
+		quantityavailable,
+		quantityonhand
 	FROM
 		AggregateItemLocation
-	ORDER BY
-		Item,
-		Location
+	WHERE item IN (
+		SELECT txl.item
+		FROM transaction tx
+		JOIN transactionline txl ON txl.transaction = tx.id
+		WHERE tx.tranid = @tranid
+	)
 ) ail ON ail.item = i.id  AND ail.location = tl.location 
 
 LEFT JOIN inventorybalance ibv1
@@ -115,6 +133,12 @@ LEFT JOIN (
         SUM(ib.quantityavailable) AS quantityavailable
     FROM
         inventorybalance ib
+    WHERE ib.item IN (
+        SELECT txl.item
+        FROM transaction tx
+        JOIN transactionline txl ON txl.transaction = tx.id
+        WHERE tx.tranid = @tranid
+    )
     GROUP BY
         ib.item,
         ib.location,
@@ -131,6 +155,12 @@ LEFT JOIN (
         SUM(ib.quantityavailable) AS quantityavailable
     FROM
         inventorybalance ib
+    WHERE ib.item IN (
+        SELECT txl.item
+        FROM transaction tx
+        JOIN transactionline txl ON txl.transaction = tx.id
+        WHERE tx.tranid = @tranid
+    )
     GROUP BY
         ib.item,
         ib.location,

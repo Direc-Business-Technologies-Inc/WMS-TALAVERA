@@ -33,6 +33,14 @@
                               Type="@typeof(string)"
                               Title="Vendor Name" />
         <RadzenDataGridColumn TItem="PurchaseOrderDataGridVM"
+                              Property="@nameof(PurchaseOrderDataGridVM.PurchaseCategory)"
+                              Type="@typeof(string)"
+                              Title="Purchase Category" />
+        <RadzenDataGridColumn TItem="PurchaseOrderDataGridVM"
+                              Property="@nameof(PurchaseOrderDataGridVM.PurchaseSubcategory)"
+                              Type="@typeof(string)"
+                              Title="Purchase Subcategory" />
+        <RadzenDataGridColumn TItem="PurchaseOrderDataGridVM"
                               Property="@nameof(PurchaseOrderDataGridVM.Status)"
                               Type="@typeof(string)"
                               Title="Status">

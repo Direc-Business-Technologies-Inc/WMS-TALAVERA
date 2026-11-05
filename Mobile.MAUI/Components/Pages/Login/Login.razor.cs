@@ -38,7 +38,7 @@ public partial class Login
                     var auth = JsonSerializer.Deserialize<AuthenticationVM>(userAuth);
                 }
 
-                NavManager.NavigateTo($"/", true, true);
+                NavManager.NavigateTo($"/", false, true);
             }
         };
     }

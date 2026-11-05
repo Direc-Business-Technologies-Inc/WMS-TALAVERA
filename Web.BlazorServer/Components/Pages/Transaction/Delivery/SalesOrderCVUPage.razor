@@ -115,7 +115,7 @@
                 <ChildContent>
                     <RadzenRow>
                         <RadzenColumn>
-                            <AppTable @ref="@SalesOrderTable" Id="so_cvu_items" TItem="SalesOrderLineVM" @bind-GridSettingsLoaded="@GridSettingsLoaded" Data="[..FormData.DocumentLines]">
+                            <AppTable @ref="@SalesOrderTable" Id="so_cvu_items" TItem="SalesOrderLineVM" @bind-GridSettingsLoaded="@GridSettingsLoaded" Data="@FormData.DocumentLines">
                                 <HeaderTemplate>
                                     <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" AlignItems="AlignItems.Center" Gap="8px">
                                         <RadzenButton Icon="settings" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@OpenTableSettings" />

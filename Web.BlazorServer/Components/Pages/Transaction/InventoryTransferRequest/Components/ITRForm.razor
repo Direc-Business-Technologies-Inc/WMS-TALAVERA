@@ -135,7 +135,7 @@
             <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5em">
                 <RadzenButton Disabled="IsDisabled" Visible="@OnSecondaryAction.HasDelegate" ButtonType="ButtonType.Button" ButtonStyle="ButtonStyle.Success" Variant="Variant.Outlined" Shade="Shade.Dark" Text="@SecondaryActionLabel" Click="@SecondaryAction" />
                 <RadzenButton Disabled="IsDisabled" Visible="@OnApprovalAction.HasDelegate" ButtonType="ButtonType.Button" ButtonStyle="ButtonStyle.Success" Text="Submit for Approval" Click="@ApprovalAction" />
-                <RadzenButton Disabled="IsDisabled" Visible="@OnSubmit.HasDelegate" ButtonType="ButtonType.Submit" ButtonStyle="ButtonStyle.Success" Text="@SubmitLabel" />
+                <RadzenButton Disabled="@(IsDisabled || IsSubmitting)" Visible="@OnSubmit.HasDelegate" ButtonType="ButtonType.Submit" ButtonStyle="ButtonStyle.Success" Text="@(IsSubmitting ? "Saving..." : SubmitLabel)" />
             </RadzenStack>
         </RadzenStack>
     </RadzenStack>

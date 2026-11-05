@@ -20,7 +20,7 @@ public class LocationIntegration(
     IHttpContextAccessor accessor,
     SuiteQLQueryBuilderFactoryService builderFactory) : ILocationIntegration
 {
-    public async Task<(IEnumerable<LocationDTO> data, int count)> GetLocationsAsync(DataGridIntent intent)
+    public async Task<(IEnumerable<LocationDTO> data, int count)> GetLocationsAsync(DataGridIntent intent, CancellationToken ct = default)
     {
         var query = builderFactory.Create()
             .Select(
@@ -36,10 +36,10 @@ public class LocationIntegration(
             .WithDatagridIntent(intent)
             .Build();
 
-        var result = await query.ExecuteWithPaging<LocationDTO>(netsuiteService);
+        var result = await query.ExecuteWithPaging<LocationDTO>(netsuiteService, ct);
         return (result.items, result.totalResults);
     }
-    public async Task<(IEnumerable<LocationDTO> data, int count)> GetLocationsBySubsidiaryAsync(DataGridIntent intent, int subsidiary)
+    public async Task<(IEnumerable<LocationDTO> data, int count)> GetLocationsBySubsidiaryAsync(DataGridIntent intent, int subsidiary, CancellationToken ct = default)
     {
         var query = builderFactory.Create()
             .Select(
@@ -56,10 +56,10 @@ public class LocationIntegration(
             .WithDatagridIntent(intent)
             .Build();
 
-        var result = await query.ExecuteWithPaging<LocationDTO>(netsuiteService);
+        var result = await query.ExecuteWithPaging<LocationDTO>(netsuiteService, ct);
         return (result.items, result.totalResults);
     }
-    public async Task<(IEnumerable<LocationDTO> data, int count)> GetSublocationsOfLocationAsync(DataGridIntent intent, int location)
+    public async Task<(IEnumerable<LocationDTO> data, int count)> GetSublocationsOfLocationAsync(DataGridIntent intent, int location, CancellationToken ct = default)
     {
         var query = builderFactory.Create()
             .Select(
@@ -77,10 +77,10 @@ public class LocationIntegration(
             .WithDatagridIntent(intent)
             .Build();
 
-        var result = await query.ExecuteWithPaging<LocationDTO>(netsuiteService);
+        var result = await query.ExecuteWithPaging<LocationDTO>(netsuiteService, ct);
         return (result.items, result.totalResults);
     }
-    public async Task<(IEnumerable<LocationDTO> data, int count)> GetCurrentUserAllowedLocations(DataGridIntent intent)
+    public async Task<(IEnumerable<LocationDTO> data, int count)> GetCurrentUserAllowedLocations(DataGridIntent intent, CancellationToken ct = default)
     {
         string? claimValue = accessor.HttpContext?.User?.FindFirst("com.direcbusiness.wms.nsEmployeeId")?.Value;
         if (claimValue is null) return ([], 0);
@@ -93,9 +93,9 @@ public class LocationIntegration(
         {
             return ([], 0);
         }
-        return await GetUserAllowedLocations(intent, employeeId);
+        return await GetUserAllowedLocations(intent, employeeId, ct);
     }
-    public async Task<(IEnumerable<LocationDTO> data, int count)> GetUserAllowedLocations(DataGridIntent intent, int employeeId)
+    public async Task<(IEnumerable<LocationDTO> data, int count)> GetUserAllowedLocations(DataGridIntent intent, int employeeId, CancellationToken ct = default)
     {
 
         var query = builderFactory.Create()
@@ -116,11 +116,11 @@ public class LocationIntegration(
             .WithDatagridIntent(intent)
             .Build();
 
-        var result = await query.ExecuteWithPaging<LocationDTO>(netsuiteService);
+        var result = await query.ExecuteWithPaging<LocationDTO>(netsuiteService, ct);
         return (result.items, result.totalResults);
     }
 
-    public async Task<LocationDTO?> GetLocation(int locationId)
+    public async Task<LocationDTO?> GetLocation(int locationId, CancellationToken ct = default)
     {
         var query = builderFactory.Create()
             .Select(
@@ -137,16 +137,16 @@ public class LocationIntegration(
                 DataGridFilterUtilities.Equal("id", locationId)
             )
             .Build();
-        var result = await query.ExecuteWithPaging<LocationDTO>(netsuiteService);
+        var result = await query.ExecuteWithPaging<LocationDTO>(netsuiteService, ct);
         return result.items.FirstOrDefault();
     }
 
-    public async Task<(IEnumerable<LocationBinDTO> data, int count)> GetLocationBinsAsync(LocationDTO dto, DataGridIntent intent)
+    public async Task<(IEnumerable<LocationBinDTO> data, int count)> GetLocationBinsAsync(LocationDTO dto, DataGridIntent intent, CancellationToken ct = default)
     {
-        return await GetLocationBinsAsync(dto.Id, intent);
+        return await GetLocationBinsAsync(dto.Id, intent, ct);
     }
 
-    public async Task<LocationDTO?> GetParentLocation(int locationId)
+    public async Task<LocationDTO?> GetParentLocation(int locationId, CancellationToken ct = default)
     {
         var query = builderFactory.Create()
             .Select(
@@ -164,11 +164,11 @@ public class LocationIntegration(
             )
             .Build();
 
-        var result = await query.ExecuteWithPaging<LocationDTO>(netsuiteService);
+        var result = await query.ExecuteWithPaging<LocationDTO>(netsuiteService, ct);
         return result.items.FirstOrDefault();
     }
 
-    public async Task<(IEnumerable<LocationBinDTO> data, int count)> GetLocationBinsAsync(int locationId, DataGridIntent intent)
+    public async Task<(IEnumerable<LocationBinDTO> data, int count)> GetLocationBinsAsync(int locationId, DataGridIntent intent, CancellationToken ct = default)
     {
         var query = builderFactory.Create()
             .Select(
@@ -180,7 +180,7 @@ public class LocationIntegration(
             .WithFilters(DataGridFilterUtilities.Equal("bin.location", locationId))
             .Build();
 
-        var result = await netsuiteService.ExecuteSuiteQLQuery<LocationBinDTO>(query.Query, query.Limit, query.Offset);
+        var result = await netsuiteService.ExecuteSuiteQLQuery<LocationBinDTO>(query.Query, query.Limit, query.Offset, ct);
         return (result.items, result.totalResults);
     }
 }

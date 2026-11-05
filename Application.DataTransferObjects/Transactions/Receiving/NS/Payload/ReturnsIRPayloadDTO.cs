@@ -44,10 +44,23 @@ public class ReturnsIRPayloadDTO
                 {
                     if (line.ScannedQuantity == 0)
                     {
+                        // SaveReturnsItemReceipt always posts with
+                        // ?replace=item.inventoryDetail.inventoryAssignment, so the sub-resource has
+                        // to exist on EVERY item entry. A partially scanned returns receipt otherwise
+                        // fails with [INVALID_PARAMETER] "Resource or sub-resource 'InventoryDetail'
+                        // ... was not found in the request body". Zero-qty fillers carry an EMPTY
+                        // assignment, matching the fulfillment builders' proven shape.
                         return new OrderLineItem
                         {
                             OrderLine = line.LineSequenceNumber,
-                            isReceived = false
+                            isReceived = false,
+                            InventoryDetail = new InventoryDetail
+                            {
+                                InventoryAssignment = new InventoryAssignment
+                                {
+                                    Items = []
+                                }
+                            }
                         };
                     }
                     else

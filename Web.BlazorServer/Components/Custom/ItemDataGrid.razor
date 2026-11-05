@@ -9,10 +9,11 @@
                          AlignItems="AlignItems.Center"
                          Gap="4px">
 
-                <RadzenTextBox @bind-Value="@SearchText"
+                <RadzenTextBox Value="@SearchText"
+                               @oninput="@OnSearchInput"
+                               @onkeydown="@OnSearchKeyDown"
                                Placeholder="Search items..."
-                               Style="width: 250px;"
-                               Change="@OnSearchChanged" />
+                               Style="width: 250px;" />
 
                 @if (!string.IsNullOrWhiteSpace(SearchText))
                 {
@@ -26,6 +27,10 @@
             <RadzenStack Orientation="Orientation.Horizontal"
                          AlignItems="AlignItems.Center"
                          Gap="4px">
+                <SelectAllHeader Value="@GetSelectionHeaderState()"
+                                 OnChange="@ToggleAllItems"
+                                 Disabled="@(SelectionMode != SelectionModes.Multiple)"
+                                 ShowCheckbox="false" />
                 <RadzenButton Icon="settings" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@OpenTableSettings" />
                 <RadzenButton Icon="sync" Size="ButtonSize.Small" Click="DataGrid.ReloadDataAsync" />
             </RadzenStack>
@@ -42,11 +47,17 @@
                               FrozenPosition="FrozenColumnPosition.Right"
                               Width="35px"
                               Filterable="false" Sortable="false" Pickable="false">
+            <HeaderTemplate>
+                <SelectAllHeader Value="@GetSelectionHeaderState()"
+                                 OnChange="@ToggleAllItems"
+                                 Disabled="@(SelectionMode != SelectionModes.Multiple)"
+                                 ShowButton="false"
+                                 CheckboxName="items_datagrid_select_all" />
+            </HeaderTemplate>
             <Template>
-                <RadzenButton Variant="Variant.Text" 
-                    Icon="@(SelectedItems.Any(x => x.ItemNumber == context.ItemNumber) ? "check_box" : "check_box_outline_blank")" 
-                    Size="ButtonSize.ExtraSmall" 
-                    Click="() => SelectItem(context)" />
+                <RadzenCheckBox TValue="bool"
+                                Value="@(SelectedItems.Any(x => x.ItemNumber == context.ItemNumber))"
+                                Change="@(_ => SelectItem(context))" />
             </Template>
         </RadzenDataGridColumn>
     </GridColumns>

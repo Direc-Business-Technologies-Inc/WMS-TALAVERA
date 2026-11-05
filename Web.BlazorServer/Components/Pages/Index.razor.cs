@@ -38,7 +38,7 @@ public partial class Index
         Authenticated = AuthenticationService.IsAuthenticated();
 
         if (Authenticated)
-            NavManager.NavigateTo("/dashboard", true);
+              NavManager.NavigateTo("/dashboard", true);
     }
 
     protected override async Task CancelEditing()
@@ -55,7 +55,9 @@ public partial class Index
         }, AppActionOptionPresets.Loading(ActionLogin));
     }
 
-    protected override async Task HandleSubmit()
+    protected override Task HandleSubmit() => SubmitOnce.RunAsync(HandleLogin);
+
+    async Task HandleLogin()
     {
 
         var action = await AppActionFactory.RunAsync(async () =>

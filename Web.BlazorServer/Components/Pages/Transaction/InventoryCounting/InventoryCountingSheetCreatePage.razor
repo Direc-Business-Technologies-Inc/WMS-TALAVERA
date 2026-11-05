@@ -53,7 +53,7 @@
                               Id="ict_sheet_lines"
                               TItem="InventoryCountingSheetLineVM"
                               @bind-GridSettingsLoaded="@GridSettingsLoaded"
-                              Data="[..FormData.SheetLines]">
+                              Data="@FormData.SheetLines">
                         <HeaderTemplate>
                             <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" AlignItems="AlignItems.Center" Gap="8px">
                                 <RadzenButton Icon="settings" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@OpenSheetLinesSettings" />
@@ -88,10 +88,8 @@
                     <RadzenStack class="rz-mt-4" Orientation="Orientation.Horizontal"
                                  AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
                         <RadzenButton Text="Back" ButtonStyle="ButtonStyle.Base" Click="@GoBack" />
-                        <RadzenButton ButtonStyle="ButtonStyle.Success" ButtonType="ButtonType.Submit"
-                                      IsBusy="@AppBusyService.IsBusy(ActionCreate)">
-                            Save Sheet
-                        </RadzenButton>
+                        <RadzenButton Disabled="@IsSubmitting" ButtonStyle="ButtonStyle.Success" ButtonType="ButtonType.Submit"
+                                      IsBusy="@AppBusyService.IsBusy(ActionCreate)" Text="@SubmitButtonText("Save Sheet")" />
                     </RadzenStack>
                 </RadzenColumn>
             </RadzenRow>

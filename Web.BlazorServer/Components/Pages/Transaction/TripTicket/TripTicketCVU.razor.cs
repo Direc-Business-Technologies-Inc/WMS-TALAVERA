@@ -52,8 +52,6 @@ partial class TripTicketCVU
     readonly string ActionGetLocations = EnumHelper.GetEnumDescription(AppActions.GetTripTicketLocations);
     readonly string ActionGetTruckPlateNumbers = EnumHelper.GetEnumDescription(AppActions.GetTripTicketTruckPlateNumbers);
 
-    private readonly SemaphoreSlim _concurrencySemaphore = new SemaphoreSlim(2, 2);
-
     AppTable<ItemFulfillmentVM> FulfillmentLinesTable { get; set; } = default!;
     DataGridSettings FulfillmentLinesTableSettings { get; set; } = new();
     List<TripTicketVM> ParentTripTickets { get; set; } = new();
@@ -178,7 +176,9 @@ partial class TripTicketCVU
         await InvokeAsync(StateHasChanged);
     }
 
-    protected override async Task HandleSubmit()
+    protected override Task HandleSubmit() => SubmitOnce.RunAsync(HandleTripTicketSubmit);
+
+    async Task HandleTripTicketSubmit()
     {
         if (!ValidateFormData())
             return;
@@ -344,25 +344,15 @@ partial class TripTicketCVU
 
     async Task<(IEnumerable<SubsidiaryVM>, int)> SubsidiaryProvider(DataGridIntent intent)
     {
+        var result = await subsidiaryHandler.GetSubsidiariesAsync(intent);
 
-        await _concurrencySemaphore.WaitAsync();
-
-        try
+        var subsidiaries = result.Data.Select(x => new SubsidiaryVM
         {
-            var result = await subsidiaryHandler.GetSubsidiariesAsync(intent);
+            NetsuiteSubsidiaryInternalId = x.Id,
+            SubsidiaryName = x.Name,
+        });
 
-            var subsidiaries = result.Data.Select(x => new SubsidiaryVM
-            {
-                NetsuiteSubsidiaryInternalId = x.Id,
-                SubsidiaryName = x.Name,
-            });
-
-            return (subsidiaries.ToList(), result.Count);
-        }
-        finally
-        {
-            _concurrencySemaphore.Release();
-        }
+        return (subsidiaries.ToList(), result.Count);
     }
 
     public async Task OnToSubsidiaryChanged(List<SubsidiaryVM>? value)
@@ -424,25 +414,15 @@ partial class TripTicketCVU
 
     async Task<(IEnumerable<LocationVM>, int)> DestinationsProvider(DataGridIntent intent)
     {
+        var result = await locationHandler.GetLocationsAsync(intent);
 
-        await _concurrencySemaphore.WaitAsync();
-
-        try
+        var location = result.Data.Select(x => new LocationVM
         {
-            var result = await locationHandler.GetLocationsAsync(intent);
+            NetsuiteLocationInternalId = x.Id,
+            LocationName = x.Name,
+        });
 
-            var location = result.Data.Select(x => new LocationVM
-            {
-                NetsuiteLocationInternalId = x.Id,
-                LocationName = x.Name,
-            });
-
-            return (location.ToList(), result.Count);
-        }
-        finally
-        {
-            _concurrencySemaphore.Release();
-        }
+        return (location.ToList(), result.Count);
     }
 
     public async Task OnDestinationChanged(List<LocationVM>? value)
@@ -575,7 +555,7 @@ partial class TripTicketCVU
             return false;
         }
 
-        if (!FormData.Destinations.Any(x => x.NetsuiteLocationInternalId > 0))
+        if (FormData.Destinations?.Any(x => x is not null && x.NetsuiteLocationInternalId > 0) != true)
         {
             ToastService.Warning("Please select at least one destination.");
             return false;
@@ -605,7 +585,7 @@ partial class TripTicketCVU
             return false;
         }
 
-        if (!FormData.ItemFulfillments.Any(x => x.NetsuiteOrderInternalId > 0))
+        if (!FormData.ItemFulfillments.Any(x => x is not null && x.NetsuiteOrderInternalId > 0))
         {
             ToastService.Warning("Please add at least one fulfillment before submitting.");
             return false;
@@ -622,16 +602,16 @@ partial class TripTicketCVU
         ];
 
         bool hasOtherItemsWithSameLocation = FormData.ItemFulfillments
-            .Any(x => x.NetsuiteToLocationInternalId == line.NetsuiteToLocationInternalId);
+            .Any(x => x is not null && x.NetsuiteToLocationInternalId == line.NetsuiteToLocationInternalId);
 
         bool hasOtherItemsWithSameSubsidiary = FormData.ItemFulfillments
-            .Any(x => x.NetsuiteToSubsidiaryInternalId == line.NetsuiteToSubsidiaryInternalId);
+            .Any(x => x is not null && x.NetsuiteToSubsidiaryInternalId == line.NetsuiteToSubsidiaryInternalId);
 
         if (!hasOtherItemsWithSameLocation && FormData.Destinations is not null)
         {
             FormData.Destinations =
             [
-                .. FormData.Destinations.Where(d => d.NetsuiteLocationInternalId != line.NetsuiteToLocationInternalId)
+                .. FormData.Destinations.Where(d => d is not null && d.NetsuiteLocationInternalId != line.NetsuiteToLocationInternalId)
             ];
             OnFieldChanged(nameof(FormData.Destinations));
         }
@@ -640,7 +620,7 @@ partial class TripTicketCVU
         {
             FormData.ToSubsidiaries =
             [
-                .. FormData.ToSubsidiaries.Where(s => s.NetsuiteSubsidiaryInternalId != line.NetsuiteToSubsidiaryInternalId)
+                .. FormData.ToSubsidiaries.Where(s => s is not null && s.NetsuiteSubsidiaryInternalId != line.NetsuiteToSubsidiaryInternalId)
             ];
             OnFieldChanged(nameof(FormData.ToSubsidiaries));
         }
@@ -714,7 +694,8 @@ partial class TripTicketCVU
         location?.LocationName ?? string.Empty;
 
     string GetDestinationsText() =>
-        string.Join(", ", FormData.Destinations
+        string.Join(", ", (FormData.Destinations ?? [])
+            .Where(x => x is not null)
             .Select(x => x.LocationName)
             .Where(x => !string.IsNullOrWhiteSpace(x)));
 
@@ -722,7 +703,8 @@ partial class TripTicketCVU
         subsidiary?.SubsidiaryName ?? string.Empty;
 
     string GetToSubsidiaryText() =>
-        string.Join(", ", FormData.ToSubsidiaries
+        string.Join(", ", (FormData.ToSubsidiaries ?? [])
+            .Where(x => x is not null)
             .Select(x => x.SubsidiaryName)
             .Where(x => !string.IsNullOrWhiteSpace(x)));
 

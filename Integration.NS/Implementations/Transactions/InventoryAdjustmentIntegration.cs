@@ -149,7 +149,7 @@ public class InventoryAdjustmentIntegration(
             .WithSubsidiaries(httpContextAccessor, "t")
             .Build();
 
-        var response = await netsuiteService.ExecuteSuiteQLQuery<InventoryAdjustmentDataGridDTO>(query.Query, query.Limit, query.Offset);
+        var response = await query.ExecuteWithPaging<InventoryAdjustmentDataGridDTO>(netsuiteService);
         return (response.items, response.totalResults);
     }
     public Task<(IEnumerable<InventoryAdjustmentDataGridDTO> Data, int Count)> GetReceiptsAdjustmentsAsync(DataGridIntent intent)

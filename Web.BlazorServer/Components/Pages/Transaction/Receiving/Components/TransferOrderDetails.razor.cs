@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Components;
+﻿using Application.DataTransferObjects.Others.NS;
+using Microsoft.AspNetCore.Components;
 using Radzen;
 using Shared.Entities;
 using Web.BlazorServer.Components.Shared.Abstraction;
@@ -76,6 +77,10 @@ partial class TransferOrderDetails
         });
     }
 
+    // Last good page, kept so a cancelled (superseded, navigation-away) load
+    // doesn't wipe the grid to "No records to display".
+    DataGridResultVM<TransferOrderLineVM> LastResult = DataGridResultVM<TransferOrderLineVM>.New([], 0);
+
     async Task<DataGridResultVM<TransferOrderLineVM>> LoadDataAsync(DataGridIntent intent)
     {
         var action = await AppActionFactory.RunAsync(async () =>
@@ -83,9 +88,50 @@ partial class TransferOrderDetails
             return await ReceivingHandler.GetTransferOrderLinesDataGridAsync(Ref, intent);
         }, AppActionOptionPresets.Loading(ActionGetLines));
 
-        AppBusyService.SetBusy(ActionGetLines, false);
         await InvokeAsync(StateHasChanged);
 
-        return DataGridResultVM<TransferOrderLineVM>.New(action.Result.Data ?? [], action.Result.Count);
+        // AppActionFactory swallows the exception and returns normally, so a failed
+        // NetSuite call leaves Result unset. Dereferencing it unconditionally would
+        // throw from inside Radzen's DataGetter, masking the real NetSuite error
+        // behind a second, unrelated exception.
+        //
+        // Order matters: check the offset-corrected recovery first (it arrives as
+        // a failure-shaped action carrying good rows), then cancellation (keep the
+        // previous page, stay silent), then genuine failure (empty, real toast
+        // already shown by the factory).
+        if (action.Exception is NetSuiteOffsetCorrectedException<IEnumerable<TransferOrderLineVM>> corrected)
+        {
+            LastResult = DataGridResultVM<TransferOrderLineVM>.New(
+                corrected.Rows ?? [], corrected.TotalResults);
+
+            // Reposition the pager to the page the integration actually served.
+            // intent.Take is the live page size Radzen just asked for, so this
+            // stays correct even when the user changed the page size mid-flight.
+            // The page is only moved when it differs; when already on the right
+            // page nothing further happens.
+            if (DataGrid?.DataGrid is not null && intent.Take > 0)
+            {
+                var page = Math.Max(0, corrected.CorrectedSkip / intent.Take);
+                if (page != DataGrid.DataGrid.CurrentPage)
+                {
+                    await DataGrid.DataGrid.GoToPage(page);
+                }
+            }
+
+            return LastResult;
+        }
+
+        if (action.IsCancelled)
+        {
+            return LastResult;
+        }
+
+        if (!action.IsSuccess)
+        {
+            return DataGridResultVM<TransferOrderLineVM>.New([], 0);
+        }
+
+        LastResult = DataGridResultVM<TransferOrderLineVM>.New(action.Result.Data ?? [], action.Result.Count);
+        return LastResult;
     }
 }

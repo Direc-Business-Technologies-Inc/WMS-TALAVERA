@@ -19,5 +19,7 @@ JOIN
 WHERE 
 	t.recordtype = 'purchaseorder' AND
 	t.status IN ('B', 'E') AND
+	t.status != 'G' AND
+	(t.custbody_dbti_custom_approval_status IS NULL OR t.custbody_dbti_custom_approval_status != '20') AND
 	t.subsidiary = @subsidiaryid
 ORDER BY t.lastmodifieddate desc

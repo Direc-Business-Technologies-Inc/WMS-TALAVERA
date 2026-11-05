@@ -2,7 +2,7 @@
 @using Web.BlazorServer.ViewModels.Transaction.SupplierReturn
 @inherits BaseComponent 
 
-<QuickDataGrid @ref="@Grid" DataGetter="@LoadDataAsync" ActionName="@ActionGetReturnsToSupplier" Id="returns_to_supplier_datagrid">
+<QuickDataGrid @ref="@Grid" DataGetter="@LoadDataAsync" ActionName="@ActionGetReturnsToSupplier" Id="returns_to_supplier_datagrid" ActionWidth="55">
     <HeaderStart>
         <RadzenFormField Text="Filter by Status" Style="margin-top:-10px!important">
             <QuickVirtualizedDropdown TItem="ReturnStatusVM" DataGetter="StatusProvider" @bind-Value:get="@FilterStatus" @bind-Value:set="FilterSet" TextProperty="@nameof(ReturnStatusVM.Name)"/>
@@ -12,6 +12,9 @@
         <RadzenButton Icon="add" Size="ButtonSize.Small" Click="@(() => NavManager.NavigateTo(SupplierReturnRoutes.CREATE))" ButtonStyle="ButtonStyle.Success" />
     </HeaderEnd>
     <RowActions>
-        <RadzenButton Icon="arrow_right_alt" Size="ButtonSize.ExtraSmall" Click="() => OnRowAction(context)" />
+        <RadzenStack Orientation="Orientation.Horizontal" Gap="4px" JustifyContent="JustifyContent.End">
+            <AppPrintLink Url="@PrintUrl(context)" Size="ButtonSize.ExtraSmall" />
+            <RadzenButton Icon="arrow_right_alt" Size="ButtonSize.ExtraSmall" Click="() => OnRowAction(context)" />
+        </RadzenStack>
     </RowActions>
 </QuickDataGrid>

@@ -1,11 +1,15 @@
+using Application.DataTransferObjects.Others.NS;
 using Application.DataTransferObjects.Transactions.Packing.STR;
 using Application.UseCases.Repositories.Integration.Others;
 using Application.UseCases.Repositories.Integration.Transaction.Packing;
 using Database.Libraries.Repositories;
+using Integration.NS.DataTransferObjects.Packing;
 using Integration.NS.DataTransferObjects.Packing.STR;
+using Integration.NS.Exceptions;
 using Integration.NS.Helpers;
 using Integration.NS.Services;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 using Shared.Entities;
 using Shared.Libraries.Utilities;
 using static Shared.Libraries.Utilities.DataGridFilterUtilities;
@@ -16,13 +20,16 @@ internal class StockTransferRequestPackingIntegration(
     INetSuiteApiClientService netsuiteService,
     IHttpContextAccessor httpContextAccessor,
     ISqlQueryManager sqlQuery,
-    SuiteQLQueryBuilderFactoryService builderFactory) : IStockTransferRequestPackingIntegration
+    SuiteQLQueryBuilderFactoryService builderFactory,
+    ILogger<StockTransferRequestPackingIntegration> logger) : IStockTransferRequestPackingIntegration
 {
     public async Task<(IEnumerable<StockTransferRequestPackingDataGridDTO> Data, int Count)> GetPackingStockTransferRequestList(DataGridIntent intent, int subsidiaryId)
     {
         if (intent.Sorts.Count == 0) intent.Sorts.Add(DataGridSortUtilities.Descending(nameof(StrPackingDataGridNSDTO.DateLastModified)));
 
-        var query = builderFactory.Create()
+        var (items, totalResults) = await QueryListWithOffsetClampAsync(intent, "Packing STR list", async skipOverride =>
+        {
+            var query = builderFactory.Create()
             .Select(
                 ("t.id", nameof(StrPackingDataGridNSDTO.Id)),
                 ("t.tranid", nameof(StrPackingDataGridNSDTO.ReferenceNumber)),
@@ -38,16 +45,17 @@ internal class StockTransferRequestPackingIntegration(
             .From("transaction t")
             .Join("transactionline tl", on: "tl.transaction = t.id")
             .LeftJoin("transferorderstatus s", on: "s.id = t.status")
+            .InnerJoin(SuiteQLFragments.PendingPackingLines(), on: SuiteQLFragments.PendingPackingLinesJoinPredicate)
             .WithFilters(
                 Equal("tl.mainline", "T"),
                 Any(
                     All(
                         Equal("t.recordtype", "transferorder"),
-                        Equal("tl.subsidiary", subsidiaryId)
+                        Equal("t.subsidiary", subsidiaryId)
                     ),
                     All(
                         Equal("t.recordtype", "intercompanytransferorder"),
-                        Equal("tl.subsidiary", subsidiaryId)
+                        Equal("t.subsidiary", subsidiaryId)
                     )
                 )
             )
@@ -55,9 +63,56 @@ internal class StockTransferRequestPackingIntegration(
             .WithDatagridIntent(intent)
             .Build();
 
-        var response = await query.ExecuteWithPaging<StrPackingDataGridNSDTO>(netsuiteService);
+            if (skipOverride.HasValue) query.Offset = skipOverride.Value;
 
-        return (response.items.Select(MapDataGridDto), response.totalResults);
+            var response = await query.ExecuteWithPaging<StrPackingDataGridNSDTO>(netsuiteService);
+
+            return response;
+        });
+
+        return (items.Select(MapDataGridDto), totalResults);
+    }
+
+    /// <summary>
+    /// Runs a paged list query with a single offset-clamp retry. NetSuite
+    /// rejects any offset past the end of its (possibly empty) result set, and
+    /// persisted Radzen pager positions routinely request such offsets once a
+    /// result set shrinks or empties. Falls back to the last legal page using
+    /// NetSuite's "between 0 and N" hint, else the first page. A second
+    /// OffsetOutOfBounds means the data moved under us; surface it rather than
+    /// looping. Mirrors the helper of the same name in ReceivingIntegration.
+    /// </summary>
+    private async Task<(IEnumerable<T> items, int totalResults)> QueryListWithOffsetClampAsync<T>(
+        DataGridIntent intent,
+        string gridName,
+        Func<int?, Task<Application.DataTransferObjects.Others.NS.NetSuiteResponse<T>>> executeQuery)
+    {
+        try
+        {
+            var response = await executeQuery(null);
+            return (response.items, response.totalResults);
+        }
+        catch (NetSuiteValidationException ex) when (ex.ErrorCode == NetSuiteErrorCode.OffsetOutOfBounds)
+        {
+            var take = intent.Take <= 0 ? 10 : intent.Take;
+            var bound = NetSuiteErrorCodes.GetOffsetUpperBound(ex.Message, ex.Detail);
+            var retrySkip = bound.HasValue
+                ? Math.Max(0, (bound.Value / take) * take)
+                : 0;
+
+            if (retrySkip == intent.Skip)
+            {
+                throw;
+            }
+
+            logger.LogWarning(
+                ex,
+                "{GridName} requested offset {Skip} is out of bounds; retrying once at offset {RetrySkip}.",
+                gridName, intent.Skip, retrySkip);
+
+            var retry = await executeQuery(retrySkip);
+            return (retry.items, retry.totalResults);
+        }
     }
 
     public async Task<StockTransferRequestInfoPackingDTO?> GetPackingStockTransferRequest(string id)
@@ -77,6 +132,7 @@ internal class StockTransferRequestPackingIntegration(
             )
             .From("transaction t")
             .Join("transactionline tl", on: "tl.transaction = t.id")
+            .InnerJoin(SuiteQLFragments.PendingPackingLines(), on: SuiteQLFragments.PendingPackingLinesJoinPredicate)
             .LeftJoin("employee e", "t.custbody_dbti_prepared_by = e.id")
             .LeftJoin("customrecord_dbti_trip_ticket_exemption tte", "tte.custrecord_dbti_tte_from_location = tl.location AND tte.custrecord_dbti_tte_to_location = t.transferlocation AND tte.isinactive = 'F'")
             .WithFilters(
@@ -86,18 +142,63 @@ internal class StockTransferRequestPackingIntegration(
             .Build();
 
         var response = await netsuiteService.ExecuteSuiteQLQuery<StrPackingHeaderNSDTO>(query.Query, query.Limit, query.Offset);
-        var nsdto = response.items.FirstOrDefault();
+        var nsdto = response.items?.FirstOrDefault();
 
         return nsdto is null ? null : MapInfoDto(nsdto);
     }
 
+    public async Task<bool?> GetTripTicketExemption(string tranid)
+    {
+        if (string.IsNullOrWhiteSpace(tranid)) return null;
+
+        // No packing filters here on purpose. Exemption belongs to the location pair, so it must
+        // still resolve when the order has advanced past the packing screen's filters. Reusing
+        // GetPackingStockTransferRequest would return null in exactly that case and the caller
+        // would post a Packed ship status for an exempt order.
+        var query = builderFactory.Create()
+            .Select(
+                ("NVL(MIN(tte.id), 0)", nameof(TripTicketExemptionNSDTO.ExemptionId)))
+            .From("transaction t")
+            .Join("transactionline tl", on: "tl.transaction = t.id")
+            .LeftJoin("customrecord_dbti_trip_ticket_exemption tte", SuiteQLFragments.TripTicketExemptionJoin)
+            .WithFilters(
+                Equal("t.tranid", tranid),
+                Equal("tl.mainline", "T"),
+                In("t.recordtype", new string[] { "transferorder", "intercompanytransferorder" }))
+            .GroupBy("t.id")
+            .Build();
+
+        var response = await netsuiteService.ExecuteSuiteQLQuery<TripTicketExemptionNSDTO>(query.Query, query.Limit, query.Offset);
+        var row = response.items?.FirstOrDefault();
+
+        return row is null ? null : row.ExemptionId != 0;
+    }
+
+    /// <summary>
+    /// Loads packing lines for one transfer order by wrapping the
+    /// NS_TO_x_Packing_Get_Items script as a derived table and projecting the
+    /// grid columns.
+    /// <para>
+    /// Shape notes for the script (kept here, not in the .sql, because a
+    /// <c>--</c> comment in a script is silently fatal — see
+    /// <c>SuiteQLText.StripComments</c>):
+    /// the ibq and ivb derived tables each collapse to one row per
+    /// (item, location) and (item, subsidiary, location) via GROUP BY on a
+    /// MIN(). Without those GROUP BYs they fan a single transaction line out
+    /// into several rows when the item has multiple preferred bins at the
+    /// location, or the preferred vendor has multiple bin-assignment records
+    /// there. The mobile app posts every row back, and two body entries with
+    /// the same orderLine are invalid for the !transform/itemFulfillment POST.
+    /// </para>
+    /// </summary>
     public async Task<(IEnumerable<StockTransferRequestLinePackingDTO> Data, int Count)> GetPackingStockTransferRequestLines(string id, DataGridIntent intent)
     {
         var mobileLineQuery = sqlQuery.ResolveSuiteQLScript(
             "NS_TO_x_Packing_Get_Items",
             new Dictionary<string, string>
             {
-                ["tranid"] = id
+                ["tranid"] = id,
+                ["vendorId"] = "0"
             });
 
         var query = builderFactory.Create()
@@ -109,7 +210,9 @@ internal class StockTransferRequestPackingIntegration(
                 ("q.LocationItemQuantityAvailable", nameof(StrPackingLineNSDTO.QuantityAvailable)),
                 ("(q.LineQuantity / q.UoMRate)", nameof(StrPackingLineNSDTO.QuantityPlanned)),
                 ("(q.LineQuantityPacked / q.UoMRate)", nameof(StrPackingLineNSDTO.QuantityReceived)),
-                ("(q.LineQuantityBackOrdered / q.UoMRate)", nameof(StrPackingLineNSDTO.QuantityBackOrdered))
+                ("(q.LineQuantityBackOrdered / q.UoMRate)", nameof(StrPackingLineNSDTO.QuantityBackOrdered)),
+                ("q.IsClosed", nameof(StrPackingLineNSDTO.IsClosed)),
+                ("(q.QuantityAlreadyShipped / q.UoMRate)", nameof(StrPackingLineNSDTO.QuantityAlreadyShipped))
             )
             .From($"({mobileLineQuery}) q")
             .WithDatagridIntent(intent)
@@ -120,6 +223,14 @@ internal class StockTransferRequestPackingIntegration(
         return (response.items.Select(MapLineDto), response.totalResults);
     }
 
+    /// <summary>
+    /// Order-state predicates for the packing screens. The "still has quantity to pack"
+    /// half of the filter is not here — it is the <see cref="SuiteQLFragments.PendingPackingLines"/>
+    /// inner join, because it needs a derived table rather than a column comparison. Both must
+    /// be applied together: these predicates alone let a fully packed order back onto the list
+    /// until the Trip Ticket ships it (<c>ordpicked</c> tracks picking, and status stays in
+    /// B/D/E while the fulfillment is merely Packed).
+    /// </summary>
     private static AppFilterDescriptor[] PackingStockTransferRequestFilters()
     {
         return
@@ -176,6 +287,8 @@ internal class StockTransferRequestPackingIntegration(
             QuantityPlanned = nsdto.QuantityPlanned,
             QuantityReceived = nsdto.QuantityReceived,
             QuantityBackOrdered = nsdto.QuantityBackOrdered,
+            IsClosed = nsdto.IsClosed,
+            QuantityAlreadyShipped = nsdto.QuantityAlreadyShipped,
         };
     }
 }

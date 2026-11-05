@@ -3,6 +3,7 @@ using Application.DataTransferObjects.Transactions.Packing.Returns;
 using Application.UseCases.Repositories.Integration.Others;
 using Application.UseCases.Repositories.Integration.Transaction.Packing;
 using Database.Libraries.Repositories;
+using Integration.NS.DataTransferObjects.Packing;
 using Integration.NS.DataTransferObjects.Packing.Returns;
 using Integration.NS.DataTransferObjects.Packing.STR;
 using Integration.NS.Helpers;
@@ -40,9 +41,10 @@ internal class ReturnPackingIntegration(
             .From("transaction t")
             .Join("transactionline tl", on: "tl.transaction = t.id")
             .LeftJoin("transferorderstatus s", on: "s.id = t.status")
+            .InnerJoin(SuiteQLFragments.PendingPackingLines(), on: SuiteQLFragments.PendingPackingLinesJoinPredicate)
             .WithFilters(
                 Equal("tl.mainline", "T"),
-                Equal("tl.subsidiary", subsidiaryId))
+                Equal("t.subsidiary", subsidiaryId))
             .WithFilters(PackingReturnsFilters())
             .WithDatagridIntent(intent)
             .Build();
@@ -70,6 +72,7 @@ internal class ReturnPackingIntegration(
             )
             .From("transaction t")
             .Join("transactionline tl", on: "tl.transaction = t.id")
+            .InnerJoin(SuiteQLFragments.PendingPackingLines(), on: SuiteQLFragments.PendingPackingLinesJoinPredicate)
             .LeftJoin("employee e", "t.custbody_dbti_prepared_by = e.id")
             .LeftJoin("customrecord_dbti_trip_ticket_exemption tte", "tte.custrecord_dbti_tte_from_location = tl.location AND tte.custrecord_dbti_tte_to_location = t.transferlocation AND tte.isinactive = 'F'")
             .WithFilters(
@@ -79,11 +82,54 @@ internal class ReturnPackingIntegration(
             .Build();
 
         var response = await netsuiteService.ExecuteSuiteQLQuery<ReturnPackingHeaderNSDTO>(query.Query, query.Limit, query.Offset);
-        var nsdto = response.items.FirstOrDefault();
+        var nsdto = response.items?.FirstOrDefault();
 
         return nsdto is null ? null : MapInfoDto(nsdto);
     }
 
+    public async Task<bool?> GetTripTicketExemption(string tranid)
+    {
+        if (string.IsNullOrWhiteSpace(tranid)) return null;
+
+        // No packing filters here on purpose. Exemption belongs to the location pair, so it must
+        // still resolve when the order has advanced past the packing screen's filters. Reusing
+        // GetPackingReturn would return null in exactly that case and the caller would post a
+        // Packed ship status for an exempt order.
+        var query = builderFactory.Create()
+            .Select(
+                ("NVL(MIN(tte.id), 0)", nameof(TripTicketExemptionNSDTO.ExemptionId)))
+            .From("transaction t")
+            .Join("transactionline tl", on: "tl.transaction = t.id")
+            .LeftJoin("customrecord_dbti_trip_ticket_exemption tte", SuiteQLFragments.TripTicketExemptionJoin)
+            .WithFilters(
+                Equal("t.tranid", tranid),
+                Equal("tl.mainline", "T"),
+                In("t.recordtype", new string[] { "intercompanytransferorder", "transferorder" }))
+            .GroupBy("t.id")
+            .Build();
+
+        var response = await netsuiteService.ExecuteSuiteQLQuery<TripTicketExemptionNSDTO>(query.Query, query.Limit, query.Offset);
+        var row = response.items?.FirstOrDefault();
+
+        return row is null ? null : row.ExemptionId != 0;
+    }
+
+    /// <summary>
+    /// Loads packing lines for one return by wrapping the
+    /// NS_TO_x_Return_x_Packing_Get_Items script as a derived table.
+    /// <para>
+    /// Shape notes for the script (kept here, not in the .sql, because a
+    /// <c>--</c> comment in a script is silently fatal — see
+    /// <c>SuiteQLText.StripComments</c>):
+    /// the ibq and ba derived tables each collapse to one row per
+    /// (item, location) and (item, subsidiary, location) via GROUP BY on a
+    /// MIN(). Without those GROUP BYs they fan a single transaction line out
+    /// into several rows when the item has multiple preferred bins at the
+    /// location, or the preferred vendor has multiple bin-assignment records
+    /// there. The mobile app posts every row back, and two body entries with
+    /// the same orderLine are invalid for the !transform/itemFulfillment POST.
+    /// </para>
+    /// </summary>
     public async Task<(IEnumerable<ReturnsLineDTO> Data, int Count)> GetPackingReturnLines(string id, DataGridIntent intent)
     {
         var mobileLineQuery = sqlQuery.ResolveSuiteQLScript(
@@ -102,7 +148,8 @@ internal class ReturnPackingIntegration(
                 ("q.LocationItemQuantityAvailable", nameof(ReturnPackingLineNSDTO.QuantityAvailable)),
                 ("q.LineQuantity", nameof(ReturnPackingLineNSDTO.QuantityPlanned)),
                 ("q.LineQuantityPacked", nameof(ReturnPackingLineNSDTO.QuantityReceived)),
-                ("q.LineQuantityBackOrdered", nameof(ReturnPackingLineNSDTO.QuantityBackOrdered))
+                ("q.LineQuantityBackOrdered", nameof(ReturnPackingLineNSDTO.QuantityBackOrdered)),
+                ("q.TransferCategory", nameof(ReturnPackingLineNSDTO.TransferCategory))
             )
             .From($"({mobileLineQuery}) q")
             .WithDatagridIntent(intent)
@@ -117,7 +164,7 @@ internal class ReturnPackingIntegration(
     {
         return
         [
-            In("t.recordtype", new string[] { "intercompanytransferorder" }),
+            In("t.recordtype", new string[] { "intercompanytransferorder", "transferorder" }),
             In("t.custbody_dbti_transfer_category", new string[] { "3", "4" }),
             Equal("t.ordpicked", "F"),
             In("t.status", new string[] { "B", "D", "E" })
@@ -170,6 +217,9 @@ internal class ReturnPackingIntegration(
             QuantityPlanned = nsdto.QuantityPlanned,
             QuantityReceived = nsdto.QuantityReceived,
             QuantityBackOrdered = nsdto.QuantityBackOrdered,
+            // Header-level field projected onto every line: the category is a property of the
+            // order, not the item, and the packing guard in PostReturnsIFCmd reads it per line.
+            TransferCategory = nsdto.TransferCategory,
         };
     }
 
@@ -188,9 +238,7 @@ internal class ReturnPackingIntegration(
             .Join("transactionline tl", "tl.mainline = 'T' and tl.transaction = t.id")
             .WithFilters(
                 Equal("t.recordtype", "itemfulfillment"),
-                Any(
-                    Equal("t.status", "B"),
-                    Equal("t.custbody_dbti_print_label", "T"))
+                Equal("t.custbody_dbti_print_label", "T")
             )
             .WithDatagridIntent(intent)
             .Build();

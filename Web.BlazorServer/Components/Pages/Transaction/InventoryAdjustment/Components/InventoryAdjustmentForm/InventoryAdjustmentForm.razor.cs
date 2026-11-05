@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
+using Web.BlazorServer.Components.Base;
 using Radzen;
 using Radzen.Blazor.Rendering;
 using Shared.Entities;
@@ -21,6 +22,8 @@ namespace Web.BlazorServer.Components.Pages.Transaction.InventoryAdjustment.Comp
 
 public partial class InventoryAdjustmentForm
 {
+    SubmitOnce SubmitOnce { get; } = new();
+    bool IsSubmitting => SubmitOnce.IsSubmitting;
     [Parameter][EditorRequired] public required InventoryAdjustmentVM Model { get; set; }
     [Parameter][EditorRequired] public EditContext EditContext { get; set; }
     [Parameter] public EventCallback<InventoryAdjustmentVM> OnSubmit { get; set; }
@@ -241,7 +244,9 @@ public partial class InventoryAdjustmentForm
         return result;
     }
 
-    async Task OnValidSubmit()
+    Task OnValidSubmit() => SubmitOnce.RunAsync(OnValidSubmitCore);
+
+    async Task OnValidSubmitCore()
     {
         if (Model.Lines.Sum(x => x.QuantityAlloted) <= 0)
         {

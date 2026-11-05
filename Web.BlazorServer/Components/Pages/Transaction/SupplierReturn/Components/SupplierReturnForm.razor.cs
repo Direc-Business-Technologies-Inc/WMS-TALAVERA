@@ -6,8 +6,10 @@ using Radzen.Blazor.Rendering;
 using Shared.Entities;
 using Shared.Libraries.Utilities;
 using Web.BlazorServer.Components.Custom;
+using Web.BlazorServer.Components.Base;
 using Web.BlazorServer.Components.Pages.Transaction.Others.BarcodeScanning;
 using Web.BlazorServer.Components.Shared.Abstraction;
+using Web.BlazorServer.Components.Shared.Others;
 using Web.BlazorServer.Handlers.Implementations.Others;
 using Web.BlazorServer.Handlers.Repositories.Others;
 using Web.BlazorServer.Handlers.Repositories.Transaction.SupplierReturn;
@@ -23,6 +25,8 @@ namespace Web.BlazorServer.Components.Pages.Transaction.SupplierReturn.Component
 
 public partial class SupplierReturnForm
 {
+    SubmitOnce SubmitOnce { get; } = new();
+    bool IsSubmitting => SubmitOnce.IsSubmitting;
     [Inject] ISupplierReturnHandler returnHandler { get; set; } = default!;
     [Inject] ILocationHandler locationHandler { get; set; } = default!;
     [Inject] IVendorHandler vendorHandler { get; set; } = default!;
@@ -49,8 +53,6 @@ public partial class SupplierReturnForm
 
     private List<ItemsVM> Items = new();
 
-    private readonly SemaphoreSlim _concurrencySemaphore = new SemaphoreSlim(2, 2);
-
     QuickVirtualizedDropdown<LocationVM> LocationDropdown { get; set; } = default!;
     QuickVirtualizedDropdown<SubsidiaryVM> SubsidiaryDropdown { get; set; } = default!;
     QuickVirtualizedDropdown<PurchaseSubcategoryVM> PurchaseSubcategoryDropdown { get; set; } = default!;
@@ -68,8 +70,6 @@ public partial class SupplierReturnForm
     const string VendorSearchProperty = nameof(VendorVM.ReferenceNumber);
 
     readonly List<AppFilterDescriptor> ItemFilters = [];
-
-    const string PRINTABLE_URL = "https://11608969.extforms.netsuite.com/app/site/hosting/scriptlet.nl?script=1671&deploy=1&compid=11608969&ns-at=AAEJ7tMQ9evIwFEEUifIBokQgQ0jhowAItpfjv5Smu7B76K41lU&recordType=vendorreturnauthorization&transactionDefault=true";
 
     protected override void OnParametersSet()
     {
@@ -101,17 +101,14 @@ public partial class SupplierReturnForm
             Take = 1000
         };
 
-        await _concurrencySemaphore.WaitAsync();
-
         int location = Model.Location.Id;
 
         var result = location == 0 ?
         await itemsHandler.GetItemsDataGridAsync(intent) :
-        await itemsHandler.GetItemsAtLocationDataGridAsync(intent, location);
+        await itemsHandler.GetItemsAtLocationDataGridAsync(intent, location, Model.Subsidiary?.Id);
 
         Items = result.Data.ToList();
 
-        _concurrencySemaphore.Release();
         return result;
     }
 
@@ -123,6 +120,24 @@ public partial class SupplierReturnForm
 
     async Task<(IEnumerable<VendorVM>, int)> VendorProvider(DataGridIntent intent)
     {
+        // Radzen's dropdown filter is initially expressed against ReferenceNumber
+        // so vendor references can be searched even though the displayed text is Name.
+        // Expand that leaf into an OR-group to also match vendor names server-side.
+        var searchFilter = intent.Filters.FirstOrDefault(x =>
+            x.Filters.Count == 0 &&
+            x.Property == VendorSearchProperty &&
+            x.Value is string search &&
+            !string.IsNullOrWhiteSpace(search));
+
+        if (searchFilter is not null)
+        {
+            var search = (string)searchFilter.Value!;
+            intent.Filters.Remove(searchFilter);
+            intent.Filters.Add(DataGridFilterUtilities.Any(
+                DataGridFilterUtilities.Contains(VendorSearchProperty, search),
+                DataGridFilterUtilities.Contains(nameof(VendorVM.Name), search)));
+        }
+
         return await vendorHandler.GetVendorsListAsync(intent);
     }
 
@@ -171,6 +186,9 @@ public partial class SupplierReturnForm
         LocationDropdown.Reset();
 
         Model.Lines.Clear();
+        BarcodeStore.Clear();
+        selectedItems.Clear();
+        selectedItemIndex = -1;
         await InvokeAsync(StateHasChanged);
     }
 
@@ -185,6 +203,9 @@ public partial class SupplierReturnForm
         }
 
         Model.Location = vm;
+        BarcodeStore.Clear();
+        selectedItems.Clear();
+        selectedItemIndex = -1;
         //Model.Lines.Clear();
 
         if (Model.Location is null) return;
@@ -226,6 +247,9 @@ public partial class SupplierReturnForm
         SubsidiaryDropdown.Reset();
 
         Model.Lines.Clear();
+        BarcodeStore.Clear();
+        selectedItems.Clear();
+        selectedItemIndex = -1;
         await InvokeAsync(StateHasChanged);
     }
 
@@ -271,32 +295,118 @@ public partial class SupplierReturnForm
 
     async Task ApprovalAction()
     {
+        if (!TryValidateOnHand(out var quantityError))
+        {
+            ToastService.Error(quantityError, "Invalid Quantity");
+            return;
+        }
+
         if (OnApprovalAction.HasDelegate) await OnApprovalAction.InvokeAsync(Model);
     }
 
-    async Task SubmitClicked()
+    Task SubmitClicked() => SubmitOnce.RunAsync(SubmitCore);
+
+    async Task SubmitCore()
     {
+        if (!TryValidateOnHand(out var quantityError))
+        {
+            ToastService.Error(quantityError, "Invalid Quantity");
+            return;
+        }
+
         if (OnSubmit.HasDelegate)
             await OnSubmit.InvokeAsync(Model);
     }
 
+    bool TryValidateOnHand(out string error)
+    {
+        var invalidLineNumbers = new HashSet<string>();
+        foreach (var (line, index) in Model.Lines.Select((line, index) => (line, index)))
+        {
+            if (line.QuantityAlloted < 0 || line.UoM is { ConversionRate: <= 0 })
+                invalidLineNumbers.Add(line.LineNumber?.ToString() ?? (index + 1).ToString());
+        }
+
+        foreach (var sameItemLines in Model.Lines.GroupBy(line => line.ItemId))
+        {
+            var totalAllotedInBaseUnits = sameItemLines.Sum(line =>
+                line.QuantityAlloted * (line.UoM?.ConversionRate > 0 ? line.UoM.ConversionRate : 1m));
+            var quantityOnHand = sameItemLines.First().QuantityOnHand;
+            if (totalAllotedInBaseUnits > quantityOnHand)
+            {
+                foreach (var (line, index) in sameItemLines.Select(line => (line, Model.Lines.IndexOf(line))))
+                    invalidLineNumbers.Add(line.LineNumber?.ToString() ?? (index + 1).ToString());
+            }
+        }
+
+        error = invalidLineNumbers.Count == 0
+            ? string.Empty
+            : $"Total allotted quantity must be between 0 and On Hand on line(s): {string.Join(", ", invalidLineNumbers)}.";
+        return invalidLineNumbers.Count == 0;
+    }
+
+    decimal GetMaxAllotedQuantity(SupplierReturnLineVM line)
+    {
+        var conversionRate = line.UoM?.ConversionRate > 0 ? line.UoM.ConversionRate : 1m;
+        var otherLinesBaseQuantity = Model.Lines
+            .Where(otherLine => otherLine.ItemId == line.ItemId && !ReferenceEquals(otherLine, line))
+            .Sum(otherLine => otherLine.QuantityAlloted * (otherLine.UoM?.ConversionRate ?? 1m));
+
+        return Math.Max(0, (line.QuantityOnHand - otherLinesBaseQuantity) / conversionRate);
+    }
+
     async Task AddItems(List<ItemsVM> items)
     {
-        if (Model.Location is null) return;
+        var selectedVendor = Model.Vendor;
+        if (Model.Location is null || selectedVendor is null) return;
+
+        var eligibleItems = items
+            .Where(item => item.PreferredVendorId == selectedVendor.Id)
+            .ToList();
+        if (eligibleItems.Count != items.Count)
+        {
+            ToastService.Error("Some selected items are not under the selected preferred vendor.", "Invalid Item");
+        }
+        if (eligibleItems.Count == 0) return;
 
         canSelectPO = false;
+
+        // New lines use the selected header vendor. Clone it per row so editing
+        // one line can never mutate the others.
+        var headerVendor = new VendorVM
+        {
+            Id = selectedVendor.Id,
+            ReferenceNumber = selectedVendor.ReferenceNumber,
+            Name = selectedVendor.Name,
+            CompanyName = selectedVendor.CompanyName,
+            Category = selectedVendor.Category
+        };
         Model.Lines.AddRange(
-            items.Select(x => new SupplierReturnLineVM
+            eligibleItems.Select(x => new SupplierReturnLineVM
             {
                 ItemId = x.Id,
                 ItemCode = x.Name,
                 ItemDescription = x.Description,
                 UoM = x.StockUnit,
+                PreferredVendor = x.PreferredVendorId.HasValue ? new VendorVM { Id = x.PreferredVendorId.Value, Name = x.PreferredVendorName ?? string.Empty } : null,
+                Vendor = new VendorVM
+                {
+                    Id = headerVendor.Id,
+                    ReferenceNumber = headerVendor.ReferenceNumber,
+                    Name = headerVendor.Name,
+                    CompanyName = headerVendor.CompanyName,
+                    Category = headerVendor.Category
+                },
                 Location = Model.Location,
                 QuantityOnHand = x.QuantityOnHand,
                 QuantityAvailable = x.QuantityAvailable,
                 QuantityAlloted = 0
             }));
+
+        if (!TryValidateOnHand(out var quantityError))
+        {
+            ToastService.Error(quantityError, "Invalid Quantity");
+        }
 
         await InvokeAsync(StateHasChanged);
 
@@ -318,7 +428,7 @@ public partial class SupplierReturnForm
         await InvokeAsync(StateHasChanged);
     }
 
-    string PrintableURL => $"{PRINTABLE_URL}&recordId={Model.Id}";
+    string? PrintableURL => NetSuitePrint.VendorReturn(Model.Id);
     async Task LineUoMSet(SupplierReturnLineVM line, ItemUnitVM? uom)
     {
         var oldcr = line.UoM?.ConversionRate ?? 1;  
@@ -327,6 +437,12 @@ public partial class SupplierReturnForm
         line.QuantityAlloted *= oldcr / newcr;
         line.UoM = uom;
 
+        await InvokeAsync(StateHasChanged);
+    }
+
+    async Task LineVendorSet(SupplierReturnLineVM line, VendorVM? vendor)
+    {
+        line.Vendor = vendor;
         await InvokeAsync(StateHasChanged);
     }
 
@@ -365,12 +481,26 @@ public partial class SupplierReturnForm
                 var targetUom = barcode.UoM;
                 var lineConversionRate = targetUom?.ConversionRate ?? 1;
 
+                // Same default as AddItems: the RTS header vendor wins; the item
+                // master default is the fallback when no header vendor is set.
+                VendorVM? lineVendor = Model.Vendor is null
+                    ? item.PreferredVendorId.HasValue ? new VendorVM { Id = item.PreferredVendorId.Value, Name = item.PreferredVendorName ?? string.Empty } : null
+                    : new VendorVM
+                    {
+                        Id = Model.Vendor.Id,
+                        ReferenceNumber = Model.Vendor.ReferenceNumber,
+                        Name = Model.Vendor.Name,
+                        CompanyName = Model.Vendor.CompanyName,
+                        Category = Model.Vendor.Category
+                    };
                 Model.Lines.Add(new SupplierReturnLineVM
                 {
                     ItemId = item.Id,
                     ItemCode = item.ItemNumber,
                     ItemDescription = item.Name,
                     UoM = targetUom,
+                    Vendor = lineVendor,
+                    PreferredVendor = item.PreferredVendorId.HasValue ? new VendorVM { Id = item.PreferredVendorId.Value, Name = item.PreferredVendorName ?? string.Empty } : null,
                     Location = Model.Location,
                     QuantityOnHand = item.QuantityOnHand,
                     QuantityAvailable = item.QuantityAvailable,
@@ -410,6 +540,12 @@ public partial class SupplierReturnForm
 
     bool IsValidBarcode(BarcodeVM barcode, out string reason)
     {
+        if (Model.Vendor is null || barcode.Item?.PreferredVendorId != Model.Vendor.Id)
+        {
+            reason = "This item is not under the selected preferred vendor.";
+            return false;
+        }
+
         var line = Model.Lines.FirstOrDefault(x => x.ItemId == barcode.Item?.Id && barcode.UoM?.Id == x.UoM?.Id && barcode.UoM is not null) ??
             Model.Lines.FirstOrDefault(x => x.ItemId == barcode.Item?.Id);
 
@@ -425,15 +561,24 @@ public partial class SupplierReturnForm
             }
         }
 
-        if (line is null)
+        if (line is null && barcode.Item is null)
         {
-            reason = $"The item {barcode.Item?.ItemNumber} does not exist in the current document";
+            reason = "The scanned barcode has no item data.";
             return false;
         }
 
-        var uomRate = line.UoM?.ConversionRate ?? 1;
-        var itemCount = BarcodeStore.CountItemQuantity(line.ItemId) / uomRate;
-        var incomingCount = (barcode.UoM?.ConversionRate ?? 0) / uomRate;
+        var incomingBaseQuantity = barcode.UoM?.ConversionRate ?? 0;
+        var itemId = barcode.Item?.Id ?? line!.ItemId;
+        var alreadyScannedBaseQuantity = BarcodeStore.CountItemQuantity(itemId);
+        var allocatedBaseQuantity = Model.Lines
+            .Where(existingLine => existingLine.ItemId == itemId)
+            .Sum(existingLine => existingLine.QuantityAlloted * (existingLine.UoM?.ConversionRate ?? 1));
+        var onHand = line?.QuantityOnHand ?? barcode.Item!.QuantityOnHand;
+        if (allocatedBaseQuantity + alreadyScannedBaseQuantity + incomingBaseQuantity > onHand)
+        {
+            reason = $"The scan would exceed On Hand for item {barcode.Item?.ItemNumber ?? line?.ItemCode}.";
+            return false;
+        }
 
         reason = "";
         return true;

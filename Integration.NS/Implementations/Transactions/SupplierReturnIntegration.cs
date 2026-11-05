@@ -4,6 +4,7 @@ using Application.DataTransferObjects.Transactions.StockTransferRequest;
 using Application.DataTransferObjects.Transactions.SupplierReturn;
 using Application.UseCases.Repositories.Integration.Others;
 using Application.UseCases.Repositories.Integration.Transaction.SupplierReturn;
+using Integration.NS.DataTransferObjects.Others;
 using Integration.NS.DataTransferObjects.StockTransferRequest;
 using Integration.NS.DataTransferObjects.SupplierReturn;
 using Integration.NS.Helpers;
@@ -110,7 +111,11 @@ public class SupplierReturnIntegration(
                 ("tl.location", nameof(SupplierReturnLineNSDTO.LocationId)),
                 ("item.displayname", nameof(SupplierReturnLineNSDTO.ItemDescription)),
                 ("-(tl.quantity / uom.conversionrate)", nameof(SupplierReturnLineNSDTO.QuantityAlloted)),
-                ("(iil.quantityavailable / uom.conversionrate)", nameof(SupplierReturnLineNSDTO.QuantityAvailable))
+                ("(iil.quantityavailable / uom.conversionrate)", nameof(SupplierReturnLineNSDTO.QuantityAvailable)),
+                ("iil.quantityonhand", nameof(SupplierReturnLineNSDTO.QuantityOnHand)),
+                ("BUILTIN.DF(tl.custcol_dbti_vendor)", nameof(SupplierReturnLineNSDTO.VendorName)),
+                ("tl.custcol_dbti_vendor", nameof(SupplierReturnLineNSDTO.VendorId)),
+                ("ml.location", nameof(SupplierReturnLineNSDTO.HeaderLocationId))
             )
             .From("transactionline tl")
             .Join("transaction t", on: "tl.transaction = t.id")
@@ -125,6 +130,38 @@ public class SupplierReturnIntegration(
             .Build();
 
         var response = await netsuiteService.ExecuteSuiteQLQuery<SupplierReturnLineNSDTO>(query.Query);
+        foreach (var locationGroup in response.items.GroupBy(line => line.LocationId > 0 ? line.LocationId : line.HeaderLocationId))
+        {
+            if (locationGroup.Key is not int locationId || locationId <= 0) continue;
+
+            var itemIds = locationGroup.Select(line => line.ItemId).Distinct().ToArray();
+            var preferredVendorQuery = builderFactory.Create()
+                .Select(
+                    ("item.id", nameof(ItemsNSDTO.Id)),
+                    ("pv.vendor", nameof(ItemsNSDTO.PreferredVendorId)),
+                    ("BUILTIN.DF(pv.vendor)", nameof(ItemsNSDTO.PreferredVendorName)),
+                    ("loc.subsidiary", nameof(ItemsNSDTO.SubsidiaryId))
+                )
+                .From("item")
+                .Join("location loc", on: $"loc.id = {locationId}")
+                .LeftJoin(SuiteQLFragments.PreferredVendorForLocation(locationId) + " pv", on: "pv.item = item.id")
+                .WithFilters(DataGridFilterUtilities.In("item.id", itemIds.Select(id => id.ToString()).ToArray()))
+                .Build();
+            var preferredVendors = await netsuiteService.ExecuteSuiteQLQuery<ItemsNSDTO>(preferredVendorQuery.Query);
+            var preferredVendorsByItem = preferredVendors.items
+                .GroupBy(item => item.Id)
+                .ToDictionary(group => group.Key, group => group.ToList());
+
+            foreach (var line in locationGroup)
+            {
+                if (!preferredVendorsByItem.TryGetValue(line.ItemId, out var matches)) continue;
+                var vendorIds = matches.Select(match => match.PreferredVendorId).Distinct().ToArray();
+                if (vendorIds.Length != 1 || vendorIds[0] is not int vendorId) continue;
+
+                line.PreferredVendorId = vendorId;
+                line.PreferredVendorName = matches.First().PreferredVendorName;
+            }
+        }
         return response.items.Select(ConvertLineDTO);
     }
 
@@ -134,6 +171,7 @@ public class SupplierReturnIntegration(
             intent.Sorts.Add(DataGridSortUtilities.Descending(nameof(SupplierReturnDataGridDTO.ReferenceNumber)));
         var query = builderFactory.Create()
                 .Select(
+                    ("t.id", nameof(SupplierReturnDataGridDTO.Id)),
                     ("BUILTIN.DF(t.entity)", nameof(SupplierReturnDataGridDTO.VendorName)),
                     ("BUILTIN.DF(t.custbody_dbti_return_category)", nameof(SupplierReturnDataGridDTO.CategoryName)),
                     ("CONCAT(e.firstname,CONCAT(' ',e.lastname))", nameof(SupplierReturnDataGridDTO.PreparedBy)),
@@ -157,7 +195,7 @@ public class SupplierReturnIntegration(
                 .WithDatagridIntent(intent)
                 .Build();
 
-         var response = await netsuiteService.ExecuteSuiteQLQuery<SupplierReturnDataGridDTO>(query.Query, query.Limit, query.Offset);
+        var response = await query.ExecuteWithPaging<SupplierReturnDataGridDTO>(netsuiteService);
         return (response.items, response.totalResults);
     }
 
@@ -185,6 +223,8 @@ public class SupplierReturnIntegration(
 
     public async Task<bool> SubmitSupplierReturnForApproval(SupplierReturnDTO dto)
     {
+        await ValidatePreferredVendorAsync(dto, validateTransactionLineVendor: false);
+        await ValidateOnHandQuantitiesAsync(dto);
         string payloadString = "{\"custbody_dbti_submitted_for_approval\":true}";
         var url = $"{netsuiteService.GetRestAPIURI}/record/v1/vendorReturnAuthorization/{dto.Id}";
 
@@ -201,6 +241,8 @@ public class SupplierReturnIntegration(
 
     public async Task<bool> CreateNewSupplierReturn(SupplierReturnDTO data)
     {
+        await ValidatePreferredVendorAsync(data);
+        await ValidateOnHandQuantitiesAsync(data);
         string payload = CreatePayload(data);
         var uri = netsuiteService.GetRestAPIURI + "/record/v1/vendorReturnAuthorization";
 
@@ -218,6 +260,14 @@ public class SupplierReturnIntegration(
 
     public async Task<bool> UpdateSupplierReturn(SupplierReturnDTO data)
     {
+        // Legacy RTS lines may not have custcol_dbti_vendor populated. This field
+        // is not editable in the WMS; when saving an update, backfill it from the
+        // selected header vendor after item-master validation confirms eligibility.
+        foreach (var line in data.Lines.Where(line => line.Vendor is null))
+            line.Vendor = data.Vendor;
+
+        await ValidatePreferredVendorAsync(data);
+        await ValidateOnHandQuantitiesAsync(data);
         string payload = CreatePayload(data);
         var uri = netsuiteService.GetRestAPIURI + $"/record/v1/vendorReturnAuthorization/{data.Id}?replace=item";
 
@@ -236,6 +286,8 @@ public class SupplierReturnIntegration(
     public async Task<bool> CreateSupplierReturnFromPurchaseOrder(SupplierReturnDTO data)
     {
         if (data.SourcePO is null) throw new InvalidOperationException("INTERNAL ERROR: No purchase order reference given");
+        await ValidatePreferredVendorAsync(data);
+        await ValidateOnHandQuantitiesAsync(data);
         var payload = new
         {
             custbody_dbti_return_category = data.ReturnCategory?.Id ?? null,
@@ -318,7 +370,10 @@ public class SupplierReturnIntegration(
                 ("tl.location", nameof(SupplierReturnLineNSDTO.LocationId)),
                 ("item.displayname", nameof(SupplierReturnLineNSDTO.ItemDescription)),
                 ("(iil.quantityavailable / uom.conversionrate)", nameof(SupplierReturnLineNSDTO.QuantityAvailable)),
-                ("(tl.quantity / uom.conversionrate)", nameof(SupplierReturnLineNSDTO.QuantityAlloted))
+                ("iil.quantityonhand", nameof(SupplierReturnLineNSDTO.QuantityOnHand)),
+                ("(tl.quantity / uom.conversionrate)", nameof(SupplierReturnLineNSDTO.QuantityAlloted)),
+                ("BUILTIN.DF(tl.custcol_dbti_vendor)", nameof(SupplierReturnLineNSDTO.VendorName)),
+                ("tl.custcol_dbti_vendor", nameof(SupplierReturnLineNSDTO.VendorId))
             )
             .From("transactionline tl")
             .Join("transaction t", on: "tl.transaction = t.id")
@@ -416,13 +471,14 @@ public class SupplierReturnIntegration(
                     item = x.ItemId,
                     quantity = x.QuantityAlloted,
                     department = 15, //operations
-                    units = x.UoM?.Id.ToString() ?? null
-                })
-            }
-        };
+                     units = x.UoM?.Id.ToString() ?? null,
+                     custcol_dbti_vendor = x.Vendor is not null ? new { id = x.Vendor.Id.ToString() } : null
+                 })
+             }
+         };
 
-        return JsonSerializer.Serialize(anon, jsonOpts);
-    }
+         return JsonSerializer.Serialize(anon, jsonOpts);
+     }
 
     private readonly JsonSerializerOptions jsonOpts = new JsonSerializerOptions
     {
@@ -435,7 +491,211 @@ public class SupplierReturnIntegration(
         return nsdto.Adapt(new SupplierReturnLineDTO() 
         { 
             UoM = new() { Id = nsdto.UoMId, Name = nsdto.UoMName, ConversionRate = nsdto.UoMRate },
-            Location = new () { Id = nsdto.LocationId, Name = nsdto.LocationName }
+            Location = new () { Id = nsdto.LocationId, Name = nsdto.LocationName },
+            Vendor = nsdto.VendorId.HasValue ? new Application.DataTransferObjects.Others.VendorDTO { Id = nsdto.VendorId.Value, Name = nsdto.VendorName ?? string.Empty } : null,
+            PreferredVendor = nsdto.PreferredVendorId.HasValue ? new Application.DataTransferObjects.Others.VendorDTO { Id = nsdto.PreferredVendorId.Value, Name = nsdto.PreferredVendorName ?? string.Empty } : null
         });
+    }
+
+    private async Task ValidateOnHandQuantitiesAsync(SupplierReturnDTO data)
+    {
+        if (data.Lines is null || !data.Lines.Any()) return;
+
+        var locationId = data.Location?.Id ?? data.Lines.FirstOrDefault()?.Location?.Id;
+        if (locationId is null || locationId <= 0)
+            throw new InvalidOperationException("A warehouse is required to validate RTS On Hand quantities.");
+
+        var itemIds = data.Lines.Select(line => line.ItemId).Distinct().ToArray();
+        var query = builderFactory.Create()
+            .Select(
+                ("ail.item", nameof(ItemsNSDTO.Id)),
+                ("ail.quantityonhand", nameof(ItemsNSDTO.QuantityOnHand))
+            )
+            .From("aggregateitemlocation ail")
+            .WithFilters(
+                DataGridFilterUtilities.Equal("ail.location", locationId.Value),
+                DataGridFilterUtilities.In("ail.item", itemIds.Select(id => id.ToString()).ToArray())
+            )
+            .Build();
+
+        var response = await netsuiteService.ExecuteSuiteQLQuery<ItemsNSDTO>(query.Query);
+        var onHandByItem = response.items.ToDictionary(item => item.Id, item => item.QuantityOnHand);
+        var invalidLines = data.Lines
+            .Where(line =>
+            {
+                var rate = line.UoM?.ConversionRate ?? 1m;
+                return line.QuantityAlloted < 0 || rate <= 0;
+            })
+            .Select(line => line.LineNumber?.ToString() ?? line.ItemCode)
+            .ToList();
+
+        foreach (var itemLines in data.Lines.GroupBy(line => line.ItemId))
+        {
+            var totalAllotedInBaseUnits = itemLines.Sum(line => line.QuantityAlloted * (line.UoM?.ConversionRate ?? 1m));
+            if (totalAllotedInBaseUnits > onHandByItem.GetValueOrDefault(itemLines.Key))
+                invalidLines.AddRange(itemLines.Select(line => line.LineNumber?.ToString() ?? line.ItemCode));
+        }
+
+        if (invalidLines.Count > 0)
+            throw new InvalidOperationException($"Allotted quantity exceeds current On Hand or is invalid on RTS line(s): {string.Join(", ", invalidLines)}.");
+    }
+
+    private async Task ValidatePreferredVendorAsync(SupplierReturnDTO data, bool validateTransactionLineVendor = true)
+    {
+        var selectedVendorId = data.Vendor?.Id;
+        if (data.Subsidiary?.Id is not > 0 || selectedVendorId is null or <= 0)
+            throw new InvalidOperationException("A preferred vendor, subsidiary, and warehouse are required to validate RTS items.");
+
+        List<SupplierReturnPreferredVendorLineNSDTO> lines;
+        if (data.SourcePO is int sourcePurchaseOrderId)
+        {
+            // Validate the PO's actual transformed item set, not the line list sent
+            // by the browser. REST transform may include PO lines independently of
+            // that client-supplied list.
+            var poLinesQuery = builderFactory.Create()
+                .Select(
+                    ("tl.item", nameof(SupplierReturnPreferredVendorLineNSDTO.ItemId)),
+                    ("item.itemid", nameof(SupplierReturnPreferredVendorLineNSDTO.ItemCode)),
+                    ("tl.id", nameof(SupplierReturnPreferredVendorLineNSDTO.LineNumber)),
+                    ("tl.location", nameof(SupplierReturnPreferredVendorLineNSDTO.LocationId)),
+                    ("tl.custcol_dbti_vendor", nameof(SupplierReturnPreferredVendorLineNSDTO.VendorId)),
+                    ("t.entity", nameof(SupplierReturnPreferredVendorLineNSDTO.PurchaseOrderVendorId)),
+                    ("t.subsidiary", nameof(SupplierReturnPreferredVendorLineNSDTO.PurchaseOrderSubsidiaryId))
+                )
+                .From("transactionline tl")
+                .Join("transaction t", on: "tl.transaction = t.id")
+                .Join("item", on: "tl.item = item.id")
+                .WithSubsidiaries(httpContextAccessor, "t")
+                .WithFilters(
+                    DataGridFilterUtilities.Equal("t.id", sourcePurchaseOrderId),
+                    DataGridFilterUtilities.Equal("t.recordtype", "purchaseorder"),
+                    DataGridFilterUtilities.Equal("tl.mainline", "F")
+                )
+                .Build();
+
+            var poLinesResponse = await netsuiteService.ExecuteSuiteQLQuery<SupplierReturnPreferredVendorLineNSDTO>(poLinesQuery.Query);
+            lines = poLinesResponse.items.ToList();
+            if (lines.Any(line => line.PurchaseOrderVendorId != selectedVendorId
+                || line.PurchaseOrderSubsidiaryId != data.Subsidiary.Id))
+            {
+                throw new InvalidOperationException("The selected vendor or subsidiary does not match the source purchase order.");
+            }
+        }
+        else
+        {
+            lines = data.Lines
+                .Select(line => new SupplierReturnPreferredVendorLineNSDTO
+                {
+                    ItemId = line.ItemId,
+                    ItemCode = line.ItemCode,
+                    LineNumber = line.LineNumber,
+                    LocationId = line.Location?.Id,
+                    VendorId = line.Vendor?.Id
+                })
+                .ToList();
+        }
+
+        if (lines.Count == 0)
+            throw new InvalidOperationException("The Return to Supplier has no item lines to validate.");
+
+        var headerLocationId = data.Location?.Id;
+        var lineIssues = new List<string>();
+        foreach (var locationGroup in lines.GroupBy(line => line.LocationId ?? headerLocationId))
+        {
+            if (locationGroup.Key is not int locationId || locationId <= 0)
+                throw new InvalidOperationException("A warehouse is required to validate RTS item preferred vendors.");
+
+            var itemIds = locationGroup.Select(line => line.ItemId).Distinct().ToArray();
+            var query = builderFactory.Create()
+                .Select(
+                    ("item.id", nameof(ItemsNSDTO.Id)),
+                    ("pv.vendor", nameof(ItemsNSDTO.PreferredVendorId)),
+                    ("loc.subsidiary", nameof(ItemsNSDTO.SubsidiaryId))
+                )
+                .From("item")
+                .Join("location loc", on: $"loc.id = {locationId}")
+                .LeftJoin(SuiteQLFragments.PreferredVendorForLocation(locationId) + " pv", on: "pv.item = item.id")
+                .WithFilters(DataGridFilterUtilities.In("item.id", itemIds.Select(id => id.ToString()).ToArray()))
+                .Build();
+
+            var response = await netsuiteService.ExecuteSuiteQLQuery<ItemsNSDTO>(query.Query);
+            var itemsById = response.items.GroupBy(item => item.Id).ToDictionary(group => group.Key, group => group.ToList());
+            foreach (var line in locationGroup)
+            {
+                var lineName = line.LineNumber is int number
+                    ? $"line {number}"
+                    : $"item {line.ItemCode} (ID {line.ItemId})";
+                var reasons = new List<string>();
+                var diagnosticFacts = new List<string>
+                {
+                    $"header vendor {selectedVendorId}",
+                    $"selected subsidiary {data.Subsidiary.Id}",
+                    $"location {locationId}"
+                };
+
+                if (validateTransactionLineVendor && data.SourcePO is null && line.VendorId is null)
+                {
+                    diagnosticFacts.Add("RTS line vendor missing");
+                    reasons.Add($"RTS line vendor is missing; selected header vendor is {selectedVendorId}");
+                }
+                else if (validateTransactionLineVendor && line.VendorId is int lineVendorId && lineVendorId != selectedVendorId)
+                {
+                    diagnosticFacts.Add($"RTS line vendor {lineVendorId}");
+                    reasons.Add($"RTS line vendor {lineVendorId} does not match selected header vendor {selectedVendorId}");
+                }
+                else if (line.VendorId is int matchingLineVendorId)
+                {
+                    diagnosticFacts.Add($"RTS line vendor {matchingLineVendorId}");
+                }
+
+                if (!itemsById.TryGetValue(line.ItemId, out var itemRows) || itemRows.Count == 0)
+                {
+                    diagnosticFacts.Add("item-master preferred vendor unavailable");
+                    reasons.Add("item was not returned by the subsidiary/location preferred-vendor lookup");
+                }
+                else
+                {
+                    var subsidiaries = itemRows.Select(item => item.SubsidiaryId).Distinct().ToArray();
+                    var preferredVendors = itemRows.Select(item => item.PreferredVendorId).Distinct().ToArray();
+                    var preferredVendorFacts = string.Join(", ", preferredVendors.Select(id => id?.ToString() ?? "none"));
+                    diagnosticFacts.Add($"item-master preferred vendor {preferredVendorFacts}");
+                    diagnosticFacts.Add($"location subsidiary {string.Join(", ", subsidiaries.Select(id => id?.ToString() ?? "none"))}");
+
+                    if (itemRows.Count > 1)
+                    {
+                        var vendorList = string.Join(", ", preferredVendors.Select(id => id?.ToString() ?? "none"));
+                        reasons.Add($"multiple preferred-vendor rows were found for this item/location (vendor IDs: {vendorList})");
+                    }
+                    if (subsidiaries.Length != 1 || subsidiaries[0] != data.Subsidiary.Id)
+                    {
+                        var actualSubsidiaries = string.Join(", ", subsidiaries.Select(id => id?.ToString() ?? "none"));
+                        reasons.Add($"line location {locationId} resolves to subsidiary {actualSubsidiaries}, not selected subsidiary {data.Subsidiary.Id}");
+                    }
+                    if (preferredVendors.Length == 1 && preferredVendors[0] is null)
+                        reasons.Add($"item has no preferred vendor for location {locationId}'s subsidiary");
+                    else if (preferredVendors.Length != 1)
+                    {
+                        if (itemRows.Count <= 1)
+                            reasons.Add("item has ambiguous preferred-vendor data for this subsidiary");
+                    }
+                    else if (preferredVendors[0] != selectedVendorId)
+                    {
+                        reasons.Add($"item preferred vendor {preferredVendors[0]} does not match selected header vendor {selectedVendorId}");
+                    }
+                }
+
+                if (reasons.Count > 0)
+                {
+                    var itemLabel = string.IsNullOrWhiteSpace(line.ItemCode) ? $"item ID {line.ItemId}" : $"{line.ItemCode} (ID {line.ItemId})";
+                    lineIssues.Add($"{lineName}, {itemLabel} [{string.Join("; ", diagnosticFacts)}]: {string.Join("; ", reasons)}.");
+                }
+            }
+        }
+
+        if (lineIssues.Count > 0)
+        {
+            throw new InvalidOperationException(
+                $"RTS preferred-vendor validation failed (header vendor {selectedVendorId}, subsidiary {data.Subsidiary.Id}): {string.Join(" | ", lineIssues)}");
+        }
     }
 }

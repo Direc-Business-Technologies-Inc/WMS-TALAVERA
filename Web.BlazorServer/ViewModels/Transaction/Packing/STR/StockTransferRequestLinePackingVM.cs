@@ -10,4 +10,6 @@ public class StockTransferRequestLinePackingVM
     public decimal QuantityPlanned { get; set; }
     public decimal QuantityReceived { get; set; }
     public decimal QuantityBackOrdered { get; set; }
+    public string IsClosed { get; set; } = string.Empty;
+    public decimal QuantityAlreadyShipped { get; set; }
 }

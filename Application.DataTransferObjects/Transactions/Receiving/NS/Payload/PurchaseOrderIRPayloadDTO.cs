@@ -24,9 +24,12 @@ public class PurchaseOrderIRPayloadDTO
         List<PostPurchaseOrderDTO> lines,
         int userId,
         int receivingCategory,
-        string remarks
+        string remarks,
+        bool isUsedBin
         )
     {
+        bool isGoodPost = receivingCategory == 1;
+
         // Make it nullable if its not included in json
         return new PurchaseOrderIRPayloadDTO
         {
@@ -35,98 +38,101 @@ public class PurchaseOrderIRPayloadDTO
             Memo = remarks,
             Item = new ItemContainer
             {
-                Items = lines.Select(line =>
+                // A PO line scanned as both good and bad arrives as two rows sharing the
+                // same LineSequenceNumber; NetSuite rejects duplicate orderLine entries.
+                Items = lines.GroupBy(line => line.LineSequenceNumber).Select(group =>
                 {
-                    if (line.ScannedQuantity == 0)
+                    // The receiving query can fan one PO line into several rows (an item with
+                    // several preferred bins at the location, or a vendor with several bin
+                    // assignments). The operator scans into exactly one of them, so prefer the
+                    // scanned row when collapsing the group - the same tie-break the fulfillment
+                    // path applies through DeduplicateFulfillmentLines - and only fall back to the
+                    // whole group when the bucket has no row of the requested quality.
+                    var postBucket = isGoodPost
+                        ? group.Where(x => !x.IsBad)
+                        : group.Where(x => x.IsBad);
+
+                    var line = postBucket
+                            .OrderByDescending(x => x.ScannedQuantity > 0)
+                            .ThenByDescending(x => x.ScannedQuantity)
+                            .FirstOrDefault()
+                        ?? group
+                            .OrderByDescending(x => x.ScannedQuantity > 0)
+                            .ThenByDescending(x => x.ScannedQuantity)
+                            .First();
+
+                    bool isReceived = line.ScannedQuantity > 0 && (isGoodPost ? !line.IsBad : line.IsBad);
+
+                    if (!isReceived)
                     {
-                        return new OrderLineItem
+                        // On bin-tracked locations the transform URL carries
+                        // ?replace=item.inventoryDetail.inventoryAssignment, and NetSuite rejects the
+                        // whole save unless the body's item entries carry that sub-resource
+                        // consistently. The mobile posts every open line - the unscanned ones as
+                        // zero-qty fillers - so without this an order scanned only in part fails with
+                        // [INVALID_PARAMETER] "Resource or sub-resource 'InventoryDetail' ... was not
+                        // found in the request body". Fillers therefore get an EMPTY assignment, the
+                        // same shape the fulfillment builders emit (TransferOrderIFPayloadDTO) and
+                        // the same one the field test accepted.
+                        var filler = new OrderLineItem
                         {
                             OrderLine = line.LineSequenceNumber,
                             isReceived = false
                         };
-                    }
-                    else
-                    {
-                        //var assignment = new InventoryAssignment
-                        //{
-                        //    Items =
-                        //    [
-                        //        new InventoryAssignmentItem
-                        //        {
-                        //            InventoryStatus = new ReferenceValue
-                        //            {
-                        //                Id = /*line.IsBad ? "3" :*/ "1"
-                        //            },
-                        //            Quantity = line.ScannedQuantity,
-                        //            BinNumber = !line.IsLocationUsedBin ? null :
-                        //                line.VendorBinAssignmentId != 0
-                        //                ? new ReferenceValue
-                        //                {
-                        //                    Id = line.VendorBinAssignmentId.ToString()
-                        //                }
-                        //                : line.NetsuiteMaterialPrefferedBinId != 0
-                        //                ? new ReferenceValue
-                        //                {
-                        //                    Id = line.NetsuiteMaterialPrefferedBinId.ToString()
-                        //                }
-                        //                : null
-                        //        }
-                        //    ]
-                        //};
 
-                        //var inventoryDetail = new InventoryDetail
-                        //{
-                        //    InventoryAssignmentList = new InventoryAssignmentList
-                        //    {
-                        //        InventoryAssignment = assignment
-                        //    }
-                        //};
-
-                        //return new OrderLineItem
-                        //{
-                        //    OrderLine = line.LineSequenceNumber,
-                        //    isReceived = true,
-                        //    Quantity = line.ScannedQuantity,
-                        //    RecordWeight = line.TotalWeight,
-                        //    ActualWeight = line.ScannedWeight,
-                        //    Rate = line.IsBad ? 0 : null,
-                        //    InventoryDetail = inventoryDetail
-                        //};
-
-                        return new OrderLineItem
+                        if (isUsedBin)
                         {
-                            OrderLine = line.LineSequenceNumber,
-                            isReceived = true,
-                            Quantity = line.ScannedQuantity,
-                            RecordWeight = line.TotalWeight,
-                            PhysicaQuantity = line.PhysicalQuantity,
-                            ActualWeight = line.ScannedWeight,
-                            Rate = line.IsBad ? 0 : null,
-                            InventoryDetail = new InventoryDetail
+                            filler.InventoryDetail = new InventoryDetail
                             {
                                 InventoryAssignment = new InventoryAssignment
                                 {
-                                    Items = new List<InventoryAssignmentItem>
-                                {
-                                    new()
-                                    {
-                                        InventoryStatus = new ReferenceValue
-                                        {
-                                            Id = "1"
-                                        },
-                                        BinNumber = line.IsLocationUsedBin ? new ReferenceValue
-                                        {
-                                            Id = line.VendorBinAssignmentId != 0
-                                                        ? line.VendorBinAssignmentId.ToString()
-                                                        : line.NetsuiteMaterialPrefferedBinId.ToString()
-                                        } : null,
-                                        Quantity = line.ScannedQuantity
-                                    }
+                                    Items = []
                                 }
+                            };
+                        }
+
+                        return filler;
+                    }
+
+                    return new OrderLineItem
+                    {
+                        OrderLine = line.LineSequenceNumber,
+                        isReceived = true,
+                        Quantity = line.ScannedQuantity,
+                        RecordWeight = line.TotalWeight,
+                        PhysicaQuantity = line.PhysicalQuantity,
+                        ActualWeight = line.ScannedWeight,
+                        Rate = line.IsBad ? 0 : null,
+                        InventoryDetail = new InventoryDetail
+                        {
+                            InventoryAssignment = new InventoryAssignment
+                            {
+                                Items = new List<InventoryAssignmentItem>
+                            {
+                                new()
+                                {
+                                    InventoryStatus = new ReferenceValue
+                                    {
+                                        Id = "1"
+                                    },
+                                    BinNumber = !line.IsLocationUsedBin ? null :
+                                        line.VendorBinAssignmentId != 0
+                                        ? new ReferenceValue
+                                        {
+                                            Id = line.VendorBinAssignmentId.ToString()
+                                        }
+                                        : line.NetsuiteMaterialPrefferedBinId != 0
+                                        ? new ReferenceValue
+                                        {
+                                            Id = line.NetsuiteMaterialPrefferedBinId.ToString()
+                                        }
+                                        : null,
+                                    Quantity = line.ScannedQuantity
                                 }
                             }
-                        };
-                    }
+                            }
+                        }
+                    };
                 }).ToList()
             }
         };

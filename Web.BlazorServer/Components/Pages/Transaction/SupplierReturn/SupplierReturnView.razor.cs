@@ -1,6 +1,7 @@
 using Mapster;
 using Microsoft.AspNetCore.Components;
 using Web.BlazorServer.Components.Pages.Transaction.InventoryTransferRequest;
+using Web.BlazorServer.Components.Shared.Others;
 using Web.BlazorServer.Handlers.Repositories.Transaction.SupplierReturn;
 using Web.BlazorServer.Helpers;
 using Web.BlazorServer.Services.Implementation;
@@ -75,7 +76,7 @@ public partial class SupplierReturnView
         {
             if (ex is null) return Task.CompletedTask;
 
-            ToastService.Error(ex.Message);
+            ToastService.Error($"{ex.Message} (TALAVERA.WMS v{Footer.WebVersion})");
             return Task.CompletedTask;
         });
 

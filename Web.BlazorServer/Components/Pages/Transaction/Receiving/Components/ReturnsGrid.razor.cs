@@ -19,7 +19,7 @@ partial class ReturnsGrid
     AppDataGrid<ReturnsDataGridVM> DataGrid { get; set; }
     DataGridSettings DataGridSettings { get; set; }
 
-    string ActionGetPurchaseOrders { get; } = EnumHelper.GetEnumDescription(AppActions.GetAllPurchaseOrders);
+    string ActionGetPurchaseOrders { get; } = EnumHelper.GetEnumDescription(AppActions.GetAllReturns);
 
     TransferOrderStatusVM? StatusFilter = null;
 

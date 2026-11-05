@@ -186,10 +186,6 @@ h1:focus {
 .show-floating {
     top: 0px !important;
 }
-.show-recent-scanned{
-    top:0px !important;
-    
-}
 div.rz-datalist-content ul.rz-datalist-data > li {
     padding: 0 !important;
 }
@@ -198,18 +194,28 @@ div.rz-datalist-content ul.rz-datalist-data > li {
     padding: 0 !important;
 }
 
+/* Sentinel the "Last Scanned" panel observes. It must have a measurable box -
+   a zero-area target is unreliable across WebView versions. */
+#recent-scanned {
+    height: 1px;
+}
+
 .recent-scanned-floating {
     background-color: white;
     position: fixed !important;
-    top: -170px;
+    top: 0;
     width: 100%;
     left: 50%;
-    transform: translateX(-50%);
+    transform: translate(-50%, -100%);
+    transition: transform 300ms ease-in;
     z-index: 100;
-    transition: 300ms ease-in;
     box-shadow: -1px 6px 14px -6px rgba(0,0,0,0.75);
     -webkit-box-shadow: -1px 6px 14px -6px rgba(0,0,0,0.75);
     -moz-box-shadow: -1px 6px 14px -6px rgba(0,0,0,0.75);
+}
+
+.show-recent-scanned {
+    transform: translate(-50%, 0);
 }
 
 .recent-card {
@@ -290,14 +296,30 @@ div.rz-datalist-content ul.rz-datalist-data > li {
 .floating-scan-actions {
     position: fixed;
     bottom: 50px;
+    left: 10px;
     right: 10px;
     z-index: 1000;
-    width: fit-content;
+    width: auto;
+    max-width: calc(100vw - 20px);
+    box-sizing: border-box;
+}
+
+.floating-scan-actions .scan-actions-row {
+    width: 100%;
+    gap: 4px !important;
+    justify-content: space-between;
+    flex-wrap: nowrap;
 }
 
 .scan-action-item {
     min-width: 48px;
     text-align: center;
+}
+
+.floating-scan-actions .scan-action-item {
+    flex: 1 1 0;
+    min-width: 0;
+    overflow: hidden;
 }
 
 .scan-action-label {

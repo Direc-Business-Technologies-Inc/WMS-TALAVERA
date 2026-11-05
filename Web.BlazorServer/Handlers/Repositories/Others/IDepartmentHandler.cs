@@ -5,5 +5,5 @@ namespace Web.BlazorServer.Handlers.Repositories.Others;
 
 public interface IDepartmentHandler
 {
-    Task<(IEnumerable<DepartmentVM> Data, int Count)> GetDepartmentsListAsync(DataGridIntent intent);
+    Task<(IEnumerable<DepartmentVM> Data, int Count)> GetDepartmentsListAsync(DataGridIntent intent, CancellationToken ct = default);
 }

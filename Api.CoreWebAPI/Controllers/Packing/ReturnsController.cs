@@ -6,12 +6,14 @@ using Application.UseCases.Queries.Transaction.Packing.NS.Returns;
 using Mapster;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using Shared.Libraries.Entities;
 using Shared.Libraries.ViewModel.Returns;
 
 namespace Api.CoreWebAPI.Controllers.Packing;
 
 [ApiController]
+[Authorize(AuthenticationSchemes = "Bearer")]
 [Route("api/Packing/[controller]")]
 public class ReturnsController(ISender Sender) : ControllerBase
 {
@@ -23,6 +25,17 @@ public class ReturnsController(ISender Sender) : ControllerBase
         List<ReturnsVM> ret = result.Adapt<List<ReturnsVM>>();
 
         return ApiResult<IEnumerable<ReturnsVM>>.Succeeded(ret);
+    }
+
+    [HttpPost("Lookup")]
+    public async Task<IActionResult> Lookup(RequestDTO req)
+    {
+        if (string.IsNullOrWhiteSpace(req.OrderNumber)) return StatusCode(400, ApiResult<ReturnsVM>.Failed("Enter a return number."));
+        if (!int.TryParse(User.FindFirst("NsSubsidiaryId")?.Value, out var subsidiaryId) || subsidiaryId <= 0) return Unauthorized(ApiResult<ReturnsVM>.Failed("Authenticated NetSuite subsidiary identity is unavailable."));
+        var user = new RequestPerUserDTO { NetsuiteUserSubsidiaryInternalId = subsidiaryId };
+        var result = await Sender.Send(new GetPackingReturnByNumberQry(req.OrderNumber, user));
+        if (result is null) return Ok(ApiResult<ReturnsVM>.NotFound("No eligible return was found."));
+        return Ok(ApiResult<ReturnsVM>.Succeeded(result.Adapt<ReturnsVM>()));
     }
 
     [HttpPost("Items")]

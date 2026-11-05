@@ -80,7 +80,7 @@ public partial class ItemSelection
             SelectedItems.Remove(SelectedItems.First(x => x.ItemCode == data.ItemCode));
     }
 
-    async Task OnRowSelect(ItemVM data)
+    void ApplyRowSelect(ItemVM data)
     {
         if (!SelectedItems.Any(x => x.ItemCode == data.ItemCode))
             SelectedItems.Add(data);
@@ -101,6 +101,21 @@ public partial class ItemSelection
 
             Request.Lines = [.. Request.Lines, line];
         }
+    }
+
+    void ApplyRowDeselect(ItemVM data)
+    {
+        var selected = SelectedItems.FirstOrDefault(x => x.ItemCode == data.ItemCode);
+        if (selected is not null)
+            SelectedItems.Remove(selected);
+
+        if (Request.Lines.Any(x => x.ItemCode == data.ItemCode))
+            Request.Lines = [.. Request.Lines.Where(x => x.ItemCode != data.ItemCode)];
+    }
+
+    async Task OnRowSelect(ItemVM data)
+    {
+        ApplyRowSelect(data);
 
         await RequestChanged.InvokeAsync(Request);
         await InvokeAsync(StateHasChanged);
@@ -108,12 +123,37 @@ public partial class ItemSelection
 
     async Task OnRowDeselect(ItemVM data)
     {
-        if (SelectedItems.Any(x => x.ItemCode == data.ItemCode))
-            SelectedItems.Remove(data);
+        ApplyRowDeselect(data);
 
-        if (Request.Lines.Any(x => x.ItemCode == data.ItemCode))
-            Request.Lines = [.. Request.Lines.Where(x => x.ItemCode != data.ItemCode)];
+        await RequestChanged.InvokeAsync(Request);
+        await InvokeAsync(StateHasChanged);
+    }
 
+    // "All" refers to the rows of the currently loaded page only; paging
+    // through the whole data set is intentionally not triggered from here.
+    List<ItemVM> PageItems => ItemsDataGrid?.DGResult.Items?.ToList() ?? [];
+
+    bool? GetSelectionHeaderState()
+    {
+        var pageItems = PageItems;
+        return SelectAllHeader.Compute(
+            pageItems.Count,
+            pageItems.Count(item => SelectedItems.Any(x => x.ItemCode == item.ItemCode)));
+    }
+
+    async Task ToggleAllItems(bool? value)
+    {
+        bool select = value == true;
+
+        foreach (var item in PageItems)
+        {
+            if (select)
+                ApplyRowSelect(item);
+            else
+                ApplyRowDeselect(item);
+        }
+
+        UnsavedChangesService.MarkDirty();
         await RequestChanged.InvokeAsync(Request);
         await InvokeAsync(StateHasChanged);
     }

@@ -74,6 +74,7 @@ public partial class ReturnsItemReceiptCreatePage
 
         action.OnSuccess(() =>
         {
+            ToastService.Success("Returns item fulfillment posted successfully.");
             NavManager.NavigateTo($"{PackingRoutes.Root}?tab=returns", true);
             return Task.CompletedTask;
         });

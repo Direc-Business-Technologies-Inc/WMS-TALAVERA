@@ -93,7 +93,9 @@ public partial class DeliveryCVUPage
         throw new NotImplementedException();
     }
 
-    protected override async Task HandleSubmit()
+    protected override Task HandleSubmit() => SubmitOnce.RunAsync(HandleSubmitCore);
+
+    async Task HandleSubmitCore()
     {
         if (Creating && !SalesOrderData.DocumentLines.Any(l => l.Quantity > 0))
         {

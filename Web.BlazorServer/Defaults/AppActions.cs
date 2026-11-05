@@ -83,6 +83,10 @@ public enum AppActions
     #region Transaction - Receiving
     [Description("Get All Purchase Orders")]
     GetAllPurchaseOrders,
+    [Description("Get All Transfer Orders")]
+    GetAllTransferOrders,
+    [Description("Get All Returns")]
+    GetAllReturns,
     [Description("Get All Purchase Delivery Notes")]
     GetAllPurchaseDeliveryNotes,
     [Description("Create Goods Receipt PO")]

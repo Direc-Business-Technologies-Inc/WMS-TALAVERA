@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace Integration.NS.Implementations.Vestigial
 {
-    internal class TransferTypeIntegration : ITransferTypeIntegration
+    public class TransferTypeIntegration : ITransferTypeIntegration
     {
         public Task<IEnumerable<TransferTypeSAPDTO>> GetTransferTypesAsync()
         {

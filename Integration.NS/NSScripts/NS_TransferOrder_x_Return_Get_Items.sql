@@ -80,8 +80,8 @@ LEFT JOIN (
 	AND ivb.custrecord_dbti_vba_location = tl.location
 
 WHERE
-    t.recordtype = 'intercompanytransferorder'
-    AND t.custbody_dbti_transfer_category IN ('3')
+    t.recordtype IN ('intercompanytransferorder', 'transferorder')
+    AND t.custbody_dbti_transfer_category IN ('3', '4')
     AND t.status IN ('F', 'E')
 	AND tl.transactionlinetype = 'RECEIVING'
 	AND t.tranid = @tranid

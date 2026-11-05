@@ -16,6 +16,6 @@ public class GetLocationsQryHandler(ILocationIntegration locationIntegration) : 
 {
     public async Task<(IEnumerable<LocationDTO> Data, int Count)> Handle(GetLocationsQry request, CancellationToken cancellationToken)
     {
-        return await locationIntegration.GetLocationsAsync(request.intent);
+        return await locationIntegration.GetLocationsAsync(request.intent, cancellationToken);
     }
 }

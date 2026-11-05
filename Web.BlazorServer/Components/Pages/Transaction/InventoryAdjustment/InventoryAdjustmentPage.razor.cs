@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Components;
 using Shared.Entities;
+using Web.BlazorServer.Components.Shared.Others;
 using Web.BlazorServer.Handlers.Repositories.Transaction.InventoryAdjustment;
 using Web.BlazorServer.ViewModels.Transaction.InventoryAdjustment;
 
@@ -71,6 +72,10 @@ public partial class InventoryAdjustmentPage
     {
         NavManager.NavigateTo(InventoryAdjustmentRoutes.VIEW + $"?ref={item.ReferenceNumber}");
     }
+
+    // Both receipt and issue rows are NetSuite inventory adjustment transactions and use the
+    // same print scriptlet. NetSuitePrint returns null for a defensive id <= 0.
+    static string? PrintUrl(InventoryAdjustmentDataGridVM data) => NetSuitePrint.InventoryAdjustmentReceipt(data.Id);
 
     async Task OnTabChanged()
     {

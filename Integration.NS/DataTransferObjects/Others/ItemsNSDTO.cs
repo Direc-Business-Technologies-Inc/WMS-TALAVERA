@@ -32,5 +32,8 @@ public class ItemsNSDTO
     public decimal QuantityOnHand { get; set; }
     public decimal QuantityAvailable { get; set; }
     public string? PreferredBin { get; set; }
+    public int? PreferredVendorId { get; set; }
+    public string? PreferredVendorName { get; set; }
+    public int? SubsidiaryId { get; set; }
     public bool UsesBins { get; set; }
 }

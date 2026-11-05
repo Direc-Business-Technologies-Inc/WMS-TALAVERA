@@ -188,7 +188,7 @@
                                     </ChildContent>
                                     <Helper>
                                         <RadzenCustomValidator Visible="@(Creating || IsEditable)" Component="tt_to_subsidiary" Popup
-                                                               Validator="() => FormData.ToSubsidiaries?.Any(x => x.NetsuiteSubsidiaryInternalId > 0) == true"
+                                                                Validator="() => FormData.ToSubsidiaries?.Any(x => x is not null && x.NetsuiteSubsidiaryInternalId > 0) == true"
                                                                Text="To Subsidiary is required" />
                                     </Helper>
                                 </RadzenFormField>
@@ -240,7 +240,7 @@
                                     </ChildContent>
                                     <Helper>
                                         <RadzenCustomValidator Visible="@(Creating || IsEditable)" Component="tt_destinations" Popup
-                                                               Validator="() => FormData.Destinations?.Any(x => x.NetsuiteLocationInternalId > 0) == true"
+                                                                Validator="() => FormData.Destinations?.Any(x => x is not null && x.NetsuiteLocationInternalId > 0) == true"
                                                                Text="Destination is required" />
                                     </Helper>
                                 </RadzenFormField>
@@ -299,7 +299,7 @@
                                       Id="trip_ticket_fulfillments_create"
                                       TItem="ItemFulfillmentVM"
                                       @bind-GridSettingsLoaded="@GridSettingsLoaded"
-                                      Data="[..FormData.ItemFulfillments]">
+                                      Data="@FormData.ItemFulfillments">
                                 <HeaderTemplate>
                                     <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" AlignItems="AlignItems.Center" Gap="8px">
 
@@ -313,6 +313,10 @@
                                     <RadzenDataGridColumn TItem="ItemFulfillmentVM"
                                                           Property="@nameof(ItemFulfillmentVM.OrderNumber)"
                                                           Title="Fulfillment No." Type="@typeof(string)" />
+                                    <RadzenDataGridColumn TItem="ItemFulfillmentVM" Property="@nameof(ItemFulfillmentVM.SourceLocation)" Title="From Location" Type="@typeof(string)" />
+                                    <RadzenDataGridColumn TItem="ItemFulfillmentVM" Property="@nameof(ItemFulfillmentVM.DestinationLocation)" Title="To Location" Type="@typeof(string)" />
+                                    <RadzenDataGridColumn TItem="ItemFulfillmentVM" Property="@nameof(ItemFulfillmentVM.FromSubsidiary)" Title="From Subsidiary" Type="@typeof(string)" />
+                                    <RadzenDataGridColumn TItem="ItemFulfillmentVM" Property="@nameof(ItemFulfillmentVM.ToSubsidiary)" Title="To Subsidiary" Type="@typeof(string)" />
                                     <RadzenDataGridColumn TItem="ItemFulfillmentVM"
                                                           Property="@nameof(ItemFulfillmentVM.OrderStatus)"
                                                           Title="Status" Type="@typeof(string)">
@@ -355,9 +359,10 @@
                                     <RadzenDataGridColumn TItem="ItemFulfillmentVM"
                                                           Property="@nameof(ItemFulfillmentVM.OrderNumber)"
                                                           Title="Fulfillment No." Type="@typeof(string)" />
-                                    <RadzenDataGridColumn TItem="ItemFulfillmentVM"
-                                                          Property="@nameof(ItemFulfillmentVM.DestinationLocation)"
-                                                          Title="Destination Location" Type="@typeof(string)" />
+                                    <RadzenDataGridColumn TItem="ItemFulfillmentVM" Property="@nameof(ItemFulfillmentVM.SourceLocation)" Title="From Location" Type="@typeof(string)" />
+                                    <RadzenDataGridColumn TItem="ItemFulfillmentVM" Property="@nameof(ItemFulfillmentVM.DestinationLocation)" Title="To Location" Type="@typeof(string)" />
+                                    <RadzenDataGridColumn TItem="ItemFulfillmentVM" Property="@nameof(ItemFulfillmentVM.FromSubsidiary)" Title="From Subsidiary" Type="@typeof(string)" />
+                                    <RadzenDataGridColumn TItem="ItemFulfillmentVM" Property="@nameof(ItemFulfillmentVM.ToSubsidiary)" Title="To Subsidiary" Type="@typeof(string)" />
                                 </Columns>
                             </RadzenDataGrid>
                         </RadzenColumn>
@@ -394,10 +399,11 @@
                                           Click="@CancelEditing" />
 
                             <RadzenButton Visible="@(Creating || IsEditable)"
+                                          Disabled="@IsSubmitting"
                                           ButtonStyle="ButtonStyle.Success"
                                           ButtonType="ButtonType.Submit"
                                           IsBusy="@AppBusyService.IsBusy(ActionCreate)"
-                                          Text="@(Creating ? "Submit" : "Save")" />
+                                          Text="@SubmitButtonText(Creating ? "Submit" : "Save")" />
                         </RadzenStack>
                     </RadzenStack>
                 </RadzenColumn>

@@ -16,33 +16,52 @@ public partial class TransferOrderItemView : IAsyncDisposable
     [Parameter]
     public string OrderNumber { get; set; }
 
-    private IJSObjectReference JsObj { get; set; }
     AppAction<List<TransferOrderLineVM>> ActionGetTOItems { get; set; }
-    AppAction<List<ItemBarcodesPerUoMVM>> ActionGetItemBarcodes { get; set; }
+    AppAction<List<VendorLookupVM>> ActionGetVendors { get; set; }
     AppAction ActionUpdateStartTime { get; set; }
     AppAction<bool> ActionSaveScan { get; set; }
 
     List<TransferOrderLineVM> GoodTOItems = [];
     List<TransferOrderLineVM> BadTOItems = [];
 
+    // Closed / fully-shipped lines: display-only, never scannable. A closed
+    // orderLine is exactly what crashes the !transform/itemFulfillment save, so
+    // these are kept off GoodTOItems/BadTOItems (and therefore out of ItemRequest
+    // and every scan handler).
+    List<TransferOrderLineVM> DoneTOItems = [];
+
+    // Backordered lines are built from the raw response, not from GoodTOItems.
+    // NetSuite closes a line when it backorders the remainder, so a backordered
+    // line is also IsCompleted and would otherwise land in DoneTOItems and vanish
+    // from the BackOrdered tab.
+    List<TransferOrderLineVM> BackOrderedTOItems = [];
+
 
     List<TransferOrderLineVM> FilteredGoodTOItems = [];
     List<TransferOrderLineVM> FilteredBadTOItems = [];
+    List<TransferOrderLineVM> FilteredDoneTOItems = [];
+    List<TransferOrderLineVM> FilteredBackOrderedTOItems = [];
 
     TransferOrderLineVM? LastScanned;
-    List<ItemBarcodesPerUoMVM> ItemBarcodes = [];
-    List<BarcodeRequestVM> ItemRequest = [];
 
     List<TransferOrderLineVM> TOItems = [];
 
     TransferOrderLineVM? GoodSelectedLine;
     TransferOrderLineVM? BadSelectedLine;
 
-    int ScanCount { get; set; }
+    private int _scanCount;
+    int ScanCount
+    {
+        get => _scanCount;
+        set
+        {
+            _scanCount = value;
+            if (value > 0) MarkScansDirty();
+        }
+    }
     bool SaveBtnDisabled => ScanCount == 0;
     int ActiveTabIndex { get; set; } = 0;
 
-    bool NextScanIsBad = false;
     bool MoveOn = false;
     bool IsWeightDialogOpen = false;
     decimal? DefaultWeight = null;
@@ -50,12 +69,38 @@ public partial class TransferOrderItemView : IAsyncDisposable
 
     private string SearchText { get; set; } = string.Empty;
 
+    // Vendor gate. The vendor barcode printed under the Vendor field on the STR
+    // encodes the vendor NAME as printed. It is resolved server-side against the
+    // order's own line vendors (custcol_dbti_vendor) before the id is used.
+    // Until it is scanned, every scan is a vendor scan and the line lists stay
+    // empty.
+    int? VendorId;
+    string VendorName = string.Empty;
+    List<VendorLookupVM> TransferOrderVendors = [];
+    int SelectedVendorId;
+
+    // Guards the vendor-resolution round trip. While it is in flight the operator's
+    // scans are swallowed: a double-fired scan or a re-scan during a slow network
+    // call must not run a second ResolveVendorScan whose ClearVendorLines/Set
+    // sequence would wipe or overwrite the state the first call is about to set,
+    // leaving the operator scanning against a vendor they did not resolve.
+    // The flag must also span the follow-up item load (ResolveVendorScan awaits
+    // ActionGetTOItems before clearing it): a second resolution cannot start until
+    // the first vendor's lines have been applied, otherwise two vendors' line sets
+    // can interleave in the same lists.
+    bool _resolvingVendor;
+
+    // Set only for the Save-now path of ChangeVendor: the shared save action
+    // navigates away by default, but a vendor switch must stay on this screen and
+    // continue only when the save succeeded.
+    bool _switchingVendor;
+
     // Backorder notification
     bool HasBackorderItems
     {
         get
         {
-            return GoodTOItems.Any(x => x.LineQuantityBackOrdered > 0);
+            return BackOrderedTOItems.Count > 0;
         }
     }
 
@@ -67,12 +112,32 @@ public partial class TransferOrderItemView : IAsyncDisposable
             TaskAsync = async () =>
             {
                 await InvokeAsync(StateHasChanged);
-                var res = await Client.Post<List<TransferOrderLineVM>>("/Packing/TransferOrder/Items", new { OrderNumber = OrderNumber });
+                var res = await Client.Post<List<TransferOrderLineVM>>("/Packing/TransferOrder/Items", new { OrderNumber = OrderNumber, VendorId = VendorId });
                 return res;
             },
             OnSuccess = async (result) =>
             {
-                GoodTOItems = result.Data.Select(line => new TransferOrderLineVM
+                var source = result.Data ?? [];
+
+                if (VendorId is not null)
+                {
+                    // Keep the name the resolver matched against the printed barcode:
+                    // the line's display name may be a different vendor name field.
+                    if (string.IsNullOrWhiteSpace(VendorName))
+                    {
+                        VendorName = source.Select(line => line.VendorName)
+                            .FirstOrDefault(name => !string.IsNullOrWhiteSpace(name)) ?? string.Empty;
+                    }
+
+                    if (source.Count == 0)
+                        await Toast.Warning("No open items for this vendor on this transfer order.");
+                }
+
+                var openLines = source.Where(line => !line.IsCompleted).ToList();
+
+                BackOrderedTOItems = source.Where(line => line.LineQuantityBackOrdered > 0).ToList();
+
+                GoodTOItems = openLines.Select(line => new TransferOrderLineVM
                 {
                     NetsuiteOrderInternalId = line.NetsuiteOrderInternalId,
                     OrderNumber = line.OrderNumber,
@@ -111,6 +176,9 @@ public partial class TransferOrderItemView : IAsyncDisposable
                     LineQuantityPacked = line.LineQuantityPacked,
                     LineQuantityBackOrdered = line.LineQuantityBackOrdered,
 
+                    IsClosed = line.IsClosed,
+                    QuantityAlreadyShipped = line.QuantityAlreadyShipped,
+
                     NetsuiteUoMInternalId = line.NetsuiteUoMInternalId,
                     UoMName = line.UoMName,
                     UoMRate = line.UoMRate,
@@ -121,7 +189,7 @@ public partial class TransferOrderItemView : IAsyncDisposable
                     IsBad = false,
                 }).ToList() ?? [];
 
-                BadTOItems = result.Data.Select(line => new TransferOrderLineVM
+                BadTOItems = openLines.Select(line => new TransferOrderLineVM
                 {
                     NetsuiteOrderInternalId = line.NetsuiteOrderInternalId,
                     OrderNumber = line.OrderNumber,
@@ -160,6 +228,9 @@ public partial class TransferOrderItemView : IAsyncDisposable
                     LineQuantity = line.LineQuantity,
                     LineQuantityPacked = line.LineQuantityPacked,
 
+                    IsClosed = line.IsClosed,
+                    QuantityAlreadyShipped = line.QuantityAlreadyShipped,
+
                     NetsuiteUoMInternalId = line.NetsuiteUoMInternalId,
                     UoMName = line.UoMName,
                     UoMRate = line.UoMRate,
@@ -170,26 +241,83 @@ public partial class TransferOrderItemView : IAsyncDisposable
                     IsBad = true,
                 }).ToList() ?? [];
 
+                // Closed / fully-shipped lines: read-only DONE list. Excluded from
+                // GoodTOItems/BadTOItems so ItemRequest and every scan handler skip them.
+                DoneTOItems = source.Where(line => line.IsCompleted && line.LineQuantityBackOrdered <= 0).Select(line => new TransferOrderLineVM
+                {
+                    NetsuiteOrderInternalId = line.NetsuiteOrderInternalId,
+                    OrderNumber = line.OrderNumber,
+                    OrderType = line.OrderType,
+                    OrderStatus = line.OrderStatus,
+
+                    NetsuiteFromLocationInternalId = line.NetsuiteFromLocationInternalId,
+                    NetsuiteToLocationInternalId = line.NetsuiteToLocationInternalId,
+
+                    NetsuiteFromSubsidiaryInternalId = line.NetsuiteFromSubsidiaryInternalId,
+                    NetsuiteSubsidiaryDefaultBOInternalId = line.NetsuiteSubsidiaryDefaultBOInternalId,
+                    NetsuiteToSubsidiaryInternalId = line.NetsuiteToSubsidiaryInternalId,
+
+                    LocationName = line.LocationName,
+                    LocationUsedBin = line.LocationUsedBin,
+
+                    LineSequenceNumber = line.LineSequenceNumber,
+                    TransactionLineType = line.TransactionLineType,
+
+                    NetsuiteMaterialInternalId = line.NetsuiteMaterialInternalId,
+                    MaterialCode = line.MaterialCode,
+                    MaterialName = line.MaterialName,
+                    MaterialWeight = line.MaterialWeight,
+
+                    NetsuiteMaterialPrefferedBinId = line.NetsuiteMaterialPrefferedBinId,
+                    NetsuiteMaterialVendorAssignedBin = line.NetsuiteMaterialVendorAssignedBin,
+
+                    LineQuantity = line.LineQuantity,
+                    LineQuantityPacked = line.LineQuantityPacked,
+                    LineQuantityBackOrdered = line.LineQuantityBackOrdered,
+
+                    IsClosed = line.IsClosed,
+                    QuantityAlreadyShipped = line.QuantityAlreadyShipped,
+
+                    NetsuiteUoMInternalId = line.NetsuiteUoMInternalId,
+                    UoMName = line.UoMName,
+                    UoMRate = line.UoMRate,
+
+                    ScanCount = 0,
+                    ScannedQuantity = 0,
+                    ScannedWeight = 0,
+                    IsBad = false,
+                }).ToList() ?? [];
+
                 ApplySearch();
+                await InvokeAsync(StateHasChanged);
+            },
+            OnFailure = async (result) =>
+            {
+                await Toast.Error(result.ErrorMessage);
                 await InvokeAsync(StateHasChanged);
             },
         };
 
-        ActionGetItemBarcodes = new AppAction<List<ItemBarcodesPerUoMVM>>
+        ActionGetVendors = new AppAction<List<VendorLookupVM>>
         {
-            Name = "GetItemBarcodes",
+            Name = "GetTransferOrderVendors",
             TaskAsync = async () =>
             {
-                await InvokeAsync(StateHasChanged);
-                var res = await Client.Post<List<ItemBarcodesPerUoMVM>>("/Item/Barcodes", ItemRequest);
+                var res = await Client.Post<List<VendorLookupVM>>(
+                    "/Packing/TransferOrder/Vendors",
+                    new { OrderNumber = OrderNumber });
                 return res;
             },
-            OnSuccess = async (result) =>
+            OnSuccess = async result =>
             {
-                ItemBarcodes = result.Data ?? [];
-
+                TransferOrderVendors = result.Data ?? [];
                 await InvokeAsync(StateHasChanged);
             },
+            OnFailure = async result =>
+            {
+                await Toast.Error(result.ErrorMessage);
+                await InvokeAsync(StateHasChanged);
+            }
         };
 
         ActionSaveScan = new AppAction<bool>
@@ -209,7 +337,13 @@ public partial class TransferOrderItemView : IAsyncDisposable
                     return;
                 }
 
+                MarkScansClean();
                 await Toast.Success("Scanned items saved sucessfully");
+
+                // A vendor switch stays on this screen; only the normal Save
+                // leaves the packing list.
+                if (_switchingVendor) return;
+
                 NavManager.NavigateTo("/packing");
             }
         };
@@ -219,22 +353,18 @@ public partial class TransferOrderItemView : IAsyncDisposable
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender)
+        if (!firstRender)
         {
-            await ActionFactory.ExecuteAppActionAsync(ActionGetTOItems);
-
-            ItemRequest = GoodTOItems.Select(i => new BarcodeRequestVM
-            {
-                NetsuiteMaterialInternalId = i.NetsuiteMaterialInternalId,
-            }).ToList();
-
-            await ActionFactory.ExecuteAppActionAsync(ActionGetItemBarcodes);
+            return;
         }
 
-        if (TOItems.Count > 0 && JsObj is null)
+        if (VendorId is not null)
         {
-            JsObj = await Js.InvokeAsync<IJSObjectReference>("import", "./js/IntersectionObserver.js");
-            await JsObj.InvokeVoidAsync("ObserveRecentScanned");
+            await ActionFactory.ExecuteAppActionAsync(ActionGetTOItems);
+        }
+        else
+        {
+            await ActionFactory.ExecuteAppActionAsync(ActionGetVendors);
         }
     }
 
@@ -264,6 +394,8 @@ public partial class TransferOrderItemView : IAsyncDisposable
         {
             FilteredGoodTOItems = GoodTOItems.ToList();
             FilteredBadTOItems = BadTOItems.ToList();
+            FilteredDoneTOItems = DoneTOItems.ToList();
+            FilteredBackOrderedTOItems = BackOrderedTOItems.ToList();
             return;
         }
 
@@ -274,6 +406,14 @@ public partial class TransferOrderItemView : IAsyncDisposable
             .ToList();
 
         FilteredBadTOItems = BadTOItems
+            .Where(row => MatchesSearch(row, search))
+            .ToList();
+
+        FilteredDoneTOItems = DoneTOItems
+            .Where(row => MatchesSearch(row, search))
+            .ToList();
+
+        FilteredBackOrderedTOItems = BackOrderedTOItems
             .Where(row => MatchesSearch(row, search))
             .ToList();
     }
@@ -384,7 +524,7 @@ public partial class TransferOrderItemView : IAsyncDisposable
             new Dictionary<string, object>
             {
                 { "ItemName", item.MaterialName },
-                { "PlannedQty", item.NSLineQuantityReceived },
+                { "PlannedQty", item.PackableQuantity },
                 { "GoodQty", goodLine.ScannedQuantity },
                 { "BadQty", badLine.ScannedQuantity },
                 { "ShowMissing", 1 }
@@ -404,18 +544,191 @@ public partial class TransferOrderItemView : IAsyncDisposable
         return BadSelectedLine?.LineSequenceNumber == row.LineSequenceNumber;
     }
 
+    /// <summary>
+    ///     Resolves the scanned vendor barcode to the vendor on this transfer
+    ///     order. The barcode carries either the vendor's NetSuite internal id or
+    ///     the vendor name (the same value printed under the Vendor field), so the
+    ///     server matches it against the order's own line vendors and returns the
+    ///     id to filter on. An internal id wins over a numeric vendor name.
+    /// </summary>
+    private async Task ResolveVendorScan(string scanned)
+    {
+        var value = scanned.Trim();
+
+        // The document barcode is the tranid. Scanning it here is harmless — the
+        // document is already open — so point at the next step instead of failing.
+        if (string.Equals(value, (OrderNumber ?? string.Empty).Trim(), StringComparison.OrdinalIgnoreCase))
+        {
+            await Toast.Warning("That is the document barcode — this document is already open. Now scan the vendor barcode printed under the Vendor field.");
+            return;
+        }
+
+        var result = await Client.Post<VendorLookupVM>(
+            "/Packing/TransferOrder/ResolveVendor",
+            new { OrderNumber = OrderNumber, VendorBarcode = value });
+
+        if (!result.Success || result.Data is null)
+        {
+            await Toast.Warning(string.IsNullOrWhiteSpace(result.ErrorMessage)
+                ? $"'{value}' is not a vendor on this transfer order."
+                : result.ErrorMessage);
+
+            return;
+        }
+
+        await ApplyVendor(result.Data);
+    }
+
+    private async Task SelectVendor()
+    {
+        if (_resolvingVendor)
+        {
+            return;
+        }
+
+        var vendor = TransferOrderVendors.FirstOrDefault(option => option.Id == SelectedVendorId);
+
+        if (vendor is null)
+        {
+            await Toast.Warning("Select a vendor from this transfer order.");
+            return;
+        }
+
+        _resolvingVendor = true;
+        await InvokeAsync(StateHasChanged);
+
+        try
+        {
+            await ApplyVendor(vendor);
+        }
+        finally
+        {
+            _resolvingVendor = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task ApplyVendor(VendorLookupVM vendor)
+    {
+        ClearVendorLines();
+
+        VendorId = vendor.Id;
+        VendorName = vendor.Name;
+        SelectedVendorId = vendor.Id;
+
+        await InvokeAsync(StateHasChanged);
+        await ActionFactory.ExecuteAppActionAsync(ActionGetTOItems);
+    }
+
+    private async Task ChangeVendor()
+    {
+        if (ScanCount > 0)
+        {
+            var saveNow = await Dialog.Confirm(
+                $"You have {ScanCount} unsaved scan(s). Save them before changing vendor?",
+                "Change Vendor",
+                new ConfirmOptions { OkButtonText = "Save now", CancelButtonText = "Discard" });
+
+            if (saveNow is null)
+            {
+                return;
+            }
+
+            if (saveNow == true)
+            {
+                _switchingVendor = true;
+                try
+                {
+                    await ActionFactory.ExecuteAppActionAsync(ActionSaveScan);
+                }
+                finally
+                {
+                    _switchingVendor = false;
+                }
+
+                // ExecuteAppActionAsync absorbs exceptions into Result; branch on
+                // the result, not a try/catch. A failed save keeps the gate on the
+                // current vendor with its scans intact.
+                if (ActionSaveScan.Result is not { Success: true })
+                {
+                    return;
+                }
+            }
+            else
+            {
+                var discard = await Dialog.Confirm(
+                    $"Discard {ScanCount} unsaved scan(s)?",
+                    "Discard Scans",
+                    new ConfirmOptions { OkButtonText = "Discard", CancelButtonText = "Cancel" });
+
+                if (discard != true)
+                {
+                    return;
+                }
+            }
+        }
+
+        VendorId = null;
+        VendorName = string.Empty;
+        ClearVendorLines();
+        SelectedVendorId = 0;
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void ClearVendorLines()
+    {
+        GoodTOItems = [];
+        BadTOItems = [];
+        DoneTOItems = [];
+        BackOrderedTOItems = [];
+        TOItems = [];
+
+        FilteredGoodTOItems = [];
+        FilteredBadTOItems = [];
+        FilteredDoneTOItems = [];
+        FilteredBackOrderedTOItems = [];
+
+        LastScanned = null;
+        ActiveTabIndex = 0;
+        ScanCount = 0;
+        SelectedVendorId = 0;
+        MarkScansClean();
+    }
+
     async void HandleItemScan(object sender, string message)
     {
         try
         {
-            if (ScanState == ToggleState.Base && !MoveOn && !NegateQuantity) return;
-
-            TransferOrderLineVM? badLine;
-
             var scanned = message?.Trim();
 
             if (string.IsNullOrWhiteSpace(scanned))
                 return;
+
+            // Vendor gate. Checked before the ScanState gate on purpose: while the
+            // gate is open the operator's scan target is the vendor barcode, not an
+            // item, regardless of which Good/Bad state the toggle is in.
+            if (_resolvingVendor) return;
+
+            if (VendorId is null)
+            {
+                _resolvingVendor = true;
+                await InvokeAsync(StateHasChanged);
+                try
+                {
+                    await ResolveVendorScan(scanned);
+                }
+                finally
+                {
+                    _resolvingVendor = false;
+                }
+
+                return;
+            }
+
+            if (ScanState == ToggleState.Base && !MoveOn && !NegateQuantity) return;
+
+            TransferOrderLineVM? badLine;
 
             if (MoveOn)
             {
@@ -429,15 +742,23 @@ public partial class TransferOrderItemView : IAsyncDisposable
                 return;
             }
 
-            var barcode = ItemBarcodes.FirstOrDefault(x =>
-                !string.IsNullOrWhiteSpace(x.MaterialBarcode) &&
-                x.MaterialBarcode.Equals(scanned, StringComparison.OrdinalIgnoreCase));
+            var resolution = await BarcodeResolver.ResolveAsync(scanned);
 
-            if (barcode is null)
+            if (!resolution.IsFound)
             {
-                await Toast.Warning($"Unknown barcode: {scanned}");
+                if (resolution.IsFailure)
+                {
+                    await Toast.Error(resolution.Message);
+                }
+                else
+                {
+                    await Toast.Warning(resolution.Message);
+                }
+
                 return;
             }
+
+            var barcode = resolution.Barcode!;
 
             var goodLine = GoodTOItems.FirstOrDefault(x =>
                     x.NetsuiteMaterialInternalId == barcode.NetsuiteMaterialInternalId &&
@@ -469,7 +790,11 @@ public partial class TransferOrderItemView : IAsyncDisposable
             var badlineTotal = badLine.ScannedQuantity;
             var goodLineTotal = goodLine.ScannedQuantity;
 
-            var isOverScan = badlineTotal + goodLineTotal >= goodLine.NSLineQuantityPacked;
+            // PackableQuantity is in the same display unit ScannedQuantity
+            // accumulates in (barcode rate / line rate). NSLineQuantityRemaining
+            // is raw stock units - comparing the two let a BOX12 line accept 12x
+            // its remaining quantity (2026-10-23 over-scan report).
+            var isOverScan = badlineTotal + goodLineTotal >= goodLine.PackableQuantity;
 
             if (isOverScan)
             {
@@ -479,7 +804,7 @@ public partial class TransferOrderItemView : IAsyncDisposable
 
             var scanQty = barcode.UoMRate / goodLine.UoMRate;
 
-            var remainingQty = goodLine.NSLineQuantityPacked - (goodLine.ScannedQuantity + (badLine?.ScannedQuantity ?? 0));
+            var remainingQty = goodLine.PackableQuantity - (goodLine.ScannedQuantity + (badLine?.ScannedQuantity ?? 0));
 
             bool isExceed = scanQty > remainingQty;
 
@@ -542,6 +867,8 @@ public partial class TransferOrderItemView : IAsyncDisposable
                 LastScanned = goodLine;
             }
 
+            await RevealLastScanned();
+
             ScanCount++;
             //ChangeWeight = null; // reset the ChangeWeight after each scan
 
@@ -556,17 +883,13 @@ public partial class TransferOrderItemView : IAsyncDisposable
     async Task SaveScan()
     {
         TOItems = GoodTOItems
-            .Where(g =>
-            {
-                var bad = BadTOItems.FirstOrDefault(b =>
-                    b.LineSequenceNumber == g.LineSequenceNumber);
-
-                var badQty = bad?.ScannedQuantity ?? 0;
-
-                return (badQty == 0 && g.LineQuantity != g.LineQuantityPacked + g.LineQuantityBackOrdered) ||
-                        (g.ScannedQuantity > 0 &&
-                        (g.ScannedQuantity + badQty) <= g.NSLineQuantityPacked);
-            })
+            // The server now owns the authoritative open-line set (save-time
+            // reconciliation), so the client must not drop a line for a
+            // packed-based remaining figure. LineQuantity == LineQuantityPacked +
+            // LineQuantityBackOrdered is false on partially fulfilled orders and
+            // used to remove valid scans from the payload. Forward the loaded rows
+            // (scanned and zero-quantity) unchanged; the server replaces stale
+            // zeros and adds fillers for every open line it did not receive.
             .Concat(BadTOItems.Where(x => x.NSLineQuantityPacked != 0))
             .Select(x => new TransferOrderLineVM
             {
@@ -598,6 +921,10 @@ public partial class TransferOrderItemView : IAsyncDisposable
 
                 LineQuantity = x.LineQuantity,
                 LineQuantityPacked = x.LineQuantityPacked,
+                LineQuantityBackOrdered = x.LineQuantityBackOrdered,
+
+                IsClosed = x.IsClosed,
+                QuantityAlreadyShipped = x.QuantityAlreadyShipped,
 
                 NetsuiteUoMInternalId = x.NetsuiteUoMInternalId,
                 UoMName = x.UoMName,
@@ -613,12 +940,6 @@ public partial class TransferOrderItemView : IAsyncDisposable
         await ActionFactory.ExecuteAppActionAsync(ActionSaveScan, confirm: true, showToast: true);
 
         await InvokeAsync(StateHasChanged);
-    }
-
-    void ToggleQuality()
-    {
-        NextScanIsBad = !NextScanIsBad;
-        InvokeAsync(StateHasChanged);
     }
 
     void ToggleMove()
@@ -680,15 +1001,23 @@ public partial class TransferOrderItemView : IAsyncDisposable
             TransferOrderLineVM? badLine;
             TransferOrderLineVM? goodLine;
 
-            var barcode = ItemBarcodes.FirstOrDefault(x =>
-                !string.IsNullOrWhiteSpace(x.MaterialBarcode) &&
-                x.MaterialBarcode.Equals(scanned, StringComparison.OrdinalIgnoreCase));
+            var resolution = await BarcodeResolver.ResolveAsync(scanned);
 
-            if (barcode is null)
+            if (!resolution.IsFound)
             {
-                await Toast.Warning($"Unknown barcode: {scanned}");
+                if (resolution.IsFailure)
+                {
+                    await Toast.Error(resolution.Message);
+                }
+                else
+                {
+                    await Toast.Warning(resolution.Message);
+                }
+
                 return;
             }
+
+            var barcode = resolution.Barcode!;
 
             if (ActiveTabIndex == 1)
             {
@@ -815,15 +1144,23 @@ public partial class TransferOrderItemView : IAsyncDisposable
             TransferOrderLineVM? badLine;
             TransferOrderLineVM? goodLine;
 
-            var barcode = ItemBarcodes.FirstOrDefault(x =>
-                !string.IsNullOrWhiteSpace(x.MaterialBarcode) &&
-                x.MaterialBarcode.Equals(scanned, StringComparison.OrdinalIgnoreCase));
+            var resolution = await BarcodeResolver.ResolveAsync(scanned);
 
-            if (barcode is null)
+            if (!resolution.IsFound)
             {
-                await Toast.Warning($"Unknown barcode: {scanned}");
+                if (resolution.IsFailure)
+                {
+                    await Toast.Error(resolution.Message);
+                }
+                else
+                {
+                    await Toast.Warning(resolution.Message);
+                }
+
                 return;
             }
+
+            var barcode = resolution.Barcode!;
 
             if (ActiveTabIndex == 1)
             {
@@ -959,9 +1296,13 @@ public partial class TransferOrderItemView : IAsyncDisposable
 
     private async Task Refresh()
     {
+        // Gate is open: nothing to refresh until a vendor barcode is scanned.
+        if (VendorId is null) return;
+
         // Snapshot current scanned state before refreshing
         var scannedState = GoodTOItems
             .Concat(BadTOItems)
+            .Concat(DoneTOItems)
             .GroupBy(x => new
             {
                 x.LineSequenceNumber,
@@ -980,8 +1321,11 @@ public partial class TransferOrderItemView : IAsyncDisposable
         // Reload PO items
         await ActionFactory.ExecuteAppActionAsync(ActionGetTOItems);
 
-        // Restore scanned state
-        foreach (var item in GoodTOItems.Concat(BadTOItems))
+        // Restore scanned state (including DONE lines, so a line that moved to
+        // DONE across the reload keeps its snapshot entry).
+        var clampedLines = new List<string>();
+
+        foreach (var item in GoodTOItems.Concat(BadTOItems).Concat(DoneTOItems))
         {
             var key = new
             {
@@ -992,98 +1336,42 @@ public partial class TransferOrderItemView : IAsyncDisposable
 
             if (scannedState.TryGetValue(key, out var scanned))
             {
-                item.ScannedQuantity = scanned.ScannedQuantity;
+                // The plan can shrink across the reload (another picker packed
+                // some of it, the order was edited). Restoring the old count
+                // would leave the device over the fresh packable quantity, and
+                // the scan guard would then allow everything up to the stale
+                // total, so clamp and tell the operator what was reduced.
+                var clamped = Math.Min(scanned.ScannedQuantity, item.PackableQuantity);
+                if (clamped < scanned.ScannedQuantity)
+                {
+                    clampedLines.Add($"{item.MaterialCode} ({scanned.ScannedQuantity} -> {clamped})");
+                }
+
+                item.ScannedQuantity = clamped;
                 item.ScannedWeight = scanned.ScannedWeight;
                 item.ScanCount = scanned.ScanCount;
             }
         }
 
-        // Refresh barcode requests from the refreshed TO
-        ItemRequest = GoodTOItems
-            .Select(i => new BarcodeRequestVM
-            {
-                NetsuiteMaterialInternalId = i.NetsuiteMaterialInternalId
-            })
-            .ToList();
-
-        await ActionFactory.ExecuteAppActionAsync(ActionGetItemBarcodes);
+        if (clampedLines.Count > 0)
+        {
+            await Toast.Warning($"Refresh reduced the scanned quantity on {clampedLines.Count} line(s) to the current plan: {string.Join(", ", clampedLines)}.");
+        }
 
         await InvokeAsync(StateHasChanged);
     }
 
     public async ValueTask DisposeAsync()
     {
+        MarkScansClean();
         BroadcastService.BroadcastReceived -= HandleItemScan;
 
-        if (JsObj is not null)
-        {
-            try
-            {
-                JsObj.InvokeVoidAsync("UnObserveRecentScanned");
-                await JsObj.InvokeVoidAsync("Dispose");
-            }
-            catch
-            {
-                // ignore cleanup errors
-            }
-
-            try
-            {
-                await JsObj.DisposeAsync();
-            }
-            finally
-            {
-                JsObj = null;
-            }
-        }
+        await DisposeLastScannedPanel();
     }
 
     #region Button States
     private ToggleState ScanState { get; set; } = ToggleState.Base;
 
-    private string ScanStateIcon => ScanState switch
-    {
-        ToggleState.Base => "check",
-        ToggleState.Good => "check",
-        ToggleState.Bad => "block",
-        _ => "check"
-    };
-
-    private string ScanStateLabel => ScanState switch
-    {
-        ToggleState.Base => "Good",
-        ToggleState.Good => "Good",
-        ToggleState.Bad => "Bad",
-        _ => "Good"
-    };
-
-    private ButtonStyle ScanStateButtonStyle => ScanState switch
-    {
-        ToggleState.Base => ButtonStyle.Base,
-        ToggleState.Good => ButtonStyle.Success,
-        ToggleState.Bad => ButtonStyle.Danger,
-        _ => ButtonStyle.Base
-    };
-
-    private void ToggleScanState()
-    {
-        ScanState = ScanState switch
-        {
-            ToggleState.Base => ToggleState.Good,
-            ToggleState.Good => ToggleState.Bad,
-            ToggleState.Bad => ToggleState.Base,
-            _ => ToggleState.Base
-        };
-
-        NextScanIsBad = ScanState switch
-        {
-            ToggleState.Base => false,
-            ToggleState.Good => false,
-            ToggleState.Bad => true,
-            _ => false
-        };
-
-        InvokeAsync(StateHasChanged);
-    }
+    private bool NextScanIsBad => ScanState == ToggleState.Bad;
     #endregion
 }

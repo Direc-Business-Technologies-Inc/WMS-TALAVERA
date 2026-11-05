@@ -28,7 +28,7 @@ public partial class InventoryCountingView : IAsyncDisposable
             TaskAsync = async () =>
             {
                 await InvokeAsync(StateHasChanged);
-                var res = await Client.Get<List<InventoryCountingVM>>("/InventoryCounting/Started", new { NetsuiteUserSubsidiaryInternalId = UserSubsidiaryId });
+                var res = await Client.Post<List<InventoryCountingVM>>("/InventoryCounting/Started", new { NetsuiteUserSubsidiaryInternalId = UserSubsidiaryId });
                 return res;
             },
             OnSuccess = async (result) =>

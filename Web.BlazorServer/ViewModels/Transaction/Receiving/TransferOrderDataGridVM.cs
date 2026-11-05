@@ -9,7 +9,7 @@ public class TransferOrderDataGridVM
     public DateTime? Date { get; set; }
     public DateTime? DeliveryDate { get; set; }
     public string SourceSubsidiary { get; set; } = string.Empty;
-    public string DesctinationSubsidiary { get; set; } = string.Empty;
+    public string DestinationSubsidiary { get; set; } = string.Empty;
     public string Location { get; set; } = string.Empty;
     public string TransferLocation { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;

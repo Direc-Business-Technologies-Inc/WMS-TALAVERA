@@ -79,9 +79,31 @@ public partial class AppGridSettings<TItem>
     #endregion Overrides
 
     #region Custom Functions
+    async Task SetPageSize(int value)
+    {
+        // The grid derives Skip from CurrentPage * PageSize. Changing the page size
+        // while sitting on a later page therefore rewrites Skip without moving the
+        // user: page 3 at size 10 (Skip=20) becomes Skip=40 at size 20, which
+        // NetSuite rejects with 404 INVALID_PARAMETER ("offset out of bounds")
+        // when the document no longer has that many rows.
+        //
+        // Assign the incoming value explicitly rather than relying on @bind-Value
+        // ordering, then reset to the first page before reloading so Skip goes
+        // back to 0. Assigning CurrentPage directly (rather than calling
+        // FirstPage) keeps this to the single Reload that NotifyParent already
+        // performs — FirstPage reloads internally, which would fire a second
+        // data load.
+        GridCopy.PageSize = value;
+        GridCopy.CurrentPage = 0;
+        await NotifyParent();
+    }
+
     async Task SetPaging(bool value)
     {
         GridSettingsService.PagingChanged(GridCopy, value);
+        // Toggling paging rescales Skip the same way a page-size change does,
+        // so reposition to the first page before reloading.
+        GridCopy.CurrentPage = 0;
         await NotifyParent();
     }
 

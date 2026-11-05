@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
+using Web.BlazorServer.Components.Base;
 using Radzen;
 using Web.BlazorServer.Components.Pages.Transaction.Others.BarcodeScanning;
 using Web.BlazorServer.Components.Pages.Transaction.Packing;
@@ -13,6 +14,8 @@ namespace Web.BlazorServer.Components.Pages.Transaction.Packing.VendorReturnAuth
 
 public partial class VendorReturnAuthorizationItemReceiptForm
 {
+    SubmitOnce SubmitOnce { get; } = new();
+    bool IsSubmitting => SubmitOnce.IsSubmitting;
     [Parameter] public VendorReturnAuthorizationItemReceiptPackingVM Data { get; set; } = new();
     [Parameter] public EditContext? EditContext { get; set; }
     [Parameter] public EventCallback<VendorReturnAuthorizationItemReceiptPackingVM> OnValidSubmit { get; set; }
@@ -23,11 +26,25 @@ public partial class VendorReturnAuthorizationItemReceiptForm
     DataGridSettings TableSettings { get; set; } = new();
 
     BarcodeStore BarcodeStore = new();
-    List<VendorReturnAuthorizationItemReceiptLinePackingVM> FulfillableLines => [.. Data.Lines.Where(line => !line.IsComplete)];
+    List<VendorReturnAuthorizationItemReceiptLinePackingVM>? sourceLines;
+    List<VendorReturnAuthorizationItemReceiptLinePackingVM> fulfillableLines = [];
 
-    bool isPlannedGreaterOpen => Data.Lines.Any(line => line.QuantityAvailable < line.QuantityOpen);
+    bool isPlannedGreaterOpen => Data.Lines.Any(line => line.QuantityOnHand < line.QuantityOpen);
 
-    public async Task Submit()
+    protected override void OnParametersSet()
+    {
+        base.OnParametersSet();
+
+        if (!ReferenceEquals(sourceLines, Data.Lines))
+        {
+            sourceLines = Data.Lines;
+            fulfillableLines = [.. Data.Lines.Where(line => !line.IsComplete)];
+        }
+    }
+
+    public Task Submit() => SubmitOnce.RunAsync(SubmitCore);
+
+    async Task SubmitCore()
     {
         if (OnValidSubmit.HasDelegate && EditContext is not null && EditContext.Validate())
             await OnValidSubmit.InvokeAsync(Data);
@@ -84,6 +101,25 @@ public partial class VendorReturnAuthorizationItemReceiptForm
     }
 
     private IList<VendorReturnAuthorizationItemReceiptLinePackingVM> selectedItems = new List<VendorReturnAuthorizationItemReceiptLinePackingVM>();
+
+    bool? GetIsReceivedHeaderState()
+    {
+        var eligible = Data.Lines.Where(l => !l.IsComplete).ToList();
+        return SelectAllHeader.Compute(eligible.Count, eligible.Count(l => l.IsReceived));
+    }
+
+    async Task ToggleAllIsReceived(bool? value)
+    {
+        bool select = value == true;
+
+        foreach (var line in Data.Lines.Where(l => !l.IsComplete))
+            line.IsReceived = select;
+
+        if (EditContext is not null)
+            EditContext.NotifyFieldChanged(new FieldIdentifier(Data, nameof(Data.Lines)));
+
+        await InvokeAsync(StateHasChanged);
+    }
 
     async Task OnRowClick(DataGridRowMouseEventArgs<VendorReturnAuthorizationItemReceiptLinePackingVM> args)
     {

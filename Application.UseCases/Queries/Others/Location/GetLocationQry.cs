@@ -15,6 +15,6 @@ public class GetLocationQryHandler(ILocationIntegration locationIntegration) : I
 {
     public async Task<LocationDTO?> Handle(GetLocationQry request, CancellationToken cancellationToken)
     {
-        return await locationIntegration.GetLocation(request.Id);
+        return await locationIntegration.GetLocation(request.Id, cancellationToken);
     }
 }

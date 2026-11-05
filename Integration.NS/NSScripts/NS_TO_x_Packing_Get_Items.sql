@@ -22,6 +22,9 @@ SELECT
     tl.item AS NetsuiteMaterialInternalId,
     i.itemid AS MaterialCode,
     i.displayname AS MaterialName,
+
+    tl.custcol_dbti_vendor AS VendorId,
+    BUILTIN.DF(tl.custcol_dbti_vendor) AS VendorName,
     
 	b.id AS NetsuiteMaterialPrefferedBinId,
 	ibi1.quantityavailable AS PreferredBinQuantityAvailableGood,
@@ -41,9 +44,12 @@ SELECT
     tl.quantitypacked AS LineQuantityPacked,
     tl.quantitybackordered AS LineQuantityBackOrdered,
 
+    tl.isclosed AS IsClosed,
+    tl.quantityshiprecv AS QuantityAlreadyShipped,
+
     tl.units AS NetsuiteUoMInternalId,
-    uom.unitname AS UoMName,
-    uom.conversionrate AS UoMRate,
+    NVL(uom.unitname, 'EACH') AS UoMName,
+    NVL(uom.conversionrate, 1) AS UoMRate,
 
     TO_CHAR(t.createddate, 'YYYY-MM-DD"T"HH24:MI:SS') AS NetsuiteOrderCreatedDate
 
@@ -52,16 +58,23 @@ JOIN transactionline tl ON i.id = tl.item
 JOIN transaction t ON tl.transaction = t.id
 JOIN subsidiary s ON t.subsidiary = s.id
 JOIN location loc ON tl.location = loc.id
-JOIN unitstypeuom uom ON tl.units = uom.internalid
+LEFT JOIN unitstypeuom uom ON tl.units = uom.internalid
 
 LEFT JOIN (
     SELECT
         ibq.item,
-        ibq.bin,
+        MIN(ibq.bin) AS bin,
         b.location
     FROM itembinquantity ibq
     INNER JOIN bin b ON b.id = ibq.bin
     WHERE ibq.preferredbin = 'T'
+      AND ibq.item IN (
+		SELECT txl.item
+		FROM transaction tx
+		JOIN transactionline txl ON txl.transaction = tx.id
+		WHERE tx.tranid = @tranid
+	)
+    GROUP BY ibq.item, b.location
 ) ibq ON ibq.item = i.id
    AND ibq.location = tl.location
 
@@ -71,11 +84,18 @@ LEFT JOIN (
     SELECT
         iv.item,
         iv.subsidiary,
-        ba.custrecord_dbti_vba_assigned_bin,
+        MIN(ba.custrecord_dbti_vba_assigned_bin) AS custrecord_dbti_vba_assigned_bin,
         ba.custrecord_dbti_vba_location
     FROM itemvendor iv
     JOIN customrecord_dbti_vendor_bin_assignment ba ON iv.vendor = ba.custrecord_dbti_vba_vendor
     WHERE iv.preferredvendor = 'T'
+      AND iv.item IN (
+		SELECT txl.item
+		FROM transaction tx
+		JOIN transactionline txl ON txl.transaction = tx.id
+		WHERE tx.tranid = @tranid
+	)
+    GROUP BY iv.item, iv.subsidiary, ba.custrecord_dbti_vba_location
 ) ivb ON ivb.item = i.id 
 	AND ivb.subsidiary = t.subsidiary 
 	AND ivb.custrecord_dbti_vba_location = tl.location
@@ -83,39 +103,112 @@ LEFT JOIN (
 LEFT JOIN (
 	SELECT
 		item,
-		BUILTIN.DF( item ) AS itemname,
 		location,
-		BUILTIN.DF( location ) AS locationname,
 		quantityavailable
 	FROM
 		AggregateItemLocation
-	ORDER BY
-		Item,
-		Location
+	WHERE item IN (
+		SELECT txl.item
+		FROM transaction tx
+		JOIN transactionline txl ON txl.transaction = tx.id
+		WHERE tx.tranid = @tranid
+	)
 ) ail ON ail.item = i.id  AND ail.location = tl.location 
 
-LEFT JOIN inventorybalance ibv1
-    ON ibv1.item = i.id
+LEFT JOIN (
+    SELECT
+        ib.item,
+        ib.location,
+        ib.binnumber,
+        ib.inventorystatus,
+        SUM(ib.quantityavailable) AS quantityavailable
+    FROM inventorybalance ib
+    WHERE ib.item IN (
+        SELECT txl.item
+        FROM transaction tx
+        JOIN transactionline txl ON txl.transaction = tx.id
+        WHERE tx.tranid = @tranid
+    )
+    GROUP BY
+        ib.item,
+        ib.location,
+        ib.binnumber,
+        ib.inventorystatus
+) ibv1 ON ibv1.item = i.id
     AND ibv1.location = tl.location
     AND ibv1.binnumber =
         ivb.custrecord_dbti_vba_assigned_bin
     AND ibv1.inventorystatus = '1'
 
-LEFT JOIN inventorybalance ibv2
-    ON ibv2.item = i.id
+LEFT JOIN (
+    SELECT
+        ib.item,
+        ib.location,
+        ib.binnumber,
+        ib.inventorystatus,
+        SUM(ib.quantityavailable) AS quantityavailable
+    FROM inventorybalance ib
+    WHERE ib.item IN (
+        SELECT txl.item
+        FROM transaction tx
+        JOIN transactionline txl ON txl.transaction = tx.id
+        WHERE tx.tranid = @tranid
+    )
+    GROUP BY
+        ib.item,
+        ib.location,
+        ib.binnumber,
+        ib.inventorystatus
+) ibv2 ON ibv2.item = i.id
     AND ibv2.location = tl.location
     AND ibv2.binnumber =
         ivb.custrecord_dbti_vba_assigned_bin
     AND ibv2.inventorystatus = '3'
 
-LEFT JOIN inventorybalance ibi1
-    ON ibi1.item = i.id
+LEFT JOIN (
+    SELECT
+        ib.item,
+        ib.location,
+        ib.binnumber,
+        ib.inventorystatus,
+        SUM(ib.quantityavailable) AS quantityavailable
+    FROM inventorybalance ib
+    WHERE ib.item IN (
+        SELECT txl.item
+        FROM transaction tx
+        JOIN transactionline txl ON txl.transaction = tx.id
+        WHERE tx.tranid = @tranid
+    )
+    GROUP BY
+        ib.item,
+        ib.location,
+        ib.binnumber,
+        ib.inventorystatus
+) ibi1 ON ibi1.item = i.id
     AND ibi1.location = tl.location
     AND ibi1.binnumber = b.id
     AND ibi1.inventorystatus = '1'
 
-LEFT JOIN inventorybalance ibi2
-    ON ibi2.item = i.id
+LEFT JOIN (
+    SELECT
+        ib.item,
+        ib.location,
+        ib.binnumber,
+        ib.inventorystatus,
+        SUM(ib.quantityavailable) AS quantityavailable
+    FROM inventorybalance ib
+    WHERE ib.item IN (
+        SELECT txl.item
+        FROM transaction tx
+        JOIN transactionline txl ON txl.transaction = tx.id
+        WHERE tx.tranid = @tranid
+    )
+    GROUP BY
+        ib.item,
+        ib.location,
+        ib.binnumber,
+        ib.inventorystatus
+) ibi2 ON ibi2.item = i.id
     AND ibi2.location = tl.location
     AND ibi2.binnumber = b.id
     AND ibi2.inventorystatus = '3'
@@ -128,6 +221,12 @@ LEFT JOIN (
         SUM(ib.quantityavailable) AS quantityavailable
     FROM
         inventorybalance ib
+    WHERE ib.item IN (
+        SELECT txl.item
+        FROM transaction tx
+        JOIN transactionline txl ON txl.transaction = tx.id
+        WHERE tx.tranid = @tranid
+    )
     GROUP BY
         ib.item,
         ib.location,
@@ -144,6 +243,12 @@ LEFT JOIN (
         SUM(ib.quantityavailable) AS quantityavailable
     FROM
         inventorybalance ib
+    WHERE ib.item IN (
+        SELECT txl.item
+        FROM transaction tx
+        JOIN transactionline txl ON txl.transaction = tx.id
+        WHERE tx.tranid = @tranid
+    )
     GROUP BY
         ib.item,
         ib.location,
@@ -158,3 +263,5 @@ WHERE
     AND t.status IN ('B', 'D', 'E')
     AND tl.transactionlinetype = 'SHIPPING'
 	AND t.tranid = @tranid
+	AND ({vendorId} = 0 OR tl.custcol_dbti_vendor = {vendorId})
+ORDER BY tl.id

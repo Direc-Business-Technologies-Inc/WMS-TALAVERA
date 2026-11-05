@@ -2,6 +2,7 @@ using Application.DataTransferObjects.Transactions.Packing.VendorReturnAuthoriza
 using Application.UseCases.Repositories.Integration.Others;
 using Application.UseCases.Repositories.Integration.Transaction.Packing;
 using Database.Libraries.Repositories;
+using Integration.NS.DataTransferObjects.Packing;
 using Integration.NS.DataTransferObjects.Packing.Returns;
 using Integration.NS.DataTransferObjects.Packing.STR;
 using Integration.NS.DataTransferObjects.Packing.VendorReturnAuthorization;
@@ -41,6 +42,7 @@ internal class VendorReturnAuthorizationPackingIntegration(
             .Join("transactionline tl", on: "tl.transaction = t.id")
             .Join("entity e", on: "t.entity = e.id")
             .LeftJoin("VendorReturnAuthorizationStatus s", "s.id = t.status")
+            .InnerJoin(SuiteQLFragments.PendingPackingLines("quantityshiprecv"), on: SuiteQLFragments.PendingPackingLinesJoinPredicate)
             .WithFilters(
                 Equal("tl.mainline", "T"),
                 Equal("t.subsidiary", subsidiaryId))
@@ -70,6 +72,7 @@ internal class VendorReturnAuthorizationPackingIntegration(
             .From("transaction t")
             .Join("transactionline tl", on: "tl.transaction = t.id")
             .Join("entity e", on: "t.entity = e.id")
+            .InnerJoin(SuiteQLFragments.PendingPackingLines("quantityshiprecv"), on: SuiteQLFragments.PendingPackingLinesJoinPredicate)
             .LeftJoin("employee em", "t.custbody_dbti_prepared_by = em.id")
             .LeftJoin("customrecord_dbti_trip_ticket_exemption tte", "tte.custrecord_dbti_tte_from_location = tl.location AND tte.custrecord_dbti_tte_to_location = t.transferlocation AND tte.isinactive = 'F'")
             .WithFilters(
@@ -79,11 +82,56 @@ internal class VendorReturnAuthorizationPackingIntegration(
             .Build();
 
         var response = await netsuiteService.ExecuteSuiteQLQuery<VendorReturnAuthorizationPackingHeaderNSDTO>(query.Query, query.Limit, query.Offset);
-        var nsdto = response.items.FirstOrDefault();
+        var nsdto = response.items?.FirstOrDefault();
 
         return nsdto is null ? null : MapInfoDto(nsdto);
     }
 
+    public async Task<bool?> GetTripTicketExemption(string tranid)
+    {
+        if (string.IsNullOrWhiteSpace(tranid)) return null;
+
+        // No packing filters here on purpose. Exemption belongs to the location pair, so it must
+        // still resolve when the order has advanced past the packing screen's filters. Reusing
+        // GetPackingVendorReturnAuthorization would return null in exactly that case and the
+        // caller would post a Packed ship status for an exempt order.
+        var query = builderFactory.Create()
+            .Select(
+                ("NVL(MIN(tte.id), 0)", nameof(TripTicketExemptionNSDTO.ExemptionId)))
+            .From("transaction t")
+            .Join("transactionline tl", on: "tl.transaction = t.id")
+            .LeftJoin("customrecord_dbti_trip_ticket_exemption tte", SuiteQLFragments.TripTicketExemptionJoin)
+            .WithFilters(
+                Equal("t.tranid", tranid),
+                Equal("tl.mainline", "T"),
+                In("t.recordtype", new string[] { "vendorreturnauthorization" }))
+            .GroupBy("t.id")
+            .Build();
+
+        var response = await netsuiteService.ExecuteSuiteQLQuery<TripTicketExemptionNSDTO>(query.Query, query.Limit, query.Offset);
+        var row = response.items?.FirstOrDefault();
+
+        return row is null ? null : row.ExemptionId != 0;
+    }
+
+    /// <summary>
+    /// Loads packing lines for one vendor return authorization by wrapping the
+    /// NS_VendorReturnAuthorization_Get_Items script as a derived table.
+    /// <para>
+    /// Shape notes for the script (kept here, not in the .sql, because a
+    /// <c>--</c> comment in a script is silently fatal — see
+    /// <c>SuiteQLText.StripComments</c>):
+    /// the ba and ibq derived tables each collapse to one row per
+    /// (vendor, location) and (item, location) via GROUP BY on a MIN().
+    /// Without those GROUP BYs they fan a single transaction line out into
+    /// several rows when the vendor has multiple bin-assignment records, or
+    /// the item has multiple preferred bins at the location. The mobile app
+    /// posts every row back, and two body entries with the same orderLine are
+    /// invalid for the !transform/itemFulfillment POST. The ba join also
+    /// matches the line location, so a bin assigned at another location never
+    /// resolves onto the line.
+    /// </para>
+    /// </summary>
     public async Task<(IEnumerable<VendorReturnAuthorizationLineDTO> Data, int Count)> GetPackingVendorReturnAuthorizationLines(string id, DataGridIntent intent)
     {
         var mobileLineQuery = sqlQuery.ResolveSuiteQLScript(
@@ -100,6 +148,7 @@ internal class VendorReturnAuthorizationPackingIntegration(
                 ("q.UoMName", nameof(VendorReturnAuthorizationPackingLineNSDTO.UoM)),
                 ("q.LocationName", nameof(VendorReturnAuthorizationPackingLineNSDTO.Warehouse)),
                 ("q.LocationItemQuantityAvailable", nameof(VendorReturnAuthorizationPackingLineNSDTO.QuantityAvailable)),
+                ("q.LocationItemQuantityOnHand", nameof(VendorReturnAuthorizationPackingLineNSDTO.QuantityOnHand)),
                 ("q.LineQuantity", nameof(VendorReturnAuthorizationPackingLineNSDTO.QuantityPlanned)),
                 ("q.LineQuantityPacked", nameof(VendorReturnAuthorizationPackingLineNSDTO.QuantityReceived))
             )
@@ -162,6 +211,7 @@ internal class VendorReturnAuthorizationPackingIntegration(
             UoM = nsdto.UoM,
             Warehouse = nsdto.Warehouse,
             QuantityAvailable = nsdto.QuantityAvailable,
+            QuantityOnHand = nsdto.QuantityOnHand,
             QuantityPlanned = nsdto.QuantityPlanned,
             QuantityReceived = nsdto.QuantityReceived,
         };

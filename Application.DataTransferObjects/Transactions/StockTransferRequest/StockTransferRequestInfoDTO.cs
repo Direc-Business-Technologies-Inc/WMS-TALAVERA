@@ -19,6 +19,7 @@ public class StockTransferRequestInfoDTO
     public SubsidiaryDTO? ToSubsidiary { get; set; } = null;
     public PurchaseCategoryDTO? PurchaseCategory { get; set; }
     public PurchaseSubCategoryDTO? PurchaseSubcategory { get; set; }
+    public EmployeeNsDTO? RequestedBy { get; set; } = null;
     public TransferOrderStatus? Status { get; set; } = null;
     public string PreparedBy { get; set; } = string.Empty;
     public string Remarks { get; set; } = string.Empty;

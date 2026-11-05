@@ -10,6 +10,6 @@ namespace Application.UseCases.Repositories.Integration.Others;
 
 public interface IDepartmentIntegration
 {
-    Task<(IEnumerable<DepartmentDTO>, int)> GetDepartmentsList(DataGridIntent intent);
+    Task<(IEnumerable<DepartmentDTO>, int)> GetDepartmentsList(DataGridIntent intent, CancellationToken ct = default);
 
 }

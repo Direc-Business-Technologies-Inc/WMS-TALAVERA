@@ -189,7 +189,7 @@
         var barcodesScanned = new BarcodeStore();
         bool? save = await DialogService.OpenAsync(
             "Table Settings",
-            ds => @<BarcodeScannerDialog BarcodeStore="barcodesScanned" />,
+            ds => @<BarcodeScannerDialog BarcodeStore="barcodesScanned" Location="@(FormData.Location?.NetsuiteLocationInternalId ?? null)" />,
             options: dialogOptions);
 
         if (save == true) AddScannedBarcodes(barcodesScanned);

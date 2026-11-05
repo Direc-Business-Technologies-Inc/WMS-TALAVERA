@@ -15,7 +15,7 @@ public class GetWarehousesQryHandler(
 {
     public async Task<(IEnumerable<WarehouseDTO> Data, int Count)> Handle(GetWarehousesQry request, CancellationToken cancellationToken)
     {
-        (IEnumerable<WarehouseSelectionSAPDTO> Data, int Count) = await warehouseIntegration.GetWarehouseAsync(request.Intent);
+        (IEnumerable<WarehouseSelectionSAPDTO> Data, int Count) = await warehouseIntegration.GetWarehouseAsync(request.Intent, cancellationToken);
 
         return (Data.Adapt<IEnumerable<WarehouseDTO>>(), Count);
     }
