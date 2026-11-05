@@ -13,6 +13,7 @@ public partial class ReceivingPage
 
     #region Primitives
     int SelectedTab { get; set; } = 0;
+    readonly bool[] Mounted = [false, false, false];
     #endregion Primitives
 
     #region Overrides
@@ -25,6 +26,7 @@ public partial class ReceivingPage
                 "transferorder" => 1, 
                 "returns" => 2,
                 _ => 0 };
+        Mounted[SelectedTab] = true;
     }
 
     #endregion Overrides
@@ -32,6 +34,7 @@ public partial class ReceivingPage
     #region Custom Functions
     void TabChanged()
     {
+        Mounted[SelectedTab] = true;
         Tab = SelectedTab switch { 
             1 => "transferorder", 
             2 => "returns", 

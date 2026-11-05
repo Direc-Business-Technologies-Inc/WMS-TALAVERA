@@ -33,6 +33,17 @@ public partial class TransferOrderGrid
     DateTime? DateRangeStart;
     DateTime? DateRangeEnd;
     PrintStatusView PrintStatusView = default!;
+    bool initialGridLoadSucceeded;
+    bool initialCountRefreshRequested;
+    bool initialDateRangeReloadPending;
+
+    Task OnGridDataLoaded()
+    {
+        if (!initialGridLoadSucceeded || initialCountRefreshRequested || initialDateRangeReloadPending) return Task.CompletedTask;
+        initialCountRefreshRequested = true;
+        _ = InvokeAsync(async () => { await Task.Yield(); await PrintStatusView.RefreshCountsAsync(); });
+        return Task.CompletedTask;
+    }
 
     async Task<int> PrintCountAsync(PrintStatus status)
     {
@@ -118,11 +129,14 @@ public partial class TransferOrderGrid
             {
                 DateRangeStart = range.Start;
                 DateRangeEnd = range.End;
+                initialDateRangeReloadPending = !initialCountRefreshRequested;
                 await InvokeAsync(StateHasChanged);
                 _ = InvokeAsync(async () =>
                 {
                     await Task.Yield();
                     await TransferOrderDataGrid.DataGrid.Reload();
+                    initialDateRangeReloadPending = false;
+                    initialCountRefreshRequested = true;
                     await PrintStatusView.RefreshCountsAsync();
                 });
             }
@@ -131,6 +145,7 @@ public partial class TransferOrderGrid
             throw new Exception("Invalid source for receiving grid");
         }, AppActionOptionPresets.Loading(ActionGetPurchaseOrders));
 
+        initialGridLoadSucceeded = action.IsSuccess;
         AppBusyService.SetBusy(ActionGetPurchaseOrders, false);
         return DataGridResultVM<TransferOrderDataGridVM>.New(action.Result.Data ?? [], action.Result.Count);
     }

@@ -20,13 +20,13 @@
     <RadzenTabs @bind-SelectedIndex="@SelectedTab" @bind-SelectedIndex:after="@TabChanged">
         <Tabs>
             <RadzenTabsItem Text="Purchase Orders">
-                <PurchaseOrderGrid />
+                @if (Mounted[0]) { <PurchaseOrderGrid /> }
             </RadzenTabsItem>
             <RadzenTabsItem Text="Stock Transfer Request">
-                <TransferOrderGrid />
+                @if (Mounted[1]) { <TransferOrderGrid /> }
             </RadzenTabsItem>
             <RadzenTabsItem Text="Returns">
-                <ReturnsGrid />
+                @if (Mounted[2]) { <ReturnsGrid /> }
             </RadzenTabsItem>
         </Tabs>
     </RadzenTabs>

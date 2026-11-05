@@ -27,6 +27,17 @@ public partial class PurchaseOrderGrid
     DateTime? DateRangeStart;
     DateTime? DateRangeEnd;
     PrintStatusView PrintStatusView = default!;
+    bool initialGridLoadSucceeded;
+    bool initialCountRefreshRequested;
+    bool initialDateRangeReloadPending;
+
+    Task OnGridDataLoaded()
+    {
+        if (!initialGridLoadSucceeded || initialCountRefreshRequested || initialDateRangeReloadPending) return Task.CompletedTask;
+        initialCountRefreshRequested = true;
+        _ = InvokeAsync(async () => { await Task.Yield(); await PrintStatusView.RefreshCountsAsync(); });
+        return Task.CompletedTask;
+    }
 
     async Task<int> PrintCountAsync(PrintStatus status)
     {
@@ -120,11 +131,14 @@ public partial class PurchaseOrderGrid
             {
                 DateRangeStart = result.Data.Where(x => x.Date.HasValue).Min(x => x.Date!.Value).Date;
                 DateRangeEnd = result.Data.Where(x => x.Date.HasValue).Max(x => x.Date!.Value).Date;
+                initialDateRangeReloadPending = !initialCountRefreshRequested;
                 await InvokeAsync(StateHasChanged);
                 _ = InvokeAsync(async () =>
                 {
                     await Task.Yield();
                     await PurchaseOrderDataGrid.DataGrid.Reload();
+                    initialDateRangeReloadPending = false;
+                    initialCountRefreshRequested = true;
                     await PrintStatusView.RefreshCountsAsync();
                 });
             }
@@ -133,6 +147,7 @@ public partial class PurchaseOrderGrid
             throw new Exception("Invalid source for receiving grid");
         }, AppActionOptionPresets.Loading(ActionGetPurchaseOrders));
 
+        initialGridLoadSucceeded = action.IsSuccess;
         AppBusyService.SetBusy(ActionGetPurchaseOrders, false);
         return DataGridResultVM<PurchaseOrderDataGridVM>.New(action.Result.Data ?? [], action.Result.Count);
     }

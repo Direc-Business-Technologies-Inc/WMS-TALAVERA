@@ -272,12 +272,6 @@ public partial class ReceivingIntegration(
             .Join("transactionline tl", on: "tl.transaction = t.id")
             .LeftJoin(ReceiptPrintCountsSql, "ircount.sourceid = t.id")
             .LeftJoin("transferorderstatus s", on: "t.status = s.id")
-            .WithDatagridIntent(intent, new Dictionary<string, string>
-            {
-                [nameof(TransferOrderDataGridDTO.ForPrintingIRCount)] = "NVL(ircount.forprintingcount, 0)",
-                [nameof(TransferOrderDataGridDTO.PrintedIRCount)] = "NVL(ircount.printedcount, 0)",
-                [nameof(TransferOrderDataGridDTO.SingleReceiptId)] = "NVL(ircount.singlereceiptid, 0)"
-            })
             .WithFilters(
                 Equal("tl.mainline", "T"),
                 NotEqual("t.custbody_dbti_transfer_category", 4), // returns - bad items
