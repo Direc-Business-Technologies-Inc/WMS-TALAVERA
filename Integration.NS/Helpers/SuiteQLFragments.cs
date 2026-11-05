@@ -1,3 +1,6 @@
+using Shared.Entities;
+using Shared.Libraries.Utilities;
+
 namespace Integration.NS.Helpers;
 
 internal static class SuiteQLFragments
@@ -24,6 +27,27 @@ internal static class SuiteQLFragments
     ///     as the join alias, e.g. <c>$"{SuiteQLFragments.PendingPackingLines()} {SuiteQLFragments.PendingPackingLinesAlias} ON ..."</c>.
     /// </summary>
     public const string PendingPackingLinesAlias = "openpk";
+
+    /// <summary>Per-source counts and one fulfillment id for eligible Packing Labels.</summary>
+    public const string PackingFulfillmentPrintCounts =
+        "(SELECT ifl.createdfrom AS sourceid, MAX(ful.id) AS singlefulfillmentid, " +
+        "SUM(CASE WHEN NVL(ful.custbody_wms_print_count, 0) < 1 THEN 1 ELSE 0 END) AS forprintingcount, " +
+        "SUM(CASE WHEN NVL(ful.custbody_wms_print_count, 0) >= 1 THEN 1 ELSE 0 END) AS printedcount " +
+        "FROM transaction ful JOIN transactionline ifl ON ifl.transaction = ful.id AND ifl.mainline = 'T' " +
+        "WHERE ful.recordtype = 'itemfulfillment' AND ful.custbody_dbti_print_label = 'T' " +
+        "GROUP BY ifl.createdfrom) ifprint";
+
+    public static AppFilterDescriptor PackingQueueOrPrintableLabel(bool sourceTracksPickedState = false, string pendingAlias = PendingPackingLinesAlias)
+    {
+        var pendingQueue = DataGridFilterUtilities.NotNull($"{pendingAlias}.packtran");
+        if (sourceTracksPickedState)
+            pendingQueue = DataGridFilterUtilities.All(pendingQueue, DataGridFilterUtilities.Equal("t.ordpicked", "F"));
+
+        return DataGridFilterUtilities.Any(
+            pendingQueue,
+            DataGridFilterUtilities.GreaterThan("ForPrintingIFCount", 0),
+            DataGridFilterUtilities.GreaterThan("PrintedIFCount", 0));
+    }
 
     /// <summary>
     ///     Derived table listing every transaction that still has at least one item line with
@@ -57,15 +81,16 @@ internal static class SuiteQLFragments
     ///     filtered: <c>quantitypacked</c> for transfer orders, <c>quantityshiprecv</c> for
     ///     vendor return authorizations (the column their packing line script reads).
     /// </param>
-    public static string PendingPackingLines(string packedQuantityColumn = "quantitypacked")
+    public static string PendingPackingLines(string packedQuantityColumn = "quantitypacked", string alias = PendingPackingLinesAlias)
     {
+        if (string.IsNullOrWhiteSpace(alias)) throw new ArgumentException("A derived-table alias is required.", nameof(alias));
         return $"""
              (SELECT opk.transaction AS packtran
               FROM transactionline opk
               WHERE opk.mainline = 'F'
                 AND opk.isclosed = 'F'
                 AND ABS(opk.quantity) - ABS(opk.{packedQuantityColumn}) > 0
-              GROUP BY opk.transaction) {PendingPackingLinesAlias}
+              GROUP BY opk.transaction) {alias}
              """;
     }
 

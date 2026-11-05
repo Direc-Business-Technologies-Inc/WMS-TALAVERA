@@ -28,6 +28,10 @@ public static class NetSuitePrint
     /// independently of scriptlet 1671; a rotation currently requires a code change and redeploy.
     /// </summary>
     private const string TOKEN_SCRIPT_2109 = "AAEJ7tMQnbh622zQsmsY1In8-tcyWE4hAn92PUCgIBf3JMXUjpE";
+    private const string TOKEN_SCRIPT_1922 = "AAEJ7tMQ70cbDMgsewbx6YHr0oQkl5HAZi1-qpSrLgdV9mevdZI";
+
+    // Existing Receiving Report scriptlet (previously used by the Receiving Reports tab).
+    private const string TOKEN_SCRIPT_1914 = "AAEJ7tMQcHYZi6TWg02Efsn9l54jzr_F0odqnZsroaLYQ2W7pXI";
 
     private static string? Build(int? recordId, string recordType, string extraQuery) => recordId is > 0
         ? $"{SCRIPTLET_HOST}?script=1671&deploy=1&{ACCOUNT}&ns-at={TOKEN_SCRIPT_1671}" +
@@ -56,6 +60,15 @@ public static class NetSuitePrint
     /// <param name="recordId">NetSuite internal id of the custom record.</param>
     public static string? TripTicket(int? recordId) =>
         Build(recordId, "customrecord_dbti_trip_ticket", "&transactionDefault=false");
+
+    public static string? ReceivingReport(int? receiptId) => receiptId is > 0
+        ? $"{SCRIPTLET_HOST}?script=1914&deploy=1&{ACCOUNT}&ns-at={TOKEN_SCRIPT_1914}&id={receiptId}"
+        : null;
+
+    /// <summary>Packing-label printout for an eligible Item Fulfillment.</summary>
+    public static string? PackingLabel(int? fulfillmentId) => fulfillmentId is > 0
+        ? $"{SCRIPTLET_HOST}?script=1922&deploy=1&{ACCOUNT}&ns-at={TOKEN_SCRIPT_1922}&id={fulfillmentId}"
+        : null;
 
     /// <summary>
     /// Printout for an Inventory Adjustment goods receipt.

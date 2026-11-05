@@ -1,0 +1,56 @@
+@using Web.BlazorServer.Components.Custom
+@using Web.BlazorServer.ViewModels.Transaction.Packing
+@inherits BaseComponent
+
+@if (FulfillmentCount == 1 && SingleFulfillmentId > 0)
+{
+    <AppPrintLink Url="@NetSuitePrint.PackingLabel(SingleFulfillmentId)" RecordType="itemFulfillment" RecordId="@SingleFulfillmentId" OnPrint="@OnPrinted" Size="@Size" />
+}
+else
+{
+    <RadzenButton Icon="print" Size="@Size" ButtonStyle="ButtonStyle.Light" Disabled="@(FulfillmentCount == 0)" title="@(FulfillmentCount == 0 ? "No packing label available" : "Select a packing label")" Click="@OpenPackingLabelAsync" />
+}
+
+@code {
+    [Parameter, EditorRequired] public int TransactionId { get; set; }
+    [Parameter, EditorRequired] public string Source { get; set; } = "STR";
+    [Parameter] public int FulfillmentCount { get; set; }
+    [Parameter] public int SingleFulfillmentId { get; set; }
+    [Parameter] public ButtonSize Size { get; set; } = ButtonSize.ExtraSmall;
+    [Parameter] public EventCallback OnPrinted { get; set; }
+
+    [Inject] private Web.BlazorServer.Handlers.Repositories.Transaction.Packing.Returns.IReturnPackingHandler PackingHandler { get; set; } = default!;
+
+    private async Task OpenPackingLabelAsync()
+    {
+        if (TransactionId <= 0 || FulfillmentCount <= 0 || (FulfillmentCount == 1 && SingleFulfillmentId > 0)) return;
+
+        var fulfillments = new List<PackedItemFulfillmentVM>();
+        var skip = 0;
+        int total;
+        do
+        {
+            var intent = new global::Shared.Entities.DataGridIntent { Skip = skip, Take = 1000 };
+            PackingFulfillmentPrintStatusFilter.ApplyToFulfillments(intent, PrintStatus.All, Source, CurrentUserService.NsSubsidiaryId);
+            intent.Filters.Add(global::Shared.Libraries.Utilities.DataGridFilterUtilities.Equal("CreatedFromId", TransactionId));
+            var (rows, count) = await PackingHandler.GetPackedItemFulfillments(intent);
+            total = count;
+            var page = rows.ToArray();
+            fulfillments.AddRange(page);
+            if (page.Length == 0) break;
+            skip += page.Length;
+        } while (skip < total);
+        fulfillments = fulfillments.OrderByDescending(row => row.Date).ToList();
+        if (fulfillments.Count == 0)
+        {
+            ToastService.Warning("No packing label is available for this transaction.");
+            return;
+        }
+
+        var printed = await DialogService.OpenAsync<PackingLabelSelectionDialog>(
+            "Select Packing Label",
+            new Dictionary<string, object?> { [nameof(PackingLabelSelectionDialog.Fulfillments)] = (IReadOnlyList<PackedItemFulfillmentVM>)fulfillments },
+            new DialogOptions { Width = "760px", CloseDialogOnOverlayClick = true });
+        if (printed is true) await OnPrinted.InvokeAsync();
+    }
+}

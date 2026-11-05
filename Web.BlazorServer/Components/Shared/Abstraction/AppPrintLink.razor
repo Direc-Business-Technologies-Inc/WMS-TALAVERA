@@ -31,7 +31,10 @@
         if (!CanPrint || RecordType is null || RecordId is not > 0) return;
         try
         {
-            await NetSuiteClient.IncrementPrintCountAsync(RecordType, RecordId.Value);
+            if (RecordType == "customrecord_dbti_trip_ticket")
+                await NetSuiteClient.IncrementTripTicketPrintCountAsync(RecordId.Value);
+            else
+                await NetSuiteClient.IncrementPrintCountAsync(RecordType, RecordId.Value);
             await OnPrint.InvokeAsync();
         }
         catch (Exception)

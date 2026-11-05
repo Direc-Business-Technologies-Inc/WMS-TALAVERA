@@ -3,6 +3,10 @@ namespace Web.BlazorServer.ViewModels.Transaction.Packing.VendorReturnAuthorizat
 public class VendorReturnAuthorizationPackingDataGridVM
 {
     public int Id { get; set; }
+    public int ForPrintingIFCount { get; set; }
+    public int PrintedIFCount { get; set; }
+    public int SingleFulfillmentId { get; set; }
+    public int PendingPackLinesCount { get; set; }
     public string ReferenceNumber { get; set; } = string.Empty;
     public DateTime? Date { get; set; }
     public string SourceSubsidiary { get; set; } = string.Empty;

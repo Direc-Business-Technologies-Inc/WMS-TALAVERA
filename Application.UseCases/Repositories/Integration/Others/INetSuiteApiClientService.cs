@@ -18,7 +18,10 @@ public interface INetSuiteApiClientService : INotifyPropertyChanged
     string GetRestAPIURI { get; }
     string GetRestletURI { get; }
 
-    Task IncrementPrintCountAsync(string recordType, int recordId, CancellationToken ct = default);
+    Task IncrementPrintCountAsync(string recordType, int recordId, CancellationToken ct = default) =>
+        throw new NotSupportedException("Print count updates are not supported by this client.");
+    Task IncrementTripTicketPrintCountAsync(int recordId, CancellationToken ct = default) =>
+        throw new NotSupportedException("Trip Ticket print count updates are not supported by this client.");
 
 
     Task<bool> SaveTOItemFulfillment(List<PostTransferOrderDTO> Data);

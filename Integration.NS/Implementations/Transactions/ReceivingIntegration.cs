@@ -37,6 +37,12 @@ public partial class ReceivingIntegration(
     ILogger<ReceivingIntegration> logger)
     : IReceivingIntegration
 {
+    private const string ReceiptPrintCountsSql = "(SELECT irl.createdfrom AS sourceid, " +
+        "MAX(ir.id) AS singlereceiptid, " +
+        "SUM(CASE WHEN NVL(ir.custbody_wms_print_count, 0) < 1 THEN 1 ELSE 0 END) AS forprintingcount, " +
+        "SUM(CASE WHEN NVL(ir.custbody_wms_print_count, 0) >= 1 THEN 1 ELSE 0 END) AS printedcount " +
+        "FROM transaction ir JOIN transactionline irl ON irl.transaction = ir.id AND irl.mainline = 'T' " +
+        "WHERE ir.recordtype = 'itemreceipt' GROUP BY irl.createdfrom) ircount";
     /// <summary>
     /// NetSuite CUSTOMLIST_DBTI_PURCHASE_CATEGORY_LIST and
     /// CUSTOMRECORD_DBTI_PURCHASE_CATEGORIES ids (ordinal inserts — reordering
@@ -188,11 +194,20 @@ public partial class ReceivingIntegration(
                 ("BUILTIN.DF(t.custbody_dbti_purchase_category)", "PurchaseCategory"),
                 ("BUILTIN.DF(t.custbody_dbti_purchase_subcategory)", "PurchaseSubcategory"),
                 ("s.name", nameof(PurchaseOrderDataGridDTO.Status)),
-                ("t.transferlocation", "TransferLocation"))
+                ("t.transferlocation", "TransferLocation"),
+                ("NVL(ircount.forprintingcount, 0)", nameof(PurchaseOrderDataGridDTO.ForPrintingIRCount)),
+                ("NVL(ircount.printedcount, 0)", nameof(PurchaseOrderDataGridDTO.PrintedIRCount)),
+                ("NVL(ircount.singlereceiptid, 0)", nameof(PurchaseOrderDataGridDTO.SingleReceiptId)))
             .From("transaction t")
             .Join("transactionline tl", "tl.transaction = t.id")
+            .LeftJoin(ReceiptPrintCountsSql, "ircount.sourceid = t.id")
             .LeftJoin("purchaseorderstatus s", on: "s.id = t.status")
-            .WithDatagridIntent(intent, PurchaseOrderColumnMap)
+            .WithDatagridIntent(intent, PurchaseOrderColumnMap.Concat(new Dictionary<string, string>
+            {
+                [nameof(PurchaseOrderDataGridDTO.ForPrintingIRCount)] = "NVL(ircount.forprintingcount, 0)",
+                [nameof(PurchaseOrderDataGridDTO.PrintedIRCount)] = "NVL(ircount.printedcount, 0)",
+                [nameof(PurchaseOrderDataGridDTO.SingleReceiptId)] = "NVL(ircount.singlereceiptid, 0)"
+            }).ToDictionary())
             .WithFilters(
                 Equal("t.recordtype", "purchaseorder"),
                 In("t.status", new string[] { "B", "E" }),
@@ -248,11 +263,21 @@ public partial class ReceivingIntegration(
                 ("BUILTIN.DF(tl.location)", "Location"),
                 ("s.name", nameof(TransferOrderDataGridDTO.Status)),
                 ("t.memo", nameof(TransferOrderDataGridDTO.Remarks)),
-                ("BUILTIN.DF(t.transferlocation)", "TransferLocation")
+                ("BUILTIN.DF(t.transferlocation)", "TransferLocation"),
+                ("NVL(ircount.forprintingcount, 0)", nameof(TransferOrderDataGridDTO.ForPrintingIRCount)),
+                ("NVL(ircount.printedcount, 0)", nameof(TransferOrderDataGridDTO.PrintedIRCount)),
+                ("NVL(ircount.singlereceiptid, 0)", nameof(TransferOrderDataGridDTO.SingleReceiptId))
                 )
             .From("transaction t")
             .Join("transactionline tl", on: "tl.transaction = t.id")
+            .LeftJoin(ReceiptPrintCountsSql, "ircount.sourceid = t.id")
             .LeftJoin("transferorderstatus s", on: "t.status = s.id")
+            .WithDatagridIntent(intent, new Dictionary<string, string>
+            {
+                [nameof(TransferOrderDataGridDTO.ForPrintingIRCount)] = "NVL(ircount.forprintingcount, 0)",
+                [nameof(TransferOrderDataGridDTO.PrintedIRCount)] = "NVL(ircount.printedcount, 0)",
+                [nameof(TransferOrderDataGridDTO.SingleReceiptId)] = "NVL(ircount.singlereceiptid, 0)"
+            })
             .WithFilters(
                 Equal("tl.mainline", "T"),
                 NotEqual("t.custbody_dbti_transfer_category", 4), // returns - bad items
@@ -270,7 +295,11 @@ public partial class ReceivingIntegration(
                 ),
                 In("t.transferlocation", AllowedLocations)
             )
-            .WithDatagridIntent(intent, TransferOrderColumnMap)
+            .WithDatagridIntent(intent, TransferOrderColumnMap.Concat(new Dictionary<string, string>
+            {
+                [nameof(TransferOrderDataGridDTO.ForPrintingIRCount)] = "NVL(ircount.forprintingcount, 0)",
+                [nameof(TransferOrderDataGridDTO.PrintedIRCount)] = "NVL(ircount.printedcount, 0)"
+            }).ToDictionary())
             .Build();
 
         return await QueryListWithOffsetClampAsync(intent, "Transfer orders list", async skipOverride =>
@@ -485,14 +514,23 @@ public partial class ReceivingIntegration(
                 ("BUILTIN.DF(t.tosubsidiary)", "DestinationSubsidiary"),
                 ("BUILTIN.DF(t.custbody_dbti_return_to_vendor)", "VendorName"),
                 ("BUILTIN.DF(ml.location)", "Location"),
-                ("s.name", nameof(ReturnsDataGridDTO.Status)),
-                ("BUILTIN.DF(t.transferlocation)", "TransferLocation"),
-                ("t.memo", "Memo")
-            )
-            .From("transaction t")
+            ("s.name", nameof(ReturnsDataGridDTO.Status)),
+            ("BUILTIN.DF(t.transferlocation)", "TransferLocation"),
+            ("t.memo", "Memo"),
+            ("NVL(ircount.forprintingcount, 0)", nameof(ReturnsDataGridDTO.ForPrintingIRCount)),
+            ("NVL(ircount.printedcount, 0)", nameof(ReturnsDataGridDTO.PrintedIRCount)),
+            ("NVL(ircount.singlereceiptid, 0)", nameof(ReturnsDataGridDTO.SingleReceiptId))
+        )
+        .From("transaction t")
+        .LeftJoin(ReceiptPrintCountsSql, "ircount.sourceid = t.id")
             .LeftJoin("transferorderstatus s", on: "s.id = t.status")
             .LeftJoin("transactionline ml", "ml.transaction = t.id AND ml.mainline = 'T'")
-            .WithDatagridIntent(intent, TransferOrderColumnMap)
+            .WithDatagridIntent(intent, TransferOrderColumnMap.Concat(new Dictionary<string, string>
+            {
+                [nameof(ReturnsDataGridDTO.ForPrintingIRCount)] = "NVL(ircount.forprintingcount, 0)",
+                [nameof(ReturnsDataGridDTO.PrintedIRCount)] = "NVL(ircount.printedcount, 0)",
+                [nameof(ReturnsDataGridDTO.SingleReceiptId)] = "NVL(ircount.singlereceiptid, 0)"
+            }).ToDictionary())
             .WithFilters([.. filters]).Build();
 
         if (skipOverride.HasValue)
@@ -1258,15 +1296,59 @@ public partial class ReceivingIntegration(
         if (intent.Sorts.Count == 0)
             intent.Sorts.Add(DataGridSortUtilities.Descending(nameof(ItemReceiptDataGridDTO.DateLastModified)));
         
+        int[] allowedLocations = [-1];
+        var locationClaim = httpContext.HttpContext?.User?.FindFirst("com.direcbusiness.wms.nsAllowedLocations")?.Value;
+        if (locationClaim is not null)
+            allowedLocations = JsonSerializer.Deserialize<int[]>(locationClaim) ?? [-1];
+
+        List<int> allowedSubsidiaries = [];
+        var subsidiaryClaim = httpContext.HttpContext?.User?.FindFirst("com.direcbusiness.wms.nsAllowedSubsidiaries")?.Value;
+        if (subsidiaryClaim is not null)
+            allowedSubsidiaries = JsonSerializer.Deserialize<List<int>>(subsidiaryClaim) ?? [];
+
+        var purchaseOrderEligibility = All(
+            Equal("tcf.recordtype", "purchaseorder"),
+            In("tcf.status", new[] { "B", "E" }),
+            Any(IsNull("tcf.custbody_dbti_custom_approval_status"), NotEqual("tcf.custbody_dbti_custom_approval_status", "20")),
+            In("ptl.location", allowedLocations),
+            Any(
+                NotEqual("tcf.custbody_dbti_purchase_category", NonTradePurchaseCategoryId),
+                In("tcf.custbody_dbti_purchase_subcategory", NonTradeSubcategoryIds)));
+        if (allowedSubsidiaries.Count > 0)
+            purchaseOrderEligibility.Filters.Add(In("tcf.subsidiary", allowedSubsidiaries));
+
+        var eligibleTransferOrders = Any(
+            All(Equal("tcf.recordtype", "intercompanytransferorder"), In("tcf.tosubsidiary", allowedSubsidiaries)),
+            All(Equal("tcf.recordtype", "transferorder"), In("tcf.subsidiary", allowedSubsidiaries)));
+        var strEligibility = All(
+            In("tcf.recordtype", new[] { "transferorder", "intercompanytransferorder" }),
+            In("tcf.status", new[] { "F", "E" }),
+            NotEqual("tcf.custbody_dbti_transfer_category", 3),
+            NotEqual("tcf.custbody_dbti_transfer_category", 4),
+            In("tcf.transferlocation", allowedLocations),
+            eligibleTransferOrders);
+        var returnsTransferScope = allowedSubsidiaries.Count > 0
+            ? eligibleTransferOrders
+            : In("tcf.recordtype", new[] { "transferorder", "intercompanytransferorder" });
+        var returnsEligibility = All(
+            In("tcf.recordtype", new[] { "transferorder", "intercompanytransferorder" }),
+            In("tcf.status", new[] { "F", "E" }),
+            Any(Equal("tcf.custbody_dbti_transfer_category", 3), Equal("tcf.custbody_dbti_transfer_category", 4)),
+            In("tcf.transferlocation", allowedLocations),
+            returnsTransferScope);
+
         var query = builderFactory.Create()
+            .Distinct()
             .Select(
                 ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(ItemReceiptDataGridDTO.Date)),
                 ("TO_CHAR(t.lastmodifieddate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(ItemReceiptDataGridDTO.DateLastModified)),
                 ("t.id", nameof(ItemReceiptDataGridDTO.Id)),
+                ("t.custbody_wms_print_count", nameof(ItemReceiptDataGridDTO.PrintCount)),
                 ("t.tranid", nameof(ItemReceiptDataGridDTO.ReferenceNumber)),
                 ("BUILTIN.DF(t.entity)", nameof(ItemReceiptDataGridDTO.Vendor)),
                 ("categ.name", nameof(ItemReceiptDataGridDTO.TransferCategory)),
                 ("tcf.tranid", nameof(ItemReceiptDataGridDTO.CreatedFrom)),
+                ("tcf.id", nameof(ItemReceiptDataGridDTO.CreatedFromId)),
                 ("BUILTIN.DF(tl.location)", nameof(ItemReceiptDataGridDTO.ToLocation)), //swapped with FromLocation to match the correct field in the datagrid
                 ("BUILTIN.DF(t.transferlocation)", nameof(ItemReceiptDataGridDTO.FromLocation)) 
             )
@@ -1274,11 +1356,14 @@ public partial class ReceivingIntegration(
             .Join("transactionline tl", "tl.transaction = t.id AND tl.mainline = 'T'")
             .LeftJoin("CUSTOMLIST_DBTI_TRANSFER_CATEGORY_LIST categ", "t.custbody_dbti_transfer_category = categ.id")
             .LeftJoin("transaction tcf", "tl.createdfrom = tcf.id")
+            .LeftJoin("transactionline ptl", "ptl.transaction = tcf.id")
             .WithFilters(
-                Equal("t.recordtype", "itemreceipt")
+                Equal("t.recordtype", "itemreceipt"),
+                Any(purchaseOrderEligibility, strEligibility, returnsEligibility)
             )
             .WithFromOrToSubsidiaries(httpContext, "t")
             .WithPropertyMap(nameof(ItemReceiptDataGridDTO.Date), "t.trandate")
+            .WithPropertyMap("Status", "BUILTIN.DF(tcf.status)")
             .WithDatagridIntent(intent)
             .Build();
 

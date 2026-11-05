@@ -134,4 +134,18 @@ public class PurchaseOrderListingCategoryFilterTests
         Assert.Contains("AS PurchaseCategory", client.LastQuery);
         Assert.Contains("AS PurchaseSubcategory", client.LastQuery);
     }
+
+    [Fact]
+    public async Task Purchase_order_list_uses_the_alias_for_receipt_print_counts()
+    {
+        var (sut, client) = CreateCapturing();
+
+        await sut.GetPurchaseOrdersListAsync(new DataGridIntent { Take = 10 });
+
+        Assert.NotNull(client.LastQuery);
+        var query = System.Text.RegularExpressions.Regex.Replace(client.LastQuery, @"\s+", " ");
+        Assert.Matches(@"\) ircount ON ircount\.sourceid = t\.id", query);
+        Assert.Contains("NVL(ircount.forprintingcount, 0) AS ForPrintingIRCount", query);
+        Assert.Contains("NVL(ircount.printedcount, 0) AS PrintedIRCount", query);
+    }
 }

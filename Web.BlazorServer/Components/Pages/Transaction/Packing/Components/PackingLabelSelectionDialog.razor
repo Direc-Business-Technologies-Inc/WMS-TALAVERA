@@ -1,0 +1,33 @@
+@using Web.BlazorServer.Components.Custom
+@using Web.BlazorServer.ViewModels.Transaction.Packing
+@inherits BaseComponent
+
+<RadzenStack Gap="12px">
+    <RadzenText TextStyle="TextStyle.Body1">Select the item fulfillment label to print.</RadzenText>
+    <RadzenDataGrid Data="@Fulfillments" TItem="PackedItemFulfillmentVM" AllowPaging="false" Density="Density.Compact">
+        <Columns>
+            <RadzenDataGridColumn TItem="PackedItemFulfillmentVM" Property="@nameof(PackedItemFulfillmentVM.ReferenceNumber)" Title="Item Fulfillment" />
+            <RadzenDataGridColumn TItem="PackedItemFulfillmentVM" Property="@nameof(PackedItemFulfillmentVM.CreatedFrom)" Title="Created From" />
+            <RadzenDataGridColumn TItem="PackedItemFulfillmentVM" Property="@nameof(PackedItemFulfillmentVM.Date)" Title="Date">
+                <Template Context="fulfillment">@fulfillment.Date.ToString("MMM dd, yyyy")</Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn TItem="PackedItemFulfillmentVM" Title="Status" Width="110px">
+                <Template Context="fulfillment">@(fulfillment.PrintCount > 0 ? "Printed" : "For Printing")</Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn TItem="PackedItemFulfillmentVM" Title="Print" Width="90px">
+                <Template Context="fulfillment">
+                    <AppPrintLink Url="@NetSuitePrint.PackingLabel(fulfillment.Id)" RecordType="itemFulfillment" RecordId="@fulfillment.Id" OnPrint="@PrintSelectedAsync" Size="ButtonSize.ExtraSmall" />
+                </Template>
+            </RadzenDataGridColumn>
+        </Columns>
+    </RadzenDataGrid>
+    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End">
+        <RadzenButton Text="Close" ButtonStyle="ButtonStyle.Light" Click="@CloseAsync" />
+    </RadzenStack>
+</RadzenStack>
+
+@code {
+    [Parameter, EditorRequired] public required IReadOnlyList<PackedItemFulfillmentVM> Fulfillments { get; set; }
+    private Task CloseAsync() { DialogService.Close(false); return Task.CompletedTask; }
+    private Task PrintSelectedAsync() { DialogService.Close(true); return Task.CompletedTask; }
+}

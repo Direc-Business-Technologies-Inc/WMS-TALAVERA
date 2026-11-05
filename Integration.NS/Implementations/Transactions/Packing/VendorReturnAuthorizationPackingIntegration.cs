@@ -36,18 +36,30 @@ internal class VendorReturnAuthorizationPackingIntegration(
                 ("BUILTIN.DF(tl.location)", nameof(VendorReturnAuthorizationPackingDataGridNSDTO.Location)),
                 ("BUILTIN.DF(t.transferlocation)", nameof(VendorReturnAuthorizationPackingDataGridNSDTO.TransferLocation)),
                 ("s.name", nameof(VendorReturnAuthorizationPackingDataGridNSDTO.Status)),
-                ("t.memo", nameof(VendorReturnAuthorizationPackingDataGridNSDTO.Remarks))
+                ("t.memo", nameof(VendorReturnAuthorizationPackingDataGridNSDTO.Remarks)),
+                ("NVL(ifprint.forprintingcount, 0)", nameof(VendorReturnAuthorizationDataGridDTO.ForPrintingIFCount)),
+                ("NVL(ifprint.printedcount, 0)", nameof(VendorReturnAuthorizationDataGridDTO.PrintedIFCount)),
+                ("NVL(ifprint.singlefulfillmentid, 0)", nameof(VendorReturnAuthorizationDataGridDTO.SingleFulfillmentId)),
+                ("CASE WHEN openpk.packtran IS NULL THEN 0 ELSE 1 END", nameof(VendorReturnAuthorizationDataGridDTO.PendingPackLinesCount))
             )
             .From("transaction t")
             .Join("transactionline tl", on: "tl.transaction = t.id")
+            .LeftJoin(SuiteQLFragments.PackingFulfillmentPrintCounts, "ifprint.sourceid = t.id")
             .Join("entity e", on: "t.entity = e.id")
             .LeftJoin("VendorReturnAuthorizationStatus s", "s.id = t.status")
-            .InnerJoin(SuiteQLFragments.PendingPackingLines("quantityshiprecv"), on: SuiteQLFragments.PendingPackingLinesJoinPredicate)
+            .LeftJoin(SuiteQLFragments.PendingPackingLines("quantityshiprecv"), on: SuiteQLFragments.PendingPackingLinesJoinPredicate)
             .WithFilters(
                 Equal("tl.mainline", "T"),
                 Equal("t.subsidiary", subsidiaryId))
             .WithFilters(PackingVendorReturnAuthorizationFilters())
-            .WithDatagridIntent(intent)
+            .WithFilters(SuiteQLFragments.PackingQueueOrPrintableLabel())
+            .WithDatagridIntent(intent, new Dictionary<string, string>
+            {
+                [nameof(VendorReturnAuthorizationDataGridDTO.ForPrintingIFCount)] = "NVL(ifprint.forprintingcount, 0)",
+                [nameof(VendorReturnAuthorizationDataGridDTO.PrintedIFCount)] = "NVL(ifprint.printedcount, 0)",
+                [nameof(VendorReturnAuthorizationDataGridDTO.SingleFulfillmentId)] = "NVL(ifprint.singlefulfillmentid, 0)",
+                [nameof(VendorReturnAuthorizationDataGridDTO.PendingPackLinesCount)] = "CASE WHEN openpk.packtran IS NULL THEN 0 ELSE 1 END"
+            })
             .Build();
 
         var response = await query.ExecuteWithPaging<VendorReturnAuthorizationPackingDataGridNSDTO>(netsuiteService);
@@ -175,6 +187,10 @@ internal class VendorReturnAuthorizationPackingIntegration(
         return new()
         {
             Id = nsdto.Id,
+            ForPrintingIFCount = nsdto.ForPrintingIFCount,
+            PrintedIFCount = nsdto.PrintedIFCount,
+            SingleFulfillmentId = nsdto.SingleFulfillmentId,
+            PendingPackLinesCount = nsdto.PendingPackLinesCount,
             ReferenceNumber = nsdto.ReferenceNumber,
             Date = nsdto.Date,
             SourceSubsidiary = nsdto.SourceSubsidiary,

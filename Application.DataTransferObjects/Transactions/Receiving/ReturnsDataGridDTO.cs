@@ -10,6 +10,9 @@ namespace Application.DataTransferObjects.Transactions.Receiving;
 public class ReturnsDataGridDTO
 {
     public int Id { get; set; }
+    public int ForPrintingIRCount { get; set; }
+    public int PrintedIRCount { get; set; }
+    public int SingleReceiptId { get; set; }
     public string ReferenceNumber { get; set; } = string.Empty;
     public string SourceSubsidiary { get; set; } = string.Empty;
     public string DestinationSubsidiary { get; set; } = string.Empty;

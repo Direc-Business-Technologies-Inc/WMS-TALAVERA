@@ -30,14 +30,16 @@ partial class ReturnsGrid
     DateTime? DateRangeEnd;
     PrintStatusView PrintStatusView = default!;
 
-    Task<int> PrintCountAsync(PrintStatus status) => PrintStatusFilter.CountAsync(status, async intent =>
+    async Task<int> PrintCountAsync(PrintStatus status)
     {
-        return await ReceivingHandler.GetReturnsDataGridAsync(intent);
-    }, intent =>
-    {
-        PrintStatusFilter.ApplyDateRange(intent, DateRangeStart, DateRangeEnd);
+        var intent = new DataGridIntent { Skip = 0, Take = 1 };
+        ReceivingReceiptPrintStatusFilter.ApplyToReceipts(intent, status, "RETURNS");
+        if (DateRangeStart.HasValue) intent.Filters.Add(DataGridFilterUtilities.GreaterThanOrEqual("tcf.trandate", DateRangeStart.Value.Date));
+        if (DateRangeEnd.HasValue) intent.Filters.Add(DataGridFilterUtilities.LessThan("tcf.trandate", DateRangeEnd.Value.Date.AddDays(1)));
         ApplyStatusCountFilter(intent);
-    });
+        var (_, count) = await ReceivingHandler.GetItemReceiptsDatagridAsync(intent);
+        return count;
+    }
 
     async Task DateRangeChanged((DateTime Start, DateTime End) range)
     {
@@ -90,7 +92,7 @@ partial class ReturnsGrid
 
     async Task<DataGridResultVM<ReturnsDataGridVM>> LoadDataAsync(DataGridIntent intent)
     {
-        PrintStatusFilter.Apply(intent, SelectedPrintStatus);
+        ReceivingReceiptPrintStatusFilter.ApplyToTransactions(intent, SelectedPrintStatus);
         PrintStatusFilter.ApplyDateRange(intent, DateRangeStart, DateRangeEnd);
         var action = await AppActionFactory.RunAsync(async () =>
         {

@@ -6,6 +6,10 @@ public class ItemReceiptDataGridVM
 {
     [QuickDataGridIgnore]
     public int Id { get; set; }
+    [QuickDataGridIgnore]
+    public int? PrintCount { get; set; }
+    [QuickDataGridIgnore]
+    public int CreatedFromId { get; set; }
     [QuickDataGridTitle("Reference Number")]
     public string ReferenceNumber { get; set; } = string.Empty;
     [QuickDataGridTitle("Document Type")]

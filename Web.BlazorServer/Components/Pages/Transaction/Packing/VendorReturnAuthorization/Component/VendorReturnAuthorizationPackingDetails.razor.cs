@@ -27,7 +27,6 @@ partial class VendorReturnAuthorizationPackingDetails
     string ActionGetInfo => "Get Packing Vendor Return Authorization Information";
     string ErrorMessage = "Something went wrong while loading the packing vendor return authorization details. Please try again.";
 
-    const string PRINTABLE_URL = "https://11608969.extforms.netsuite.com/app/site/hosting/scriptlet.nl?script=1922&deploy=1&compid=11608969&ns-at=AAEJ7tMQ70cbDMgsewbx6YHr0oQkl5HAZi1-qpSrLgdV9mevdZI";
 
     VendorReturnAuthorizationInfoPackingVM Model = new();
     AppDataGrid<VendorReturnAuthorizationLinePackingVM>? DataGrid { get; set; }
@@ -83,7 +82,6 @@ partial class VendorReturnAuthorizationPackingDetails
         });
     }
 
-    string PrintableURL => $"{PRINTABLE_URL}&id={Model.Id}";
     async Task<DataGridResultVM<VendorReturnAuthorizationLinePackingVM>> LoadDataAsync(DataGridIntent intent)
     {
         var action = await AppActionFactory.RunAsync(async () =>

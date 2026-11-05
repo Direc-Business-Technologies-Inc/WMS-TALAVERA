@@ -18,6 +18,7 @@ partial class VendorReturnAuthorizationPackingDataGrid
 {
     [Inject] IGridSettingsService GridSettingsService { get; set; } = default!;
     [Inject] IVendorReturnAuthorizationPackingHandler VraHandler { get; set; } = default!;
+    [Inject] Web.BlazorServer.Handlers.Repositories.Transaction.Packing.Returns.IReturnPackingHandler PackingHandler { get; set; } = default!;
     [Inject] ILogger<VendorReturnAuthorizationPackingDataGrid> Logger { get; set; } = default!;
 
     AppDataGrid<VendorReturnAuthorizationPackingDataGridVM> DataGrid { get; set; } = default!;
@@ -26,15 +27,15 @@ partial class VendorReturnAuthorizationPackingDataGrid
     PrintStatusView PrintStatusView = default!;
     bool loadCountsAfterGrid;
     bool gridReadyToLoad;
-    const string PRINTABLE_URL = "https://11608969.extforms.netsuite.com/app/site/hosting/scriptlet.nl?script=1922&deploy=1&compid=11608969&ns-at=AAEJ7tMQ70cbDMgsewbx6YHr0oQkl5HAZi1-qpSrLgdV9mevdZI";
     async Task<int> PrintCountAsync(PrintStatus status)
     {
         var started = Stopwatch.GetTimestamp();
         var succeeded = false;
         try
         {
-            var count = await PrintStatusFilter.CountAsync<VendorReturnAuthorizationPackingDataGridVM>(status,
-                intent => VraHandler.GetVendorReturnAuthorizationsList(intent, CurrentUserService.NsSubsidiaryId));
+            var intent = new DataGridIntent { Skip = 0, Take = 1 };
+            PackingFulfillmentPrintStatusFilter.ApplyToFulfillments(intent, status, "VRA", CurrentUserService.NsSubsidiaryId);
+            var (_, count) = await PackingHandler.GetPackedItemFulfillments(intent);
             succeeded = true;
             return count;
         }
@@ -51,6 +52,7 @@ partial class VendorReturnAuthorizationPackingDataGrid
             await DataGrid.DataGrid.Reload();
         else
             await DataGrid.DataGrid.GoToPage(0);
+        await PrintStatusView.RefreshCountsAsync();
     }
 
     async Task RefreshPrintStatusAsync()
@@ -91,7 +93,7 @@ partial class VendorReturnAuthorizationPackingDataGrid
 
     async Task<DataGridResultVM<VendorReturnAuthorizationPackingDataGridVM>> LoadDataAsync(DataGridIntent intent)
     {
-        PrintStatusFilter.Apply(intent, SelectedPrintStatus);
+        PackingFulfillmentPrintStatusFilter.Apply(intent, SelectedPrintStatus);
         var action = await AppActionFactory.RunAsync(async () =>
         {
             AppBusyService.SetBusy(ActionGetVendorReturnAuthorizations, true);
@@ -130,8 +132,6 @@ partial class VendorReturnAuthorizationPackingDataGrid
         AppBusyService.SetBusy(ActionGetVendorReturnAuthorizations, false);
         return DataGridResultVM<VendorReturnAuthorizationPackingDataGridVM>.New(action.Result.Data ?? [], action.Result.Count);
     }
-
-    static string? PrintUrl(VendorReturnAuthorizationPackingDataGridVM item) => item.Id > 0 ? $"{PRINTABLE_URL}&id={item.Id}" : null;
 
     void ViewVendorReturnAuthorization(VendorReturnAuthorizationPackingDataGridVM item)
     {

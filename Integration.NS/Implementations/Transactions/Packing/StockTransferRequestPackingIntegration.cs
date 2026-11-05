@@ -41,12 +41,17 @@ internal class StockTransferRequestPackingIntegration(
                 ("BUILTIN.DF(tl.location)", nameof(StrPackingDataGridNSDTO.Location)),
                 ("BUILTIN.DF(t.transferlocation)", nameof(StrPackingDataGridNSDTO.TransferLocation)),
                 ("s.name", nameof(StrPackingDataGridNSDTO.Status)),
-                ("t.memo", nameof(StrPackingDataGridNSDTO.Remarks))
+                ("t.memo", nameof(StrPackingDataGridNSDTO.Remarks)),
+                ("NVL(ifprint.forprintingcount, 0)", nameof(StockTransferRequestPackingDataGridDTO.ForPrintingIFCount)),
+                ("NVL(ifprint.printedcount, 0)", nameof(StockTransferRequestPackingDataGridDTO.PrintedIFCount)),
+                ("NVL(ifprint.singlefulfillmentid, 0)", nameof(StockTransferRequestPackingDataGridDTO.SingleFulfillmentId)),
+                ("CASE WHEN openpk.packtran IS NULL THEN 0 ELSE 1 END", nameof(StockTransferRequestPackingDataGridDTO.PendingPackLinesCount))
             )
             .From("transaction t")
             .Join("transactionline tl", on: "tl.transaction = t.id")
+            .LeftJoin(SuiteQLFragments.PackingFulfillmentPrintCounts, "ifprint.sourceid = t.id")
             .LeftJoin("transferorderstatus s", on: "s.id = t.status")
-            .InnerJoin(SuiteQLFragments.PendingPackingLines(), on: SuiteQLFragments.PendingPackingLinesJoinPredicate)
+            .LeftJoin(SuiteQLFragments.PendingPackingLines(), on: SuiteQLFragments.PendingPackingLinesJoinPredicate)
             .WithFilters(
                 Equal("tl.mainline", "T"),
                 Any(
@@ -61,7 +66,14 @@ internal class StockTransferRequestPackingIntegration(
                 )
             )
             .WithFilters(PackingStockTransferRequestFilters())
-            .WithDatagridIntent(intent)
+            .WithFilters(SuiteQLFragments.PackingQueueOrPrintableLabel(sourceTracksPickedState: true))
+            .WithDatagridIntent(intent, new Dictionary<string, string>
+            {
+                [nameof(StockTransferRequestPackingDataGridDTO.ForPrintingIFCount)] = "NVL(ifprint.forprintingcount, 0)",
+                [nameof(StockTransferRequestPackingDataGridDTO.PrintedIFCount)] = "NVL(ifprint.printedcount, 0)",
+                [nameof(StockTransferRequestPackingDataGridDTO.SingleFulfillmentId)] = "NVL(ifprint.singlefulfillmentid, 0)",
+                [nameof(StockTransferRequestPackingDataGridDTO.PendingPackLinesCount)] = "CASE WHEN openpk.packtran IS NULL THEN 0 ELSE 1 END"
+            })
             .Build();
 
             if (skipOverride.HasValue) query.Offset = skipOverride.Value;
@@ -248,7 +260,6 @@ internal class StockTransferRequestPackingIntegration(
         [
             In("t.recordtype", new string[] { "intercompanytransferorder", "transferorder" }),
             In("t.custbody_dbti_transfer_category", new string[] { "1", "2" }),
-            Equal("t.ordpicked", "F"),
             In("t.status", new string[] { "B", "D", "E" })
         ];
     }
@@ -258,6 +269,10 @@ internal class StockTransferRequestPackingIntegration(
         return new()
         {
             Id = nsdto.Id,
+            ForPrintingIFCount = nsdto.ForPrintingIFCount,
+            PrintedIFCount = nsdto.PrintedIFCount,
+            SingleFulfillmentId = nsdto.SingleFulfillmentId,
+            PendingPackLinesCount = nsdto.PendingPackLinesCount,
             ReferenceNumber = nsdto.ReferenceNumber,
             Date = nsdto.Date,
             SourceSubsidiary = nsdto.SourceSubsidiary,

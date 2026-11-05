@@ -35,7 +35,7 @@ using static Application.DataTransferObjects.Transactions.Commons.NS.ReturnsEnum
 
 namespace Integration.NS.Services
 {
-    public class NetSuiteApiClientService(HttpContextAccessor httpContextAccessor, ISqlQueryManager sqlQuery, ILogger<NetSuiteApiClientService> logger) : INetSuiteApiClientService, INotifyPropertyChanged
+    public class NetSuiteApiClientService(HttpContextAccessor httpContextAccessor, ISqlQueryManager sqlQuery, ILogger<NetSuiteApiClientService> logger, Integration.NS.Implementations.Others.Caching.GridCacheStore? gridCache = null) : INetSuiteApiClientService, INotifyPropertyChanged
     {
 
         string NsDateTimeFormat = "YYYY-MM-DD HH24:MI:SS";
@@ -396,7 +396,7 @@ namespace Integration.NS.Services
         public async Task IncrementPrintCountAsync(string recordType, int recordId, CancellationToken ct = default)
         {
             if (recordId <= 0) throw new ArgumentOutOfRangeException(nameof(recordId));
-            if (recordType is not ("purchaseOrder" or "transferOrder" or "returnAuthorization" or "vendorReturnAuthorization" or "itemFulfillment"))
+            if (recordType is not ("purchaseOrder" or "transferOrder" or "returnAuthorization" or "vendorReturnAuthorization" or "itemFulfillment" or "itemReceipt"))
                 throw new ArgumentException("Unsupported print record type", nameof(recordType));
 
             var result = await ExecuteSuiteQLQuery<PrintCountRow>(
@@ -407,6 +407,21 @@ namespace Integration.NS.Services
             var url = $"{RecordApiRoot}/{recordType}/{recordId}";
             await MakeRequest<object>(url, JsonSerializer.Serialize(new { custbody_wms_print_count = next }),
                 HttpMethod.Patch, ct: ct);
+            gridCache?.Invalidate(Integration.NS.Implementations.Others.Caching.CachedReceivingIntegration.EntityName);
+            gridCache?.Invalidate(Integration.NS.Implementations.Others.Caching.CachedStockTransferRequestIntegration.EntityName);
+        }
+
+        public async Task IncrementTripTicketPrintCountAsync(int recordId, CancellationToken ct = default)
+        {
+            if (recordId <= 0) throw new ArgumentOutOfRangeException(nameof(recordId));
+
+            var result = await ExecuteSuiteQLQuery<PrintCountRow>(
+                $"SELECT custrecord_trt_print_count AS PrintCount FROM customrecord_dbti_trip_ticket WHERE id = {recordId}", ct: ct);
+            var current = result.items.SingleOrDefault()
+                ?? throw new InvalidOperationException($"NetSuite Trip Ticket {recordId} was not found.");
+            var next = checked((current.PrintCount ?? 0) + 1);
+            await MakeRequest<object>($"{RecordApiRoot}/customrecord_dbti_trip_ticket/{recordId}",
+                JsonSerializer.Serialize(new { custrecord_trt_print_count = next }), HttpMethod.Patch, ct: ct);
         }
 
         public async Task<T> MakeRequest<T>(

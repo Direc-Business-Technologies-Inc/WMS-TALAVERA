@@ -26,6 +26,7 @@ public class TripTicketIntegration(
         if (intent.Sorts.Count == 0) intent.Sorts.Add(DataGridSortUtilities.Descending(nameof(TripTicketDataGridDTO.TripDate)));
         var query = CreateTripTicketListQuery()
             .WithPropertyMap(nameof(TripTicketDataGridDTO.TripDate), "tt.custrecord_dbti_trt_date")
+            .WithPropertyMap(nameof(TripTicketDataGridDTO.PrintCount), "tt.custrecord_trt_print_count")
             .WithDatagridIntent(intent)
             .Build();
 
@@ -217,6 +218,7 @@ public class TripTicketIntegration(
                 ("BUILTIN.DF(tt.parent)", nameof(TripTicketDataGridDTO.ParentName)),
                 ("tt.id", nameof(TripTicketDataGridDTO.NetsuiteTripTicketInternalId)),
                 ("tt.name", nameof(TripTicketDataGridDTO.Name)),
+                ("tt.custrecord_trt_print_count", nameof(TripTicketDataGridDTO.PrintCount)),
 
                 ("tp.id", nameof(TripTicketDataGridDTO.TruckPlateNumberId)),
                 ("tp.name", nameof(TripTicketDataGridDTO.TruckPlateNumber)),

@@ -1,0 +1,30 @@
+@using Web.BlazorServer.Components.Custom
+@using Web.BlazorServer.ViewModels.Transaction.Receiving
+@inherits BaseComponent
+
+<RadzenStack Gap="12px">
+    <RadzenText TextStyle="TextStyle.Body1">Select the item receipt to print.</RadzenText>
+    <RadzenDataGrid Data="@Receipts" TItem="ItemReceiptDataGridVM" AllowPaging="false" Density="Density.Compact">
+        <Columns>
+            <RadzenDataGridColumn TItem="ItemReceiptDataGridVM" Property="@nameof(ItemReceiptDataGridVM.ReferenceNumber)" Title="RR Number" />
+            <RadzenDataGridColumn TItem="ItemReceiptDataGridVM" Property="@nameof(ItemReceiptDataGridVM.CreatedFrom)" Title="Created From" />
+            <RadzenDataGridColumn TItem="ItemReceiptDataGridVM" Property="@nameof(ItemReceiptDataGridVM.Date)" Title="Date">
+                <Template Context="receipt">@receipt.Date.ToString("MMM dd, yyyy")</Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn TItem="ItemReceiptDataGridVM" Title="Print" Width="90px">
+                <Template Context="receipt">
+                    <AppPrintLink Url="@NetSuitePrint.ReceivingReport(receipt.Id)" RecordType="itemReceipt" RecordId="@receipt.Id" OnPrint="@PrintSelectedAsync" Size="ButtonSize.ExtraSmall" />
+                </Template>
+            </RadzenDataGridColumn>
+        </Columns>
+    </RadzenDataGrid>
+    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End">
+        <RadzenButton Text="Close" ButtonStyle="ButtonStyle.Light" Click="@CloseAsync" />
+    </RadzenStack>
+</RadzenStack>
+
+@code {
+    [Parameter, EditorRequired] public required IReadOnlyList<ItemReceiptDataGridVM> Receipts { get; set; }
+    private Task CloseAsync() { DialogService.Close(false); return Task.CompletedTask; }
+    private Task PrintSelectedAsync() { DialogService.Close(true); return Task.CompletedTask; }
+}

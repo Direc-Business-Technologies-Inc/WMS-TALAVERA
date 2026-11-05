@@ -28,14 +28,16 @@ public partial class PurchaseOrderGrid
     DateTime? DateRangeEnd;
     PrintStatusView PrintStatusView = default!;
 
-    Task<int> PrintCountAsync(PrintStatus status) => PrintStatusFilter.CountAsync(status, async intent =>
+    async Task<int> PrintCountAsync(PrintStatus status)
     {
-        return await ReceivingHandler.GetPurchaseOrderDataGridAsync(intent);
-    }, intent =>
-    {
-        PrintStatusFilter.ApplyDateRange(intent, DateRangeStart, DateRangeEnd);
+        var intent = new DataGridIntent { Skip = 0, Take = 1 };
+        ReceivingReceiptPrintStatusFilter.ApplyToReceipts(intent, status, "PO");
+        if (DateRangeStart.HasValue) intent.Filters.Add(DataGridFilterUtilities.GreaterThanOrEqual("tcf.trandate", DateRangeStart.Value.Date));
+        if (DateRangeEnd.HasValue) intent.Filters.Add(DataGridFilterUtilities.LessThan("tcf.trandate", DateRangeEnd.Value.Date.AddDays(1)));
         ApplyStatusCountFilter(intent);
-    });
+        var (_, count) = await ReceivingHandler.GetItemReceiptsDatagridAsync(intent);
+        return count;
+    }
 
     async Task DateRangeChanged((DateTime Start, DateTime End) range)
     {
@@ -51,6 +53,12 @@ public partial class PurchaseOrderGrid
             await PurchaseOrderDataGrid.DataGrid.Reload();
         else
             await PurchaseOrderDataGrid.DataGrid.GoToPage(0);
+    }
+
+    async Task RefreshPrintStatusAsync()
+    {
+        await ReloadFirstPageAsync();
+        await PrintStatusView.RefreshCountsAsync();
     }
 
     async Task PrintStatusChanged(PrintStatus status)
@@ -86,7 +94,7 @@ public partial class PurchaseOrderGrid
 
     async Task<DataGridResultVM<PurchaseOrderDataGridVM>> LoadDataAsync(DataGridIntent intent)
     {
-        PrintStatusFilter.Apply(intent, SelectedPrintStatus);
+        ReceivingReceiptPrintStatusFilter.ApplyToTransactions(intent, SelectedPrintStatus);
         PrintStatusFilter.ApplyDateRange(intent, DateRangeStart, DateRangeEnd);
         var action = await AppActionFactory.RunAsync(async () =>
         {

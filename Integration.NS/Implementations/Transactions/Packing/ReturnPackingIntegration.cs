@@ -36,17 +36,29 @@ internal class ReturnPackingIntegration(
                 ("BUILTIN.DF(tl.location)", nameof(ReturnPackingDataGridNSDTO.Location)),
                 ("BUILTIN.DF(t.transferlocation)", nameof(ReturnPackingDataGridNSDTO.TransferLocation)),
                 ("s.name", nameof(ReturnPackingDataGridNSDTO.Status)),
-                ("t.memo", nameof(ReturnPackingDataGridNSDTO.Remarks))
+                ("t.memo", nameof(ReturnPackingDataGridNSDTO.Remarks)),
+                ("NVL(ifprint.forprintingcount, 0)", nameof(ReturnsDataGridDTO.ForPrintingIFCount)),
+                ("NVL(ifprint.printedcount, 0)", nameof(ReturnsDataGridDTO.PrintedIFCount)),
+                ("NVL(ifprint.singlefulfillmentid, 0)", nameof(ReturnsDataGridDTO.SingleFulfillmentId)),
+                ("CASE WHEN openpk.packtran IS NULL THEN 0 ELSE 1 END", nameof(ReturnsDataGridDTO.PendingPackLinesCount))
             )
             .From("transaction t")
             .Join("transactionline tl", on: "tl.transaction = t.id")
+            .LeftJoin(SuiteQLFragments.PackingFulfillmentPrintCounts, "ifprint.sourceid = t.id")
             .LeftJoin("transferorderstatus s", on: "s.id = t.status")
-            .InnerJoin(SuiteQLFragments.PendingPackingLines(), on: SuiteQLFragments.PendingPackingLinesJoinPredicate)
+            .LeftJoin(SuiteQLFragments.PendingPackingLines(), on: SuiteQLFragments.PendingPackingLinesJoinPredicate)
             .WithFilters(
                 Equal("tl.mainline", "T"),
                 Equal("t.subsidiary", subsidiaryId))
             .WithFilters(PackingReturnsFilters())
-            .WithDatagridIntent(intent)
+            .WithFilters(SuiteQLFragments.PackingQueueOrPrintableLabel(sourceTracksPickedState: true))
+            .WithDatagridIntent(intent, new Dictionary<string, string>
+            {
+                [nameof(ReturnsDataGridDTO.ForPrintingIFCount)] = "NVL(ifprint.forprintingcount, 0)",
+                [nameof(ReturnsDataGridDTO.PrintedIFCount)] = "NVL(ifprint.printedcount, 0)",
+                [nameof(ReturnsDataGridDTO.SingleFulfillmentId)] = "NVL(ifprint.singlefulfillmentid, 0)",
+                [nameof(ReturnsDataGridDTO.PendingPackLinesCount)] = "CASE WHEN openpk.packtran IS NULL THEN 0 ELSE 1 END"
+            })
             .Build();
 
         var response = await query.ExecuteWithPaging<ReturnPackingDataGridNSDTO>(netsuiteService);
@@ -166,7 +178,6 @@ internal class ReturnPackingIntegration(
         [
             In("t.recordtype", new string[] { "intercompanytransferorder", "transferorder" }),
             In("t.custbody_dbti_transfer_category", new string[] { "3", "4" }),
-            Equal("t.ordpicked", "F"),
             In("t.status", new string[] { "B", "D", "E" })
         ];
     }
@@ -176,6 +187,10 @@ internal class ReturnPackingIntegration(
         return new()
         {
             Id = nsdto.Id,
+            ForPrintingIFCount = nsdto.ForPrintingIFCount,
+            PrintedIFCount = nsdto.PrintedIFCount,
+            SingleFulfillmentId = nsdto.SingleFulfillmentId,
+            PendingPackLinesCount = nsdto.PendingPackLinesCount,
             ReferenceNumber = nsdto.ReferenceNumber,
             Date = nsdto.Date,
             SourceSubsidiary = nsdto.SourceSubsidiary,
@@ -228,19 +243,24 @@ internal class ReturnPackingIntegration(
         var query = builderFactory.Create()
             .Select(
                 ("t.id", nameof(PackedItemFulfillmentDTO.Id)),
+                ("t.custbody_wms_print_count", nameof(PackedItemFulfillmentDTO.PrintCount)),
                 ("t.tranid", nameof(PackedItemFulfillmentDTO.ReferenceNumber)),
                 ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(PackedItemFulfillmentDTO.Date)),
                 ("TO_CHAR(t.LastModifiedDate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(PackedItemFulfillmentDTO.DateLastModified)),
                 ("BUILTIN.DF(t.custbody_dbti_transfer_category)", nameof(PackedItemFulfillmentDTO.TransferCategory)),
-                ("BUILTIN.DF(tl.createdfrom)", nameof(PackedItemFulfillmentDTO.CreatedFrom))
+                ("BUILTIN.DF(tl.createdfrom)", nameof(PackedItemFulfillmentDTO.CreatedFrom)),
+                ("tcf.id", nameof(PackedItemFulfillmentDTO.CreatedFromId))
             )
             .From("transaction t")
             .Join("transactionline tl", "tl.mainline = 'T' and tl.transaction = t.id")
+            .LeftJoin("transaction tcf", "tcf.id = tl.createdfrom")
             .WithFilters(
                 Equal("t.recordtype", "itemfulfillment"),
                 Equal("t.custbody_dbti_print_label", "T")
             )
             .WithPropertyMap(nameof(PackedItemFulfillmentDTO.Date), "t.trandate")
+            .WithPropertyMap(nameof(PackedItemFulfillmentDTO.CreatedFromId), "tcf.id")
+            .WithFromOrToSubsidiaries(httpContextAccessor, "t")
             .WithDatagridIntent(intent)
             .Build();
 

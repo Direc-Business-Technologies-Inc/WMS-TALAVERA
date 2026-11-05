@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Components;
+using System.Diagnostics;
 using Radzen;
 using Radzen.Blazor;
 using Shared.Entities;
@@ -17,6 +18,7 @@ namespace Web.BlazorServer.Components.Pages.Transaction.StockTransferRequest.Com
 partial class STRDataGrid
 {
     [Inject] IGridSettingsService GridSettingsService { get; set; } = default!;
+    [Inject] ILogger<STRDataGrid> Logger { get; set; } = default!;
     [Inject] IStockTransferRequestHandler strHandler { get; set; } = default!;
     [Parameter] public string? TableId { get; set; } = "str_datagrid";
 
@@ -60,7 +62,15 @@ partial class STRDataGrid
     Task<int> PrintCountAsync(PrintStatus status) => PrintStatusFilter.CountAsync<StockTransferRequestDataGridVM>(status, async intent =>
     {
         PrintStatusFilter.ApplyDateRange(intent, DateRangeStart, DateRangeEnd);
-        return await DataGetter(intent);
+        if (StatusFilter is not null)
+            intent.Filters.Add(DataGridFilterUtilities.Equal("StatusId", StatusFilter.Id));
+        var started = Stopwatch.GetTimestamp();
+        try { return await DataGetter(intent); }
+        finally
+        {
+            Logger.LogInformation("STR grid {Grid} count {Status} completed in {ElapsedMs} ms",
+                TableId, status, Stopwatch.GetElapsedTime(started).TotalMilliseconds);
+        }
     });
 
     async Task DateRangeChanged((DateTime Start, DateTime End) range)
@@ -71,6 +81,7 @@ partial class STRDataGrid
             await DataGrid.DataGrid.Reload();
         else
             await DataGrid.DataGrid.GoToPage(0);
+        await PrintStatusView.RefreshCountsAsync();
     }
 
     async Task PrintStatusChanged(PrintStatus status)
@@ -114,6 +125,7 @@ partial class STRDataGrid
 
         StatusFilter = statusFilter;
         await DataGrid.DataGrid.Reload();
+        await PrintStatusView.RefreshCountsAsync();
     }
 
     async Task<DataGridResultVM<StockTransferRequestDataGridVM>> LoadDataAsync(DataGridIntent intent)
@@ -145,7 +157,13 @@ partial class STRDataGrid
                 );
             }
 
-            return await DataGetter(intent);
+            var started = Stopwatch.GetTimestamp();
+            try { return await DataGetter(intent); }
+            finally
+            {
+                Logger.LogInformation("STR grid {Grid} records completed in {ElapsedMs} ms",
+                    TableId, Stopwatch.GetElapsedTime(started).TotalMilliseconds);
+            }
         }, AppActionOptionPresets.Loading(ActionName));
 
         AppBusyService.SetBusy(ActionName, false);
@@ -190,6 +208,7 @@ partial class STRDataGrid
         if (StatusFilter is null)
         {
             await DataGrid.DataGrid.Reload();
+            await PrintStatusView.RefreshCountsAsync();
             return;
         }
 
@@ -198,5 +217,6 @@ partial class STRDataGrid
         column.SetLogicalFilterOperator(LogicalFilterOperator.And);
 
         await DataGrid.DataGrid.Reload();
+        await PrintStatusView.RefreshCountsAsync();
     }
 }

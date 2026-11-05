@@ -42,6 +42,9 @@ public class ReceivingHandler(
 
             Status = x.Status,
             Id = x.Id,
+            ForPrintingIRCount = x.ForPrintingIRCount,
+            PrintedIRCount = x.PrintedIRCount,
+            SingleReceiptId = x.SingleReceiptId,
             ReferenceNumber = x.ReferenceNumber,
             Date = x.Date,
             DeliveryDate = x.DeliveryDate,
@@ -60,6 +63,9 @@ public class ReceivingHandler(
         var x = data.Select(x => new ReturnsDataGridVM
         {
             Id = x.Id,
+            ForPrintingIRCount = x.ForPrintingIRCount,
+            PrintedIRCount = x.PrintedIRCount,
+            SingleReceiptId = x.SingleReceiptId,
             Status = x.Status,
             ReferenceNumber = x.ReferenceNumber,
             Date = x.Date,
@@ -84,6 +90,9 @@ public class ReceivingHandler(
         {
             Status = x.Status,
             Id = x.Id,
+            ForPrintingIRCount = x.ForPrintingIRCount,
+            PrintedIRCount = x.PrintedIRCount,
+            SingleReceiptId = x.SingleReceiptId,
             ReferenceNumber = x.ReferenceNumber,
             Date = x.Date,
             Location = x.Location,

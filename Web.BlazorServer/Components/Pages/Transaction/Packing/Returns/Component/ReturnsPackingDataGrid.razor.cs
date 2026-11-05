@@ -26,15 +26,15 @@ partial class ReturnsPackingDataGrid
     PrintStatusView PrintStatusView = default!;
     bool loadCountsAfterGrid;
     bool gridReadyToLoad;
-    const string PRINTABLE_URL = "https://11608969.extforms.netsuite.com/app/site/hosting/scriptlet.nl?script=1922&deploy=1&compid=11608969&ns-at=AAEJ7tMQ70cbDMgsewbx6YHr0oQkl5HAZi1-qpSrLgdV9mevdZI";
     async Task<int> PrintCountAsync(PrintStatus status)
     {
         var started = Stopwatch.GetTimestamp();
         var succeeded = false;
         try
         {
-            var count = await PrintStatusFilter.CountAsync<ReturnsPackingDataGridVM>(status,
-                intent => ReturnsHandler.GetReturnsList(intent, CurrentUserService.NsSubsidiaryId));
+            var intent = new DataGridIntent { Skip = 0, Take = 1 };
+            PackingFulfillmentPrintStatusFilter.ApplyToFulfillments(intent, status, "RETURNS", CurrentUserService.NsSubsidiaryId);
+            var (_, count) = await ReturnsHandler.GetPackedItemFulfillments(intent);
             succeeded = true;
             return count;
         }
@@ -51,6 +51,7 @@ partial class ReturnsPackingDataGrid
             await DataGrid.DataGrid.Reload();
         else
             await DataGrid.DataGrid.GoToPage(0);
+        await PrintStatusView.RefreshCountsAsync();
     }
 
     async Task RefreshPrintStatusAsync()
@@ -91,7 +92,7 @@ partial class ReturnsPackingDataGrid
 
     async Task<DataGridResultVM<ReturnsPackingDataGridVM>> LoadDataAsync(DataGridIntent intent)
     {
-        PrintStatusFilter.Apply(intent, SelectedPrintStatus);
+        PackingFulfillmentPrintStatusFilter.Apply(intent, SelectedPrintStatus);
         var action = await AppActionFactory.RunAsync(async () =>
         {
             AppBusyService.SetBusy(ActionGetReturns, true);
@@ -130,8 +131,6 @@ partial class ReturnsPackingDataGrid
         AppBusyService.SetBusy(ActionGetReturns, false);
         return DataGridResultVM<ReturnsPackingDataGridVM>.New(action.Result.Data ?? [], action.Result.Count);
     }
-
-    static string? PrintUrl(ReturnsPackingDataGridVM item) => item.Id > 0 ? $"{PRINTABLE_URL}&id={item.Id}" : null;
 
     void ViewReturn(ReturnsPackingDataGridVM item)
     {

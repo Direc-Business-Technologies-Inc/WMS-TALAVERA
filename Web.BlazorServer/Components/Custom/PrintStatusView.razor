@@ -27,6 +27,7 @@
 
     private int? ForPrintingCount;
     private int? PrintedCount;
+    private int refreshVersion;
 
     private int SelectedIndex => (int)Value;
 
@@ -39,18 +40,38 @@
     {
         if (Disabled || CountGetter is null) return;
 
+        var version = ++refreshVersion;
+        ForPrintingCount = null;
+        PrintedCount = null;
+        await InvokeAsync(StateHasChanged);
+        var forPrinting = LoadCountAsync(PrintStatus.ForPrinting, version);
+        var printed = LoadCountAsync(PrintStatus.Printed, version);
+        await Task.WhenAll(forPrinting, printed);
+    }
+
+    private async Task LoadCountAsync(PrintStatus status, int version)
+    {
         try
         {
-            var forPrinting = CountGetter(PrintStatus.ForPrinting);
-            var printed = CountGetter(PrintStatus.Printed);
-            await Task.WhenAll(forPrinting, printed);
-            ForPrintingCount = await forPrinting;
-            PrintedCount = await printed;
-            await InvokeAsync(StateHasChanged);
+            var count = await CountGetter!(status);
+            await InvokeAsync(() =>
+            {
+                if (version != refreshVersion) return;
+                if (status == PrintStatus.ForPrinting) ForPrintingCount = count;
+                else PrintedCount = count;
+                StateHasChanged();
+            });
         }
         catch (Exception ex)
         {
-            Logger.LogWarning(ex, "Could not load print-status counts");
+            Logger.LogWarning(ex, "Could not load {PrintStatus} count", status);
+            await InvokeAsync(() =>
+            {
+                if (version != refreshVersion) return;
+                if (status == PrintStatus.ForPrinting) ForPrintingCount = null;
+                else PrintedCount = null;
+                StateHasChanged();
+            });
         }
     }
 

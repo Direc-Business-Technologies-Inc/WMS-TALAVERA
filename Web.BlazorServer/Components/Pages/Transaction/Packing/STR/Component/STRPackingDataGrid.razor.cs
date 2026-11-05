@@ -18,6 +18,7 @@ partial class STRPackingDataGrid
 {
     [Inject] IGridSettingsService GridSettingsService { get; set; } = default!;
     [Inject] IStockTransferRequestPackingHandler StrHandler { get; set; } = default!;
+    [Inject] Web.BlazorServer.Handlers.Repositories.Transaction.Packing.Returns.IReturnPackingHandler PackingHandler { get; set; } = default!;
     [Inject] ILogger<STRPackingDataGrid> Logger { get; set; } = default!;
 
     AppDataGrid<StockTransferRequestPackingDataGridVM> DataGrid { get; set; } = default!;
@@ -26,7 +27,6 @@ partial class STRPackingDataGrid
     PrintStatusView PrintStatusView = default!;
     bool loadCountsAfterGrid;
     bool gridReadyToLoad;
-    const string PRINTABLE_URL = "https://11608969.extforms.netsuite.com/app/site/hosting/scriptlet.nl?script=1922&deploy=1&compid=11608969&ns-at=AAEJ7tMQ70cbDMgsewbx6YHr0oQkl5HAZi1-qpSrLgdV9mevdZI";
 
     async Task<int> PrintCountAsync(PrintStatus status)
     {
@@ -34,8 +34,9 @@ partial class STRPackingDataGrid
         var succeeded = false;
         try
         {
-            var count = await PrintStatusFilter.CountAsync<StockTransferRequestPackingDataGridVM>(status,
-                intent => StrHandler.GetStockTransferRequestsList(intent, CurrentUserService.NsSubsidiaryId));
+            var intent = new DataGridIntent { Skip = 0, Take = 1 };
+            PackingFulfillmentPrintStatusFilter.ApplyToFulfillments(intent, status, "STR", CurrentUserService.NsSubsidiaryId);
+            var (_, count) = await PackingHandler.GetPackedItemFulfillments(intent);
             succeeded = true;
             return count;
         }
@@ -53,6 +54,7 @@ partial class STRPackingDataGrid
             await DataGrid.DataGrid.Reload();
         else
             await DataGrid.DataGrid.GoToPage(0);
+        await PrintStatusView.RefreshCountsAsync();
     }
 
     async Task RefreshPrintStatusAsync()
@@ -93,7 +95,7 @@ partial class STRPackingDataGrid
 
     async Task<DataGridResultVM<StockTransferRequestPackingDataGridVM>> LoadDataAsync(DataGridIntent intent)
     {
-        PrintStatusFilter.Apply(intent, SelectedPrintStatus);
+        PackingFulfillmentPrintStatusFilter.Apply(intent, SelectedPrintStatus);
         var action = await AppActionFactory.RunAsync(async () =>
         {
             AppBusyService.SetBusy(ActionGetStockTransferRequests, true);
@@ -132,8 +134,6 @@ partial class STRPackingDataGrid
         AppBusyService.SetBusy(ActionGetStockTransferRequests, false);
         return DataGridResultVM<StockTransferRequestPackingDataGridVM>.New(action.Result.Data ?? [], action.Result.Count);
     }
-
-    static string? PrintUrl(StockTransferRequestPackingDataGridVM item) => item.Id > 0 ? $"{PRINTABLE_URL}&id={item.Id}" : null;
 
     void ViewSTR(StockTransferRequestPackingDataGridVM item)
     {

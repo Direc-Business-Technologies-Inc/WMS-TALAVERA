@@ -7,6 +7,12 @@ public class PurchaseOrderDataGridVM
 {
     [QuickDataGridIgnore]
     public int Id { get; set; }
+    [QuickDataGridIgnore]
+    public int ForPrintingIRCount { get; set; }
+    [QuickDataGridIgnore]
+    public int PrintedIRCount { get; set; }
+    [QuickDataGridIgnore]
+    public int SingleReceiptId { get; set; }
     public string ReferenceNumber { get; set; } = string.Empty;
     public DateTime? Date { get; set; }
     public DateTime? DeliveryDate { get; set; }

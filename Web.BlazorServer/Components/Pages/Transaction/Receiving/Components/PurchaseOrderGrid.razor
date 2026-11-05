@@ -12,7 +12,7 @@
             <GridDateRange StartDate="@DateRangeStart" EndDate="@DateRangeEnd" OnApply="@DateRangeChanged" />
             <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" AlignItems="AlignItems.Center" Gap="8px">
                 <RadzenButton Icon="settings" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@OpenTableSettings" />
-                <RadzenButton Icon="sync" Size="ButtonSize.Small" Click="PurchaseOrderDataGrid.ReloadDataAsync" />
+                <RadzenButton Icon="sync" Size="ButtonSize.Small" Click="@RefreshPrintStatusAsync" />
             </RadzenStack>
         </RadzenStack>
     </HeaderTemplate>
@@ -74,7 +74,7 @@
                               Width="72px">
             <Template>
                 <RadzenStack Orientation="Orientation.Horizontal" Gap="4px">
-                    <AppPrintLink Url="@NetSuitePrint.PurchaseOrder(context.Id)" RecordType="purchaseOrder" RecordId="@context.Id" OnPrint="@ReloadFirstPageAsync" Size="ButtonSize.ExtraSmall" />
+                    <ReceivingReportRowPrint TransactionId="@context.Id" ReceiptCount="@(context.ForPrintingIRCount + context.PrintedIRCount)" SingleReceiptId="@context.SingleReceiptId" Source="PO" OnPrinted="@RefreshPrintStatusAsync" />
                     <RadzenButton Icon="arrow_right_alt" Size="ButtonSize.ExtraSmall" Click="() => ViewPurchaseOrder(context)" />
                 </RadzenStack>
             </Template>

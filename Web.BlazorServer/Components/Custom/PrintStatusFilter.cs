@@ -18,10 +18,13 @@ public static class PrintStatusFilter
 
     public static void Apply(DataGridIntent intent, PrintStatus status)
     {
-        intent.Filters.RemoveAll(filter => filter.Property == PrintCountColumn);
+        intent.Filters.RemoveAll(filter => filter.Property == PrintCountColumn ||
+            filter.Filters?.Any(child => child.Property == PrintCountColumn) == true);
 
         if (status == PrintStatus.ForPrinting)
-            intent.Filters.Add(DataGridFilterUtilities.IsNull(PrintCountColumn));
+            intent.Filters.Add(DataGridFilterUtilities.Any(
+                DataGridFilterUtilities.IsNull(PrintCountColumn),
+                DataGridFilterUtilities.LessThanOrEqual(PrintCountColumn, 0)));
         else if (status == PrintStatus.Printed)
             intent.Filters.Add(DataGridFilterUtilities.GreaterThanOrEqual(PrintCountColumn, 1));
     }

@@ -350,9 +350,7 @@
                                             AllowPaging ShowPagingSummary>
                                 <HeaderTemplate>
                                     <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End">
-                                        <RadzenButton Icon="print" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light">
-                                            <RadzenLink Path="@PrintableURL" Text="Print" target="_blank" Icon="print" />
-                                        </RadzenButton>
+                                        <AppPrintLink Url="@NetSuitePrint.TripTicket(FormData.Id)" RecordType="customrecord_dbti_trip_ticket" RecordId="@FormData.Id" />
                                     </RadzenStack>
                                 </HeaderTemplate>
                                 <Columns>

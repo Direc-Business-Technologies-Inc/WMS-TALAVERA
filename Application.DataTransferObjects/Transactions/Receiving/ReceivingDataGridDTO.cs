@@ -5,6 +5,9 @@ namespace Application.DataTransferObjects.Transactions.Receiving;
 public class ReceivingDataGridDTO
 {
     public int Id { get; set; }
+    public int ForPrintingIRCount { get; set; }
+    public int PrintedIRCount { get; set; }
+    public int SingleReceiptId { get; set; }
     public string ReferenceNumber { get; set; } = string.Empty;
     public DateTime Date { get; set; }
     public DateTime DeliveryDate { get; set; }

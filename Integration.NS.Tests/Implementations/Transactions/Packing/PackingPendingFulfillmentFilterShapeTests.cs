@@ -104,17 +104,17 @@ public class PackingPendingFulfillmentFilterShapeTests
     }
 
     // ---------------------------------------------------------------------
-    // The gate itself: an inner join onto a derived table of transactions
-    // that still have an open, unpacked line, correlated in the join
-    // predicate rather than inside the subquery.
+    // The pending-line gate is left-joined so sources with printable IF labels
+    // remain visible after their final packing line is complete.
     // ---------------------------------------------------------------------
     [Fact]
     public async Task Str_list_drops_fully_packed_orders_by_joining_the_open_line_derived_table()
     {
         var query = await StrListQueryAsync();
 
-        Assert.Contains("INNER JOIN (SELECT opk.transaction AS packtran", query);
+        Assert.Contains("LEFT JOIN (SELECT opk.transaction AS packtran", query);
         Assert.Contains("GROUP BY opk.transaction) openpk ON openpk.packtran = t.id", query);
+        Assert.Contains("ifprint.forprintingcount", query);
     }
 
     [Fact]
@@ -122,7 +122,7 @@ public class PackingPendingFulfillmentFilterShapeTests
     {
         var query = await ReturnsListQueryAsync();
 
-        Assert.Contains("INNER JOIN (SELECT opk.transaction AS packtran", query);
+        Assert.Contains("LEFT JOIN (SELECT opk.transaction AS packtran", query);
         Assert.Contains("GROUP BY opk.transaction) openpk ON openpk.packtran = t.id", query);
     }
 
@@ -131,8 +131,40 @@ public class PackingPendingFulfillmentFilterShapeTests
     {
         var query = await SraListQueryAsync();
 
-        Assert.Contains("INNER JOIN (SELECT opk.transaction AS packtran", query);
+        Assert.Contains("LEFT JOIN (SELECT opk.transaction AS packtran", query);
         Assert.Contains("GROUP BY opk.transaction) openpk ON openpk.packtran = t.id", query);
+    }
+
+    [Fact]
+    public async Task All_packing_source_lists_project_the_item_fulfillment_print_counts()
+    {
+        foreach (var query in new[] { await StrListQueryAsync(), await ReturnsListQueryAsync(), await SraListQueryAsync() })
+        {
+            Assert.Contains(") ifprint ON ifprint.sourceid = t.id", query);
+            Assert.Contains("NVL(ifprint.forprintingcount, 0)", query);
+            Assert.Contains("NVL(ifprint.printedcount, 0)", query);
+            Assert.Contains("NVL(ifprint.singlefulfillmentid, 0)", query);
+        }
+    }
+
+    [Fact]
+    public async Task Packed_fulfillment_lookup_returns_count_and_source_id_for_per_fulfillment_printing()
+    {
+        var sut = CreateReturns(out var client);
+        var intent = Intent();
+        intent.Filters.Add(DataGridFilterUtilities.Equal("CreatedFromId", 42));
+        intent.Filters.Add(DataGridFilterUtilities.GreaterThanOrEqual("t.custbody_wms_print_count", 1));
+
+        await sut.GetPackedItemFulfillments(intent);
+
+        var query = Normalize(client.LastQuery);
+        Assert.Contains("t.custbody_wms_print_count AS PrintCount", query);
+        Assert.Contains("tcf.id AS CreatedFromId", query);
+        Assert.Contains("t.custbody_dbti_print_label = 'T'", query);
+        Assert.DoesNotContain("openpk", query);
+        Assert.DoesNotContain("openvra", query);
+        Assert.Contains("tcf.id = 42", query);
+        Assert.Contains("t.custbody_wms_print_count >= 1", query);
     }
 
     // ---------------------------------------------------------------------
@@ -232,7 +264,8 @@ public class PackingPendingFulfillmentFilterShapeTests
     // The gate must not reintroduce correlation from the subquery into the
     // outer query's aliases: NetSuite rejects that with 400 INVALID_PARAMETER
     // "Invalid or unsupported search" (Rule 1). The only reference to the
-    // outer transaction alias may sit in the join predicate.
+    // outer transaction alias may sit in the join predicate. The left join is
+    // intentional so completed-but-unprinted fulfillment labels remain visible.
     // ---------------------------------------------------------------------
     [Theory]
     [InlineData("Str")]
@@ -247,7 +280,7 @@ public class PackingPendingFulfillmentFilterShapeTests
             _ => await SraListQueryAsync(),
         };
 
-        var start = query.IndexOf("INNER JOIN (SELECT opk.transaction", StringComparison.Ordinal);
+        var start = query.IndexOf("LEFT JOIN (SELECT opk.transaction", StringComparison.Ordinal);
         var end = query.IndexOf("openpk ON openpk.packtran = t.id", StringComparison.Ordinal);
         Assert.True(start >= 0 && end > start, $"expected the open-line derived-table join. Query: {query}");
 
