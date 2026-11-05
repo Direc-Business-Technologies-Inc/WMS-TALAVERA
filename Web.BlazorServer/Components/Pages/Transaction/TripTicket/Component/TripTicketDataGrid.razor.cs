@@ -136,18 +136,6 @@ partial class TripTicketDataGrid
             CountBaseIntent = CloneIntent(intent);
             TripTicketPrintStatusFilter.Apply(intent, SelectedPrintStatus);
             var result = await TripTicketHandler.GetTTDataGridAsync(intent, CurrentUserService.NsSubsidiaryId);
-            if (!DateRangeStart.HasValue && PrintStatusFilter.TryGetDateRange(result.Data, row => row.TripDate, out var range))
-            {
-                DateRangeStart = range.Start;
-                DateRangeEnd = range.End;
-                await InvokeAsync(StateHasChanged);
-                _ = InvokeAsync(async () =>
-                {
-                    await Task.Yield();
-                    await TTDataGrid.DataGrid.Reload();
-                    await PrintStatusView.RefreshCountsAsync();
-                });
-            }
             return result;
 
         }, AppActionOptionPresets.Loading(ActionGetTripTickets));

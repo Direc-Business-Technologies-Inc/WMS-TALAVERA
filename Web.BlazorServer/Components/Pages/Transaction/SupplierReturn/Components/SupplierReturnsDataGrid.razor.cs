@@ -20,11 +20,24 @@ public partial class SupplierReturnsDataGrid
     DateTime? DateRangeStart;
     DateTime? DateRangeEnd;
     PrintStatusView PrintStatusView = default!;
+    bool initialCountRefreshRequested;
 
     QuickDataGrid<SupplierReturnDataGridVM> Grid { get; set; } = default!;
     readonly Dictionary<int, SupplierReturnDataGridVM> SelectedRows = new();
     List<SupplierReturnDataGridVM> VisibleRows = new();
     bool AllVisibleSelected => VisibleRows.Count > 0 && VisibleRows.All(row => SelectedRows.ContainsKey(row.Id));
+
+    Task OnGridDataLoaded()
+    {
+        if (initialCountRefreshRequested) return Task.CompletedTask;
+        initialCountRefreshRequested = true;
+        _ = InvokeAsync(async () =>
+        {
+            await Task.Yield();
+            await PrintStatusView.RefreshCountsAsync();
+        });
+        return Task.CompletedTask;
+    }
 
     void ToggleRow(SupplierReturnDataGridVM row, bool selected)
     {
@@ -68,18 +81,6 @@ public partial class SupplierReturnsDataGrid
         // Selection applies to the current page only; discard it when the grid loads another page or filter.
         SelectedRows.Clear();
         VisibleRows = result.Data.ToList();
-        if (!DateRangeStart.HasValue && PrintStatusFilter.TryGetDateRange(result.Data, row => row.Date, out var range))
-        {
-            DateRangeStart = range.Start;
-            DateRangeEnd = range.End;
-            await InvokeAsync(StateHasChanged);
-            _ = InvokeAsync(async () =>
-            {
-                await Task.Yield();
-                await Grid.Reload();
-                await PrintStatusView.RefreshCountsAsync();
-            });
-        }
         return (VisibleRows, result.Item2);
     }
     Task<int> PrintCountAsync(PrintStatus status) => PrintStatusFilter.CountAsync(status, async intent =>

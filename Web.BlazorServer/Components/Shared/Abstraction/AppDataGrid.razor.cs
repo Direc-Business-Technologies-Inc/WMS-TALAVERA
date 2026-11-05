@@ -93,6 +93,8 @@ public partial class AppDataGrid<TItem> : BaseComponent where TItem : class
     // hardcoded page size and page 1, ignoring the user's saved grid settings.
     private int _lastTake = 10;
     private int _lastSkip;
+    private bool _isLoading;
+    private LoadDataArgs? _pendingLoadArgs;
 
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -117,12 +119,35 @@ public partial class AppDataGrid<TItem> : BaseComponent where TItem : class
             return;
         }
 
-        if (IsBusy)
+        // Radzen can request another page/filter while the current server fetch
+        // is still running. Keep only the newest request and execute it after
+        // the active fetch so the grid cannot silently retain stale rows.
+        if (_isLoading)
         {
-            await InvokeAsync(StateHasChanged);
+            _pendingLoadArgs = args;
             return;
         }
 
+        _isLoading = true;
+        try
+        {
+            var currentArgs = args;
+            do
+            {
+                _pendingLoadArgs = null;
+                await LoadDataCoreAsync(currentArgs);
+                currentArgs = _pendingLoadArgs;
+            }
+            while (currentArgs is not null);
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task LoadDataCoreAsync(LoadDataArgs args)
+    {
         await InvokeAsync(StateHasChanged);
 
         foreach (var item in args.Filters?.Where(x => x.Type is null) ?? [])

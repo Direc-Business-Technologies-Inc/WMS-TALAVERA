@@ -31,11 +31,10 @@ partial class ReturnsGrid
     PrintStatusView PrintStatusView = default!;
     bool initialGridLoadSucceeded;
     bool initialCountRefreshRequested;
-    bool initialDateRangeReloadPending;
 
     Task OnGridDataLoaded()
     {
-        if (!initialGridLoadSucceeded || initialCountRefreshRequested || initialDateRangeReloadPending) return Task.CompletedTask;
+        if (!initialGridLoadSucceeded || initialCountRefreshRequested) return Task.CompletedTask;
         initialCountRefreshRequested = true;
         _ = InvokeAsync(async () => { await Task.Yield(); await PrintStatusView.RefreshCountsAsync(); });
         return Task.CompletedTask;
@@ -124,21 +123,6 @@ partial class ReturnsGrid
                 });
             }
             var result = await ReceivingHandler.GetReturnsDataGridAsync(intent);
-            if (!DateRangeStart.HasValue && PrintStatusFilter.TryGetDateRange(result.Data, row => row.Date, out var range))
-            {
-                DateRangeStart = range.Start;
-                DateRangeEnd = range.End;
-                initialDateRangeReloadPending = !initialCountRefreshRequested;
-                await InvokeAsync(StateHasChanged);
-                _ = InvokeAsync(async () =>
-                {
-                    await Task.Yield();
-                    await DataGrid.DataGrid.Reload();
-                    initialDateRangeReloadPending = false;
-                    initialCountRefreshRequested = true;
-                    await PrintStatusView.RefreshCountsAsync();
-                });
-            }
             return result;
 
             throw new Exception("Invalid source for receiving grid");

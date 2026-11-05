@@ -74,7 +74,7 @@
                               Width="72px">
             <Template>
                 <RadzenStack Orientation="Orientation.Horizontal" Gap="4px">
-                    <ReceivingReportRowPrint TransactionId="@context.Id" ReceiptCount="@(context.ForPrintingIRCount + context.PrintedIRCount)" SingleReceiptId="@context.SingleReceiptId" Source="PO" OnPrinted="@RefreshPrintStatusAsync" />
+                    <ReceivingReportRowPrint TransactionId="@context.Id" SelectedPrintStatus="@SelectedPrintStatus" ReceiptCount="@(context.ForPrintingIRCount + context.PrintedIRCount)" SingleReceiptId="@context.SingleReceiptId" Source="PO" OnPrinted="@RefreshPrintStatusAsync" />
                     <RadzenButton Icon="arrow_right_alt" Size="ButtonSize.ExtraSmall" Click="() => ViewPurchaseOrder(context)" />
                 </RadzenStack>
             </Template>

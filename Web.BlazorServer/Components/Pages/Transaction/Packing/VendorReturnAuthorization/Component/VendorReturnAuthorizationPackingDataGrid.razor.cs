@@ -11,6 +11,8 @@ using Web.BlazorServer.Handlers.Repositories.Transaction.Packing.VendorReturnAut
 using Web.BlazorServer.Services.Repositories;
 using Web.BlazorServer.ViewModels.Abstraction;
 using Web.BlazorServer.ViewModels.Transaction.Packing.VendorReturnAuthorization;
+using Web.BlazorServer.ViewModels.Transaction.Packing;
+using Web.BlazorServer.Components.Pages.Transaction.Packing.Components;
 
 namespace Web.BlazorServer.Components.Pages.Transaction.Packing.VendorReturnAuthorization.Component;
 
@@ -136,5 +138,37 @@ partial class VendorReturnAuthorizationPackingDataGrid
     void ViewVendorReturnAuthorization(VendorReturnAuthorizationPackingDataGridVM item)
     {
         NavManager.NavigateTo(PackingRoutes.VendorReturnAuthorizationView + $"?ref={item.ReferenceNumber}", true);
+    }
+
+    async Task OpenPackingLabelsAsync(int transactionId)
+    {
+        var fulfillments = new List<PackedItemFulfillmentVM>();
+        var skip = 0;
+        int total;
+        do
+        {
+            var intent = new DataGridIntent { Skip = skip, Take = 1000 };
+            PackingFulfillmentPrintStatusFilter.ApplyToFulfillments(intent, SelectedPrintStatus, "VRA", CurrentUserService.NsSubsidiaryId);
+            intent.Filters.Add(global::Shared.Libraries.Utilities.DataGridFilterUtilities.Equal("CreatedFromId", transactionId));
+            var (rows, count) = await PackingHandler.GetPackedItemFulfillments(intent);
+            total = count;
+            var page = rows.ToArray();
+            fulfillments.AddRange(page);
+            if (page.Length == 0) break;
+            skip += page.Length;
+        } while (skip < total);
+
+        fulfillments = fulfillments.OrderByDescending(row => row.Date).ToList();
+        if (fulfillments.Count == 0)
+        {
+            ToastService.Warning("No packing label is available for this transaction.");
+            return;
+        }
+
+        var printed = await DialogService.OpenAsync<PackingLabelSelectionDialog>(
+            "Select Packing Label",
+            new Dictionary<string, object?> { [nameof(PackingLabelSelectionDialog.Fulfillments)] = (IReadOnlyList<PackedItemFulfillmentVM>)fulfillments },
+            new DialogOptions { Width = "760px", CloseDialogOnOverlayClick = true });
+        if (printed is true) await RefreshPrintStatusAsync();
     }
 }

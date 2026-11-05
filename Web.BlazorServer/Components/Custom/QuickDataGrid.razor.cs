@@ -31,6 +31,7 @@ public partial class QuickDataGrid<TItem> : BaseComponent where TItem : class
     [Parameter] public RenderFragment? HeaderStart { get; set; } = null;
     [Parameter] public RenderFragment? HeaderEnd { get; set; } = null;
     [Parameter] public RenderFragment<TItem>? RowActions { get; set; } = null;
+    [Parameter] public EventCallback OnDataLoaded { get; set; }
     [Parameter] public int? ActionWidth { get; set; } = null; // cringe
     [Parameter][EditorRequired] public required DataDelegate DataGetter { get; set; }
     [Parameter] public bool IgnorePageSettings { get; set; } = false;

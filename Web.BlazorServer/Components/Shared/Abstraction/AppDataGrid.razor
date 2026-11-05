@@ -20,9 +20,9 @@
                 RowSelect="@(OnRowSelect)"
                 RowDeselect="@(OnRowDeselect)"
                 id="@(Id)"
-                Settings=@(GridSettings)
-                SettingsChanged=@(async args => GridSettings = await GridSettingsService.GridSettingsChanged(DataGrid, args))
-                AllowPaging
+                 Settings=@(GridSettings)
+                 SettingsChanged=@(async args => GridSettings = await GridSettingsService.GridSettingsChanged(DataGrid, args))
+                 AllowPaging
                 ShowPagingSummary
                 PagerHorizontalAlign="@HorizontalAlign.Right">
 
