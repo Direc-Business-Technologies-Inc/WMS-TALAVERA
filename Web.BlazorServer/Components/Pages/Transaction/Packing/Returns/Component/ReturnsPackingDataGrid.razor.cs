@@ -26,8 +26,15 @@ partial class ReturnsPackingDataGrid
     DataGridSettings DataGridSettings { get; set; } = new();
     PrintStatus SelectedPrintStatus = PrintStatus.ForPrinting;
     PrintStatusView PrintStatusView = default!;
-    bool loadCountsAfterGrid;
+    bool initialCountRefreshRequested;
     bool gridReadyToLoad;
+    Task OnGridDataLoaded()
+    {
+        if (initialCountRefreshRequested) return Task.CompletedTask;
+        initialCountRefreshRequested = true;
+        _ = InvokeAsync(async () => { await Task.Yield(); await PrintStatusView.RefreshCountsAsync(); });
+        return Task.CompletedTask;
+    }
     async Task<Application.DataTransferObjects.Transactions.PrintStatusCountsDTO> PrintCountsAsync(CancellationToken ct)
     {
         var started = Stopwatch.GetTimestamp();
@@ -53,10 +60,10 @@ partial class ReturnsPackingDataGrid
             await DataGrid.DataGrid.Reload();
         else
             await DataGrid.DataGrid.GoToPage(0);
-        await PrintStatusView.RefreshCountsAsync();
     }
 
-    Task RefreshPrintStatusAsync() => Task.WhenAll(DataGrid.DataGrid.Reload(), PrintStatusView.RefreshCountsAsync());
+    Task RefreshPrintStatusAsync() => Task.WhenAll(DataGrid.RefreshOrThrowAsync(), PrintStatusView.RefreshCountsOrThrowAsync());
+    Task SyncAsync() => Task.WhenAll(DataGrid.ReloadDataAsync(), PrintStatusView.RefreshCountsAsync());
 
     string ActionGetReturns { get; } = EnumHelper.GetEnumDescription(AppActions.GetAllPackingReturns);
 
@@ -69,28 +76,19 @@ partial class ReturnsPackingDataGrid
             await LoadGridSettings();
             await InvokeAsync(StateHasChanged);
         }
-        if (loadCountsAfterGrid && PrintStatusView is not null)
-        {
-            loadCountsAfterGrid = false;
-            _ = InvokeAsync(PrintStatusView.RefreshCountsAsync);
-        }
     }
 
     async Task LoadGridSettings()
     {
         await GridSettingsService.SetGridSettings(DataGrid.DataGrid, settings => DataGridSettings = settings ?? new());
-        gridReadyToLoad = true;
-        await InvokeAsync(StateHasChanged);
-
-        await DataGrid.DataGrid.ReloadSettings();
-        await DataGrid.DataGrid.Reload();
         GridSettingsLoaded = true;
-        loadCountsAfterGrid = true;
+        gridReadyToLoad = true;
     }
+
+    void PrepareIntent(DataGridIntent intent) => PackingFulfillmentPrintStatusFilter.Apply(intent, SelectedPrintStatus);
 
     async Task<DataGridResultVM<ReturnsPackingDataGridVM>> LoadDataAsync(DataGridIntent intent)
     {
-        PackingFulfillmentPrintStatusFilter.Apply(intent, SelectedPrintStatus);
         var action = await AppActionFactory.RunAsync(async () =>
         {
             AppBusyService.SetBusy(ActionGetReturns, true);
@@ -127,6 +125,7 @@ partial class ReturnsPackingDataGrid
         }, AppActionOptionPresets.Loading(ActionGetReturns));
 
         AppBusyService.SetBusy(ActionGetReturns, false);
+        action.ThrowIfUnsuccessful();
         return DataGridResultVM<ReturnsPackingDataGridVM>.New(action.Result.Data ?? [], action.Result.Count);
     }
 

@@ -23,26 +23,14 @@ public sealed class GridCacheStore : IDisposable
 {
     private const string PrefixRoot = "ns:grid:v1:";
 
-    /// <summary>
-    /// Fixed number of single-flight gates. Gates are striped by key hash rather
-    /// than allocated per key: a per-key semaphore dictionary grows by one entry
-    /// for every distinct grid intent ever seen and is never released, so it
-    /// leaks for the lifetime of the process. Unrelated keys that share a gate
-    /// serialise against each other, which stays correct and costs nothing at
-    /// realistic concurrency.
-    /// </summary>
-    private const int GateCount = 64;
-
     private readonly MemoryCache _cache;
     private readonly ConcurrentDictionary<string, byte> _knownKeys = new();
     private readonly ConcurrentDictionary<string, long> _generations = new();
-    private readonly SemaphoreSlim[] _gates;
 
     public GridCacheStore(int maxEntries, TimeSpan ttl)
     {
         _cache = new MemoryCache(new MemoryCacheOptions { SizeLimit = maxEntries });
         Ttl = ttl;
-        _gates = Enumerable.Range(0, GateCount).Select(_ => new SemaphoreSlim(1, 1)).ToArray();
     }
 
     public TimeSpan Ttl { get; }
@@ -56,13 +44,9 @@ public sealed class GridCacheStore : IDisposable
     internal int Count => Cache.Count;
 
     internal ConcurrentDictionary<string, byte> KnownKeys => _knownKeys;
-
-    /// <summary>
-    /// Returns the single-flight gate for <paramref name="key"/>. Callers must
-    /// release the returned semaphore; it is never disposed or removed because
-    /// the array that owns it is bounded.
-    /// </summary>
-    internal SemaphoreSlim GateFor(string key) => _gates[(uint)key.GetHashCode() % GateCount];
+    internal object FlightLock { get; } = new();
+    internal Dictionary<string, object> Flights { get; } = new();
+    internal long ReadSequence;
 
     /// <summary>
     /// Drops <paramref name="key"/> from <see cref="KnownKeys"/> when the backing
@@ -155,20 +139,104 @@ public sealed class GridResultCache
         CancellationToken ct = default,
         params object?[] scalars)
     {
-        if (TryGetUserScope(out var scope) is false)
-        {
-            return factory();
-        }
+        return ReadAsync(entity, method, intent, _ => factory(), ct, true, scalars);
+    }
 
+    public Task<T> ReadAsync<T>(string entity, string method, DataGridIntent? intent,
+        Func<CancellationToken, Task<T>> factory, CancellationToken ct = default,
+        bool cacheCompleted = true, params object?[] scalars)
+    {
+        ct.ThrowIfCancellationRequested();
+        if (!TryGetUserScope(out var scope)) return factory(ct);
         var key = $"{BuildKey(entity, method, scope, intent, scalars)}:{_store.GenerationFor(entity)}";
-
-        if (_store.Cache.TryGetValue(key, out CachedGridValue<T>? cached) && cached is not null)
-        {
+        if (cacheCompleted && intent?.ReadPolicy != GridReadPolicy.Fresh &&
+            _store.Cache.TryGetValue(key, out CachedGridValue<T>? cached) && cached is not null)
             return Task.FromResult(cached.Value);
-        }
 
-        var gate = _store.GateFor(key);
-        return ExecuteAsync(key, gate, factory, ct);
+        var flightKey = $"{key}:{intent?.ReadPolicy ?? GridReadPolicy.Normal}:{typeof(T).FullName}";
+        Flight<T> flight;
+        lock (_store.FlightLock)
+        {
+            if (cacheCompleted && intent?.ReadPolicy != GridReadPolicy.Fresh &&
+                _store.Cache.TryGetValue(key, out CachedGridValue<T>? completed) && completed is not null)
+                return Task.FromResult(completed.Value);
+            if (_store.Flights.TryGetValue(flightKey, out var existing)) flight = (Flight<T>)existing;
+            else
+            {
+                flight = new Flight<T>();
+                flight.Sequence = Interlocked.Increment(ref _store.ReadSequence);
+                _store.Flights.Add(flightKey, flight);
+                flight.Task = ExecuteFlightAsync(flightKey, key, flight, factory, cacheCompleted);
+            }
+            ++flight.Waiters;
+        }
+        return WaitForFlightAsync(flightKey, flight, ct);
+    }
+
+    private sealed class Flight<T>
+    {
+        public CancellationTokenSource Cancellation { get; } = new();
+        public Task<T> Task { get; set; } = null!;
+        public int Waiters;
+        public long Sequence;
+    }
+
+    private async Task<T> ExecuteFlightAsync<T>(string flightKey, string key, Flight<T> flight,
+        Func<CancellationToken, Task<T>> factory, bool cacheCompleted)
+    {
+        await Task.Yield(); // Register the first waiter before a synchronous factory can finish.
+        try
+        {
+            flight.Cancellation.Token.ThrowIfCancellationRequested();
+            var value = await factory(flight.Cancellation.Token);
+            flight.Cancellation.Token.ThrowIfCancellationRequested();
+            if (cacheCompleted)
+            {
+                var options = new MemoryCacheEntryOptions { AbsoluteExpirationRelativeToNow = _store.Ttl, Size = 1 };
+                options.RegisterPostEvictionCallback(_store.ForgetKey);
+                lock (_store.FlightLock)
+                {
+                    if (!_store.Cache.TryGetValue(key, out CachedGridValue<T>? current) || current is null || current.Sequence <= flight.Sequence)
+                    {
+                        _store.Cache.Set(key, new CachedGridValue<T>(value, flight.Sequence), options);
+                        _store.KnownKeys.TryAdd(key, 0);
+                    }
+                }
+            }
+            return value;
+        }
+        finally
+        {
+            lock (_store.FlightLock)
+            {
+                if (_store.Flights.TryGetValue(flightKey, out var current) && ReferenceEquals(current, flight))
+                    _store.Flights.Remove(flightKey);
+            }
+        }
+    }
+
+    private async Task<T> WaitForFlightAsync<T>(string key, Flight<T> flight, CancellationToken ct)
+    {
+        try { return await flight.Task.WaitAsync(ct); }
+        finally
+        {
+            lock (_store.FlightLock)
+            {
+                if (--flight.Waiters == 0)
+                {
+                    if (!flight.Task.IsCompleted)
+                    {
+                        if (_store.Flights.TryGetValue(key, out var current) && ReferenceEquals(current, flight))
+                            _store.Flights.Remove(key);
+                        flight.Cancellation.Cancel();
+                        // Observe failure if every waiter has left.
+                        _ = flight.Task.ContinueWith(t => { _ = t.Exception; }, TaskContinuationOptions.OnlyOnFaulted);
+                    }
+                    _ = flight.Task.ContinueWith(_ => flight.Cancellation.Dispose(), CancellationToken.None,
+                        TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+                }
+            }
+        }
     }
 
     /// <summary>
@@ -177,35 +245,6 @@ public sealed class GridResultCache
     /// </summary>
     public void Invalidate(string entity) => _store.Invalidate(entity);
 
-    private async Task<T> ExecuteAsync<T>(string key, SemaphoreSlim gate, Func<Task<T>> factory, CancellationToken ct)
-    {
-        await gate.WaitAsync(ct);
-        try
-        {
-            if (_store.Cache.TryGetValue(key, out CachedGridValue<T>? cached) && cached is not null)
-            {
-                return cached.Value;
-            }
-
-            ct.ThrowIfCancellationRequested();
-            var value = await factory();
-            var options = new MemoryCacheEntryOptions
-            {
-                AbsoluteExpirationRelativeToNow = _store.Ttl,
-                Size = 1,
-            };
-            // Keeps KnownKeys in step with the cache on every eviction path
-            // (TTL expiry, SizeLimit compaction, explicit remove/replace).
-            options.RegisterPostEvictionCallback(_store.ForgetKey);
-            _store.Cache.Set(key, new CachedGridValue<T>(value), options);
-            _store.KnownKeys.TryAdd(key, 0);
-            return value;
-        }
-        finally
-        {
-            gate.Release();
-        }
-    }
 
     /// <summary>
     /// Key shape: <c>ns:grid:v1:{entity}:{method}:{user}:{hash}</c> — entity
@@ -242,6 +281,9 @@ public sealed class GridResultCache
     private bool TryGetUserScope(out string scope)
     {
         var employeeId = _accessor?.HttpContext?.User?.FindFirst(EmployeeIdClaim)?.Value;
+        var authorization = string.Join("|", (_accessor?.HttpContext?.User?.Claims
+            .Select(c => $"{c.Type}={c.Value}") ?? Enumerable.Empty<string>()).OrderBy(c => c, StringComparer.Ordinal));
+        var authorizationHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(authorization)));
 
         if (_currentUser is not null && _currentUser.UserId != Guid.Empty)
         {
@@ -250,12 +292,13 @@ public sealed class GridResultCache
             scope = string.IsNullOrEmpty(employeeId)
                 ? $"{_currentUser.UserId}:{_currentUser.NsSubsidiaryId}"
                 : $"{_currentUser.UserId}:{_currentUser.NsSubsidiaryId}:{employeeId}";
+            scope += $":{authorizationHash}";
             return true;
         }
 
         if (!string.IsNullOrEmpty(employeeId))
         {
-            scope = $"ns:{employeeId}";
+            scope = $"ns:{employeeId}:{authorizationHash}";
             return true;
         }
 
@@ -269,4 +312,4 @@ public sealed class GridResultCache
 /// (<see cref="IMemoryCache.TryGetValue{TItem}"/> reports a stored null as a
 /// miss).
 /// </summary>
-internal sealed record CachedGridValue<T>(T Value);
+internal sealed record CachedGridValue<T>(T Value, long Sequence = 0);

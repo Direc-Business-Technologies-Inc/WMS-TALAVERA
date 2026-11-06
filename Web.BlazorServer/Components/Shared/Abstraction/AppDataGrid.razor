@@ -5,6 +5,10 @@
 @typeparam TItem where TItem : class
 
 <AppDataGridSkeleton TItem="TItem" Loading="@(!GridSettingsLoaded)" />
+@if (RefreshError is not null)
+{
+    <div role="alert">@RefreshError <button type="button" @onclick="async () => await ReloadDataAsync()">Retry Sync</button></div>
+}
 <RadzenDataGrid TItem="TItem"
                 Visible="@GridSettingsLoaded"
                 @ref=@(DataGrid)
@@ -21,7 +25,7 @@
                 RowDeselect="@(OnRowDeselect)"
                 id="@(Id)"
                  Settings=@(GridSettings)
-                 SettingsChanged=@(async args => GridSettings = await GridSettingsService.GridSettingsChanged(DataGrid, args))
+                 SettingsChanged="@OnGridSettingsChanged"
                  AllowPaging
                 ShowPagingSummary
                 PagerHorizontalAlign="@HorizontalAlign.Right">
@@ -43,7 +47,11 @@
     </LoadingTemplate>
 
     <EmptyTemplate>
-        @if (EmptyTemplate is null)
+        @if (RefreshError is not null)
+        {
+            <p>Records could not be refreshed.</p>
+        }
+        else if (EmptyTemplate is null)
         {
             <p style="color: lightgrey; font-size: 24px; text-align: center; margin: 2rem;">No records to display.</p>
         }

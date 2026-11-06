@@ -46,7 +46,7 @@ public partial class TransferOrderGrid
 
     async Task<Application.DataTransferObjects.Transactions.PrintStatusCountsDTO> PrintCountsAsync(CancellationToken ct)
     {
-        var intent = new DataGridIntent { Skip = 0, Take = 1 };
+        var intent = new DataGridIntent { Skip = 0, Take = 1, ReadPolicy = GridReadPolicy.Fresh, CancellationToken = ct };
         ReceivingReceiptPrintStatusFilter.ApplyToReceipts(intent, PrintStatus.All, "STR");
         if (DateRangeStart.HasValue) intent.Filters.Add(DataGridFilterUtilities.GreaterThanOrEqual("tcf.trandate", DateRangeStart.Value.Date));
         if (DateRangeEnd.HasValue) intent.Filters.Add(DataGridFilterUtilities.LessThan("tcf.trandate", DateRangeEnd.Value.Date.AddDays(1)));
@@ -58,10 +58,11 @@ public partial class TransferOrderGrid
     {
         DateRangeStart = range.Start;
         DateRangeEnd = range.End;
-        await ReloadFirstPageAsync();
+        await Task.WhenAll(ReloadRowsAsync(), PrintStatusView.RefreshCountsAsync());
     }
 
-    Task ReloadFirstPageAsync() => Task.WhenAll(ReloadRowsAsync(), PrintStatusView.RefreshCountsAsync());
+    Task ReloadFirstPageAsync() => Task.WhenAll(TransferOrderDataGrid.RefreshFirstPageOrThrowAsync(), PrintStatusView.RefreshCountsOrThrowAsync());
+    Task SyncAsync() => Task.WhenAll(TransferOrderDataGrid.ReloadFirstPageAsync(), PrintStatusView.RefreshCountsAsync());
 
     async Task ReloadRowsAsync()
     {
@@ -95,15 +96,16 @@ public partial class TransferOrderGrid
     {
         await GridSettingsService.SetGridSettings(TransferOrderDataGrid.DataGrid, settings => DataGridSettings = settings ?? new());
         GridSettingsLoaded = true;
+    }
 
-        await TransferOrderDataGrid.DataGrid.ReloadSettings();
-        await TransferOrderDataGrid.DataGrid.Reload();
+    void PrepareIntent(DataGridIntent intent)
+    {
+        ReceivingReceiptPrintStatusFilter.ApplyToTransactions(intent, SelectedPrintStatus);
+        PrintStatusFilter.ApplyDateRange(intent, DateRangeStart, DateRangeEnd);
     }
 
     async Task<DataGridResultVM<TransferOrderDataGridVM>> LoadDataAsync(DataGridIntent intent)
     {
-        ReceivingReceiptPrintStatusFilter.ApplyToTransactions(intent, SelectedPrintStatus);
-        PrintStatusFilter.ApplyDateRange(intent, DateRangeStart, DateRangeEnd);
         var action = await AppActionFactory.RunAsync(async () =>
         {
             AppBusyService.SetBusy(ActionGetPurchaseOrders, true);
@@ -131,6 +133,7 @@ public partial class TransferOrderGrid
 
         initialGridLoadSucceeded = action.IsSuccess;
         AppBusyService.SetBusy(ActionGetPurchaseOrders, false);
+        action.ThrowIfUnsuccessful();
         return DataGridResultVM<TransferOrderDataGridVM>.New(action.Result.Data ?? [], action.Result.Count);
     }
 

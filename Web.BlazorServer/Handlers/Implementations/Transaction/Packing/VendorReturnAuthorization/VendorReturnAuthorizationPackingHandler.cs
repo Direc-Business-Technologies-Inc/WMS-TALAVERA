@@ -13,7 +13,7 @@ public class VendorReturnAuthorizationPackingHandler(ISender sender) : IVendorRe
     {
         GetPackingVendorReturnAuthorizationListQry query = new(intent, subsidiaryId);
 
-        (var data, int count) = await sender.Send(query);
+        (var data, int count) = await sender.Send(query, intent.CancellationToken);
 
         return (data.Adapt<IEnumerable<VendorReturnAuthorizationPackingDataGridVM>>(), count);
     }

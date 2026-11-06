@@ -40,7 +40,7 @@ public partial class PurchaseOrderGrid
 
     async Task<Application.DataTransferObjects.Transactions.PrintStatusCountsDTO> PrintCountsAsync(CancellationToken ct)
     {
-        var intent = new DataGridIntent { Skip = 0, Take = 1 };
+        var intent = new DataGridIntent { Skip = 0, Take = 1, ReadPolicy = GridReadPolicy.Fresh, CancellationToken = ct };
         ReceivingReceiptPrintStatusFilter.ApplyToReceipts(intent, PrintStatus.All, "PO");
         if (DateRangeStart.HasValue) intent.Filters.Add(DataGridFilterUtilities.GreaterThanOrEqual("tcf.trandate", DateRangeStart.Value.Date));
         if (DateRangeEnd.HasValue) intent.Filters.Add(DataGridFilterUtilities.LessThan("tcf.trandate", DateRangeEnd.Value.Date.AddDays(1)));
@@ -64,7 +64,8 @@ public partial class PurchaseOrderGrid
             await PurchaseOrderDataGrid.DataGrid.GoToPage(0);
     }
 
-    Task RefreshPrintStatusAsync() => Task.WhenAll(ReloadFirstPageAsync(), PrintStatusView.RefreshCountsAsync());
+    Task RefreshPrintStatusAsync() => Task.WhenAll(PurchaseOrderDataGrid.RefreshFirstPageOrThrowAsync(), PrintStatusView.RefreshCountsOrThrowAsync());
+    Task SyncAsync() => Task.WhenAll(PurchaseOrderDataGrid.ReloadFirstPageAsync(), PrintStatusView.RefreshCountsAsync());
 
     async Task PrintStatusChanged(PrintStatus status)
     {
@@ -92,15 +93,16 @@ public partial class PurchaseOrderGrid
     {
         await GridSettingsService.SetGridSettings(PurchaseOrderDataGrid.DataGrid, settings => PurchaseOrderDataGridSettings = settings ?? new());
         GridSettingsLoaded = true;
+    }
 
-        await PurchaseOrderDataGrid.DataGrid.ReloadSettings();
-        await PurchaseOrderDataGrid.DataGrid.Reload();
+    void PrepareIntent(DataGridIntent intent)
+    {
+        ReceivingReceiptPrintStatusFilter.ApplyToTransactions(intent, SelectedPrintStatus);
+        PrintStatusFilter.ApplyDateRange(intent, DateRangeStart, DateRangeEnd);
     }
 
     async Task<DataGridResultVM<PurchaseOrderDataGridVM>> LoadDataAsync(DataGridIntent intent)
     {
-        ReceivingReceiptPrintStatusFilter.ApplyToTransactions(intent, SelectedPrintStatus);
-        PrintStatusFilter.ApplyDateRange(intent, DateRangeStart, DateRangeEnd);
         var action = await AppActionFactory.RunAsync(async () =>
         {
             AppBusyService.SetBusy(ActionGetPurchaseOrders, true);
@@ -128,6 +130,7 @@ public partial class PurchaseOrderGrid
 
         initialGridLoadSucceeded = action.IsSuccess;
         AppBusyService.SetBusy(ActionGetPurchaseOrders, false);
+        action.ThrowIfUnsuccessful();
         return DataGridResultVM<PurchaseOrderDataGridVM>.New(action.Result.Data ?? [], action.Result.Count);
     }
 

@@ -101,14 +101,13 @@ public partial class QuickDataGrid<TItem> : BaseComponent where TItem : class
         }, AppActionOptionPresets.Loading(ActionName));
 
         AppBusyService.SetBusy(ActionName, false);
+        action.ThrowIfUnsuccessful();
         return DataGridResultVM<TItem>.New(action.Result.Data ?? [], action.Result.Count);
     }
 
-    public Task Reload() => DataGrid.DataGrid.Reload();
+    public Task Reload() => DataGrid.RefreshOrThrowAsync();
 
-    public Task ReloadFirstPage() => DataGrid.DataGrid.CurrentPage == 0
-        ? DataGrid.DataGrid.Reload()
-        : DataGrid.DataGrid.GoToPage(0);
+    public Task ReloadFirstPage() => DataGrid.RefreshFirstPageOrThrowAsync();
 
     public delegate Task<(IEnumerable<TItem> Data, int Count)> DataDelegate(DataGridIntent intent);
 }

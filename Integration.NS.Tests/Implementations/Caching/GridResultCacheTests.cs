@@ -245,22 +245,15 @@ public class GridResultCacheTests
             $"expected the key index to converge within the cache cap, found {store.KnownKeys.Count}");
     }
 
-    // Req 2.3 — single-flight gates are a fixed-size stripe array, not a
-    // per-key dictionary, so they cannot grow with the number of distinct keys.
     [Fact]
-    public void Gate_selection_is_bounded_regardless_of_key_count()
+    public async Task Completed_flight_entries_do_not_accumulate_with_distinct_keys()
     {
-        var store = new GridCacheStore(100, TimeSpan.FromSeconds(60));
-
-        var gates = Enumerable
-            .Range(0, 5_000)
-            .Select(i => store.GateFor($"ns:grid:v1:Items:GetItemsAsync:user:{i}"))
-            .ToList();
-
-        // 5,000 distinct keys must resolve to a small fixed set of gates.
-        Assert.True(
-            gates.Distinct().Count() <= 64,
-            $"expected at most 64 stripes, found {gates.Distinct().Count()}");
+        using var store = new GridCacheStore(100, TimeSpan.FromSeconds(60));
+        var cache = new GridResultCache(store, null, new StubCurrentUserService(Guid.NewGuid()));
+        for (var i = 0; i < 1000; i++)
+            await cache.ReadAsync("Packing", $"rows-{i}", null, _ => Task.FromResult(i), cacheCompleted: false);
+        Assert.Empty(store.Flights);
+        Assert.Equal(0, store.Count);
     }
 
     // Req 2.4 — a re-cached key must stay reachable by prefix invalidation.

@@ -22,9 +22,19 @@ internal class StockTransferRequestPackingIntegration(
     IHttpContextAccessor httpContextAccessor,
     ISqlQueryManager sqlQuery,
     SuiteQLQueryBuilderFactoryService builderFactory,
-    ILogger<StockTransferRequestPackingIntegration> logger) : IStockTransferRequestPackingIntegration
+    ILogger<StockTransferRequestPackingIntegration> logger,
+    Integration.NS.Implementations.Others.Caching.GridResultCache? readCache = null) : IStockTransferRequestPackingIntegration
 {
-    public async Task<(IEnumerable<StockTransferRequestPackingDataGridDTO> Data, int Count)> GetPackingStockTransferRequestList(DataGridIntent intent, int subsidiaryId)
+    public Task<(IEnumerable<StockTransferRequestPackingDataGridDTO> Data, int Count)> GetPackingStockTransferRequestList(DataGridIntent intent, int subsidiaryId)
+    {
+        intent = intent.Snapshot();
+        return readCache is null ? ReadListAsync(intent, subsidiaryId)
+            : readCache.ReadAsync("Packing", nameof(GetPackingStockTransferRequestList), intent,
+                ct => { var snapshot = intent.Snapshot(); snapshot.CancellationToken = ct; return ReadListAsync(snapshot, subsidiaryId); },
+                intent.CancellationToken, false, subsidiaryId);
+    }
+
+    private async Task<(IEnumerable<StockTransferRequestPackingDataGridDTO> Data, int Count)> ReadListAsync(DataGridIntent intent, int subsidiaryId)
     {
         if (intent.Sorts.Count == 0) intent.Sorts.Add(DataGridSortUtilities.Descending(nameof(StrPackingDataGridNSDTO.DateLastModified)));
 
@@ -82,7 +92,7 @@ internal class StockTransferRequestPackingIntegration(
             var succeeded = false;
             try
             {
-                var response = await query.ExecuteWithPaging<StrPackingDataGridNSDTO>(netsuiteService);
+                var response = await query.ExecuteWithPaging<StrPackingDataGridNSDTO>(netsuiteService, intent.CancellationToken);
                 succeeded = true;
                 return response;
             }

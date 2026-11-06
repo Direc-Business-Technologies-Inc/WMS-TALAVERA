@@ -20,7 +20,9 @@ public class GetTransferOrdersQryHandler(
 {
     public async Task<(IEnumerable<TransferOrderDataGridDTO> Data, int Count)> Handle(GetTransferOrdersQry request, CancellationToken cancellationToken)
     {
-        (IEnumerable<TransferOrderDataGridDTO> Data, int Count) = await receivingIntegration.GetTransferOrderListAsync(request.Intent);
+        var intent = request.Intent.Snapshot();
+        if (cancellationToken.CanBeCanceled) intent.CancellationToken = cancellationToken;
+        (IEnumerable<TransferOrderDataGridDTO> Data, int Count) = await receivingIntegration.GetTransferOrderListAsync(intent);
 
         var x = Data.Adapt<IEnumerable<TransferOrderDataGridDTO>>();
 

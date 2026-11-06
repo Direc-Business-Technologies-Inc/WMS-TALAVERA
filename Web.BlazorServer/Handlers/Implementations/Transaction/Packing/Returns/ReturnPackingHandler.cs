@@ -18,7 +18,7 @@ public class ReturnPackingHandler(ISender sender) : IReturnPackingHandler
     {
         GetPackingReturnListQry query = new(intent, subsidiaryId);
 
-        (var data, int count) = await sender.Send(query);
+        (var data, int count) = await sender.Send(query, intent.CancellationToken);
 
         return (data.Adapt<IEnumerable<ReturnsPackingDataGridVM>>(), count);
     }
@@ -50,7 +50,7 @@ public class ReturnPackingHandler(ISender sender) : IReturnPackingHandler
     {
         GetPackedItemFulfillmentsQry query = new(intent);
 
-        (var data, int count) = await sender.Send(query);
+        (var data, int count) = await sender.Send(query, intent.CancellationToken);
 
         return (data.Adapt<IEnumerable<PackedItemFulfillmentVM>>(), count);
     }

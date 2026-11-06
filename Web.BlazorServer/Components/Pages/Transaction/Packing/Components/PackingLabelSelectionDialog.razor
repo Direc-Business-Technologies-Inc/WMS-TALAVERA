@@ -96,7 +96,11 @@
         }
     }
 
-    private Task PrintSelectedAsync() => Task.WhenAll(ReloadAsync(), OnPrinted.InvokeAsync());
+    private async Task PrintSelectedAsync()
+    {
+        await Task.WhenAll(ReloadAsync(), OnPrinted.InvokeAsync());
+        if (loadFailed) throw new InvalidOperationException("Print count updated. Packing labels need a refresh.");
+    }
     private void CloseAsync() => DialogService.Close();
     public void Dispose() => disposed = true;
 }

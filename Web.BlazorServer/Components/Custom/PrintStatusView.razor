@@ -23,6 +23,12 @@
         <span role="status" aria-live="polite"><RadzenIcon Icon="hourglass_top" /> Updating counts…</span>
     }
 </nav>
+@if (CountsStale)
+{
+    <div role="alert">Counts could not be refreshed; displayed totals are stale.
+        <button type="button" @onclick="RefreshCountsAsync">Retry counts</button>
+    </div>
+}
 
 @code {
     [Parameter] public PrintStatus Value { get; set; } = PrintStatus.ForPrinting;
@@ -38,6 +44,7 @@
     private int refreshVersion;
     private bool disposed;
     private bool isRefreshing;
+    public bool CountsStale { get; private set; }
     private bool refreshPending;
     private Task? refreshTask;
     private CancellationTokenSource? refreshCancellation;
@@ -82,18 +89,21 @@
                     if (disposed || version != refreshVersion) continue;
                     ForPrintingCount = counts.ForPrinting;
                     PrintedCount = counts.Printed;
+                    CountsStale = false;
                     await InvokeAsync(StateHasChanged);
                 }
                 else
                 {
-                    await Task.WhenAll(
+                    var successes = await Task.WhenAll(
                         LoadCountAsync(PrintStatus.ForPrinting, version),
                         LoadCountAsync(PrintStatus.Printed, version));
+                    if (!disposed && version == refreshVersion) CountsStale = successes.Any(success => !success);
                 }
             }
             catch (OperationCanceledException) when (cancellation.IsCancellationRequested) { }
             catch (Exception ex)
             {
+                if (!disposed && version == refreshVersion) CountsStale = true;
                 Logger.LogWarning(ex, "Could not load print-status counts");
             }
             finally
@@ -105,7 +115,7 @@
         }
     }
 
-    private async Task LoadCountAsync(PrintStatus status, int version)
+    private async Task<bool> LoadCountAsync(PrintStatus status, int version)
     {
         try
         {
@@ -117,6 +127,7 @@
                 else PrintedCount = count;
                 StateHasChanged();
             });
+            return true;
         }
         catch (Exception ex)
         {
@@ -124,10 +135,10 @@
             await InvokeAsync(() =>
             {
                 if (disposed || version != refreshVersion) return;
-                if (status == PrintStatus.ForPrinting) ForPrintingCount = null;
-                else PrintedCount = null;
+                CountsStale = true;
                 StateHasChanged();
             });
+            return false;
         }
     }
 
@@ -141,6 +152,12 @@
     }
 
     [Inject] private ILogger<PrintStatusView> Logger { get; set; } = default!;
+
+    public async Task RefreshCountsOrThrowAsync()
+    {
+        await RefreshCountsAsync();
+        if (disposed || CountsStale) throw new InvalidOperationException("Refresh needed. Retry counts.");
+    }
 
     public void Dispose()
     {

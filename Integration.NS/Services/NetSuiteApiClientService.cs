@@ -133,6 +133,37 @@ namespace Integration.NS.Services
             return int.TryParse(raw, out var value) ? Math.Max(1, value) : 2;
         }
 
+        internal static TimeSpan GetInteractiveAdmissionTimeout()
+        {
+            var raw = Environment.GetEnvironmentVariable("NETSUITE_INTERACTIVE_ADMISSION_SECONDS");
+            return TimeSpan.FromSeconds(double.TryParse(raw, out var seconds) && double.IsFinite(seconds) && seconds > 0 ? seconds : 10);
+        }
+
+        private async Task WaitForAdmissionAsync(NetSuiteRequestKind kind, NetSuiteRetryProfile profile, CancellationToken ct)
+        {
+            var started = Stopwatch.GetTimestamp();
+            var outcome = "cancelled";
+            try
+            {
+                if (kind == NetSuiteRequestKind.Read && profile == NetSuiteRetryProfile.Interactive)
+                {
+                    if (!await _requestSemaphore.WaitAsync(GetInteractiveAdmissionTimeout(), ct))
+                    {
+                        outcome = "busy";
+                        throw new Shared.Entities.GridAdmissionBusyException();
+                    }
+                }
+                else await _requestSemaphore.WaitAsync(ct);
+                outcome = "acquired";
+            }
+            finally
+            {
+                logger.LogInformation("NetSuite admission {Outcome} after {ElapsedMs} ms; kind {Kind}; profile {Profile}; process budget {Budget}; interactive deadline {DeadlineMs} ms",
+                    outcome, Stopwatch.GetElapsedTime(started).TotalMilliseconds, kind, profile,
+                    _requestBudget, GetInteractiveAdmissionTimeout().TotalMilliseconds);
+            }
+        }
+
         /// <summary>
         /// Test seam: replaces the shared <see cref="HttpClient"/>. Production
         /// behaviour is untouched when never called.
@@ -347,8 +378,9 @@ namespace Integration.NS.Services
         }
 
         private static readonly SemaphoreSlim _tokenSemaphore = new(1, 1);
+        private static readonly int _requestBudget = GetMaxInFlightPerProcess();
         private static readonly SemaphoreSlim _requestSemaphore =
-            new(GetMaxInFlightPerProcess(), GetMaxInFlightPerProcess());
+            new(_requestBudget, _requestBudget);
 
         //public async Task<T> MakeRequest<T>(string url, string? reqBody, HttpMethod method)
         //{
@@ -455,15 +487,18 @@ namespace Integration.NS.Services
             // inside the permit hold (D5) so a 429 storm cannot starve the
             // limiter by re-acquiring between attempts.
             var waitStarted = Stopwatch.GetTimestamp();
-            await _requestSemaphore.WaitAsync(ct);
+            await WaitForAdmissionAsync(requestKind, profile, ct);
             if (isSuiteQL)
                 logger.LogInformation("NetSuite SuiteQL {TraceId} permit wait {ElapsedMs} ms", traceId,
                     Stopwatch.GetElapsedTime(waitStarted).TotalMilliseconds);
 
             var attempts = 0;
             var completed = false;
+            var executionStarted = Stopwatch.GetTimestamp();
+            double httpElapsedMs = 0;
             try
             {
+                ct.ThrowIfCancellationRequested();
                 var result = await pipeline.ExecuteAsync(async pipelineCt =>
                     {
                         var attempt = ++attempts;
@@ -477,6 +512,7 @@ namespace Integration.NS.Services
                         }
                         finally
                         {
+                            httpElapsedMs += Stopwatch.GetElapsedTime(attemptStarted).TotalMilliseconds;
                             if (isSuiteQL)
                                 logger.LogInformation("NetSuite SuiteQL {TraceId} HTTP attempt {Attempt} took {ElapsedMs} ms; success: {Succeeded}",
                                     traceId, attempt, Stopwatch.GetElapsedTime(attemptStarted).TotalMilliseconds, succeeded);
@@ -484,14 +520,19 @@ namespace Integration.NS.Services
                     },
                     ct);
                 completed = true;
+                if (requestKind != NetSuiteRequestKind.Read) gridCache?.Invalidate("Packing");
                 return result;
             }
             finally
             {
                 _requestSemaphore.Release();
                 if (isSuiteQL)
+                {
                     logger.LogInformation("NetSuite SuiteQL {TraceId} total {ElapsedMs} ms; attempts: {Attempts}; success: {Succeeded}",
                         traceId, Stopwatch.GetElapsedTime(requestStarted).TotalMilliseconds, attempts, completed);
+                    logger.LogInformation("NetSuite SuiteQL {TraceId} HTTP total {HttpMs} ms; retry/scheduling wait {RetryWaitMs} ms",
+                        traceId, httpElapsedMs, Math.Max(0, Stopwatch.GetElapsedTime(executionStarted).TotalMilliseconds - httpElapsedMs));
+                }
             }
         }
 
@@ -745,13 +786,16 @@ namespace Integration.NS.Services
 
             // Defense-in-depth: the OAuth1 path shares the same limiter as the
             // OAuth2 path (two separate semaphores would sum back over budget).
-            await _requestSemaphore.WaitAsync(ct);
+            await WaitForAdmissionAsync(requestKind, profile, ct);
 
             try
             {
-                return await pipeline.ExecuteAsync(
+                ct.ThrowIfCancellationRequested();
+                var result = await pipeline.ExecuteAsync(
                     pipelineCt => SendAndHandleOAuth1<T>(url, reqBody, method, authorizationHeader, pipelineCt),
                     ct);
+                if (requestKind != NetSuiteRequestKind.Read) gridCache?.Invalidate("Packing");
+                return result;
             }
             finally
             {

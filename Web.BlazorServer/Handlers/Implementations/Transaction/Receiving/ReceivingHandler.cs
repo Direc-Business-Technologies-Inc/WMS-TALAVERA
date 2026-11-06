@@ -35,7 +35,7 @@ public class ReceivingHandler(
     public async Task<(IEnumerable<PurchaseOrderDataGridVM> Data, int Count)> GetPurchaseOrderDataGridAsync(DataGridIntent intent)
     {
         GetPurchaseOrdersQry qry = new(intent);
-        (IEnumerable<PurchaseOrderDataGridDTO> Data, int Count) = await Sender.Send(qry);
+        (IEnumerable<PurchaseOrderDataGridDTO> Data, int Count) = await Sender.Send(qry, intent.CancellationToken);
 
         var x = Data.Select(x => new PurchaseOrderDataGridVM
         {
@@ -59,7 +59,7 @@ public class ReceivingHandler(
     public async Task<(IEnumerable<ReturnsDataGridVM> Data, int Count)> GetReturnsDataGridAsync(DataGridIntent intent)
     {
         GetReturnsListQry qry = new (intent);
-        (var data, var count) = await Sender.Send(qry);
+        (var data, var count) = await Sender.Send(qry, intent.CancellationToken);
         var x = data.Select(x => new ReturnsDataGridVM
         {
             Id = x.Id,
@@ -84,7 +84,7 @@ public class ReceivingHandler(
     public async Task<(IEnumerable<TransferOrderDataGridVM> Data, int Count)> GetTransferOrderDataGridAsync(DataGridIntent intent)
     {
         GetTransferOrdersQry qry = new(intent);
-        (IEnumerable<TransferOrderDataGridDTO> Data, int Count) = await Sender.Send(qry);
+        (IEnumerable<TransferOrderDataGridDTO> Data, int Count) = await Sender.Send(qry, intent.CancellationToken);
 
         var x = Data.Select(x => new TransferOrderDataGridVM
         {

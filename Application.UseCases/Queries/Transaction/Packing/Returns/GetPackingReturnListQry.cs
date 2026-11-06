@@ -15,6 +15,8 @@ public class GetPackingReturnListQryHandler(IReturnPackingIntegration integratio
         GetPackingReturnListQry request,
         CancellationToken cancellationToken)
     {
-        return integration.GetPackingReturnsList(request.Intent, request.SubsidiaryId);
+        var intent = request.Intent.Snapshot();
+        if (cancellationToken.CanBeCanceled) intent.CancellationToken = cancellationToken;
+        return integration.GetPackingReturnsList(intent, request.SubsidiaryId);
     }
 }

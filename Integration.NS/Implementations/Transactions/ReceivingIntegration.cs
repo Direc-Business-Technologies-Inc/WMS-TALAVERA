@@ -241,7 +241,7 @@ public partial class ReceivingIntegration(
         {
             if (skipOverride.HasValue) query.Offset = skipOverride.Value;
 
-            var response = await query.ExecuteWithPaging<PurchaseOrderDataGridDTO>(netsuiteService);
+            var response = await query.ExecuteWithPaging<PurchaseOrderDataGridDTO>(netsuiteService, intent.CancellationToken);
             return response;
         });
     }
@@ -314,7 +314,7 @@ public partial class ReceivingIntegration(
         {
             if (skipOverride.HasValue) query.Offset = skipOverride.Value;
 
-            var response = await query.ExecuteWithPaging<TransferOrderDataGridDTO>(netsuiteService);
+            var response = await query.ExecuteWithPaging<TransferOrderDataGridDTO>(netsuiteService, intent.CancellationToken);
             return response;
         });
     }
@@ -552,7 +552,7 @@ public partial class ReceivingIntegration(
             query.Offset = skipOverride.Value;
         }
 
-        var response = await query.ExecuteWithPaging<ReturnsDataGridDTO>(netsuiteService);
+        var response = await query.ExecuteWithPaging<ReturnsDataGridDTO>(netsuiteService, intent.CancellationToken);
         return response;
     }
 
@@ -1311,7 +1311,7 @@ public partial class ReceivingIntegration(
             intent.Sorts.Add(DataGridSortUtilities.Descending(nameof(ItemReceiptDataGridDTO.DateLastModified)));
 
         var query = CreateItemReceiptsQuery(intent).Build();
-        var response = await query.ExecuteWithPaging<ItemReceiptDataGridDTO>(netsuiteService);
+        var response = await query.ExecuteWithPaging<ItemReceiptDataGridDTO>(netsuiteService, intent.CancellationToken);
         return (response.items, response.totalResults);
     }
 

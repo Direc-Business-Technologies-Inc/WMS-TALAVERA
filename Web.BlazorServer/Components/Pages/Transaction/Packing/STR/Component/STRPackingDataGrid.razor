@@ -4,13 +4,13 @@
 
 @inherits BaseComponent
 
-<AppDataGrid @ref="@DataGrid" Id="packing_str_grid" TItem="StockTransferRequestPackingDataGridVM" DataGetter="@(gridReadyToLoad ? LoadDataAsync : null)" GridSettings="@DataGridSettings" @bind-GridSettingsLoaded="@GridSettingsLoaded" AutoLoadGridSettings="false" ActionName="@ActionGetStockTransferRequests">
+<AppDataGrid DeferInitialLoad="true" PrepareIntent="@PrepareIntent" @ref="@DataGrid" Id="packing_str_grid" TItem="StockTransferRequestPackingDataGridVM" DataGetter="@(gridReadyToLoad ? LoadDataAsync : null)" OnDataLoaded="@OnGridDataLoaded" @bind-GridSettings="@DataGridSettings" @bind-GridSettingsLoaded="@GridSettingsLoaded" AutoLoadGridSettings="false" ActionName="@ActionGetStockTransferRequests">
     <HeaderTemplate>
         <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center" Gap="8px">
             <PrintStatusView @ref="PrintStatusView" Value="@SelectedPrintStatus" ValueChanged="@PrintStatusChanged" CountsGetter="@PrintCountsAsync" LoadCountsOnInitialize="false" RefreshCountsOnSelect="false" />
             <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" AlignItems="AlignItems.Center" Gap="8px">
             <RadzenButton Icon="settings" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@OpenTableSettings" />
-            <RadzenButton Icon="sync" Size="ButtonSize.Small" Click="@RefreshPrintStatusAsync" />
+            <RadzenButton Icon="sync" Size="ButtonSize.Small" Click="@SyncAsync" />
             </RadzenStack>
         </RadzenStack>
     </HeaderTemplate>

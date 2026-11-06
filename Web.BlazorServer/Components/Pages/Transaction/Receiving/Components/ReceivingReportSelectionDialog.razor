@@ -70,7 +70,7 @@
             int total;
             do
             {
-                var intent = new DataGridIntent { Skip = skip, Take = 1000 };
+                var intent = new DataGridIntent { Skip = skip, Take = 1000, ReadPolicy = GridReadPolicy.Fresh };
                 ReceivingReceiptPrintStatusFilter.ApplyToReceipts(intent, SelectedPrintStatus, Source);
                 intent.Filters.Add(DataGridFilterUtilities.Equal("tcf.id", TransactionId));
                 var (pageRows, count) = await ReceivingHandler.GetItemReceiptsDatagridAsync(intent);
@@ -96,7 +96,11 @@
         }
     }
 
-    private Task PrintSelectedAsync() => Task.WhenAll(ReloadAsync(), OnPrinted.InvokeAsync());
+    private async Task PrintSelectedAsync()
+    {
+        await Task.WhenAll(ReloadAsync(), OnPrinted.InvokeAsync());
+        if (loadFailed) throw new InvalidOperationException("Print count updated. Receiving reports need a refresh.");
+    }
     private void CloseAsync() => DialogService.Close();
     public void Dispose() => disposed = true;
 }

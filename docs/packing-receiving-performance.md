@@ -271,4 +271,148 @@ captured timings and identical eligibility results. NetSuite has known
 limitations with correlated subqueries, so a conventional SQL EXISTS rewrite
 must not be assumed compatible.
 
-No graphify rebuild, branch creation or commit is part of this change.
+## 2026-11-06 — Grid refresh reliability
+
+Implemented against source baseline `2671287d` on
+`claude/fix/web-grid-refresh-reliability`. This is a local, uncommitted build;
+it is not a deployed web/API build identifier.
+
+### Implemented behavior
+
+- Shared Radzen callbacks, direct reloads and QuickDataGrid reloads now use one
+  coordinator: one active request and the newest pending request. Requests have
+  independent intent/filter snapshots, generation-checked publication and
+  explicit succeeded/failed/cancelled/superseded/busy outcomes. Disposal completes
+  waiters and rejects late results.
+- Sync requests fresh data. Receiving bypasses completed entries without evicting
+  other users' cached pages; successful fresh reads populate the normal cache.
+  Packing retains its current page on Sync; Receiving's first-page refresh and
+  QuickDataGrid's first-page operation still reset the pager. Ordinary Radzen
+  loads retain normal cache policy.
+- Same-scope failure retains successful rows with a stale indicator and Retry
+  Sync. Changed-scope requests hide previous-scope rows immediately. Empty success
+  clears the error; cancellation and busy admission are distinct outcomes.
+- Packing STR, Returns and VRA status selection reload rows without recomputing
+  global totals. Initial loading, explicit Sync and post-print reconciliation
+  still refresh totals. Failed badge reads retain totals with a stale marker and
+  retry action. Post-print row/dialog/badge failure reaches the existing
+  "Refresh needed" warning without repeating the counter write. Ordinary Sync
+  displays errors in the grid rather than throwing from the UI event.
+- The existing integration cache now shares overlapping success **and failure**.
+  Completed flights are removed. Keys include identity, authorization claims,
+  subsidiary, full business intent, normal/fresh policy and mutation generation.
+  Each waiter can cancel independently; the last waiter leaving cancels upstream
+  work. Packing list/count sharing stores no completed transaction-result TTL.
+  Successful writes advance Packing's read generation; existing Receiving print
+  and receipt mutation invalidation remains in place.
+- Cancellation travels with internal read metadata through feature handlers,
+  MediatR, integrations, paging and transport. Policy and cancellation are JSON
+  ignored; neither is a fake business filter or a public endpoint parameter.
+
+### Admission configuration and diagnostics
+
+`NETSUITE_INTERACTIVE_ADMISSION_SECONDS` is a positive finite number of seconds,
+default **10**. It bounds only permit admission for interactive reads, including
+OAuth1. Expiry throws the typed busy outcome before HTTP; caller cancellation
+stays cancellation. HTTP timeout remains separately controlled by
+`NETSUITE_HTTP_TIMEOUT_SECONDS` (default 100 seconds). Writes retain their retry
+classification and permit hold across backoff.
+
+Admission logs include acquired/busy/cancelled, elapsed wait, request kind,
+profile, effective process budget and deadline. SuiteQL logs retain trace-linked
+HTTP attempt durations and attempt count, and add total HTTP time and the
+retry/scheduling gap. That gap includes pipeline/scheduler overhead; it is not a
+remote-execution measurement. Continue measuring click-to-visible-rows in the
+browser; a server-side completion timestamp does not measure browser paint.
+
+### Capacity inventory and hosted evidence still required
+
+| Item | Evidence available in this session |
+| --- | --- |
+| Local source / SDK | `2671287d` plus working tree / .NET SDK `9.0.317` |
+| Deployed web build | Unavailable; deployment operator must record |
+| Deployed API build | Unavailable; deployment operator must record |
+| Effective worker/process counts and limiter overrides | Unavailable |
+| IIS web garden, recycle/deployment overlap | Unavailable |
+| Other NetSuite account consumers | Unknown, not assumed absent |
+| Account limit | Five, as specified |
+| Default local budget | Two per process; not an account-wide budget |
+| Cold/warm/concurrent before-and-after timings | Not captured |
+
+Planning arithmetic: **one** web process at two permits plus **one** API process
+at two permits uses four of five slots, leaving one slot only if other traffic
+fits that headroom. This is an assumption, not a verified deployment inventory.
+Two overlapping copies of both processes would budget eight permits and exceed
+five. Operators must account for all workers, deployment overlap and external
+consumers before rollout; the patch does not change IIS or raise any limit.
+
+For each pre/post run, record deployed build IDs, permissions, subsidiary, source,
+filters, page size and dataset, then capture the timing phases in the IIS
+procedure above for idle/recycle, warm visits, Sync inside TTL, rapid filter/page
+changes and representative concurrent usage. No hosted benchmark or production
+load generation was performed. Production latency improvement remains unverified.
+
+### Verification and follow-up
+
+Deterministic barrier tests cover shared-grid overlap and completion, snapshot
+isolation, stale/changed-scope/empty outcomes, disposal, paging and selection;
+all three Packing status selectors; fresh cache reads, shared success/failure,
+independent cancellation, mutation generations and user/subsidiary/authorization
+isolation. Local HTTP-stub tests cover OAuth1/OAuth2 admission expiry, queued
+cancellation and permit ownership alongside existing write-safety tests.
+
+The original tests were added during implementation; they were not replayed against a
+separate checkout of the unfixed baseline. Defect characterization before edits
+was source-based, so no failing-baseline test run is claimed.
+
+SuiteQL changes are explicitly deferred: no candidate query was equivalence- or
+sandbox-validated. The follow-up trace below shows expensive HTTP operations and
+redundant reads, but does not isolate pure database execution from network time.
+Auto-fulfillment, posting validation and payloads are outside this patch.
+
+Rollback uses the deployment's existing previous-artifact redeployment mechanism
+for the affected hosts. No migration or data rollback is required. Restore the
+previous environment settings with that deployment; removing only the admission
+override restores the ten-second default, not the previous implementation.
+
+See the spec's [implementation record](../.opencode/specs/2026-11-06-web-grid-refresh-reliability/implementation.md)
+for automated verification results and remaining rollout work. Graphify was not
+updated, and no commit or push was performed for this implementation.
+
+### Runtime-regression review — all Packing and Receiving tabs
+
+The user's STR trace showed three first-attempt records queries for the same
+page, taking approximately **6.16 s, 4.25 s and 4.35 s** in HTTP time. Their
+permit waits were only a few milliseconds, with no retries. The badge query
+overlapped the last records query. Duplicate initial reads are therefore an
+actionable contributor to this trace's roughly fifteen-second records workload.
+
+Review found that enabling the getter during settings setup, explicitly reloading
+settings/data, then changing visibility could each cause a read. The awaited
+coordinator did not deduplicate those sequential operations. The earlier tests
+missed the complete page/settings lifecycle.
+
+The correction applies to **Packing STR, Returns and RTS/VRA**, and **Receiving
+PO, STR and Returns**:
+
+- Defer application reads until saved settings and columns can be applied after
+  rendering; use that one settings application for the initial records request.
+- Remove the pages' additional initialization reloads. Start Packing badges once
+  after successful rows publication.
+- Bind settings back to their owning pages so badge rerenders cannot restore an
+  old page after Sync.
+- Restore Receiving STR/Returns reference filters as strings, matching their
+  ViewModels rather than the former integer column declaration.
+
+Nine added lifecycle cases verify one initial records request per tab, saved
+paging/sorting/alphanumeric filters, Packing defaults without saved settings,
+rows-before-badges ordering and one fresh row/badge reconciliation on Sync.
+Verification: **815 integration tests and 38 web tests passed; web build passed**.
+The web tests/build used isolated temporary output because the running debug app
+locked normal binaries. Stop, rebuild and restart that app before retesting.
+
+For the next capture, expect one initial `Records` operation and one `Counts`
+operation per newly opened tab without user actions. Record visible-rows time
+separately from badge completion. A deliberately invalid saved offset may still
+require the existing offset-clamp recovery. Individual NetSuite query durations
+and end-to-end improvement remain subject to that new runtime measurement.

@@ -15,6 +15,8 @@ public class GetPackingVendorReturnAuthorizationListQryHandler(IVendorReturnAuth
         GetPackingVendorReturnAuthorizationListQry request,
         CancellationToken cancellationToken)
     {
-        return integration.GetPackingVendorReturnAuthorizationsList(request.Intent, request.SubsidiaryId);
+        var intent = request.Intent.Snapshot();
+        if (cancellationToken.CanBeCanceled) intent.CancellationToken = cancellationToken;
+        return integration.GetPackingVendorReturnAuthorizationsList(intent, request.SubsidiaryId);
     }
 }

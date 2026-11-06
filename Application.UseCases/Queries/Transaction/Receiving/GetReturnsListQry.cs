@@ -17,7 +17,9 @@ public class GetReturnsListQryHandler(IReceivingIntegration receivingIntegration
 {
     public async Task<(IEnumerable<ReceivingDataGridDTO> Data, int Count)> Handle(GetReturnsListQry request, CancellationToken cancellationToken)
     {
-        (var data, var count) = await receivingIntegration.GetReturnsListAsync(request.Intent);
+        var intent = request.Intent.Snapshot();
+        if (cancellationToken.CanBeCanceled) intent.CancellationToken = cancellationToken;
+        (var data, var count) = await receivingIntegration.GetReturnsListAsync(intent);
         return (data.Adapt<IEnumerable<ReceivingDataGridDTO>>(), count);
     }
 }

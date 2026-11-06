@@ -15,6 +15,8 @@ public class GetPackingStockTransferRequestListQryHandler(IStockTransferRequestP
         GetPackingStockTransferRequestListQry request,
         CancellationToken cancellationToken)
     {
-        return integration.GetPackingStockTransferRequestList(request.Intent, request.SubsidiaryId);
+        var intent = request.Intent.Snapshot();
+        if (cancellationToken.CanBeCanceled) intent.CancellationToken = cancellationToken;
+        return integration.GetPackingStockTransferRequestList(intent, request.SubsidiaryId);
     }
 }

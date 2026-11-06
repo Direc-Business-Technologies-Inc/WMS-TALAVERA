@@ -42,7 +42,7 @@ partial class ReturnsGrid
 
     async Task<Application.DataTransferObjects.Transactions.PrintStatusCountsDTO> PrintCountsAsync(CancellationToken ct)
     {
-        var intent = new DataGridIntent { Skip = 0, Take = 1 };
+        var intent = new DataGridIntent { Skip = 0, Take = 1, ReadPolicy = GridReadPolicy.Fresh, CancellationToken = ct };
         ReceivingReceiptPrintStatusFilter.ApplyToReceipts(intent, PrintStatus.All, "RETURNS");
         if (DateRangeStart.HasValue) intent.Filters.Add(DataGridFilterUtilities.GreaterThanOrEqual("tcf.trandate", DateRangeStart.Value.Date));
         if (DateRangeEnd.HasValue) intent.Filters.Add(DataGridFilterUtilities.LessThan("tcf.trandate", DateRangeEnd.Value.Date.AddDays(1)));
@@ -70,7 +70,8 @@ partial class ReturnsGrid
             await DataGrid.DataGrid.GoToPage(0);
     }
 
-    Task ReloadFirstPageAsync() => Task.WhenAll(ReloadRowsAsync(), PrintStatusView.RefreshCountsAsync());
+    Task ReloadFirstPageAsync() => Task.WhenAll(DataGrid.RefreshFirstPageOrThrowAsync(), PrintStatusView.RefreshCountsOrThrowAsync());
+    Task SyncAsync() => Task.WhenAll(DataGrid.ReloadFirstPageAsync(), PrintStatusView.RefreshCountsAsync());
 
     async Task ReloadRowsAsync()
     {
@@ -95,15 +96,16 @@ partial class ReturnsGrid
     {
         await GridSettingsService.SetGridSettings(DataGrid.DataGrid, settings => DataGridSettings = settings ?? new());
         GridSettingsLoaded = true;
+    }
 
-        await DataGrid.DataGrid.ReloadSettings();
-        await DataGrid.DataGrid.Reload();
+    void PrepareIntent(DataGridIntent intent)
+    {
+        ReceivingReceiptPrintStatusFilter.ApplyToTransactions(intent, SelectedPrintStatus);
+        PrintStatusFilter.ApplyDateRange(intent, DateRangeStart, DateRangeEnd);
     }
 
     async Task<DataGridResultVM<ReturnsDataGridVM>> LoadDataAsync(DataGridIntent intent)
     {
-        ReceivingReceiptPrintStatusFilter.ApplyToTransactions(intent, SelectedPrintStatus);
-        PrintStatusFilter.ApplyDateRange(intent, DateRangeStart, DateRangeEnd);
         var action = await AppActionFactory.RunAsync(async () =>
         {
             AppBusyService.SetBusy(ActionGetPurchaseOrders, true);
@@ -130,6 +132,7 @@ partial class ReturnsGrid
 
         initialGridLoadSucceeded = action.IsSuccess;
         AppBusyService.SetBusy(ActionGetPurchaseOrders, false);
+        action.ThrowIfUnsuccessful();
         return DataGridResultVM<ReturnsDataGridVM>.New(action.Result.Data ?? [], action.Result.Count);
     }
 

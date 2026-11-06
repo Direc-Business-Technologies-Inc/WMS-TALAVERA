@@ -124,6 +124,54 @@ public class NetSuiteApiClientServiceResilienceTests : IDisposable
     }
 
     // AC2 / property 3 — a write that gets 429 is retried once and succeeds.
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Interactive_admission_expiry_is_busy_sends_nothing_and_does_not_release_unowned_permit(bool oauth1)
+    {
+        var semaphore = (SemaphoreSlim)typeof(NetSuiteApiClientService)
+            .GetField("_requestSemaphore", BindingFlags.NonPublic | BindingFlags.Static)!.GetValue(null)!;
+        var available = semaphore.CurrentCount;
+        for (var i = 0; i < available; i++) await semaphore.WaitAsync();
+        var original = Environment.GetEnvironmentVariable("NETSUITE_INTERACTIVE_ADMISSION_SECONDS");
+        Environment.SetEnvironmentVariable("NETSUITE_INTERACTIVE_ADMISSION_SECONDS", "0.03");
+        try
+        {
+            var request = oauth1
+                ? _service.MakeRequestOAuth1<object>(_server.Url + "/restlet", null, HttpMethod.Get, NetSuiteRequestKind.Read)
+                : _service.MakeRequest<object>(_server.Url + "/query/v1/suiteql", "{}", HttpMethod.Post);
+            await Assert.ThrowsAsync<Shared.Entities.GridAdmissionBusyException>(() => request.WaitAsync(TimeSpan.FromSeconds(5)));
+            Assert.Equal(0, semaphore.CurrentCount);
+            Assert.Empty(_server.LogEntries);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("NETSUITE_INTERACTIVE_ADMISSION_SECONDS", original);
+            semaphore.Release(available);
+        }
+        Assert.Equal(available, semaphore.CurrentCount);
+    }
+
+    [Fact]
+    public async Task Cancelled_queued_read_never_sends_after_capacity_recovers()
+    {
+        var semaphore = (SemaphoreSlim)typeof(NetSuiteApiClientService)
+            .GetField("_requestSemaphore", BindingFlags.NonPublic | BindingFlags.Static)!.GetValue(null)!;
+        var available = semaphore.CurrentCount;
+        for (var i = 0; i < available; i++) await semaphore.WaitAsync();
+        using var cancellation = new CancellationTokenSource();
+        try
+        {
+            var request = _service.MakeRequest<object>(_server.Url + "/query/v1/suiteql", "{}", HttpMethod.Post, ct: cancellation.Token);
+            cancellation.Cancel();
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => request);
+            Assert.Equal(0, semaphore.CurrentCount);
+        }
+        finally { semaphore.Release(available); }
+        Assert.Empty(_server.LogEntries);
+        Assert.Equal(available, semaphore.CurrentCount);
+    }
+
     [Fact]
     public async Task Write_429_is_retried_once_and_succeeds()
     {

@@ -18,24 +18,34 @@ public class CachedReceivingIntegration(
     public const string EntityName = "Receiving";
 
     public Task<(IEnumerable<PurchaseOrderDataGridDTO>, int)> GetPurchaseOrdersListAsync(DataGridIntent intent)
-        => cache.GetOrAddAsync(EntityName, nameof(GetPurchaseOrdersListAsync), intent,
-            () => inner.GetPurchaseOrdersListAsync(intent));
+        => ReadAsync(nameof(GetPurchaseOrdersListAsync), intent, inner.GetPurchaseOrdersListAsync, intent.CancellationToken);
 
     public Task<(IEnumerable<TransferOrderDataGridDTO>, int count)> GetTransferOrderListAsync(DataGridIntent intent)
-        => cache.GetOrAddAsync(EntityName, nameof(GetTransferOrderListAsync), intent,
-            () => inner.GetTransferOrderListAsync(intent));
+        => ReadAsync(nameof(GetTransferOrderListAsync), intent, inner.GetTransferOrderListAsync, intent.CancellationToken);
 
     public Task<(IEnumerable<ReturnsDataGridDTO>, int count)> GetReturnsListAsync(DataGridIntent intent)
-        => cache.GetOrAddAsync(EntityName, nameof(GetReturnsListAsync), intent,
-            () => inner.GetReturnsListAsync(intent));
+        => ReadAsync(nameof(GetReturnsListAsync), intent, inner.GetReturnsListAsync, intent.CancellationToken);
 
     public Task<(IEnumerable<ItemReceiptDataGridDTO> data, int count)> GetItemReceiptsDatagrid(DataGridIntent intent)
-        => cache.GetOrAddAsync(EntityName, nameof(GetItemReceiptsDatagrid), intent,
-            () => inner.GetItemReceiptsDatagrid(intent));
+        => ReadAsync(nameof(GetItemReceiptsDatagrid), intent, inner.GetItemReceiptsDatagrid, intent.CancellationToken);
 
     public Task<Application.DataTransferObjects.Transactions.PrintStatusCountsDTO> GetReceivingPrintStatusCounts(DataGridIntent intent, CancellationToken ct = default)
-        => cache.GetOrAddAsync(EntityName, nameof(GetReceivingPrintStatusCounts), intent,
-            () => inner.GetReceivingPrintStatusCounts(intent, ct), ct);
+        => ReadAsync(nameof(GetReceivingPrintStatusCounts), intent,
+            snapshot => inner.GetReceivingPrintStatusCounts(snapshot, snapshot.CancellationToken), ct);
+
+    private Task<T> ReadAsync<T>(string method, DataGridIntent intent, Func<DataGridIntent, Task<T>> factory, CancellationToken ct)
+    {
+        var snapshot = intent.Snapshot();
+        return cache.ReadAsync(EntityName, method, snapshot,
+            sharedCt => factory(ForRead(snapshot, sharedCt)), ct);
+    }
+
+    private static DataGridIntent ForRead(DataGridIntent intent, CancellationToken ct)
+    {
+        var snapshot = intent.Snapshot();
+        snapshot.CancellationToken = ct;
+        return snapshot;
+    }
 
     public Task<ItemFulfillmentPickerResult> GetSTRItemFulfillments(int strId, DataGridIntent intent)
         => cache.GetOrAddAsync(EntityName, nameof(GetSTRItemFulfillments), intent,

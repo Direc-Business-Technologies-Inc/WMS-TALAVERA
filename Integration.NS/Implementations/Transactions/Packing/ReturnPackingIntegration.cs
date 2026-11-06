@@ -19,9 +19,19 @@ internal class ReturnPackingIntegration(
     INetSuiteApiClientService netsuiteService,
     IHttpContextAccessor httpContextAccessor,
     ISqlQueryManager sqlQuery,
-    SuiteQLQueryBuilderFactoryService builderFactory) : IReturnPackingIntegration
+    SuiteQLQueryBuilderFactoryService builderFactory,
+    Integration.NS.Implementations.Others.Caching.GridResultCache? readCache = null) : IReturnPackingIntegration
 {
-    public async Task<(IEnumerable<ReturnsDataGridDTO> Data, int Count)> GetPackingReturnsList(DataGridIntent intent, int subsidiaryId)
+    public Task<(IEnumerable<ReturnsDataGridDTO> Data, int Count)> GetPackingReturnsList(DataGridIntent intent, int subsidiaryId)
+    {
+        intent = intent.Snapshot();
+        return readCache is null ? ReadListAsync(intent, subsidiaryId)
+            : readCache.ReadAsync("Packing", nameof(GetPackingReturnsList), intent,
+                ct => { var snapshot = intent.Snapshot(); snapshot.CancellationToken = ct; return ReadListAsync(snapshot, subsidiaryId); },
+                intent.CancellationToken, false, subsidiaryId);
+    }
+
+    private async Task<(IEnumerable<ReturnsDataGridDTO> Data, int Count)> ReadListAsync(DataGridIntent intent, int subsidiaryId)
     {
         if (intent.Sorts.Count == 0) intent.Sorts.Add(DataGridSortUtilities.Descending(nameof(ReturnPackingDataGridNSDTO.DateLastModified)));
 
@@ -61,7 +71,7 @@ internal class ReturnPackingIntegration(
             })
             .Build();
 
-        var response = await query.ExecuteWithPaging<ReturnPackingDataGridNSDTO>(netsuiteService);
+        var response = await query.ExecuteWithPaging<ReturnPackingDataGridNSDTO>(netsuiteService, intent.CancellationToken);
 
         return (response.items.Select(MapDataGridDto), response.totalResults);
     }
@@ -241,11 +251,19 @@ internal class ReturnPackingIntegration(
     public async Task<(IEnumerable<PackedItemFulfillmentDTO> Data, int Count)> GetPackedItemFulfillments(DataGridIntent intent)
     {
         var query = CreatePackedItemFulfillmentsQuery(intent).Build();
-        var response = await query.ExecuteWithPaging<PackedItemFulfillmentDTO>(netsuiteService);
+        var response = await query.ExecuteWithPaging<PackedItemFulfillmentDTO>(netsuiteService, intent.CancellationToken);
         return (response.items, response.totalResults);
     }
 
-    public async Task<Application.DataTransferObjects.Transactions.PrintStatusCountsDTO> GetPackingPrintStatusCounts(DataGridIntent intent, CancellationToken ct = default)
+    public Task<Application.DataTransferObjects.Transactions.PrintStatusCountsDTO> GetPackingPrintStatusCounts(DataGridIntent intent, CancellationToken ct = default)
+    {
+        intent = intent.Snapshot();
+        return readCache is null ? ReadCountsAsync(intent, ct)
+            : readCache.ReadAsync("Packing", nameof(GetPackingPrintStatusCounts), intent,
+                sharedCt => ReadCountsAsync(intent.Snapshot(), sharedCt), ct, false);
+    }
+
+    private async Task<Application.DataTransferObjects.Transactions.PrintStatusCountsDTO> ReadCountsAsync(DataGridIntent intent, CancellationToken ct)
     {
         var query = CreatePackedItemFulfillmentsQuery(intent)
             .BuildPrintStatusCounts("t.id", "t.custbody_wms_print_count");

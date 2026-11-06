@@ -19,9 +19,19 @@ internal class VendorReturnAuthorizationPackingIntegration(
     INetSuiteApiClientService netsuiteService,
     ISqlQueryManager sqlQuery,
     IHttpContextAccessor httpContextAccessor,
-    SuiteQLQueryBuilderFactoryService builderFactory) : IVendorReturnAuthorizationPackingIntegration
+    SuiteQLQueryBuilderFactoryService builderFactory,
+    Integration.NS.Implementations.Others.Caching.GridResultCache? readCache = null) : IVendorReturnAuthorizationPackingIntegration
 {
-    public async Task<(IEnumerable<VendorReturnAuthorizationDataGridDTO> Data, int Count)> GetPackingVendorReturnAuthorizationsList(DataGridIntent intent, int subsidiaryId)
+    public Task<(IEnumerable<VendorReturnAuthorizationDataGridDTO> Data, int Count)> GetPackingVendorReturnAuthorizationsList(DataGridIntent intent, int subsidiaryId)
+    {
+        intent = intent.Snapshot();
+        return readCache is null ? ReadListAsync(intent, subsidiaryId)
+            : readCache.ReadAsync("Packing", nameof(GetPackingVendorReturnAuthorizationsList), intent,
+                ct => { var snapshot = intent.Snapshot(); snapshot.CancellationToken = ct; return ReadListAsync(snapshot, subsidiaryId); },
+                intent.CancellationToken, false, subsidiaryId);
+    }
+
+    private async Task<(IEnumerable<VendorReturnAuthorizationDataGridDTO> Data, int Count)> ReadListAsync(DataGridIntent intent, int subsidiaryId)
     {
 
         if (intent.Sorts.Count == 0) intent.Sorts.Add(DataGridSortUtilities.Descending(nameof(VendorReturnAuthorizationPackingDataGridNSDTO.DateLastModified)));
@@ -62,7 +72,7 @@ internal class VendorReturnAuthorizationPackingIntegration(
             })
             .Build();
 
-        var response = await query.ExecuteWithPaging<VendorReturnAuthorizationPackingDataGridNSDTO>(netsuiteService);
+        var response = await query.ExecuteWithPaging<VendorReturnAuthorizationPackingDataGridNSDTO>(netsuiteService, intent.CancellationToken);
 
         return (response.items.Select(MapDataGridDto), response.totalResults);
     }

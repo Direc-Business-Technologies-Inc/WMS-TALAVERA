@@ -13,7 +13,7 @@ public class StockTransferRequestPackingHandler(ISender sender) : IStockTransfer
     {
         GetPackingStockTransferRequestListQry query = new(intent, subsidiaryId);
 
-        (var data, int count) = await sender.Send(query);
+        (var data, int count) = await sender.Send(query, intent.CancellationToken);
 
         return (data.Adapt<IEnumerable<StockTransferRequestPackingDataGridVM>>(), count);
     }
