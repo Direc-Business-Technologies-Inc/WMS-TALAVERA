@@ -10,5 +10,6 @@ public interface IReturnPackingHandler
     Task<ReturnsInfoPackingVM?> GetPackingReturn(string reference);
     Task<(IEnumerable<ReturnsLinePackingVM> Data, int Count)> GetPackingReturnLines(string reference, DataGridIntent intent);
     Task<(IEnumerable<PackedItemFulfillmentVM> Data, int Count)> GetPackedItemFulfillments(DataGridIntent intent);
+    Task<Application.DataTransferObjects.Transactions.PrintStatusCountsDTO> GetPackingPrintStatusCounts(DataGridIntent intent, CancellationToken ct = default);
 
 }

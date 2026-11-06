@@ -27,6 +27,7 @@ public sealed class CapturingNetSuiteClient : INetSuiteApiClientService
     public Func<string, Type, IEnumerable<object>>? QueryItems { get; set; }
     public List<string> Queries { get; } = [];
     public int CallCount { get; private set; }
+    public CancellationToken LastCancellationToken { get; private set; }
     /// <summary>Thrown once by the next ExecuteSuiteQLQuery call (after the call is recorded), then cleared.</summary>
     public Exception? NextException { get; set; }
     /// <summary>
@@ -42,6 +43,8 @@ public sealed class CapturingNetSuiteClient : INetSuiteApiClientService
 
     public Task<NetSuiteResponse<T>> ExecuteSuiteQLQuery<T>(string query, int? limit = null, int? offset = null, CancellationToken ct = default)
     {
+        LastCancellationToken = ct;
+        ct.ThrowIfCancellationRequested();
         CallCount++;
         LastQuery = query;
         LastLimit = limit;

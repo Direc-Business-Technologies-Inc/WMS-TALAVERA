@@ -403,25 +403,36 @@ namespace Integration.NS.Services
                 $"SELECT custbody_wms_print_count AS PrintCount FROM transaction WHERE id = {recordId}", ct: ct);
             var current = result.items.SingleOrDefault()
                 ?? throw new InvalidOperationException($"NetSuite transaction {recordId} was not found.");
-            var next = checked((current.PrintCount ?? 0) + 1);
+            var next = checked(Math.Max(current.PrintCount ?? 0, 0) + 1);
             var url = $"{RecordApiRoot}/{recordType}/{recordId}";
             await MakeRequest<object>(url, JsonSerializer.Serialize(new { custbody_wms_print_count = next }),
                 HttpMethod.Patch, ct: ct);
             gridCache?.Invalidate(Integration.NS.Implementations.Others.Caching.CachedReceivingIntegration.EntityName);
             gridCache?.Invalidate(Integration.NS.Implementations.Others.Caching.CachedStockTransferRequestIntegration.EntityName);
+            gridCache?.Invalidate(Integration.NS.Implementations.Others.Caching.CachedSupplierReturnIntegration.EntityName);
         }
 
         public async Task IncrementTripTicketPrintCountAsync(int recordId, CancellationToken ct = default)
         {
             if (recordId <= 0) throw new ArgumentOutOfRangeException(nameof(recordId));
-
-            var result = await ExecuteSuiteQLQuery<PrintCountRow>(
-                $"SELECT custrecord_trt_print_count AS PrintCount FROM customrecord_dbti_trip_ticket WHERE id = {recordId}", ct: ct);
-            var current = result.items.SingleOrDefault()
-                ?? throw new InvalidOperationException($"NetSuite Trip Ticket {recordId} was not found.");
-            var next = checked((current.PrintCount ?? 0) + 1);
-            await MakeRequest<object>($"{RecordApiRoot}/customrecord_dbti_trip_ticket/{recordId}",
-                JsonSerializer.Serialize(new { custrecord_trt_print_count = next }), HttpMethod.Patch, ct: ct);
+            var stage = "Read print count";
+            try
+            {
+                var result = await ExecuteSuiteQLQuery<PrintCountRow>(
+                    $"SELECT custrecord_trt_print_count AS PrintCount FROM customrecord_dbti_trip_ticket WHERE id = {recordId}", ct: ct);
+                var current = result.items.SingleOrDefault()
+                    ?? throw new InvalidOperationException($"NetSuite Trip Ticket {recordId} was not found.");
+                var next = checked(Math.Max(current.PrintCount ?? 0, 0) + 1);
+                stage = "Update custom-record print count";
+                await MakeRequest<object>($"{RecordApiRoot}/customrecord_dbti_trip_ticket/{recordId}",
+                    JsonSerializer.Serialize(new { custrecord_trt_print_count = next }), HttpMethod.Patch, ct: ct);
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Trip Ticket {RecordId} print operation failed at {Stage}", recordId, stage);
+                throw;
+            }
         }
 
         public async Task<T> MakeRequest<T>(

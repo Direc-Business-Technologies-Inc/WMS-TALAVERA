@@ -22,4 +22,5 @@ public interface IReturnPackingIntegration
     Task<bool?> GetTripTicketExemption(string tranid);
 
     Task<(IEnumerable<PackedItemFulfillmentDTO> Data, int Count)> GetPackedItemFulfillments(DataGridIntent intent);
+    Task<Application.DataTransferObjects.Transactions.PrintStatusCountsDTO> GetPackingPrintStatusCounts(DataGridIntent intent, CancellationToken ct = default);
 }

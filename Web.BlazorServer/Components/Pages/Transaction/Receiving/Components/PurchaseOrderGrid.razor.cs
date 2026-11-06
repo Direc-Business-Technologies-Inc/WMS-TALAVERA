@@ -38,15 +38,14 @@ public partial class PurchaseOrderGrid
         return Task.CompletedTask;
     }
 
-    async Task<int> PrintCountAsync(PrintStatus status)
+    async Task<Application.DataTransferObjects.Transactions.PrintStatusCountsDTO> PrintCountsAsync(CancellationToken ct)
     {
         var intent = new DataGridIntent { Skip = 0, Take = 1 };
-        ReceivingReceiptPrintStatusFilter.ApplyToReceipts(intent, status, "PO");
+        ReceivingReceiptPrintStatusFilter.ApplyToReceipts(intent, PrintStatus.All, "PO");
         if (DateRangeStart.HasValue) intent.Filters.Add(DataGridFilterUtilities.GreaterThanOrEqual("tcf.trandate", DateRangeStart.Value.Date));
         if (DateRangeEnd.HasValue) intent.Filters.Add(DataGridFilterUtilities.LessThan("tcf.trandate", DateRangeEnd.Value.Date.AddDays(1)));
         ApplyStatusCountFilter(intent);
-        var (_, count) = await ReceivingHandler.GetItemReceiptsDatagridAsync(intent);
-        return count;
+        return await ReceivingHandler.GetReceivingPrintStatusCounts(intent, ct);
     }
 
     async Task DateRangeChanged((DateTime Start, DateTime End) range)
@@ -65,11 +64,7 @@ public partial class PurchaseOrderGrid
             await PurchaseOrderDataGrid.DataGrid.GoToPage(0);
     }
 
-    async Task RefreshPrintStatusAsync()
-    {
-        await ReloadFirstPageAsync();
-        await PrintStatusView.RefreshCountsAsync();
-    }
+    Task RefreshPrintStatusAsync() => Task.WhenAll(ReloadFirstPageAsync(), PrintStatusView.RefreshCountsAsync());
 
     async Task PrintStatusChanged(PrintStatus status)
     {

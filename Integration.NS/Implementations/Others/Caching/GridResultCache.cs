@@ -35,6 +35,7 @@ public sealed class GridCacheStore : IDisposable
 
     private readonly MemoryCache _cache;
     private readonly ConcurrentDictionary<string, byte> _knownKeys = new();
+    private readonly ConcurrentDictionary<string, long> _generations = new();
     private readonly SemaphoreSlim[] _gates;
 
     public GridCacheStore(int maxEntries, TimeSpan ttl)
@@ -49,6 +50,7 @@ public sealed class GridCacheStore : IDisposable
     internal static string PrefixFor(string entity) => $"{PrefixRoot}{entity}:";
 
     internal MemoryCache Cache => _cache;
+    internal long GenerationFor(string entity) => _generations.GetOrAdd(entity, 0);
 
     /// <summary>Current entry count; compaction is asynchronous.</summary>
     internal int Count => Cache.Count;
@@ -94,6 +96,9 @@ public sealed class GridCacheStore : IDisposable
     /// </summary>
     public void Invalidate(string entity)
     {
+        // An earlier in-flight read may finish after eviction. Its old-generation
+        // key must never be used by a post-mutation refresh.
+        _generations.AddOrUpdate(entity, 1, (_, generation) => generation + 1);
         var prefix = PrefixFor(entity);
         foreach (var key in KnownKeys.Keys.Where(key => key.StartsWith(prefix, StringComparison.Ordinal)).ToList())
         {
@@ -155,7 +160,7 @@ public sealed class GridResultCache
             return factory();
         }
 
-        var key = BuildKey(entity, method, scope, intent, scalars);
+        var key = $"{BuildKey(entity, method, scope, intent, scalars)}:{_store.GenerationFor(entity)}";
 
         if (_store.Cache.TryGetValue(key, out CachedGridValue<T>? cached) && cached is not null)
         {

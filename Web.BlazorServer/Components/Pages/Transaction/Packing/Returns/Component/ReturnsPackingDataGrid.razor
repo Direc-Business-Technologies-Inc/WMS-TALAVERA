@@ -7,7 +7,7 @@
 <AppDataGrid @ref="@DataGrid" Id="packing_returns_grid" TItem="ReturnsPackingDataGridVM" DataGetter="@(gridReadyToLoad ? LoadDataAsync : null)" GridSettings="@DataGridSettings" @bind-GridSettingsLoaded="@GridSettingsLoaded" AutoLoadGridSettings="false" ActionName="@ActionGetReturns">
     <HeaderTemplate>
         <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center" Gap="8px">
-            <PrintStatusView @ref="PrintStatusView" Value="@SelectedPrintStatus" ValueChanged="@PrintStatusChanged" CountGetter="@PrintCountAsync" LoadCountsOnInitialize="false" RefreshCountsOnSelect="false" />
+            <PrintStatusView @ref="PrintStatusView" Value="@SelectedPrintStatus" ValueChanged="@PrintStatusChanged" CountsGetter="@PrintCountsAsync" LoadCountsOnInitialize="false" RefreshCountsOnSelect="false" />
             <RadzenStack Orientation="Orientation.Horizontal" Gap="8px">
             <RadzenButton Icon="settings" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@OpenTableSettings" />
             <RadzenButton Icon="sync" Size="ButtonSize.Small" Click="@RefreshPrintStatusAsync" />
@@ -55,14 +55,7 @@
                                Width="112px">
             <Template>
                 <RadzenStack Orientation="Orientation.Horizontal" Gap="4px">
-                    @if (context.ForPrintingIFCount + context.PrintedIFCount == 1 && context.SingleFulfillmentId > 0)
-                    {
-                        <AppPrintLink Url="@NetSuitePrint.PackingLabel(context.SingleFulfillmentId)" RecordType="itemFulfillment" RecordId="@context.SingleFulfillmentId" OnPrint="@RefreshPrintStatusAsync" Size="ButtonSize.ExtraSmall" />
-                    }
-                    else
-                    {
-                        <RadzenButton Icon="print" Size="ButtonSize.ExtraSmall" ButtonStyle="ButtonStyle.Light" Disabled="@(context.ForPrintingIFCount + context.PrintedIFCount == 0)" title="@(context.ForPrintingIFCount + context.PrintedIFCount == 0 ? "No packing label available" : "Select a packing label")" Click="@(() => OpenPackingLabelsAsync(context.Id))" />
-                    }
+                    <Web.BlazorServer.Components.Pages.Transaction.Packing.Components.PackingLabelRowPrint TransactionId="@context.Id" Source="RETURNS" SelectedPrintStatus="@SelectedPrintStatus" FulfillmentCount="@(context.ForPrintingIFCount + context.PrintedIFCount)" SingleFulfillmentId="@context.SingleFulfillmentId" OnPrinted="@RefreshPrintStatusAsync" />
                     <RadzenButton Icon="arrow_right_alt" Size="ButtonSize.ExtraSmall" Visible="@(context.PendingPackLinesCount > 0)" Click="() => ViewReturn(context)" />
                 </RadzenStack>
             </Template>

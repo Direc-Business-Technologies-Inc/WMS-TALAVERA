@@ -46,7 +46,7 @@
                               Filterable="false" Sortable="false" Pickable="false">
             <Template>
                 <RadzenStack Orientation="Orientation.Horizontal" Gap="4px">
-                    <AppPrintLink Url="@NetSuitePrint.TripTicket(context.NetsuiteTripTicketInternalId)" RecordType="customrecord_dbti_trip_ticket" RecordId="@context.NetsuiteTripTicketInternalId" OnPrint="@RefreshPrintStatusAsync" Size="ButtonSize.ExtraSmall" />
+                    <AppPrintLink Url="@NetSuitePrint.TripTicket(context.NetsuiteTripTicketInternalId)" RecordType="customrecord_dbti_trip_ticket" RecordId="@context.NetsuiteTripTicketInternalId" OnPrint="@RefreshAfterPrintAsync" Size="ButtonSize.ExtraSmall" />
                     <RadzenButton Icon="arrow_right_alt" Size="ButtonSize.ExtraSmall" Click="() => ViewTT(context)" />
                 </RadzenStack>
             </Template>

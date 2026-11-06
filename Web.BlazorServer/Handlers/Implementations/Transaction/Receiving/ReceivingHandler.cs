@@ -254,6 +254,9 @@ public class ReceivingHandler(
 
         return (data.Adapt<IEnumerable<ItemReceiptDataGridVM>>(), count);
     }
+
+    public Task<Application.DataTransferObjects.Transactions.PrintStatusCountsDTO> GetReceivingPrintStatusCounts(DataGridIntent intent, CancellationToken ct = default)
+        => Sender.Send(new GetReceivingPrintStatusCountsQry(intent), ct);
     
     public async Task<(IEnumerable<PurchaseOrderStatusVM>, int)> GetPurchaseOrderStatuses(DataGridIntent intent)
     {

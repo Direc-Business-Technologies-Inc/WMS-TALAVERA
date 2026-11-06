@@ -11,6 +11,9 @@ namespace Web.BlazorServer.Handlers.Implementations.Transaction.Packing.Returns;
 
 public class ReturnPackingHandler(ISender sender) : IReturnPackingHandler
 {
+    public Task<Application.DataTransferObjects.Transactions.PrintStatusCountsDTO> GetPackingPrintStatusCounts(DataGridIntent intent, CancellationToken ct = default)
+        => sender.Send(new GetPackingPrintStatusCountsQry(intent), ct);
+
     public async Task<(IEnumerable<ReturnsPackingDataGridVM> Data, int Count)> GetReturnsList(DataGridIntent intent, int subsidiaryId)
     {
         GetPackingReturnListQry query = new(intent, subsidiaryId);

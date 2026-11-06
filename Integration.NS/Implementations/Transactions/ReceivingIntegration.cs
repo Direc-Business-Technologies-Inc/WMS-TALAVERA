@@ -22,6 +22,7 @@ using Shared.Entities;
 using Shared.Libraries.Utilities;
 using Shared.Libraries.ViewModel;
 using System.Numerics;
+using System.Diagnostics;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
@@ -168,6 +169,20 @@ public partial class ReceivingIntegration(
         return response.items;
     }
 
+    private string AllowedPurchaseOrderLinesSql(int[] allowedLocations)
+    {
+        // Eligibility is "any line in an allowed location", not mainline location.
+        // Reduce to one source ID before joining headers/receipts to avoid fan-out.
+        var query = builderFactory.Create()
+            .Distinct()
+            .Select(("pol.transaction", "sourceid"))
+            .From("transactionline pol")
+            .Join("transaction po", "po.id = pol.transaction")
+            .WithFilters(Equal("po.recordtype", "purchaseorder"), In("pol.location", allowedLocations))
+            .Build();
+        return $"({query.Query}) allowedpo";
+    }
+
     public async Task<(IEnumerable<PurchaseOrderDataGridDTO>, int)> GetPurchaseOrdersListAsync(DataGridIntent intent)
     {
         if (intent.Sorts.Count == 0) intent.Sorts.Add(DataGridSortUtilities.Descending("ReferenceNumber"));
@@ -199,7 +214,7 @@ public partial class ReceivingIntegration(
                 ("NVL(ircount.printedcount, 0)", nameof(PurchaseOrderDataGridDTO.PrintedIRCount)),
                 ("NVL(ircount.singlereceiptid, 0)", nameof(PurchaseOrderDataGridDTO.SingleReceiptId)))
             .From("transaction t")
-            .Join("transactionline tl", "tl.transaction = t.id")
+            .Join(AllowedPurchaseOrderLinesSql(AllowedLocations), "allowedpo.sourceid = t.id")
             .LeftJoin(ReceiptPrintCountsSql, "ircount.sourceid = t.id")
             .LeftJoin("purchaseorderstatus s", on: "s.id = t.status")
             .WithDatagridIntent(intent, PurchaseOrderColumnMap.Concat(new Dictionary<string, string>
@@ -214,7 +229,6 @@ public partial class ReceivingIntegration(
                 Any(
                     IsNull("t.custbody_dbti_custom_approval_status"),
                     NotEqual("t.custbody_dbti_custom_approval_status", "20")),
-                In("tl.location", AllowedLocations),
                 Any(
                     NotEqual("t.custbody_dbti_purchase_category", NonTradePurchaseCategoryId),
                     In("t.custbody_dbti_purchase_subcategory", NonTradeSubcategoryIds))
@@ -319,6 +333,7 @@ public partial class ReceivingIntegration(
         string gridName,
         Func<int?, Task<Application.DataTransferObjects.Others.NS.NetSuiteResponse<T>>> executeQuery)
     {
+        var started = Stopwatch.GetTimestamp();
         try
         {
             var response = await executeQuery(null);
@@ -344,6 +359,11 @@ public partial class ReceivingIntegration(
 
             var retry = await executeQuery(retrySkip);
             return (retry.items, retry.totalResults);
+        }
+        finally
+        {
+            logger.LogInformation("Receiving {GridName} completed in {ElapsedMs} ms; take: {Take}; skip: {Skip}",
+                gridName, Stopwatch.GetElapsedTime(started).TotalMilliseconds, intent.Take, intent.Skip);
         }
     }
 
@@ -1289,7 +1309,22 @@ public partial class ReceivingIntegration(
     {
         if (intent.Sorts.Count == 0)
             intent.Sorts.Add(DataGridSortUtilities.Descending(nameof(ItemReceiptDataGridDTO.DateLastModified)));
-        
+
+        var query = CreateItemReceiptsQuery(intent).Build();
+        var response = await query.ExecuteWithPaging<ItemReceiptDataGridDTO>(netsuiteService);
+        return (response.items, response.totalResults);
+    }
+
+    public async Task<Application.DataTransferObjects.Transactions.PrintStatusCountsDTO> GetReceivingPrintStatusCounts(DataGridIntent intent, CancellationToken ct = default)
+    {
+        var query = CreateItemReceiptsQuery(intent)
+            .BuildPrintStatusCounts("t.id", "t.custbody_wms_print_count");
+        var response = await query.ExecuteWithPaging<Application.DataTransferObjects.Transactions.PrintStatusCountsDTO>(netsuiteService, ct);
+        return response.items.Single();
+    }
+
+    private SuiteQLQueryBuilder CreateItemReceiptsQuery(DataGridIntent intent)
+    {
         int[] allowedLocations = [-1];
         var locationClaim = httpContext.HttpContext?.User?.FindFirst("com.direcbusiness.wms.nsAllowedLocations")?.Value;
         if (locationClaim is not null)
@@ -1304,7 +1339,7 @@ public partial class ReceivingIntegration(
             Equal("tcf.recordtype", "purchaseorder"),
             In("tcf.status", new[] { "B", "E" }),
             Any(IsNull("tcf.custbody_dbti_custom_approval_status"), NotEqual("tcf.custbody_dbti_custom_approval_status", "20")),
-            In("ptl.location", allowedLocations),
+            NotNull("allowedpo.sourceid"),
             Any(
                 NotEqual("tcf.custbody_dbti_purchase_category", NonTradePurchaseCategoryId),
                 In("tcf.custbody_dbti_purchase_subcategory", NonTradeSubcategoryIds)));
@@ -1331,7 +1366,7 @@ public partial class ReceivingIntegration(
             In("tcf.transferlocation", allowedLocations),
             returnsTransferScope);
 
-        var query = builderFactory.Create()
+        return builderFactory.Create()
             .Distinct()
             .Select(
                 ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(ItemReceiptDataGridDTO.Date)),
@@ -1350,7 +1385,7 @@ public partial class ReceivingIntegration(
             .Join("transactionline tl", "tl.transaction = t.id AND tl.mainline = 'T'")
             .LeftJoin("CUSTOMLIST_DBTI_TRANSFER_CATEGORY_LIST categ", "t.custbody_dbti_transfer_category = categ.id")
             .LeftJoin("transaction tcf", "tl.createdfrom = tcf.id")
-            .LeftJoin("transactionline ptl", "ptl.transaction = tcf.id")
+            .LeftJoin(AllowedPurchaseOrderLinesSql(allowedLocations), "allowedpo.sourceid = tcf.id")
             .WithFilters(
                 Equal("t.recordtype", "itemreceipt"),
                 Any(purchaseOrderEligibility, strEligibility, returnsEligibility)
@@ -1358,11 +1393,7 @@ public partial class ReceivingIntegration(
             .WithFromOrToSubsidiaries(httpContext, "t")
             .WithPropertyMap(nameof(ItemReceiptDataGridDTO.Date), "t.trandate")
             .WithPropertyMap("Status", "BUILTIN.DF(tcf.status)")
-            .WithDatagridIntent(intent)
-            .Build();
-
-        var response = await query.ExecuteWithPaging<ItemReceiptDataGridDTO>(netsuiteService);
-        return (response.items, response.totalResults);
+            .WithDatagridIntent(intent);
     }
 
 

@@ -78,6 +78,8 @@ partial class TripTicketDataGrid
         await PrintStatusView.RefreshCountsAsync();
     }
 
+    Task RefreshAfterPrintAsync() => Task.WhenAll(ReloadFirstPageAsync(), PrintStatusView.RefreshCountsAsync());
+
     async Task DateRangeChanged((DateTime Start, DateTime End) range)
     {
         DateRangeStart = range.Start;

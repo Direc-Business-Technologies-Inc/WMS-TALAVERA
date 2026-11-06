@@ -1,4 +1,7 @@
-<nav class="print-status-tabs" aria-label="Print status views">
+@implements IDisposable
+@using Application.DataTransferObjects.Transactions
+
+<nav class="print-status-tabs" aria-label="Print status views" aria-busy="@isRefreshing.ToString().ToLowerInvariant()">
     <button type="button" class="print-status-tab for-printing @(SelectedIndex == 0 ? "active" : null)"
             aria-pressed="@(SelectedIndex == 0)" disabled="@Disabled" @onclick="() => SelectAsync(PrintStatus.ForPrinting)">
         <RadzenIcon Icon="print" />
@@ -15,6 +18,10 @@
             aria-pressed="@(SelectedIndex == 2)" disabled="@Disabled" @onclick="() => SelectAsync(PrintStatus.All)">
         <span>All</span>
     </button>
+    @if (isRefreshing)
+    {
+        <span role="status" aria-live="polite"><RadzenIcon Icon="hourglass_top" /> Updating counts…</span>
+    }
 </nav>
 
 @code {
@@ -22,12 +29,18 @@
     [Parameter] public EventCallback<PrintStatus> ValueChanged { get; set; }
     [Parameter] public bool Disabled { get; set; }
     [Parameter] public Func<PrintStatus, Task<int>>? CountGetter { get; set; }
+    [Parameter] public Func<CancellationToken, Task<PrintStatusCountsDTO>>? CountsGetter { get; set; }
     [Parameter] public bool LoadCountsOnInitialize { get; set; } = true;
     [Parameter] public bool RefreshCountsOnSelect { get; set; } = true;
 
     private int? ForPrintingCount;
     private int? PrintedCount;
     private int refreshVersion;
+    private bool disposed;
+    private bool isRefreshing;
+    private bool refreshPending;
+    private Task? refreshTask;
+    private CancellationTokenSource? refreshCancellation;
 
     private int SelectedIndex => (int)Value;
 
@@ -36,17 +49,60 @@
         if (LoadCountsOnInitialize) await RefreshCountsAsync();
     }
 
-    public async Task RefreshCountsAsync()
+    public Task RefreshCountsAsync()
     {
-        if (Disabled || CountGetter is null) return;
+        if (disposed || Disabled || (CountGetter is null && CountsGetter is null)) return Task.CompletedTask;
 
-        var version = ++refreshVersion;
-        ForPrintingCount = null;
-        PrintedCount = null;
-        await InvokeAsync(StateHasChanged);
-        var forPrinting = LoadCountAsync(PrintStatus.ForPrinting, version);
-        var printed = LoadCountAsync(PrintStatus.Printed, version);
-        await Task.WhenAll(forPrinting, printed);
+        ++refreshVersion;
+        refreshPending = true;
+        refreshCancellation?.Cancel();
+        if (refreshTask is null || refreshTask.IsCompleted)
+            refreshTask = RefreshPendingCountsAsync();
+        return refreshTask;
+    }
+
+    private async Task RefreshPendingCountsAsync()
+    {
+        // Keep one active refresh and only the newest pending refresh. Cancellation
+        // reaches the aggregate query; version checks also protect legacy getters.
+        while (refreshPending && !disposed)
+        {
+            refreshPending = false;
+            var version = refreshVersion;
+            using var cancellation = new CancellationTokenSource();
+            refreshCancellation = cancellation;
+            // Keep the last successful totals visible during reconciliation.
+            isRefreshing = true;
+            try
+            {
+                await InvokeAsync(StateHasChanged);
+                if (CountsGetter is not null)
+                {
+                    var counts = await CountsGetter(cancellation.Token);
+                    if (disposed || version != refreshVersion) continue;
+                    ForPrintingCount = counts.ForPrinting;
+                    PrintedCount = counts.Printed;
+                    await InvokeAsync(StateHasChanged);
+                }
+                else
+                {
+                    await Task.WhenAll(
+                        LoadCountAsync(PrintStatus.ForPrinting, version),
+                        LoadCountAsync(PrintStatus.Printed, version));
+                }
+            }
+            catch (OperationCanceledException) when (cancellation.IsCancellationRequested) { }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Could not load print-status counts");
+            }
+            finally
+            {
+                refreshCancellation = null;
+                isRefreshing = false;
+                if (!disposed) await InvokeAsync(StateHasChanged);
+            }
+        }
     }
 
     private async Task LoadCountAsync(PrintStatus status, int version)
@@ -56,7 +112,7 @@
             var count = await CountGetter!(status);
             await InvokeAsync(() =>
             {
-                if (version != refreshVersion) return;
+                if (disposed || version != refreshVersion) return;
                 if (status == PrintStatus.ForPrinting) ForPrintingCount = count;
                 else PrintedCount = count;
                 StateHasChanged();
@@ -67,7 +123,7 @@
             Logger.LogWarning(ex, "Could not load {PrintStatus} count", status);
             await InvokeAsync(() =>
             {
-                if (version != refreshVersion) return;
+                if (disposed || version != refreshVersion) return;
                 if (status == PrintStatus.ForPrinting) ForPrintingCount = null;
                 else PrintedCount = null;
                 StateHasChanged();
@@ -85,4 +141,11 @@
     }
 
     [Inject] private ILogger<PrintStatusView> Logger { get; set; } = default!;
+
+    public void Dispose()
+    {
+        disposed = true;
+        ++refreshVersion;
+        refreshCancellation?.Cancel();
+    }
 }

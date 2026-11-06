@@ -24,8 +24,11 @@ public class GridSettingsService(
 
         if (grid is not null && grid.Attributes.TryGetValue("id", out var value))
         {
-            await LoadSettingAsync($"{value}-TSET", settings => savedGridSettings = settings);
-            await LoadSettingAsync($"{value}-OTSET", settings => gridOtherSettings = settings);
+            var savedSettingsTask = JSRuntime.InvokeAsync<string?>("window.localStorage.getItem", $"{value}-TSET").AsTask();
+            var otherSettingsTask = JSRuntime.InvokeAsync<string?>("window.localStorage.getItem", $"{value}-OTSET").AsTask();
+            await Task.WhenAll(savedSettingsTask, otherSettingsTask);
+            savedGridSettings = await savedSettingsTask;
+            gridOtherSettings = await otherSettingsTask;
 
             if (!string.IsNullOrEmpty(savedGridSettings))
             {
@@ -102,12 +105,6 @@ public class GridSettingsService(
             grid.Style = $"{grid.Style} max-height: 500px;";
             grid.AllowVirtualization = false;
         }
-    }
-
-    async Task LoadSettingAsync(string key, Action<string> assignSetting)
-    {
-        var setting = await JSRuntime.InvokeAsync<string>("window.localStorage.getItem", key);
-        assignSetting(setting);
     }
 
     public async Task UnsetGridSettings<TItem>(RadzenDataGrid<TItem> grid)

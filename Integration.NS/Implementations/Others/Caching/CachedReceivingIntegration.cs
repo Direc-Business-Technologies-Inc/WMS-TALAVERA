@@ -33,6 +33,10 @@ public class CachedReceivingIntegration(
         => cache.GetOrAddAsync(EntityName, nameof(GetItemReceiptsDatagrid), intent,
             () => inner.GetItemReceiptsDatagrid(intent));
 
+    public Task<Application.DataTransferObjects.Transactions.PrintStatusCountsDTO> GetReceivingPrintStatusCounts(DataGridIntent intent, CancellationToken ct = default)
+        => cache.GetOrAddAsync(EntityName, nameof(GetReceivingPrintStatusCounts), intent,
+            () => inner.GetReceivingPrintStatusCounts(intent, ct), ct);
+
     public Task<ItemFulfillmentPickerResult> GetSTRItemFulfillments(int strId, DataGridIntent intent)
         => cache.GetOrAddAsync(EntityName, nameof(GetSTRItemFulfillments), intent,
             () => inner.GetSTRItemFulfillments(strId, intent), default, strId);

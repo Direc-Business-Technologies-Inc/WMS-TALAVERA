@@ -329,6 +329,26 @@ public class GridResultCacheTests
         Assert.Equal(1, calls);
     }
 
+    [Theory]
+    [InlineData("Receiving")]
+    [InlineData("SupplierReturn")]
+    public async Task Read_started_before_print_invalidation_cannot_repopulate_the_current_generation(string entity)
+    {
+        using var store = new GridCacheStore(100, TimeSpan.FromSeconds(60));
+        var cache = new GridResultCache(store, null, new StubCurrentUserService(Guid.NewGuid()));
+        var pending = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var oldRead = cache.GetOrAddAsync(entity, "PrintCounts", null, () => pending.Task);
+
+        store.Invalidate(entity);
+        pending.SetResult(1);
+        Assert.Equal(1, await oldRead);
+
+        var refreshed = await cache.GetOrAddAsync(entity, "PrintCounts", null, () => Task.FromResult(2));
+        var cached = await cache.GetOrAddAsync(entity, "PrintCounts", null, () => Task.FromResult(3));
+        Assert.Equal(2, refreshed);
+        Assert.Equal(2, cached);
+    }
+
     private sealed class StubCurrentUserService(Guid userId) : Shared.Services.Repository.ICurrentUserService
     {
         public Guid UserId => userId;

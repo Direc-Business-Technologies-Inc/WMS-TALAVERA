@@ -240,6 +240,27 @@ public class SuiteQLQueryBuilder
         };
     }
 
+    /// <summary>
+    /// Reuses the list's joins, property mappings and eligibility filters without
+    /// projecting display fields, sorting, or paging. DISTINCT IDs prevent line
+    /// joins from counting the same transaction more than once.
+    /// Column expressions must be trusted integration-owned SQL, never user input.
+    /// </summary>
+    public SuiteQLQuery BuildPrintStatusCounts(string idColumn, string printCountColumn)
+    {
+        if (_groupBy is not null)
+            throw new InvalidOperationException("Print-status counts require an ungrouped transaction query.");
+
+        return new()
+        {
+            Query = $"SELECT COUNT(DISTINCT CASE WHEN {printCountColumn} IS NULL OR {printCountColumn} <= 0 THEN {idColumn} END) AS ForPrinting, " +
+                $"COUNT(DISTINCT CASE WHEN {printCountColumn} >= 1 THEN {idColumn} END) AS Printed" +
+                BuildFrom() + BuildFilters(),
+            Limit = 1,
+            Offset = 0
+        };
+    }
+
     private string? _parseSort(AppSortDescriptor sort, Dictionary<string, string>? propertyMap = null)
     {
         propertyMap ??= PropertyMap;

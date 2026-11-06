@@ -240,7 +240,22 @@ internal class ReturnPackingIntegration(
 
     public async Task<(IEnumerable<PackedItemFulfillmentDTO> Data, int Count)> GetPackedItemFulfillments(DataGridIntent intent)
     {
-        var query = builderFactory.Create()
+        var query = CreatePackedItemFulfillmentsQuery(intent).Build();
+        var response = await query.ExecuteWithPaging<PackedItemFulfillmentDTO>(netsuiteService);
+        return (response.items, response.totalResults);
+    }
+
+    public async Task<Application.DataTransferObjects.Transactions.PrintStatusCountsDTO> GetPackingPrintStatusCounts(DataGridIntent intent, CancellationToken ct = default)
+    {
+        var query = CreatePackedItemFulfillmentsQuery(intent)
+            .BuildPrintStatusCounts("t.id", "t.custbody_wms_print_count");
+        var response = await query.ExecuteWithPaging<Application.DataTransferObjects.Transactions.PrintStatusCountsDTO>(netsuiteService, ct);
+        return response.items.Single();
+    }
+
+    private SuiteQLQueryBuilder CreatePackedItemFulfillmentsQuery(DataGridIntent intent)
+    {
+        return builderFactory.Create()
             .Select(
                 ("t.id", nameof(PackedItemFulfillmentDTO.Id)),
                 ("t.custbody_wms_print_count", nameof(PackedItemFulfillmentDTO.PrintCount)),
@@ -261,11 +276,6 @@ internal class ReturnPackingIntegration(
             .WithPropertyMap(nameof(PackedItemFulfillmentDTO.Date), "t.trandate")
             .WithPropertyMap(nameof(PackedItemFulfillmentDTO.CreatedFromId), "tcf.id")
             .WithFromOrToSubsidiaries(httpContextAccessor, "t")
-            .WithDatagridIntent(intent)
-            .Build();
-
-        var response = await query.ExecuteWithPaging<PackedItemFulfillmentDTO>(netsuiteService);
-
-        return (response.items, response.totalResults);
+            .WithDatagridIntent(intent);
     }
 }

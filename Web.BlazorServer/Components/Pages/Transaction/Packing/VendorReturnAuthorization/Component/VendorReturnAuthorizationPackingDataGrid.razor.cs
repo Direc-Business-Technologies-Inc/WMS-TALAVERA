@@ -29,22 +29,22 @@ partial class VendorReturnAuthorizationPackingDataGrid
     PrintStatusView PrintStatusView = default!;
     bool loadCountsAfterGrid;
     bool gridReadyToLoad;
-    async Task<int> PrintCountAsync(PrintStatus status)
+    async Task<Application.DataTransferObjects.Transactions.PrintStatusCountsDTO> PrintCountsAsync(CancellationToken ct)
     {
         var started = Stopwatch.GetTimestamp();
         var succeeded = false;
         try
         {
             var intent = new DataGridIntent { Skip = 0, Take = 1 };
-            PackingFulfillmentPrintStatusFilter.ApplyToFulfillments(intent, status, "VRA", CurrentUserService.NsSubsidiaryId);
-            var (_, count) = await PackingHandler.GetPackedItemFulfillments(intent);
+            PackingFulfillmentPrintStatusFilter.ApplyToFulfillments(intent, PrintStatus.All, "VRA", CurrentUserService.NsSubsidiaryId);
+            var count = await PackingHandler.GetPackingPrintStatusCounts(intent, ct);
             succeeded = true;
             return count;
         }
         finally
         {
             Logger.LogInformation("Packing grid {Grid} {Operation} status {PrintStatus} completed in {ElapsedMs} ms; success: {Succeeded}",
-                "ReturnsToSupplier", "Count", status, Stopwatch.GetElapsedTime(started).TotalMilliseconds, succeeded);
+                "ReturnsToSupplier", "Counts", PrintStatus.All, Stopwatch.GetElapsedTime(started).TotalMilliseconds, succeeded);
         }
     }
     async Task PrintStatusChanged(PrintStatus status)
@@ -57,11 +57,7 @@ partial class VendorReturnAuthorizationPackingDataGrid
         await PrintStatusView.RefreshCountsAsync();
     }
 
-    async Task RefreshPrintStatusAsync()
-    {
-        await DataGrid.DataGrid.Reload();
-        await PrintStatusView.RefreshCountsAsync();
-    }
+    Task RefreshPrintStatusAsync() => Task.WhenAll(DataGrid.DataGrid.Reload(), PrintStatusView.RefreshCountsAsync());
 
     string ActionGetVendorReturnAuthorizations { get; } = EnumHelper.GetEnumDescription(AppActions.GetAllPackingVendorReturnAuthorizations);
 
@@ -140,35 +136,4 @@ partial class VendorReturnAuthorizationPackingDataGrid
         NavManager.NavigateTo(PackingRoutes.VendorReturnAuthorizationView + $"?ref={item.ReferenceNumber}", true);
     }
 
-    async Task OpenPackingLabelsAsync(int transactionId)
-    {
-        var fulfillments = new List<PackedItemFulfillmentVM>();
-        var skip = 0;
-        int total;
-        do
-        {
-            var intent = new DataGridIntent { Skip = skip, Take = 1000 };
-            PackingFulfillmentPrintStatusFilter.ApplyToFulfillments(intent, SelectedPrintStatus, "VRA", CurrentUserService.NsSubsidiaryId);
-            intent.Filters.Add(global::Shared.Libraries.Utilities.DataGridFilterUtilities.Equal("CreatedFromId", transactionId));
-            var (rows, count) = await PackingHandler.GetPackedItemFulfillments(intent);
-            total = count;
-            var page = rows.ToArray();
-            fulfillments.AddRange(page);
-            if (page.Length == 0) break;
-            skip += page.Length;
-        } while (skip < total);
-
-        fulfillments = fulfillments.OrderByDescending(row => row.Date).ToList();
-        if (fulfillments.Count == 0)
-        {
-            ToastService.Warning("No packing label is available for this transaction.");
-            return;
-        }
-
-        var printed = await DialogService.OpenAsync<PackingLabelSelectionDialog>(
-            "Select Packing Label",
-            new Dictionary<string, object?> { [nameof(PackingLabelSelectionDialog.Fulfillments)] = (IReadOnlyList<PackedItemFulfillmentVM>)fulfillments },
-            new DialogOptions { Width = "760px", CloseDialogOnOverlayClick = true });
-        if (printed is true) await RefreshPrintStatusAsync();
-    }
 }

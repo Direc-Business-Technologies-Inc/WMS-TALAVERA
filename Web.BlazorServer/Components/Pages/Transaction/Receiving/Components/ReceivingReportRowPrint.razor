@@ -1,5 +1,4 @@
 @using Web.BlazorServer.Components.Custom
-@using Web.BlazorServer.ViewModels.Transaction.Receiving
 @inherits BaseComponent
 
 @if (ReceiptCount == 1 && SingleReceiptId > 0)
@@ -8,55 +7,34 @@
 }
 else
 {
-    <RadzenButton Icon="print" Size="@Size" ButtonStyle="ButtonStyle.Light" Disabled="@(ReceiptCount == 0)" title="@(ReceiptCount == 0 ? "No Receiving Report available" : "Select a Receiving Report")" Click="@OpenReceivingReportAsync" />
+    <RadzenButton Icon="print" Size="@Size" ButtonStyle="ButtonStyle.Light" Disabled="@(opening || ReceiptCount <= 0)" title="@(ReceiptCount <= 0 ? "No Receiving Report available" : "Select a Receiving Report")" Click="@OpenReceivingReportAsync" />
 }
 
 @code {
     [Parameter, EditorRequired] public int TransactionId { get; set; }
-    [Parameter, EditorRequired] public string Source { get; set; } = "PO";
+    [Parameter] public string Source { get; set; } = "PO";
     [Parameter] public PrintStatus SelectedPrintStatus { get; set; } = PrintStatus.ForPrinting;
     [Parameter] public int ReceiptCount { get; set; }
     [Parameter] public int SingleReceiptId { get; set; }
     [Parameter] public ButtonSize Size { get; set; } = ButtonSize.ExtraSmall;
     [Parameter] public EventCallback OnPrinted { get; set; }
+    private bool opening;
 
-    [Inject] private Web.BlazorServer.Handlers.Repositories.Transaction.Receiving.IReceivingHandler ReceivingHandler { get; set; } = default!;
     private async Task OpenReceivingReportAsync()
     {
-        if (TransactionId <= 0 || ReceiptCount <= 0 || (ReceiptCount == 1 && SingleReceiptId > 0)) return;
-
-        var receipts = new List<ItemReceiptDataGridVM>();
-        var skip = 0;
-        int total;
-        do
+        if (opening || TransactionId <= 0 || ReceiptCount <= 0) return;
+        opening = true;
+        try
         {
-            var intent = new global::Shared.Entities.DataGridIntent { Skip = skip, Take = 1000 };
-            ReceivingReceiptPrintStatusFilter.ApplyToReceipts(intent, SelectedPrintStatus, Source);
-            intent.Filters.Add(global::Shared.Libraries.Utilities.DataGridFilterUtilities.Equal("tcf.id", TransactionId));
-            var (rows, count) = await ReceivingHandler.GetItemReceiptsDatagridAsync(intent);
-            total = count;
-            var page = rows.ToArray();
-            receipts.AddRange(page);
-            if (page.Length == 0) break;
-            skip += page.Length;
-        } while (skip < total);
-
-        receipts = receipts.OrderByDescending(row => row.Date).ToList();
-
-        if (receipts.Count == 0)
-        {
-            ToastService.Warning("No Receiving Report is available for this transaction.");
-            await OnPrinted.InvokeAsync();
-            return;
+            await DialogService.OpenAsync<ReceivingReportSelectionDialog>("Select Receiving Report",
+                new Dictionary<string, object?>
+                {
+                    [nameof(ReceivingReportSelectionDialog.TransactionId)] = TransactionId,
+                    [nameof(ReceivingReportSelectionDialog.Source)] = Source,
+                    [nameof(ReceivingReportSelectionDialog.SelectedPrintStatus)] = SelectedPrintStatus,
+                    [nameof(ReceivingReportSelectionDialog.OnPrinted)] = OnPrinted
+                }, new DialogOptions { Width = "760px", CloseDialogOnOverlayClick = true });
         }
-
-        if (receipts.Count > 0)
-        {
-            var printed = await DialogService.OpenAsync<ReceivingReportSelectionDialog>(
-                "Select Receiving Report",
-                new Dictionary<string, object?> { [nameof(ReceivingReportSelectionDialog.Receipts)] = (IReadOnlyList<ItemReceiptDataGridVM>)receipts },
-                new DialogOptions { Width = "760px", CloseDialogOnOverlayClick = true });
-            if (printed is true) await OnPrinted.InvokeAsync();
-        }
+        finally { opening = false; }
     }
 }

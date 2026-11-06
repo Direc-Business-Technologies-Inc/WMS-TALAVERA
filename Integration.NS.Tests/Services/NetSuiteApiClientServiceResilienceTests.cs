@@ -4,6 +4,7 @@ using Application.DataTransferObjects.Others.NS;
 using Integration.NS.Exceptions;
 using Integration.NS.Resilience;
 using Integration.NS.Services;
+using Integration.NS.Implementations.Others.Caching;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging.Abstractions;
 using WireMock.RequestBuilders;
@@ -55,6 +56,71 @@ public class NetSuiteApiClientServiceResilienceTests : IDisposable
         NetSuiteApiClientService.ResetUrlRootsForTests();
         NetSuiteApiClientService.ResetHttpClientForTests();
         NetSuitePipelines.ResetRetryDelayForTests();
+    }
+
+    [Theory]
+    [InlineData("null", 1)]
+    [InlineData("\"0\"", 1)]
+    [InlineData("-2", 1)]
+    [InlineData("4", 5)]
+    public async Task Trip_ticket_print_click_reads_custom_field_and_accepts_successful_204_patch(string current, int expected)
+    {
+        _server.Given(Request.Create().WithPath("/query/v1/suiteql").UsingPost())
+            .RespondWith(Response.Create().WithStatusCode(200)
+                .WithBody($"{{\"items\":[{{\"printcount\":{current}}}],\"totalResults\":1}}"));
+        _server.Given(Request.Create().WithPath("/record/v1/customrecord_dbti_trip_ticket/42").UsingPatch())
+            .RespondWith(Response.Create().WithStatusCode(204));
+
+        await _service.IncrementTripTicketPrintCountAsync(42);
+
+        Assert.Equal(2, _server.LogEntries.Count());
+        var patch = Assert.Single(_server.LogEntries.Where(entry => entry.RequestMessage.Method == "PATCH"));
+        Assert.Equal($"{{\"custrecord_trt_print_count\":{expected}}}", patch.RequestMessage.Body);
+    }
+
+    [Fact]
+    public async Task Trip_ticket_rejected_patch_preserves_the_NetSuite_error()
+    {
+        _server.Given(Request.Create().WithPath("/query/v1/suiteql").UsingPost())
+            .RespondWith(Response.Create().WithStatusCode(200).WithBody("{\"items\":[{\"printcount\":0}],\"totalResults\":1}"));
+        _server.Given(Request.Create().WithPath("/record/v1/customrecord_dbti_trip_ticket/42").UsingPatch())
+            .RespondWith(Response.Create().WithStatusCode(403).WithBody("{\"o:errorDetails\":[{\"detail\":\"Permission denied for print field\"}]}"));
+
+        var error = await Assert.ThrowsAsync<NetSuiteValidationException>(() => _service.IncrementTripTicketPrintCountAsync(42));
+
+        Assert.Contains("Permission denied", error.Message);
+        Assert.Equal(2, _server.LogEntries.Count());
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task RTS_print_invalidates_supplier_return_cache_only_after_success(bool success)
+    {
+        using var store = new GridCacheStore(100, TimeSpan.FromSeconds(60));
+        var accessor = new HttpContextAccessor
+        {
+            HttpContext = new DefaultHttpContext
+            {
+                User = new System.Security.Claims.ClaimsPrincipal(new System.Security.Claims.ClaimsIdentity(new[]
+                {
+                    new System.Security.Claims.Claim("com.direcbusiness.wms.nsEmployeeId", "7")
+                }, "test"))
+            }
+        };
+        var cache = new GridResultCache(store, accessor, null);
+        await cache.GetOrAddAsync(CachedSupplierReturnIntegration.EntityName, "Returns", null, () => Task.FromResult("old"));
+        _server.Given(Request.Create().WithPath("/query/v1/suiteql").UsingPost())
+            .RespondWith(Response.Create().WithStatusCode(200).WithBody("{\"items\":[{\"printcount\":0}],\"totalResults\":1}"));
+        _server.Given(Request.Create().WithPath("/record/v1/vendorReturnAuthorization/42").UsingPatch())
+            .RespondWith(Response.Create().WithStatusCode(success ? 204 : 403));
+        var service = new NetSuiteApiClientService(accessor, null!, NullLogger<NetSuiteApiClientService>.Instance, store);
+
+        if (success) await service.IncrementPrintCountAsync("vendorReturnAuthorization", 42);
+        else await Assert.ThrowsAsync<NetSuiteValidationException>(() => service.IncrementPrintCountAsync("vendorReturnAuthorization", 42));
+
+        var value = await cache.GetOrAddAsync(CachedSupplierReturnIntegration.EntityName, "Returns", null, () => Task.FromResult("fresh"));
+        Assert.Equal(success ? "fresh" : "old", value);
     }
 
     // AC2 / property 3 — a write that gets 429 is retried once and succeeds.

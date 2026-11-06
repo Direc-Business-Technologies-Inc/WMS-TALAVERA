@@ -5,6 +5,7 @@ namespace Web.BlazorServer.Handlers.Repositories.Transaction.Receiving;
 
 public interface IReceivingHandler
 {
+    Task<Application.DataTransferObjects.Transactions.PrintStatusCountsDTO> GetReceivingPrintStatusCounts(DataGridIntent intent, CancellationToken ct = default);
     Task<(IEnumerable<PurchaseOrderDataGridVM> Data, int Count)> GetPurchaseOrderDataGridAsync(DataGridIntent intent);
     Task<(IEnumerable<TransferOrderDataGridVM> Data, int Count)> GetTransferOrderDataGridAsync(DataGridIntent intent);
     Task<(IEnumerable<ReturnsDataGridVM> Data, int Count)> GetReturnsDataGridAsync(DataGridIntent intent);
