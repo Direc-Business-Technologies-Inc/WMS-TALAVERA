@@ -133,10 +133,18 @@ Read via SuiteQL as `t.custbody_dbti_custom_approval_status`.
 
 | Id | Meaning | Editable in WMS? |
 |---|---|---|
-| 1 | None / initial | Yes |
+| 1 | Processing | Yes |
 | 2 | Draft | **Yes** |
 | 3 | Rejected | **Yes** |
+| 4 | Approved | — |
 | 20 | Closed / excluded from Receiving PO grid (NetSuite admin-confirmed) | — |
+
+Processing (1), Draft (2), Rejected (3), and Approved (4) were verified against
+the NetSuite custom-list values. Transaction-based **For Printing** tabs require
+`custbody_dbti_custom_approval_status = 4` in addition to their existing workflow
+and print-status predicates. IF/IR selectors check the source transaction's
+approval; their For Printing badge counts use the same gate. This approval gate
+does not apply to Printed, All Transactions, or custom-record Trip Tickets.
 
 **Editability rule** (identical in STR and ITR):
 ```csharp

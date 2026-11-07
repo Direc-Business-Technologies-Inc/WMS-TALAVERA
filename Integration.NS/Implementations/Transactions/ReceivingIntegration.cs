@@ -1323,7 +1323,7 @@ public partial class ReceivingIntegration(
     public async Task<Application.DataTransferObjects.Transactions.PrintStatusCountsDTO> GetReceivingPrintStatusCounts(DataGridIntent intent, CancellationToken ct = default)
     {
         var query = CreateItemReceiptsQuery(intent)
-            .BuildPrintStatusCounts("t.id", "t.custbody_wms_print_count");
+            .BuildPrintStatusCounts("t.id", "t.custbody_wms_print_count", "tcf.custbody_dbti_custom_approval_status");
         var response = await query.ExecuteWithPaging<Application.DataTransferObjects.Transactions.PrintStatusCountsDTO>(netsuiteService, ct);
         return response.items.Single();
     }

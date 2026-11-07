@@ -55,7 +55,7 @@ public class PrintStatusCountsTests
     private static void AssertAggregate(CapturingNetSuiteClient client)
     {
         var query = Assert.IsType<string>(client.LastQuery);
-        Assert.StartsWith("SELECT COUNT(DISTINCT CASE WHEN t.custbody_wms_print_count IS NULL OR t.custbody_wms_print_count <= 0 THEN t.id END) AS ForPrinting", query);
+        Assert.StartsWith("SELECT COUNT(DISTINCT CASE WHEN (t.custbody_wms_print_count IS NULL OR t.custbody_wms_print_count <= 0) AND tcf.custbody_dbti_custom_approval_status = 4 THEN t.id END) AS ForPrinting", query);
         Assert.Contains("COUNT(DISTINCT CASE WHEN t.custbody_wms_print_count >= 1 THEN t.id END) AS Printed", query);
         Assert.DoesNotContain("ORDER BY", query);
         Assert.DoesNotContain("TO_CHAR", query);
@@ -82,6 +82,7 @@ public class PrintStatusCountsTests
         Assert.Equal(2, client.CallCount); // one list + one aggregate, not two status reads
         AssertAggregate(client);
         Assert.Equal(Eligibility(listQuery), Eligibility(client.LastQuery!));
+        Assert.DoesNotContain("tcf.custbody_dbti_custom_approval_status = 4", Eligibility(client.LastQuery!));
         Assert.Contains("t.custbody_dbti_print_label = 'T'", client.LastQuery);
         Assert.Contains("t.subsidiary IN (7)", client.LastQuery);
         Assert.Equal(cancellation.Token, client.LastCancellationToken);
@@ -109,6 +110,7 @@ public class PrintStatusCountsTests
         Assert.Equal(2, client.CallCount);
         AssertAggregate(client);
         Assert.Equal(Eligibility(listQuery), Eligibility(client.LastQuery!));
+        Assert.DoesNotContain("tcf.custbody_dbti_custom_approval_status = 4", Eligibility(client.LastQuery!));
         Assert.Contains("SELECT DISTINCT pol.transaction AS sourceid", client.LastQuery);
         Assert.Contains("pol.location IN (11,12)", client.LastQuery);
         Assert.Contains("allowedpo.sourceid IS NOT NULL", client.LastQuery);

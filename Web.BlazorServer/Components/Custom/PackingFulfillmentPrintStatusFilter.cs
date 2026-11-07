@@ -7,6 +7,7 @@ public static class PackingFulfillmentPrintStatusFilter
 {
     public static void Apply(DataGridIntent intent, PrintStatus status)
     {
+        PrintStatusFilter.ApplyApproval(intent, status);
         intent.Filters.RemoveAll(filter => filter.Property is "ForPrintingIFCount" or "PrintedIFCount");
         if (status == PrintStatus.ForPrinting)
             intent.Filters.Add(DataGridFilterUtilities.Any(
@@ -21,7 +22,7 @@ public static class PackingFulfillmentPrintStatusFilter
 
     public static void ApplyToFulfillments(DataGridIntent intent, PrintStatus status, string source, int subsidiaryId)
     {
-        PrintStatusFilter.Apply(intent, status);
+        PrintStatusFilter.Apply(intent, status, "tcf.custbody_dbti_custom_approval_status");
         intent.Filters.Add(DataGridFilterUtilities.Equal("tcf.subsidiary", subsidiaryId));
         if (source == "VRA")
         {

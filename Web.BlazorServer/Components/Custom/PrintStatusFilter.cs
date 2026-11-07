@@ -16,8 +16,10 @@ public static class PrintStatusFilter
     // custom records and must not use this filter until their field is confirmed.
     private const string PrintCountColumn = "t.custbody_wms_print_count";
 
-    public static void Apply(DataGridIntent intent, PrintStatus status)
+    public static void Apply(DataGridIntent intent, PrintStatus status,
+        string approvalColumn = "t.custbody_dbti_custom_approval_status")
     {
+        ApplyApproval(intent, status, approvalColumn);
         intent.Filters.RemoveAll(filter => filter.Property == PrintCountColumn ||
             filter.Filters?.Any(child => child.Property == PrintCountColumn) == true);
 
@@ -27,6 +29,14 @@ public static class PrintStatusFilter
                 DataGridFilterUtilities.LessThanOrEqual(PrintCountColumn, 0)));
         else if (status == PrintStatus.Printed)
             intent.Filters.Add(DataGridFilterUtilities.GreaterThanOrEqual(PrintCountColumn, 1));
+    }
+
+    public static void ApplyApproval(DataGridIntent intent, PrintStatus status,
+        string approvalColumn = "t.custbody_dbti_custom_approval_status")
+    {
+        intent.Filters.RemoveAll(filter => filter.Property == approvalColumn);
+        if (status == PrintStatus.ForPrinting)
+            intent.Filters.Add(DataGridFilterUtilities.Equal(approvalColumn, NetSuiteApprovalStatus.Approved));
     }
 
     public static void ApplyDateRange(DataGridIntent intent, DateTime? start, DateTime? end, string property = "Date")

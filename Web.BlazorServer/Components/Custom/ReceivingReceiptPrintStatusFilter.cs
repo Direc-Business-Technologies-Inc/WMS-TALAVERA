@@ -7,6 +7,7 @@ public static class ReceivingReceiptPrintStatusFilter
 {
     public static void ApplyToTransactions(DataGridIntent intent, PrintStatus status)
     {
+        PrintStatusFilter.ApplyApproval(intent, status);
         intent.Filters.RemoveAll(filter => filter.Property is "ForPrintingIRCount" or "PrintedIRCount");
         if (status == PrintStatus.ForPrinting)
             intent.Filters.Add(DataGridFilterUtilities.Any(
@@ -20,7 +21,7 @@ public static class ReceivingReceiptPrintStatusFilter
 
     public static void ApplyToReceipts(DataGridIntent intent, PrintStatus status, string source)
     {
-        PrintStatusFilter.Apply(intent, status);
+        PrintStatusFilter.Apply(intent, status, "tcf.custbody_dbti_custom_approval_status");
         if (source == "PO")
             intent.Filters.Add(DataGridFilterUtilities.Equal("tcf.recordtype", "purchaseorder"));
         else
