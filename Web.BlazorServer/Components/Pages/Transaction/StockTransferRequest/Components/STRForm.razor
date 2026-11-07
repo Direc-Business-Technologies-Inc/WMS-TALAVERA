@@ -1,5 +1,6 @@
 ﻿@using Application.DataTransferObjects.Transactions.StockTransferRequest
 @using Web.BlazorServer.Components.Custom
+@using Web.BlazorServer.Helpers
 @using Web.BlazorServer.Components.Pages.Transaction.Others.BarcodeScanning
 @using Web.BlazorServer.Services.Repositories
 @using Web.BlazorServer.ViewModels.Others
@@ -109,8 +110,11 @@
                         <RadzenFormField Text="Purchase Subcategory" class="rz-w-100">
                             <ChildContent>
                                 <RadzenTextBox Disabled="Disabled" Visible="@ReadOnly" Value="@Model.PurchaseSubcategory?.Name" Placeholder="No purchase subcategory given" />
-                                <QuickVirtualizedDropdown @ref="@PurchaseSubcategoryDropdown" @bind-Value="@Model.PurchaseSubcategory" Visible="@(!ReadOnly)" TItem="PurchaseSubcategoryVM" DataGetter="@PurchaseSubcategoryProvider" TextProperty="@nameof(PurchaseSubcategoryVM.Name)" Disabled="@(Model.PurchaseCategory is null || Disabled)" />
+                                <QuickVirtualizedDropdown Name="str_purchase_subcategory" @ref="@PurchaseSubcategoryDropdown" @bind-Value:get="@Model.PurchaseSubcategory" @bind-Value:set="@PurchaseSubcategorySet" Visible="@(!ReadOnly)" TItem="PurchaseSubcategoryVM" DataGetter="@PurchaseSubcategoryProvider" TextProperty="@nameof(PurchaseSubcategoryVM.Name)" Disabled="@(Model.PurchaseCategory is null || Disabled)" />
                             </ChildContent>
+                            <Helper>
+                                <RadzenRequiredValidator Visible="@(!ReadOnly)" Component="str_purchase_subcategory" />
+                            </Helper>
                         </RadzenFormField>
                     </RadzenColumn> 
 
@@ -216,9 +220,9 @@
                         AlignItems="AlignItems.Center"
                         Gap="8px">
                             <AppPrintLink Url="@PrintableURL" Visible="@ReadOnly" RecordType="transferOrder" RecordId="@Model.Id" />
-                            <RadzenButton Disabled="@(Model.SourceLocation is null)" Visible="@(!ReadOnly)" Text="Scan Barcodes" Icon="barcode" Click="OpenBarcodeDialog" ButtonType="ButtonType.Button" Size="ButtonSize.Small" />
+                            <RadzenButton Disabled="@(Disabled || !CanEnterItems)" Visible="@(!ReadOnly)" Text="Scan Barcodes" Icon="barcode" Click="OpenBarcodeDialog" ButtonType="ButtonType.Button" Size="ButtonSize.Small" />
                             <RadzenButton Icon="settings" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@OpenTableSettings" />
-                            <RadzenButton Visible="@(!ReadOnly)" Disabled="@(Model.SourceLocation is null)" Icon="add" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Success" Click="@OpenItemDialog" />
+                            <RadzenButton Visible="@(!ReadOnly)" Disabled="@(Disabled || !CanEnterItems)" Icon="add" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Success" Click="@OpenItemDialog" />
                         </RadzenStack>
                     </HeaderTemplate>
                     <Columns>
@@ -329,9 +333,10 @@
     
     async Task OpenBarcodeDialog()
     {
+        if (!EnsureItemEntrySelections()) return;
         bool? save = await DialogService.OpenAsync(
             "Scan Barcodes",
-            ds => @<BarcodeScannerDialog BarcodeStore="BarcodeStore" Verifier="IsValidBarcode" Location="@(Model.SourceLocation?.Id ?? null)" />,
+            ds => @<BarcodeScannerDialog BarcodeStore="BarcodeStore" Verifier="IsValidBarcode" Verify Location="@(Model.SourceLocation?.Id ?? null)" />,
             options: GridSettingsService.GetDialogOptions());
 
         if (save == false)
@@ -340,7 +345,7 @@
         }
         else if (save == true)
         {
-            ApplyBarcodes();
+            await ApplyBarcodes();
         }
         await InvokeAsync(StateHasChanged);
     }
@@ -362,6 +367,7 @@
 
     async Task OpenItemDialog()
     {
+        if (!EnsureItemEntrySelections()) return;
         List<ItemsVM> items = await DialogService.OpenAsync(
             "Select Items",
             ds => @<ItemSelectionDialog Location="@(Model.SourceLocation?.Id ?? null)" SubsidiaryId="@(VendorSubsidiary?.Id ?? Model.Subsidiary?.Id)" Filters="@ItemFilters" />,
@@ -370,7 +376,8 @@
         if (items is not null) await AddItems(items);
     }
 
-    List<AppFilterDescriptor> ItemFilters = [
-        DataGridFilterUtilities.GreaterThan(nameof(ItemsVM.QuantityAvailable), 0)
+    List<AppFilterDescriptor> ItemFilters => [
+        DataGridFilterUtilities.GreaterThan(nameof(ItemsVM.QuantityAvailable), 0),
+        .. PurchaseClassificationItemRules.Filters(Model.PurchaseCategory!, Model.PurchaseSubcategory!)
     ];
 }

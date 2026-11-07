@@ -69,7 +69,18 @@ public partial class SupplierReturnForm
 
     const string VendorSearchProperty = nameof(VendorVM.ReferenceNumber);
 
-    readonly List<AppFilterDescriptor> ItemFilters = [];
+    bool HasPurchaseClassification => PurchaseClassificationItemRules.IsSelected(Model.PurchaseCategory, Model.PurchaseSubcategory);
+    bool CanEnterItems => HasPurchaseClassification && Model.Location is not null && Model.Vendor is not null && Model.Subsidiary is not null;
+
+    bool EnsureItemEntrySelections()
+    {
+        if (CanEnterItems) return true;
+        ToastService.Error("Select a Purchase Category, Purchase Subcategory, vendor, subsidiary, and warehouse before adding or scanning items.", "Missing Selection");
+        return false;
+    }
+
+    bool MatchesPurchaseClassification(ItemsVM? item) =>
+        PurchaseClassificationItemRules.Matches(item, Model.PurchaseCategory, Model.PurchaseSubcategory);
 
     protected override void OnParametersSet()
     {
@@ -159,11 +170,33 @@ public partial class SupplierReturnForm
 
     async Task PurchaseCategorySet(PurchaseCategoryVM? val)
     {
-        if (Model.PurchaseCategory == val) return;
+        if (Model.PurchaseCategory?.Id == val?.Id) return;
+        if (!await ClearItemsForClassificationChange()) return;
         Model.PurchaseCategory = val;
         Model.PurchaseSubcategory = null;
 
         PurchaseSubcategoryDropdown.Reset();
+    }
+
+    async Task PurchaseSubcategorySet(PurchaseSubcategoryVM? val)
+    {
+        if (Model.PurchaseSubcategory?.Id == val?.Id) return;
+        if (!await ClearItemsForClassificationChange()) return;
+        Model.PurchaseSubcategory = val;
+    }
+
+    async Task<bool> ClearItemsForClassificationChange()
+    {
+        if ((Model.Lines.Any() || BarcodeStore.Any()) &&
+            !await AlertService.PromptAsync("Changing purchase classification will clear added items and scanned barcodes. Continue?"))
+            return false;
+
+        Model.Lines.Clear();
+        BarcodeStore.Clear();
+        selectedItems.Clear();
+        selectedItemIndex = -1;
+        if (LinesTable?.DataGrid is not null) await LinesTable.DataGrid.Reload();
+        return true;
     }
 
     async Task CategorySet(ReturnCategoryVM? val)
@@ -308,6 +341,16 @@ public partial class SupplierReturnForm
 
     async Task SubmitCore()
     {
+        if (IsEditable)
+        {
+            if (!EnsureItemEntrySelections()) return;
+            if (!await PurchaseClassificationItemRules.ValidateItemsAsync(itemsHandler,
+                Model.Lines.Select(line => line.ItemId), Model.PurchaseCategory, Model.PurchaseSubcategory))
+            {
+                ToastService.Error("Some items do not match the selected Purchase Category and Purchase Subcategory. Remove them and select matching items.", "Invalid Item");
+                return;
+            }
+        }
         if (!TryValidateOnHand(out var quantityError))
         {
             ToastService.Error(quantityError, "Invalid Quantity");
@@ -357,6 +400,12 @@ public partial class SupplierReturnForm
 
     async Task AddItems(List<ItemsVM> items)
     {
+        if (!EnsureItemEntrySelections()) return;
+        if (items.Any(item => !MatchesPurchaseClassification(item)))
+        {
+            ToastService.Error("Some selected items do not match the selected Purchase Category and Purchase Subcategory.", "Invalid Item");
+            return;
+        }
         var selectedVendor = Model.Vendor;
         if (Model.Location is null || selectedVendor is null) return;
 
@@ -446,9 +495,16 @@ public partial class SupplierReturnForm
         await InvokeAsync(StateHasChanged);
     }
 
-    async void ApplyBarcodes()
+    async Task ApplyBarcodes()
     {
         if (!BarcodeStore.Any()) return;
+        if (!EnsureItemEntrySelections()) return;
+        if (BarcodeStore.Barcodes.Any(barcode => !MatchesPurchaseClassification(barcode.Item)))
+        {
+            ToastService.Error("Scanned items must match the selected Purchase Category and Purchase Subcategory.", "Invalid Item");
+            BarcodeStore.Clear();
+            return;
+        }
 
         foreach (var barcode in BarcodeStore.Barcodes)
         {
@@ -540,6 +596,11 @@ public partial class SupplierReturnForm
 
     bool IsValidBarcode(BarcodeVM barcode, out string reason)
     {
+        if (!CanEnterItems || !MatchesPurchaseClassification(barcode.Item))
+        {
+            reason = "The scanned item must match the selected Purchase Category and Purchase Subcategory.";
+            return false;
+        }
         if (Model.Vendor is null || barcode.Item?.PreferredVendorId != Model.Vendor.Id)
         {
             reason = "This item is not under the selected preferred vendor.";

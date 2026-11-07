@@ -10,6 +10,8 @@ namespace Integration.NS.DataTransferObjects.Others;
 public class ItemsNSDTO
 {
     public int Id { get; set; }
+    public int? PurchaseCategoryId { get; set; }
+    public int? PurchaseSubcategoryId { get; set; }
     public string ItemNumber { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;

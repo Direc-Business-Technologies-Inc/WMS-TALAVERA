@@ -1096,6 +1096,8 @@ public partial class ReceivingIntegration(
             .Select(
                 ("b.name", nameof(BarcodeNSDTO.Barcode)),
                 ("b.custrecord_bpu_item", nameof(BarcodeNSDTO.ItemId)),
+                ("item.custitem_dbti_item_group", nameof(BarcodeNSDTO.PurchaseSubcategoryId)),
+                ("psc.custrecord_dbti_psc_purchase_category", nameof(BarcodeNSDTO.PurchaseCategoryId)),
                 ("item.description", nameof(BarcodeNSDTO.ItemName)),
                 ("item.itemId", nameof(BarcodeNSDTO.ItemCode)),
                 ("item.weight", nameof(BarcodeNSDTO.ItemWeight)),
@@ -1117,6 +1119,7 @@ public partial class ReceivingIntegration(
             .From("CUSTOMRECORD_BARCODE_PER_UOM b")
             .Join("unitstypeuom uom", on: "b.custrecord_bpu_uom = uom.internalid")
             .Join("item", "item.id = b.custrecord_bpu_item")
+            .LeftJoin("CUSTOMRECORD_DBTI_PURCHASE_CATEGORIES psc", on: "psc.id = item.custitem_dbti_item_group")
             .WithFilters(
                 Equal("b.name", barcode)
             );
@@ -1144,6 +1147,8 @@ public partial class ReceivingIntegration(
             Item = new()
             {
                 Id = barcodeData.ItemId,
+                PurchaseCategoryId = barcodeData.PurchaseCategoryId,
+                PurchaseSubcategoryId = barcodeData.PurchaseSubcategoryId,
                 Name = barcodeData.ItemName,
                 ItemNumber = barcodeData.ItemCode,
                 Weight = barcodeData.ItemWeight,
