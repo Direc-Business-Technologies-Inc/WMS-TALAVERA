@@ -2,10 +2,11 @@
 using Application.UseCases.Repositories.Integration.Others;
 using Mapster;
 using MediatR;
+using System.Globalization;
 
 namespace Application.UseCases.Queries.Transaction.TripTicket.NS;
 
-public record GetPackedItemFulfillmentsQry() : IRequest<IEnumerable<OrdersDTO>>;
+public record GetPackedItemFulfillmentsQry(int SubsidiaryId) : IRequest<IEnumerable<OrdersDTO>>;
 
 public class GetPackedItemFulfillmentsQryHandler(
     INetSuiteApiClientService netSuiteApiClientService)
@@ -15,7 +16,12 @@ public class GetPackedItemFulfillmentsQryHandler(
         GetPackedItemFulfillmentsQry request,
         CancellationToken cancellationToken)
     {
-        var Data = await netSuiteApiClientService.NetsuiteQuery<OrdersDTO>("NS_ItemFulfillment_Get_Packed");
+        if (request.SubsidiaryId <= 0)
+            throw new ArgumentOutOfRangeException(nameof(request.SubsidiaryId));
+
+        var Data = await netSuiteApiClientService.NetsuiteQuery<OrdersDTO>("NS_ItemFulfillment_Get_Packed",
+            new() { ["subsidiaryid"] = request.SubsidiaryId.ToString(CultureInfo.InvariantCulture) },
+            ct: cancellationToken);
         return Data.Adapt<IEnumerable<OrdersDTO>>();
     }
 }

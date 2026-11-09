@@ -23,6 +23,14 @@ public class UpdateTripTicketCmdHandler(INetSuiteApiClientService netSuiteApiCli
 
             return ApiResult<bool>.Succeeded(true);
         }
+        catch (UnauthorizedAccessException ex)
+        {
+            return new ApiResult<bool> { StatusCode = 403, ErrorMessage = ex.Message };
+        }
+        catch (ArgumentException ex)
+        {
+            return ApiResult<bool>.Failed(ex.Message);
+        }
         catch (Exception ex)
         {
             return ApiResult<bool>.ServerError(

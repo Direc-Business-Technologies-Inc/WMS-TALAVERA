@@ -327,7 +327,9 @@ partial class TripTicketCVU
         AppBusyService.SetBusy(ActionGetSubsidiaries, false);
         action.OnSuccess(result =>
         {
-            FromSubsidiary = result.Count == 0 ? [] : [.. result.Data.Select(x => new SubsidiaryVM {
+            FromSubsidiary = result.Count == 0 ? [] : [.. result.Data
+                .Where(x => x.Id == CurrentUserService.NsSubsidiaryId)
+                .Select(x => new SubsidiaryVM {
                     NetsuiteSubsidiaryInternalId = x.Id,
                     SubsidiaryName = x.Name,
                 })];
@@ -364,8 +366,9 @@ partial class TripTicketCVU
 
     public async Task OnFromSubsidiaryChanged(SubsidiaryVM? value)
     {
+        FormData.FromSubsidiary = value;
         await LoadLocationsAsync(value?.NetsuiteSubsidiaryInternalId ?? 0);
-        OnFieldChanged(nameof(FormData.ToSubsidiaries));
+        OnFieldChanged(nameof(FormData.FromSubsidiary));
         await InvokeAsync(StateHasChanged);
     }
 

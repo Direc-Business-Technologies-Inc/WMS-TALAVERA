@@ -106,7 +106,8 @@ public class TripTicketIntegration(
                 Any(
                     Equal("t.custbody_dbti_fully_received", "F"),
                     IsNull("t.custbody_dbti_fully_received"))
-            ).WithDatagridIntent(intent).Build();
+            ).WithCurrentSourceSubsidiary(httpContextAccessor, "t")
+            .WithDatagridIntent(intent).Build();
 
         var response = await query.ExecuteWithPaging<ItemFulfillmentDTO>(netsuiteService);
 

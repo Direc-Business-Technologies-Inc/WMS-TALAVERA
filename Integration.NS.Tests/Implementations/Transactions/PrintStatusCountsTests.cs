@@ -24,6 +24,7 @@ public class PrintStatusCountsTests
             {
                 new Claim("com.direcbusiness.wms.nsAllowedLocations", "[11,12]"),
                 new Claim("com.direcbusiness.wms.nsAllowedSubsidiaries", "[7]"),
+                new Claim("NsSubsidiaryId", "7"),
                 new Claim("com.direcbusiness.wms.nsEmployeeId", "99")
             }, "test"))
         }
@@ -84,7 +85,7 @@ public class PrintStatusCountsTests
         Assert.Equal(Eligibility(listQuery), Eligibility(client.LastQuery!));
         Assert.DoesNotContain("tcf.custbody_dbti_custom_approval_status = 4", Eligibility(client.LastQuery!));
         Assert.Contains("t.custbody_dbti_print_label = 'T'", client.LastQuery);
-        Assert.Contains("t.subsidiary IN (7)", client.LastQuery);
+        Assert.Contains("t.subsidiary = 7", client.LastQuery);
         Assert.Equal(cancellation.Token, client.LastCancellationToken);
     }
 
