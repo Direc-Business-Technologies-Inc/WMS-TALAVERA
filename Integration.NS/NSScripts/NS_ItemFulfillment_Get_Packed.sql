@@ -3,6 +3,7 @@ SELECT
 	t.tranId as OrderNumber,
 	t.recordtype as OrderType,
 	t.status as OrderStatus,
+	t.subsidiary as NetsuiteFromSubsidiaryInternalId,
 	lsm.subsidiary as NetsuiteToSubsidiaryInternalId,
 	t.transferlocation as NetsuiteToLocationInternalId,
 	t.memo as Memo,
@@ -14,5 +15,6 @@ JOIN locationSubsidiaryMap lsm
     ON t.transferlocation = lsm.location
 WHERE
     t.type = 'ItemShip' AND
+    t.subsidiary = @subsidiaryid AND
 	(t.status = 'B' OR t.custbody_dbti_print_label = 'T') AND
 	(t.custbody_dbti_fully_received = 'F' OR t.custbody_dbti_fully_received IS NULL)

@@ -20,6 +20,7 @@ public partial class TransferOrderItemView : IAsyncDisposable
     AppAction<List<VendorLookupVM>> ActionGetVendors { get; set; }
     AppAction ActionUpdateStartTime { get; set; }
     AppAction<bool> ActionSaveScan { get; set; }
+    private readonly Mobile.MAUI.Helpers.PackingSessionGate _session = new();
 
     List<TransferOrderLineVM> GoodTOItems = [];
     List<TransferOrderLineVM> BadTOItems = [];
@@ -325,6 +326,7 @@ public partial class TransferOrderItemView : IAsyncDisposable
             Name = "SaveTransferOrderScan",
             TaskAsync = async () =>
             {
+                PrepareSaveSnapshot();
                 await InvokeAsync(StateHasChanged);
                 var res = await Client.Post<bool>("/Packing/TransferOrder/SaveScan", TOItems);
                 return res;
@@ -442,8 +444,11 @@ public partial class TransferOrderItemView : IAsyncDisposable
     }
     #endregion
 
-    private async void SelectGoodLine(TransferOrderLineVM item)
+    private async Task SelectGoodLine(TransferOrderLineVM item)
     {
+        using var edit = _session.TryBeginEdit();
+        if (edit is null) return;
+
         if (ManualEntry)
         {
             if (!IsValidForManualEntry(item))
@@ -476,8 +481,11 @@ public partial class TransferOrderItemView : IAsyncDisposable
             == row.LineSequenceNumber;
     }
 
-    private async void SelectBadLine(TransferOrderLineVM item)
+    private async Task SelectBadLine(TransferOrderLineVM item)
     {
+        using var edit = _session.TryBeginEdit();
+        if (edit is null) return;
+
         if (ManualEntry)
         {
             if (!IsValidForManualEntry(item))
@@ -581,6 +589,9 @@ public partial class TransferOrderItemView : IAsyncDisposable
 
     private async Task SelectVendor()
     {
+        using var operation = _session.TryBeginOperation();
+        if (operation is null) return;
+
         if (_resolvingVendor)
         {
             return;
@@ -622,6 +633,13 @@ public partial class TransferOrderItemView : IAsyncDisposable
 
     private async Task ChangeVendor()
     {
+        using var operation = _session.TryBeginOperation();
+        if (operation is null)
+        {
+            await Toast.Warning("Wait for the current scan or operation to finish, then change vendor again.");
+            return;
+        }
+
         if (ScanCount > 0)
         {
             var saveNow = await Dialog.Confirm(
@@ -639,6 +657,7 @@ public partial class TransferOrderItemView : IAsyncDisposable
                 _switchingVendor = true;
                 try
                 {
+                    ActionSaveScan.Result = null!;
                     await ActionFactory.ExecuteAppActionAsync(ActionSaveScan);
                 }
                 finally
@@ -690,6 +709,8 @@ public partial class TransferOrderItemView : IAsyncDisposable
         FilteredBackOrderedTOItems = [];
 
         LastScanned = null;
+        GoodSelectedLine = null;
+        BadSelectedLine = null;
         ActiveTabIndex = 0;
         ScanCount = 0;
         SelectedVendorId = 0;
@@ -698,6 +719,25 @@ public partial class TransferOrderItemView : IAsyncDisposable
 
     async void HandleItemScan(object sender, string message)
     {
+        try
+        {
+            await InvokeAsync(() => ProcessItemScan(message));
+        }
+        catch (Exception e)
+        {
+            await Toast.Error(e.Message);
+        }
+    }
+
+    private async Task ProcessItemScan(string message)
+    {
+        using var edit = _session.TryBeginEdit();
+        if (edit is null)
+        {
+            await Toast.Warning("Scan not accepted while saving or refreshing. Wait, then scan again.");
+            return;
+        }
+
         try
         {
             var scanned = message?.Trim();
@@ -867,9 +907,8 @@ public partial class TransferOrderItemView : IAsyncDisposable
                 LastScanned = goodLine;
             }
 
-            await RevealLastScanned();
-
             ScanCount++;
+            await RevealLastScanned();
             //ChangeWeight = null; // reset the ChangeWeight after each scan
 
             await InvokeAsync(StateHasChanged);
@@ -882,6 +921,29 @@ public partial class TransferOrderItemView : IAsyncDisposable
 
     async Task SaveScan()
     {
+        using var operation = _session.TryBeginOperation();
+        if (operation is null)
+        {
+            await Toast.Warning("Wait for the current scan or operation to finish, then save again.");
+            return;
+        }
+
+        ActionSaveScan.Result = null!;
+        await ActionFactory.ExecuteAppActionAsync(ActionSaveScan, confirm: true, showToast: true);
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void PrepareSaveSnapshot()
+    {
+        if (DoneTOItems.Any(x => x.ScannedQuantity > 0))
+            throw new InvalidOperationException("Some scanned lines are no longer available to fulfill. Review the Done tab and reconcile those scans before saving or discard this vendor's scans and start again.");
+
+        var excess = GoodTOItems.Concat(BadTOItems)
+            .GroupBy(x => new { x.LineSequenceNumber, x.NetsuiteMaterialInternalId })
+            .FirstOrDefault(g => g.Sum(x => x.ScannedQuantity) > g.First().PackableQuantity);
+        if (excess is not null)
+            throw new InvalidOperationException($"Scanned quantity for {excess.First().MaterialCode} exceeds the current remaining quantity. Remove excess scans before saving.");
+
         TOItems = GoodTOItems
             // The server now owns the authoritative open-line set (save-time
             // reconciliation), so the client must not drop a line for a
@@ -937,9 +999,6 @@ public partial class TransferOrderItemView : IAsyncDisposable
             })
             .ToList();
 
-        await ActionFactory.ExecuteAppActionAsync(ActionSaveScan, confirm: true, showToast: true);
-
-        await InvokeAsync(StateHasChanged);
     }
 
     void ToggleMove()
@@ -1296,6 +1355,13 @@ public partial class TransferOrderItemView : IAsyncDisposable
 
     private async Task Refresh()
     {
+        using var operation = _session.TryBeginOperation();
+        if (operation is null)
+        {
+            await Toast.Warning("Wait for the current scan or operation to finish, then refresh again.");
+            return;
+        }
+
         // Gate is open: nothing to refresh until a vendor barcode is scanned.
         if (VendorId is null) return;
 
@@ -1313,17 +1379,22 @@ public partial class TransferOrderItemView : IAsyncDisposable
                 g => g.Key,
                 g => new
                 {
+                    Original = g.First(),
                     ScannedQuantity = g.First().ScannedQuantity,
                     ScannedWeight = g.First().ScannedWeight,
                     ScanCount = g.First().ScanCount
                 });
 
         // Reload PO items
+        ActionGetTOItems.Result = null!;
         await ActionFactory.ExecuteAppActionAsync(ActionGetTOItems);
+        if (ActionGetTOItems.Result is not { Success: true }) return;
 
         // Restore scanned state (including DONE lines, so a line that moved to
         // DONE across the reload keeps its snapshot entry).
-        var clampedLines = new List<string>();
+        GoodSelectedLine = null;
+        BadSelectedLine = null;
+        LastScanned = null;
 
         foreach (var item in GoodTOItems.Concat(BadTOItems).Concat(DoneTOItems))
         {
@@ -1336,27 +1407,37 @@ public partial class TransferOrderItemView : IAsyncDisposable
 
             if (scannedState.TryGetValue(key, out var scanned))
             {
-                // The plan can shrink across the reload (another picker packed
-                // some of it, the order was edited). Restoring the old count
-                // would leave the device over the fresh packable quantity, and
-                // the scan guard would then allow everything up to the stale
-                // total, so clamp and tell the operator what was reduced.
-                var clamped = Math.Min(scanned.ScannedQuantity, item.PackableQuantity);
-                if (clamped < scanned.ScannedQuantity)
-                {
-                    clampedLines.Add($"{item.MaterialCode} ({scanned.ScannedQuantity} -> {clamped})");
-                }
-
-                item.ScannedQuantity = clamped;
+                // A refresh must not silently choose which physical Good/Bad
+                // scans to discard. Preserve both and report combined excess.
+                item.ScannedQuantity = scanned.ScannedQuantity;
                 item.ScannedWeight = scanned.ScannedWeight;
                 item.ScanCount = scanned.ScanCount;
             }
         }
 
-        if (clampedLines.Count > 0)
+        // Keep physical scans visible even if a refreshed line disappeared or
+        // moved to a non-scannable tab. They must block, not silently vanish from,
+        // the next save.
+        var restoredKeys = GoodTOItems.Concat(BadTOItems).Concat(DoneTOItems)
+            .Select(x => new { x.LineSequenceNumber, x.NetsuiteMaterialInternalId, x.IsBad })
+            .ToHashSet();
+        foreach (var entry in scannedState.Where(x => x.Value.ScannedQuantity > 0 && !restoredKeys.Contains(x.Key)))
+            DoneTOItems.Add(entry.Value.Original);
+
+        ApplySearch();
+
+        var overPlan = GoodTOItems.Concat(BadTOItems).Concat(DoneTOItems)
+            .GroupBy(x => new { x.LineSequenceNumber, x.NetsuiteMaterialInternalId })
+            .Where(g => g.Sum(x => x.ScannedQuantity) > g.First().PackableQuantity)
+            .Select(g => $"{g.First().MaterialCode}: scanned {g.Sum(x => x.ScannedQuantity)}, remaining {g.First().PackableQuantity}")
+            .ToList();
+
+        if (overPlan.Count > 0)
         {
-            await Toast.Warning($"Refresh reduced the scanned quantity on {clampedLines.Count} line(s) to the current plan: {string.Join(", ", clampedLines)}.");
+            await Toast.Warning($"Refresh found scans above the current remaining quantity. Scans were preserved; review and remove excess quantities before saving: {string.Join("; ", overPlan)}.");
         }
+        if (DoneTOItems.Any(x => x.ScannedQuantity > 0))
+            await Toast.Warning("Some scanned lines are no longer available. Their scans were preserved in Done and saving is blocked until they are reconciled or discarded.");
 
         await InvokeAsync(StateHasChanged);
     }

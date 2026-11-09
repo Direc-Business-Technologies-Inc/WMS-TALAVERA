@@ -19,6 +19,7 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
     AppAction<List<VendorReturnAuthorizationLineVM>> ActionGetVRAItems { get; set; }
     AppAction ActionUpdateStartTime { get; set; }
     AppAction<bool> ActionSaveScan { get; set; }
+    private readonly Mobile.MAUI.Helpers.PackingSessionGate _session = new();
 
     List<VendorReturnAuthorizationLineVM> GoodVRAItems = [];
     List<VendorReturnAuthorizationLineVM> BadVRAItems = [];
@@ -172,6 +173,7 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
             Name = "SavePurchaseOrderScan",
             TaskAsync = async () =>
             {
+                PrepareSaveSnapshot();
                 await InvokeAsync(StateHasChanged);
                 var res = await Client.Post<bool>("/Packing/VendorReturnAuthorization/SaveScan", VRAItems);
                 return res;
@@ -265,8 +267,11 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
     }
     #endregion
 
-    private async void SelectGoodLine(VendorReturnAuthorizationLineVM item)
+    private async Task SelectGoodLine(VendorReturnAuthorizationLineVM item)
     {
+        using var edit = _session.TryBeginEdit();
+        if (edit is null) return;
+
         if (ManualEntry)
         {
             if (!IsValidForManualEntry(item))
@@ -339,6 +344,8 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
 
     private void SelectBadLine(VendorReturnAuthorizationLineVM item)
     {
+        if (_session.IsBusy) return;
+
         if (BadSelectedLine?.LineSequenceNumber == item.LineSequenceNumber)
         {
             BadSelectedLine = null;
@@ -359,6 +366,25 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
 
     async void HandleItemScan(object sender, string message)
     {
+        try
+        {
+            await InvokeAsync(() => ProcessItemScan(message));
+        }
+        catch (Exception e)
+        {
+            await Toast.Error(e.Message);
+        }
+    }
+
+    private async Task ProcessItemScan(string message)
+    {
+        using var edit = _session.TryBeginEdit();
+        if (edit is null)
+        {
+            await Toast.Warning("Scan not accepted while saving or refreshing. Wait, then scan again.");
+            return;
+        }
+
         try
         {
             if (ScanState == ToggleState.Base && !MoveOn && !NegateQuantity) return;
@@ -503,9 +529,8 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
                 LastScanned = goodLine;
             }
 
-            await RevealLastScanned();
-
             ScanCount++;
+            await RevealLastScanned();
             //ChangeWeight = null; // reset the ChangeWeight after each scan
 
             await InvokeAsync(StateHasChanged);
@@ -517,6 +542,20 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
     }
 
     async Task SaveScan()
+    {
+        using var operation = _session.TryBeginOperation();
+        if (operation is null)
+        {
+            await Toast.Warning("Wait for the current scan or operation to finish, then save again.");
+            return;
+        }
+
+        ActionSaveScan.Result = null!;
+        await ActionFactory.ExecuteAppActionAsync(ActionSaveScan, confirm: true, showToast: true);
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void PrepareSaveSnapshot()
     {
         VRAItems = GoodVRAItems
             .Where(g =>
@@ -574,9 +613,6 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
             .ToList();
 
 
-        await ActionFactory.ExecuteAppActionAsync(ActionSaveScan, confirm: true, showToast: true);
-
-        await InvokeAsync(StateHasChanged);
     }
 
     void ToggleMove()
@@ -931,6 +967,13 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
 
     private async Task Refresh()
     {
+        using var operation = _session.TryBeginOperation();
+        if (operation is null)
+        {
+            await Toast.Warning("Wait for the current scan or operation to finish, then refresh again.");
+            return;
+        }
+
         // Snapshot current scanned state before refreshing
         var scannedState = GoodVRAItems
             .Concat(BadVRAItems)
@@ -950,7 +993,12 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
                 });
 
         // Reload PO items
+        ActionGetVRAItems.Result = null!;
         await ActionFactory.ExecuteAppActionAsync(ActionGetVRAItems);
+        if (ActionGetVRAItems.Result is not { Success: true }) return;
+        GoodSelectedLine = null;
+        BadSelectedLine = null;
+        LastScanned = null;
 
         // Restore scanned state
         foreach (var item in GoodVRAItems.Concat(BadVRAItems))

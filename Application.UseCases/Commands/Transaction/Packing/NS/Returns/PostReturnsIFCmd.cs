@@ -1,7 +1,6 @@
 ﻿using Application.DataTransferObjects.Transactions.Commons.NS;
 using Application.DataTransferObjects.Transactions.Commons.NS.Payload;
 using Application.UseCases.Repositories.Bases;
-using Application.UseCases.Repositories.Domain.Transaction.StockTransferRequest;
 using Application.UseCases.Repositories.Integration.Others;
 using Application.UseCases.Repositories.Integration.Transaction.Packing;
 using MediatR;
@@ -15,23 +14,17 @@ public record PostReturnsIFCmd(List<PostReturnsDTO> Data) : ITransactionalReques
 public class PostReturnsIFCmdHandler(
     INetSuiteApiClientService netSuiteApiClientService,
     IReturnPackingIntegration returnPackingIntegration,
-    IStrAutoFulfillmentStore store,
     ILogger<PostReturnsIFCmdHandler> logger)
     : IRequestHandler<PostReturnsIFCmd, ApiResult<bool>>
 {
     public async Task<ApiResult<bool>> Handle(PostReturnsIFCmd request, CancellationToken cancellationToken)
     {
-        Guid? owner = null;
-        var orderId = request.Data.FirstOrDefault()?.NetsuiteOrderInternalId ?? 0;
-        var postingStarted = false;
-        var releaseClaim = true;
         try
         {
+            var orderId = request.Data.FirstOrDefault()?.NetsuiteOrderInternalId ?? 0;
             if (orderId <= 0 || request.Data.Any(x => x.NetsuiteOrderInternalId != orderId))
                 return ApiResult<bool>.Failed("Exactly one return order is required. Nothing was saved.");
-            owner = await store.TryAcquireAsync(orderId, cancellationToken);
-            if (owner is null)
-                return ApiResult<bool>.Failed("This STR return is already being fulfilled or requires NetSuite reconciliation. Nothing was saved.");
+
             var firstLine = request.Data.FirstOrDefault();
             if (firstLine is not null)
             {
@@ -86,40 +79,20 @@ public class PostReturnsIFCmdHandler(
                     "Please reload the order and try again.");
             }
 
-            await store.MarkManualPostingAsync(orderId, owner.Value, cancellationToken);
-            postingStarted = true;
             bool result = await netSuiteApiClientService.SaveReturnsItemFulfillment(request.Data);
 
             if (!result)
             {
-                await store.MarkManualUncertainAsync(orderId, owner.Value, "Manual Returns IF save returned false; reconcile NetSuite before retrying.", CancellationToken.None);
-                postingStarted = false;
                 return ApiResult<bool>.Failed("Failed to save scanned items to NetSuite.");
             }
 
-            await store.CompleteManualAsync(orderId, owner.Value, CancellationToken.None);
-            postingStarted = false;
             return ApiResult<bool>.Succeeded(true);
         }
         catch (Exception ex)
         {
-            if (postingStarted)
-            {
-                try { await store.MarkManualUncertainAsync(orderId, owner!.Value, ex.Message, CancellationToken.None); }
-                catch (Exception recordError)
-                {
-                    logger.LogError(recordError, "Cannot record uncertain manual return {OrderId}; retaining posting claim", orderId);
-                    releaseClaim = false;
-                }
-            }
             return ApiResult<bool>.ServerError(
                 $"{ex.Message}"
             );
-        }
-        finally
-        {
-            if (owner is not null && releaseClaim)
-                await store.ReleaseAsync(orderId, owner.Value, CancellationToken.None);
         }
     }
 }

@@ -17,6 +17,7 @@ public partial class ReturnsItemView : IAsyncDisposable
     AppAction<List<ReturnsLineVM>> ActionGetReturnsItems { get; set; }
     AppAction ActionUpdateStartTime { get; set; }
     AppAction<bool> ActionSaveScan { get; set; }
+    private readonly Mobile.MAUI.Helpers.PackingSessionGate _session = new();
 
     List<ReturnsLineVM> ReturnsItems = [];
     List<ReturnsLineVM> FilteredReturnsItems = [];
@@ -127,8 +128,9 @@ public partial class ReturnsItemView : IAsyncDisposable
             Name = "SaveReturnsScan",
             TaskAsync = async () =>
             {
+                var snapshot = PrepareSaveSnapshot();
                 await InvokeAsync(StateHasChanged);
-                var res = await Client.Post<bool>("/Packing/Returns/SaveScan", ReturnsItems);
+                var res = await Client.Post<bool>("/Packing/Returns/SaveScan", snapshot);
                 return res;
             },
             OnSuccess = async (result) =>
@@ -220,8 +222,11 @@ public partial class ReturnsItemView : IAsyncDisposable
 
     #endregion
 
-    private async void SelectLine(ReturnsLineVM item)
+    private async Task SelectLine(ReturnsLineVM item)
     {
+        using var edit = _session.TryBeginEdit();
+        if (edit is null) return;
+
         if (ManualEntry)
         {
             if (!IsValidForManualEntry(item))
@@ -277,6 +282,25 @@ public partial class ReturnsItemView : IAsyncDisposable
 
     async void HandleItemScan(object sender, string message)
     {
+        try
+        {
+            await InvokeAsync(() => ProcessItemScan(message));
+        }
+        catch (Exception e)
+        {
+            await Toast.Error(e.Message);
+        }
+    }
+
+    private async Task ProcessItemScan(string message)
+    {
+        using var edit = _session.TryBeginEdit();
+        if (edit is null)
+        {
+            await Toast.Warning("Scan not accepted while saving or refreshing. Wait, then scan again.");
+            return;
+        }
+
         try
         {
             var scanned = message?.Trim();
@@ -373,9 +397,8 @@ public partial class ReturnsItemView : IAsyncDisposable
 
             LastScanned = line;
 
-            await RevealLastScanned();
-
             ScanCount++;
+            await RevealLastScanned();
             //ChangeWeight = null; // reset the ChangeWeight after each scan
 
             await InvokeAsync(StateHasChanged);
@@ -452,7 +475,21 @@ public partial class ReturnsItemView : IAsyncDisposable
 
     async Task SaveScan()
     {
-        ReturnsItems = ReturnsItems.Where(x => x.NSLineQuantityPacked != 0)
+        using var operation = _session.TryBeginOperation();
+        if (operation is null)
+        {
+            await Toast.Warning("Wait for the current scan or operation to finish, then save again.");
+            return;
+        }
+
+        ActionSaveScan.Result = null!;
+        await ActionFactory.ExecuteAppActionAsync(ActionSaveScan, confirm: true, showToast: true);
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private List<ReturnsLineVM> PrepareSaveSnapshot()
+    {
+        return ReturnsItems.Where(x => x.NSLineQuantityPacked != 0)
             .Select(x => new ReturnsLineVM
             {
                 NetsuiteOrderInternalId = x.NetsuiteOrderInternalId,
@@ -484,6 +521,7 @@ public partial class ReturnsItemView : IAsyncDisposable
 
                 LineQuantity = x.LineQuantity,
                 LineQuantityPacked = x.LineQuantityPacked,
+                LineQuantityBackOrdered = x.LineQuantityBackOrdered,
 
                 NetsuiteUoMInternalId = x.NetsuiteUoMInternalId,
                 UoMName = x.UoMName,
@@ -496,9 +534,6 @@ public partial class ReturnsItemView : IAsyncDisposable
             })
             .ToList();
 
-        await ActionFactory.ExecuteAppActionAsync(ActionSaveScan, confirm: true, showToast: true);
-
-        await InvokeAsync(StateHasChanged);
     }
 
     //async void ToggleWeight()
@@ -559,6 +594,13 @@ public partial class ReturnsItemView : IAsyncDisposable
 
     private async Task Refresh()
     {
+        using var operation = _session.TryBeginOperation();
+        if (operation is null)
+        {
+            await Toast.Warning("Wait for the current scan or operation to finish, then refresh again.");
+            return;
+        }
+
         // Snapshot current scanned state before refreshing
         var scannedState = ReturnsItems
             .GroupBy(x => new
@@ -577,7 +619,11 @@ public partial class ReturnsItemView : IAsyncDisposable
                 });
 
         // Reload PO items
+        ActionGetReturnsItems.Result = null!;
         await ActionFactory.ExecuteAppActionAsync(ActionGetReturnsItems);
+        if (ActionGetReturnsItems.Result is not { Success: true }) return;
+        SelectedLine = null;
+        LastScanned = null;
 
         // Restore scanned state
         foreach (var item in ReturnsItems)

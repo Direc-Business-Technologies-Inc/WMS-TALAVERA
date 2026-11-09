@@ -13,6 +13,7 @@ using Application.UseCases.Repositories.Integration.Others;
 using Database.Libraries.Repositories;
 using Integration.NS.Entities;
 using Integration.NS.Exceptions;
+using Integration.NS.Helpers;
 using Integration.NS.Resilience;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
@@ -2822,21 +2823,28 @@ namespace Integration.NS.Services
             }
         }
 
-        public async Task<bool> SaveTOItemFulfillment(List<PostTransferOrderDTO> Data)
-            => await SaveTOItemFulfillmentCore(Data, forceShipped: false);
-
-        /// <summary>Dedicated unattended path: never infer shipment from trip-ticket exemption.</summary>
-        public async Task<bool> SaveAutoTOItemFulfillment(List<PostTransferOrderDTO> Data)
+        private static void ValidateFulfillmentOrder(IEnumerable<int> orderIds, string recordType)
         {
-            if (UseRestletForTOFulfillment)
-                throw new InvalidOperationException("Unattended Shipped fulfillment requires the verified REST transform, not the optional RESTlet.");
-            if (Data.Any(x => x.VerifiedInventoryStatusId is not (InventoryStatusMap.Good or InventoryStatusMap.Bad or InventoryStatusMap.Missing)))
-                throw new InvalidOperationException("Every automatic fulfillment line requires a verified inventory status.");
-            return await SaveTOItemFulfillmentCore(Data, forceShipped: true);
+            var ids = orderIds.Distinct().ToList();
+            if (ids.Count != 1 || ids[0] <= 0)
+                throw new Exception($"Cannot post Item Fulfillment: exactly one {recordType} is required. Nothing was saved.");
         }
 
-        private async Task<bool> SaveTOItemFulfillmentCore(List<PostTransferOrderDTO> Data, bool forceShipped)
+        private static void EnsureFulfillmentBinsResolved<T>(IEnumerable<T> lines, bool isUsedBin,
+            Func<T, decimal> quantity, Func<T, int> vendorBin, Func<T, int> preferredBin,
+            Func<T, string> description)
         {
+            var missing = lines.Where(x => RequiresBin(isUsedBin, quantity(x), vendorBin(x), preferredBin(x)))
+                .Select(description).ToList();
+            if (missing.Count > 0)
+                throw new Exception($"Cannot post Item Fulfillment: the location is bin-tracked but no bin is resolved for: {string.Join("; ", missing)}. Nothing was saved. Ask Master Data to set a Vendor Bin Assignment or preferred bin, then reload the order.");
+        }
+
+        public async Task<bool> SaveTOItemFulfillment(List<PostTransferOrderDTO> Data)
+        {
+            // Validate original identities before dedupe can hide mixed orders.
+            ValidateTOFulfillmentRequest(Data);
+
             if (UseRestletForTOFulfillment)
             {
                 return await SaveTOItemFulfillmentViaRestlet(Data);
@@ -2894,7 +2902,7 @@ namespace Integration.NS.Services
             }
             catch (Exception ex)
             {
-                if (forceShipped || FailClosedRevalidationEnabled)
+                if (FailClosedRevalidationEnabled)
                 {
                     throw new Exception($"Cannot post TO Item Fulfillment for order {orderNumber}: the current open-line state could not be read. Nothing was saved. {ex.Message}", ex);
                 }
@@ -2906,7 +2914,7 @@ namespace Integration.NS.Services
             {
                 openLineIds = freshLines.Where(x => x.IsOpen).Select(x => x.LineId).ToHashSet();
 
-                if (forceShipped || ReconciliationEnabled)
+                if (ReconciliationEnabled)
                 {
                     var reconciled = ReconcileTOFulfillmentLines(Data, freshLines, orderId, isUsedBin);
 
@@ -3025,7 +3033,7 @@ namespace Integration.NS.Services
             }
 
             var isTripTicketExempt = Data.FirstOrDefault()?.IsTripTicketExempt == true;
-            var itemFulfillmentStatus = forceShipped || isTripTicketExempt ? "C" : "B";
+            var itemFulfillmentStatus = isTripTicketExempt ? "C" : "B";
             var printLabel = true; // Packing labels are required regardless of trip-ticket exemption.
 
             // The rest of the save builds the bucket payload from Data; its size IS the
@@ -3039,6 +3047,15 @@ namespace Integration.NS.Services
             // (RCA issue 1 / D6).
             var badTO = BuildTOFulfillmentBucketLines(Data, isBadBucket: true);
             var goodTO = BuildTOFulfillmentBucketLines(Data, isBadBucket: false);
+
+            // Complete all deterministic bucket checks before the first write.
+            EnsureFulfillmentBinsResolved(Data, isUsedBin, x => x.ScannedQuantity,
+                x => x.NetsuiteMaterialVendorAssignedBin, x => x.NetsuiteMaterialPrefferedBinId,
+                x => $"WMS line {x.LineSequenceNumber} {x.MaterialCode} ({(x.IsBad ? "BAD" : "GOOD")})");
+            if (badTO.Any(x => x.ScannedQuantity > 0))
+                EnsureTOFulfillmentBucketIsComplete("BAD", badTO, Data, isBadBucket: true);
+            if (goodTO.Any(x => x.ScannedQuantity > 0))
+                EnsureTOFulfillmentBucketIsComplete("GOOD", goodTO, Data, isBadBucket: false);
 
             if (badTO.Any(x => x.ScannedQuantity > 0))
             {
@@ -3171,6 +3188,8 @@ namespace Integration.NS.Services
         /// </summary>
         public async Task<bool> SaveTOItemFulfillmentViaRestlet(List<PostTransferOrderDTO> Data)
         {
+            ValidateTOFulfillmentRequest(Data);
+
             var duplicateGroups = Data
                 .GroupBy(x => (x.LineSequenceNumber, x.IsBad))
                 .Where(g => g.Count() > 1)
@@ -3297,6 +3316,7 @@ namespace Integration.NS.Services
 
         public async Task<bool> SaveReturnsItemFulfillment(List<PostReturnsDTO> Data)
         {
+            ValidateFulfillmentOrder(Data.Select(x => x.NetsuiteOrderInternalId), "return order");
             Data = DeduplicateFulfillmentLines(Data, x => x.LineSequenceNumber, x => x.IsBad, x => x.ScannedQuantity);
 
             var orderId = Data.Select(x => x.NetsuiteOrderInternalId).FirstOrDefault();
@@ -3368,6 +3388,7 @@ namespace Integration.NS.Services
 
         public async Task<bool> SaveVRAItemFulfillment(List<PostVendorReturnAuthorizationDTO> Data)
         {
+            ValidateFulfillmentOrder(Data.Select(x => x.NetsuiteOrderInternalId), "vendor return authorization");
             Data = DeduplicateFulfillmentLines(Data, x => x.LineSequenceNumber, x => x.IsBad, x => x.ScannedQuantity);
 
             var orderId = Data.Select(x => x.NetsuiteOrderInternalId).FirstOrDefault();
@@ -3387,6 +3408,10 @@ namespace Integration.NS.Services
                 var flagSample = string.Join("; ", Data.Take(10).Select((line, i) => $"pos{i + 1}/WMS{line.LineSequenceNumber}/{line.MaterialCode} usedBin={line.IsLocationUsedBin} ({line.LocationUsedBin})"));
                 throw new Exception($"Cannot post VRA Item Fulfillment: mixed bin-tracked flags in one save (location '{Data.FirstOrDefault()?.LocationName}'). Reload the order so every line resolves the same location, then retry. Sample: {flagSample}.");
             }
+
+            EnsureFulfillmentBinsResolved(Data, isUsedBin, x => x.ScannedQuantity,
+                x => x.NetsuiteMaterialVendorAssignedBin, x => x.NetsuiteMaterialPrefferedBinId,
+                x => $"WMS line {x.LineSequenceNumber} {x.MaterialCode} ({(x.IsBad ? "BAD" : "GOOD")})");
 
             //string url = string.Format(isUsedBin ? ItemFulfillmentUrl : ItemFulfillmentUrlNotUsedBin, "vendorReturnAuthorization", orderId);
             // Drop ?replace= per bucket when that bucket carries no inventoryDetail, otherwise NetSuite rejects the transform with INVALID_PARAMETER.
@@ -3496,6 +3521,7 @@ namespace Integration.NS.Services
         #region TripTicket
         public async Task<bool> CancelTripTicket(PostTripTicketDTO Data)
         {
+            await TripTicketSubsidiaryGuard.ValidateAsync(this, httpContextAccessor, Data, existingTicket: true);
             try
             {
                 string url = TripTicketRestletUrl;
@@ -3523,6 +3549,8 @@ namespace Integration.NS.Services
 
         public async Task<bool> UpdateTripTicket(PostTripTicketDTO Data, List<ItemFulfillmentDTO> RemovedIF, List<ItemFulfillmentDTO> AddedIF)
         {
+            await TripTicketSubsidiaryGuard.ValidateAsync(this, httpContextAccessor, Data,
+                RemovedIF.Concat(AddedIF), existingTicket: true);
             try
             {
                 await ChangeShipStatus(Data);
@@ -3552,6 +3580,7 @@ namespace Integration.NS.Services
 
         public async Task<bool> SaveTripTicket(PostTripTicketDTO Data)
         {
+            await TripTicketSubsidiaryGuard.ValidateAsync(this, httpContextAccessor, Data);
             try
             {
                 await ChangeShipStatus(Data);

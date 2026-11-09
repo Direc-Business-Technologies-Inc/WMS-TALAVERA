@@ -9,6 +9,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Shared.Entities;
 using Shared.Libraries.Utilities;
 using System.Data;
+using System.Security.Claims;
 using System.Text.RegularExpressions;
 using Xunit;
 
@@ -54,7 +55,13 @@ public class PackingPendingFulfillmentFilterShapeTests
         client = new CapturingNetSuiteClient();
         return new ReturnPackingIntegration(
             client,
-            new HttpContextAccessor(),
+            new HttpContextAccessor
+            {
+                HttpContext = new DefaultHttpContext
+                {
+                    User = new ClaimsPrincipal(new ClaimsIdentity([new Claim("NsSubsidiaryId", "1")], "test"))
+                }
+            },
             new StubSqlQueryManager(),
             new SuiteQLQueryBuilderFactoryService());
     }

@@ -294,7 +294,7 @@ internal class ReturnPackingIntegration(
             )
             .WithPropertyMap(nameof(PackedItemFulfillmentDTO.Date), "t.trandate")
             .WithPropertyMap(nameof(PackedItemFulfillmentDTO.CreatedFromId), "tcf.id")
-            .WithFromOrToSubsidiaries(httpContextAccessor, "t")
+            .WithCurrentSourceSubsidiary(httpContextAccessor, "t")
             .WithDatagridIntent(intent);
     }
 }

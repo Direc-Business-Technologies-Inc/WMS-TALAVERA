@@ -28,6 +28,8 @@ public sealed class CapturingNetSuiteClient : INetSuiteApiClientService
     public List<string> Queries { get; } = [];
     public int CallCount { get; private set; }
     public CancellationToken LastCancellationToken { get; private set; }
+    public string? LastScriptName { get; private set; }
+    public Dictionary<string, string>? LastScriptParameters { get; private set; }
     /// <summary>Thrown once by the next ExecuteSuiteQLQuery call (after the call is recorded), then cleared.</summary>
     public Exception? NextException { get; set; }
     /// <summary>
@@ -86,7 +88,13 @@ public sealed class CapturingNetSuiteClient : INetSuiteApiClientService
         int limit = 0,
         int offset = 0,
         CancellationToken ct = default)
-        => throw new NotSupportedException();
+    {
+        ct.ThrowIfCancellationRequested();
+        LastScriptName = queryName;
+        LastScriptParameters = parameters;
+        LastCancellationToken = ct;
+        return Task.FromResult<IEnumerable<T>?>(NextItems.OfType<T>().ToList());
+    }
 
     public Task<NetSuiteResponse<T>?> NetsuiteQueryWithMetadata<T>(
         string queryName,
@@ -118,7 +126,6 @@ public sealed class CapturingNetSuiteClient : INetSuiteApiClientService
     public string GetRestletURI => string.Empty;
 
     public Task<bool> SaveTOItemFulfillment(List<PostTransferOrderDTO> Data) => throw new NotSupportedException();
-    public Task<bool> SaveAutoTOItemFulfillment(List<PostTransferOrderDTO> Data) => throw new NotSupportedException();
     public Task<bool> SaveReturnsItemFulfillment(List<PostReturnsDTO> Data) => throw new NotSupportedException();
     public Task<bool> SaveVRAItemFulfillment(List<PostVendorReturnAuthorizationDTO> Data) => throw new NotSupportedException();
     public Task<bool> UpdateTripTicket(PostTripTicketDTO Data, List<ItemFulfillmentDTO> RemovedIF, List<ItemFulfillmentDTO> AddedIF) => throw new NotSupportedException();
