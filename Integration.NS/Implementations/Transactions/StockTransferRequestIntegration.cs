@@ -26,59 +26,6 @@ internal class StockTransferRequestIntegration(
     IHttpContextAccessor httpContextAccessor,
     SuiteQLQueryBuilderFactoryService builderFactory) : IStockTransferRequestIntegration
 {
-    public async Task<IReadOnlyList<FulfillmentExemptionRuleDTO>> GetActiveFulfillmentExemptionRules()
-    {
-        // These field IDs are taken from the supplied NetSuite Field Explorer
-        // screenshot. The Y/N internal value is intentionally not assumed here.
-        const string query = """
-            SELECT id AS "RuleId",
-                   custrecord_fe_transfer_categories AS "TransferCategoryId",
-                   custrecord_fe_from_location AS "FromLocationId",
-                   custrecord_fe_to_location AS "ToLocationId",
-                   custrecord_fe_is_automated_packing AS "AutomatedPackingValue",
-                   custrecord_fe_is_automated_shipping AS "AutomatedShippingValue",
-                   custrecord_fe_label_template AS "LabelTemplateId",
-                   isinactive AS "IsInactive"
-            FROM customrecord_fulfillment_excemption
-            WHERE isinactive = 'F'
-            ORDER BY id
-            """;
-
-        // The maintenance table is not bounded to one SuiteQL page. Do not
-        // silently miss a matching rule on a later page (or a conflicting one).
-        var rows = await NetSuiteApiClientService.ReadAllSuiteQLPagesAsync(
-            async (limit, offset) =>
-            {
-                var response = await netsuiteService.ExecuteSuiteQLQuery<FulfillmentExemptionRuleNSDTO>(query, limit, offset);
-                if (response?.items is null)
-                    throw new InvalidOperationException("The Fulfillment Exemption query returned no item array; rule matching cannot be trusted.");
-                if (response.items.Count == 0 && response.totalResults > offset)
-                    throw new InvalidOperationException("The Fulfillment Exemption query returned an incomplete page; rule matching cannot be trusted.");
-                return response;
-            },
-            pageSize: 1000,
-            maxPages: 20,
-            context: "Fulfillment Exemption rule read");
-
-        return rows.Select(row => new FulfillmentExemptionRuleDTO(
-            row.RuleId?.ToString() ?? string.Empty,
-            ReadSuiteQLValue(row.TransferCategoryId),
-            ReadSuiteQLValue(row.FromLocationId),
-            ReadSuiteQLValue(row.ToLocationId),
-            ReadSuiteQLValue(row.AutomatedPackingValue),
-            ReadSuiteQLValue(row.AutomatedShippingValue),
-            ReadSuiteQLValue(row.LabelTemplateId),
-            string.Equals(row.IsInactive, "T", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(row.IsInactive, "true", StringComparison.OrdinalIgnoreCase))).ToArray();
-    }
-
-    private static string? ReadSuiteQLValue(JsonElement value) => value.ValueKind switch
-    {
-        JsonValueKind.Undefined or JsonValueKind.Null => null,
-        JsonValueKind.String => value.GetString(),
-        _ => value.ToString()
-    };
-
     public async Task<(IEnumerable<StockTransferRequestDataGridDTO> Data, int Count)> GetIntercompanyTransferOrderList(DataGridIntent intent)
     {
         if (intent.Sorts.Count == 0)

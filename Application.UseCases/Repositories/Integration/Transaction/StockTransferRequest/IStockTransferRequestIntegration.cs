@@ -19,5 +19,4 @@ public interface IStockTransferRequestIntegration
     Task<bool> CreateStockTransferRequest(StockTransferRequestInfoDTO dto);
     Task<bool> UpdateStockTransferRequest(StockTransferRequestInfoDTO dto);
     Task<bool> SubmitStockTransferRequestForApproval(StockTransferRequestInfoDTO dto);
-    Task<IReadOnlyList<FulfillmentExemptionRuleDTO>> GetActiveFulfillmentExemptionRules();
 }

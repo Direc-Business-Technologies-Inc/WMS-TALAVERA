@@ -2,7 +2,6 @@
 using Mapster;
 using MapsterMapper;
 using MediatR;
-using Application.UseCases.Commands.Transaction.StockTransferRequest;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Application.UseCases;
@@ -15,7 +14,6 @@ public static class AppUseCasesDI
         config.Default.PreserveReference(true);
         services.AddSingleton(config);
         services.AddScoped<IMapper, ServiceMapper>();
-        services.AddSingleton(StrAutoFulfillmentOptions.FromEnvironment());
         config.Scan(typeof(AppUseCasesDI).Assembly);
 
         services.AddMediatR(cfg =>

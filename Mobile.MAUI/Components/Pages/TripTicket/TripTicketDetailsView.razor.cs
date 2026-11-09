@@ -140,11 +140,7 @@ public partial class TripTicketDetailsView
             {
                 Subsidiaries = result.Data ?? new();
 
-                //// If we have the user subsidiary id, set the FromSubsidiary by default
-                //if (UserSubsidiaryId != 0)
-                //{
-                //    Model.FromSubsidiary = Subsidiaries.FirstOrDefault(s => s.NetsuiteSubsidiaryInternalId == UserSubsidiaryId);
-                //}
+                Model.FromSubsidiary = Subsidiaries.FirstOrDefault(s => s.NetsuiteSubsidiaryInternalId == UserSubsidiaryId);
 
                 await InvokeAsync(StateHasChanged);
             }

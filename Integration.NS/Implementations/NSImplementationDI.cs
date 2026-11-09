@@ -136,7 +136,6 @@ public static class NSImplementationDI
 
         services.TryAddTransient<INetSuiteApiClientService, NetSuiteApiClientService>();
         services.TryAddTransient<IStockTransferRequestPackingIntegration, StockTransferRequestPackingIntegration>();
-        services.TryAddTransient<IAutoStrNetSuiteIntegration, AutoStrNetSuiteIntegration>();
         services.TryAddTransient<IReturnPackingIntegration, ReturnPackingIntegration>();
         services.TryAddTransient<IVendorReturnAuthorizationPackingIntegration, VendorReturnAuthorizationPackingIntegration>();
 

@@ -6,7 +6,6 @@ using Integration.SAP;
 using Microsoft.OpenApi.Models;
 using Shared.Services;
 using System.Reflection;
-using Api.CoreWebAPI.Services;
 
 namespace Api.CoreWebAPI.Registers;
 
@@ -29,7 +28,6 @@ public static class WebApplicationService
 
         #region Application Configuration
         builder.Services.AddAppUseCases();
-        builder.Services.AddHostedService<StrAutoFulfillmentWorker>();
         #endregion Application Configuration
 
         builder.Services.AddCoreWebApiServices();

@@ -34,9 +34,6 @@ internal class CachedStockTransferRequestIntegration(
     public Task<StockTransferRequestInfoDTO?> GetStockTransferRequest(string id)
         => inner.GetStockTransferRequest(id);
 
-    public Task<IReadOnlyList<FulfillmentExemptionRuleDTO>> GetActiveFulfillmentExemptionRules()
-        => inner.GetActiveFulfillmentExemptionRules();
-
     public Task<IEnumerable<StockTransferRequestLineDTO>?> GetStockTransferRequestLines(string id)
         => inner.GetStockTransferRequestLines(id);
 

@@ -5,8 +5,6 @@ using Application.UseCases.Repositories.Domain.Transaction.InventoryCounting;
 using Database.MsSql.Core;
 using Database.MsSql.Implementation.Bases;
 using Database.MsSql.Implementation.Reads;
-using Application.UseCases.Repositories.Domain.Transaction.StockTransferRequest;
-using Database.MsSql.Implementation.Transaction.StockTransferRequest;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -36,7 +34,6 @@ public static class DatabaseMsSqlDI
         services.TryAddTransient<IUserReadRepo, UserReadRepo>();
         services.TryAddTransient<IRoleReadRepo, RoleReadRepo>();
         services.TryAddTransient<IInventoryCountingReadRepo, InventoryCountingReadRepo>();
-        services.TryAddScoped<IStrAutoFulfillmentStore, StrAutoFulfillmentStore>();
 
         return services;
     }
