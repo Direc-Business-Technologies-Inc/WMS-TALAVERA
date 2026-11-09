@@ -13,7 +13,7 @@ JOIN entity e ON t.entity = e.id
 JOIN employee emp ON emp.id = @userid
 	AND UPPER(TRIM(BUILTIN.DF(emp.custentity_dbti_wms_user_location_access))) LIKE '%' || UPPER(TRIM(BUILTIN.DF(tl.location))) || '%'
 WHERE t.recordtype = 'purchaseorder'
-	AND t.status IN ('B', 'E')
+	AND t.status IN ('B', 'D', 'E')
 	AND t.status != 'G'
 	AND (t.custbody_dbti_custom_approval_status IS NULL OR t.custbody_dbti_custom_approval_status != '20')
 	AND t.subsidiary = @subsidiaryid

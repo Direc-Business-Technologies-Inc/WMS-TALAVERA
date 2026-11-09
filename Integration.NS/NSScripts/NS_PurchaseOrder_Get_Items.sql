@@ -66,5 +66,5 @@ FROM item i
     JOIN unitstypeuom uom ON tl.units = uom.internalid
 WHERE
 	t.recordtype = 'purchaseorder'
-	AND t.status IN ('B', 'E')			
+	AND t.status IN ('B', 'D', 'E')			
 	AND t.tranid = @tranid
