@@ -29,7 +29,8 @@ else
             <ChildContent>
                 <RadzenDropDown Name="FromSubsidiary"
                                 @bind-Value="Model.FromSubsidiary"
-                                Data="@Subsidiaries"
+                                Data="@Subsidiaries.Where(s => s.NetsuiteSubsidiaryInternalId == UserSubsidiaryId)"
+                                Disabled="true"
                                 TextProperty="SubsidiaryName"
                                 Style="width:100%" />
             </ChildContent>
