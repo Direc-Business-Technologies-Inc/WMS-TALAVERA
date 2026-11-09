@@ -13,11 +13,21 @@
     private DateTime? DraftStartDate;
     private DateTime? DraftEndDate;
     private bool IsValid => DraftStartDate.HasValue && DraftEndDate.HasValue && DraftStartDate.Value.Date <= DraftEndDate.Value.Date;
+    private DateTime? PreviousStartDate;
+    private DateTime? PreviousEndDate;
+    private bool Initialized;
 
     protected override void OnParametersSet()
     {
-        DraftStartDate = StartDate;
-        DraftEndDate = EndDate;
+        // Unrelated parent renders (e.g. badge refresh) must not discard edits.
+        if (!Initialized || PreviousStartDate != StartDate || PreviousEndDate != EndDate)
+        {
+            DraftStartDate = StartDate;
+            DraftEndDate = EndDate;
+            PreviousStartDate = StartDate;
+            PreviousEndDate = EndDate;
+            Initialized = true;
+        }
     }
 
     private void StartChanged(DateTime? value) => DraftStartDate = value;

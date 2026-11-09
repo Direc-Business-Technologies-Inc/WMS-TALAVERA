@@ -21,12 +21,24 @@ partial class TripTicketDataGrid
     DataGridSettings TTDataGridSettings { get; set; } = new();
     DateTime? DateRangeStart;
     DateTime? DateRangeEnd;
+    bool dateRangeApplied;
     PrintStatus SelectedPrintStatus = PrintStatus.ForPrinting;
     PrintStatusView PrintStatusView = default!;
     bool loadCountsAfterGrid;
     DataGridIntent CountBaseIntent = new();
 
     string ActionGetTripTickets { get; } = EnumHelper.GetEnumDescription(AppActions.GetAllTripTickets);
+
+    Task OnGridDataLoaded()
+    {
+        if (!dateRangeApplied)
+        {
+            var hasDates = PrintStatusFilter.TryGetDateRange(TTDataGrid.DGResult.Items, row => row.TripDate, out var range);
+            DateRangeStart = hasDates ? range.Start : null;
+            DateRangeEnd = hasDates ? range.End : null;
+        }
+        return Task.CompletedTask;
+    }
 
     Task<int> PrintCountAsync(PrintStatus status) => CountAsync(status);
 
@@ -82,6 +94,7 @@ partial class TripTicketDataGrid
 
     async Task DateRangeChanged((DateTime Start, DateTime End) range)
     {
+        dateRangeApplied = true;
         DateRangeStart = range.Start;
         DateRangeEnd = range.End;
         await RefreshPrintStatusAsync();
@@ -134,7 +147,8 @@ partial class TripTicketDataGrid
                 });
             }
 
-            PrintStatusFilter.ApplyDateRange(intent, DateRangeStart, DateRangeEnd, nameof(TripTicketDataGridVM.TripDate));
+            if (dateRangeApplied)
+                PrintStatusFilter.ApplyDateRange(intent, DateRangeStart, DateRangeEnd, nameof(TripTicketDataGridVM.TripDate));
             CountBaseIntent = CloneIntent(intent);
             TripTicketPrintStatusFilter.Apply(intent, SelectedPrintStatus);
             var result = await TripTicketHandler.GetTTDataGridAsync(intent, CurrentUserService.NsSubsidiaryId);

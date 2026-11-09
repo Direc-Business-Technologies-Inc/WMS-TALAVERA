@@ -151,9 +151,91 @@ requires its actual NetSuite error; these errors are surfaced, not suppressed.
 ### Dates remain operator-controlled
 
 There is intentionally **no default date restriction** on initial load. This is
-not a missing feature to restore. The existing transaction-eligibility rules
-still apply; date filtering is added only when the operator selects and applies
-a range. No date initialization was added by these changes.
+separate from the date-picker controls, which are restored on all three Packing
+tabs: Stock Transfer Request, Returns, and Returns to Supplier.
+
+- **Source-order date** filters the source document's `t.trandate`, not the item
+  fulfillment date or last-modified timestamp.
+- On each successful load before the operator applies a range, the picker shows
+  the earliest/latest non-null source-order dates on the **visible page**. Paging,
+  status changes and Sync update these display values from the loaded rows. This
+  is not an all-pages range and is not an automatic filter. Empty pages or pages
+  with only null dates show empty pickers; dates are never fabricated as today.
+- Automatic display values use the already-loaded records and cause no extra
+  backend query. Separate applied-range state prevents those dates from silently
+  restricting the next page or Sync request.
+- The picker contains only the two date inputs and **Apply**, matching the other
+  transaction pages. Today/Clear buttons, the source-date label, and the helper
+  paragraph have been removed at the operators' request.
+- Edit the dates and select **Apply** to filter. The start date is inclusive;
+  the end date includes the entire day (`Date >= start.Date AND Date < end.Date +
+  1 day`). Missing or reversed bounds disable Apply. All three Packing queries
+  explicitly map `Date` to native `t.trandate`, retaining formatted SELECT values
+  only for response serialization.
+- Apply resets pagination to page one with one fresh row read. Once applied, the
+  selected range remains visible across paging, status changes, Sync, printing,
+  and even empty results. It is no longer overwritten by page-derived dates.
+  Unrelated parent renders do not discard draft picker edits. Reopening the tab
+  in a new component instance starts without an applied date range.
+- Packing badges remain **global eligible item-fulfillment counts** for the
+  source/subsidiary scope. They do not follow the source-order date picker or
+  arbitrary grid column filters. Grid pagination totals count **source orders**;
+  these totals may differ. Applying dates does not requery badges.
+
+Displaying or editing dates adds no NetSuite request to initial loading. The
+cost of an applied date-filtered query depends on actual backend execution; no
+latency improvement is claimed without measurement.
+
+### Date display extended to the other transaction pickers
+
+The same page-derived display behavior now covers every existing transaction
+`GridDateRange` consumer, in addition to Packing:
+
+| Transaction | Date represented by the picker |
+| --- | --- |
+| Receiving → Purchase Orders | Source purchase-order date (`Date`), not delivery/receipt date |
+| Receiving → Stock Transfer Request | Source transfer-order date (`Date`) |
+| Receiving → Returns | Source return date (`Date`) |
+| Inventory → Stock Transfer Request → Transfer Orders, Intercompany Transfer Orders, Returns | Transaction date (`Date`); the tabs share `STRDataGrid` |
+| Returns to Supplier | Supplier-return transaction date (`Date`) |
+| Trip Tickets | Trip date (`TripDate`), not source-order date |
+
+Before Apply, the two picker values reflect the earliest/latest available dates
+on the current successfully loaded page. Empty pages and pages with no non-null
+dates show empty pickers. Loading another page or refreshing may change those
+display values; no all-pages date query is performed.
+
+Display values are explicitly separated from applied filtering. Until Apply is
+selected, they add no restrictions to row reads **or badge counts**. After Apply,
+the selected inclusive range is preserved across paging, status changes, refreshes,
+and empty results. Existing badge scope rules remain: Receiving counts filter
+source dates through `tcf.trandate`, Inventory STR/supplier-return counts follow
+their transaction-date scope, and Trip Ticket counts follow the captured trip-date
+scope. The UI remains the same two date inputs and Apply, without added labels or
+Today/Clear buttons. A new component instance starts without an applied range.
+
+### Inventory STR count-recovery fixes (2026-11-09)
+
+The reported count-failure screenshot is from Inventory → Stock Transfer Request,
+which uses the legacy two-count path rather than Packing's aggregate path.
+
+- Inventory STR count reads now explicitly request `GridReadPolicy.Fresh`, so
+  **Retry counts** cannot clear the stale marker merely by reusing completed
+  cached totals. The two reads retain their existing status/date restrictions.
+- Sync uses the shared grid's fresh-read API and refreshes badges concurrently.
+  Its normal failure feedback remains inline.
+- Failed row loads propagate the unsuccessful action to the shared grid. A
+  same-scope failure retains previously successful rows with stale feedback;
+  it is no longer converted into a successful empty result.
+- Feature filters are prepared before the shared grid captures the request scope.
+  A failed change of print status or dates therefore clears previous-scope rows
+  instead of retaining them under the newly selected filter.
+- Post-print callbacks propagate refresh failures so the print control can show
+  **Refresh needed** after a successful counter update.
+
+These fixes improve recovery semantics; they do not diagnose the original remote
+failure. Correlate the count timestamp, grid/status timing logs, and NetSuite
+transport exception/status to identify timeouts, throttling, or query failures.
 
 ## Relevant implementation files
 
@@ -191,6 +273,45 @@ exercise the real print-count client against a local HTTP stub, including RTS
 cache invalidation and successful Trip Ticket PATCH responses with no body.
 
 ### Results from implementation verification
+
+#### Transaction-wide page-derived date display — 2026-11-09
+
+- Added six parameterized component scenarios covering Receiving PO/STR/Returns,
+  Inventory STR, standalone Returns to Supplier, and Trip Tickets.
+- Coverage verifies display-only initial min/max values, unrestricted initial
+  row/badge requests, date updates after paging, empty-page handling, no fetch
+  while editing, Apply restrictions on both rows and badges, first-page reset,
+  and retention of an applied range after paging and empty refresh results.
+- Focused `PrintWorkflowTests` and `ApprovedPrintStatusFilterTests`: **66 passed,
+  0 failed**. The web project incremental build passed with zero warnings/errors;
+  `git diff --check` passed. No live NetSuite or deployed-browser check was run.
+
+#### Page-derived picker dates and review corrections — 2026-11-09
+
+- Focused `PrintWorkflowTests` and `ApprovedPrintStatusFilterTests`: **60 passed,
+  0 failed**. Updated coverage verifies page-derived min/max dates without date
+  filters or extra initial reads; paging; empty/null-date pages; Apply-only UI;
+  explicit inclusive ranges retained after status/Sync/empty results; and
+  Inventory STR clearing old rows on failed changes of print status/date scope.
+- Focused `SuiteQLDateFilterTests` and `PrintStatusCountsTests`: **16 passed,
+  0 failed**. Captured SQL verifies native `t.trandate` comparisons for STR,
+  Returns, and Returns to Supplier through their real integration list builders.
+- Both focused test commands compiled their projects successfully.
+- `git diff --check`: passed. No live NetSuite or deployed-browser check was run.
+
+#### Initial picker restoration (superseded UI) and Inventory STR recovery — 2026-11-09
+
+- `dotnet build "Web.BlazorServer/Web.BlazorServer.csproj" --no-restore -v quiet`:
+  passed, zero warnings and errors in this incremental build.
+- Focused `PrintWorkflowTests` and `ApprovedPrintStatusFilterTests`: **60 passed,
+  0 failed**. Coverage includes all three Packing sources with/without saved
+  paging; Today without a fetch; Apply/Clear; full-day bounds; date retention
+  across status/Sync; draft retention; and Inventory STR failure/retry freshness.
+- Root `dotnet build --no-restore -v quiet` exceeded the 240-second timeout
+  while emitting MAUI warnings. The web build and focused test build succeeded.
+- `git diff --check`: passed. No live NetSuite or deployed-browser check was run.
+
+#### Earlier aggregate/print-workflow implementation
 
 - Web project build: passed, zero errors; existing compiler/analyzer warnings
   remain.

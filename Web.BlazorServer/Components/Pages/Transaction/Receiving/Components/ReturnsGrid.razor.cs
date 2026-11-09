@@ -28,12 +28,19 @@ partial class ReturnsGrid
     PrintStatus SelectedPrintStatus = PrintStatus.ForPrinting;
     DateTime? DateRangeStart;
     DateTime? DateRangeEnd;
+    bool dateRangeApplied;
     PrintStatusView PrintStatusView = default!;
     bool initialGridLoadSucceeded;
     bool initialCountRefreshRequested;
 
     Task OnGridDataLoaded()
     {
+        if (!dateRangeApplied)
+        {
+            var hasDates = PrintStatusFilter.TryGetDateRange(DataGrid.DGResult.Items, row => row.Date, out var range);
+            DateRangeStart = hasDates ? range.Start : null;
+            DateRangeEnd = hasDates ? range.End : null;
+        }
         if (!initialGridLoadSucceeded || initialCountRefreshRequested) return Task.CompletedTask;
         initialCountRefreshRequested = true;
         _ = InvokeAsync(async () => { await Task.Yield(); await PrintStatusView.RefreshCountsAsync(); });
@@ -44,14 +51,15 @@ partial class ReturnsGrid
     {
         var intent = new DataGridIntent { Skip = 0, Take = 1, ReadPolicy = GridReadPolicy.Fresh, CancellationToken = ct };
         ReceivingReceiptPrintStatusFilter.ApplyToReceipts(intent, PrintStatus.All, "RETURNS");
-        if (DateRangeStart.HasValue) intent.Filters.Add(DataGridFilterUtilities.GreaterThanOrEqual("tcf.trandate", DateRangeStart.Value.Date));
-        if (DateRangeEnd.HasValue) intent.Filters.Add(DataGridFilterUtilities.LessThan("tcf.trandate", DateRangeEnd.Value.Date.AddDays(1)));
+        if (dateRangeApplied)
+            PrintStatusFilter.ApplyDateRange(intent, DateRangeStart, DateRangeEnd, "tcf.trandate");
         ApplyStatusCountFilter(intent);
         return await ReceivingHandler.GetReceivingPrintStatusCounts(intent, ct);
     }
 
     async Task DateRangeChanged((DateTime Start, DateTime End) range)
     {
+        dateRangeApplied = true;
         DateRangeStart = range.Start;
         DateRangeEnd = range.End;
         if (DataGrid.DataGrid.CurrentPage == 0)
@@ -101,7 +109,8 @@ partial class ReturnsGrid
     void PrepareIntent(DataGridIntent intent)
     {
         ReceivingReceiptPrintStatusFilter.ApplyToTransactions(intent, SelectedPrintStatus);
-        PrintStatusFilter.ApplyDateRange(intent, DateRangeStart, DateRangeEnd);
+        if (dateRangeApplied)
+            PrintStatusFilter.ApplyDateRange(intent, DateRangeStart, DateRangeEnd);
     }
 
     async Task<DataGridResultVM<ReturnsDataGridVM>> LoadDataAsync(DataGridIntent intent)

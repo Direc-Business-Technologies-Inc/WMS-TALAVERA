@@ -40,12 +40,19 @@ partial class STRDataGrid
     PrintStatus SelectedPrintStatus = PrintStatus.ForPrinting;
     DateTime? DateRangeStart;
     DateTime? DateRangeEnd;
+    bool dateRangeApplied;
     PrintStatusView PrintStatusView = default!;
     bool InitialGridLoadSucceeded;
     bool InitialCountsRequested;
 
     Task OnGridDataLoaded()
     {
+        if (!dateRangeApplied)
+        {
+            var hasDates = PrintStatusFilter.TryGetDateRange(DataGrid.DGResult.Items, row => row.Date, out var range);
+            DateRangeStart = hasDates ? range.Start : null;
+            DateRangeEnd = hasDates ? range.End : null;
+        }
         if (!InitialGridLoadSucceeded || InitialCountsRequested) return Task.CompletedTask;
 
         InitialCountsRequested = true;
@@ -61,7 +68,9 @@ partial class STRDataGrid
 
     Task<int> PrintCountAsync(PrintStatus status) => PrintStatusFilter.CountAsync<StockTransferRequestDataGridVM>(status, async intent =>
     {
-        PrintStatusFilter.ApplyDateRange(intent, DateRangeStart, DateRangeEnd);
+        intent.ReadPolicy = GridReadPolicy.Fresh;
+        if (dateRangeApplied)
+            PrintStatusFilter.ApplyDateRange(intent, DateRangeStart, DateRangeEnd);
         if (StatusFilter is not null)
             intent.Filters.Add(DataGridFilterUtilities.Equal("StatusId", StatusFilter.Id));
         var started = Stopwatch.GetTimestamp();
@@ -75,6 +84,7 @@ partial class STRDataGrid
 
     async Task DateRangeChanged((DateTime Start, DateTime End) range)
     {
+        dateRangeApplied = true;
         DateRangeStart = range.Start;
         DateRangeEnd = range.End;
         if (DataGrid.DataGrid.CurrentPage == 0)
@@ -95,9 +105,10 @@ partial class STRDataGrid
 
     async Task RefreshPrintStatusAsync()
     {
-        await DataGrid.DataGrid.Reload();
-        await PrintStatusView.RefreshCountsAsync();
+        await Task.WhenAll(DataGrid.RefreshOrThrowAsync(), PrintStatusView.RefreshCountsOrThrowAsync());
     }
+
+    Task SyncAsync() => Task.WhenAll(DataGrid.ReloadDataAsync(), PrintStatusView.RefreshCountsAsync());
 
     [Parameter] public string ActionName { get; set; } = "str_datagrid";
     readonly string ActionGetTranferOrderStatuses = "Get Transfer Order Status";
@@ -128,10 +139,17 @@ partial class STRDataGrid
         await PrintStatusView.RefreshCountsAsync();
     }
 
-    async Task<DataGridResultVM<StockTransferRequestDataGridVM>> LoadDataAsync(DataGridIntent intent)
+    void PrepareIntent(DataGridIntent intent)
     {
         PrintStatusFilter.Apply(intent, SelectedPrintStatus);
-        PrintStatusFilter.ApplyDateRange(intent, DateRangeStart, DateRangeEnd);
+        if (dateRangeApplied)
+            PrintStatusFilter.ApplyDateRange(intent, DateRangeStart, DateRangeEnd);
+        if (StatusFilter is not null)
+            intent.Filters.Add(DataGridFilterUtilities.Equal("StatusId", StatusFilter.Id));
+    }
+
+    async Task<DataGridResultVM<StockTransferRequestDataGridVM>> LoadDataAsync(DataGridIntent intent)
+    {
         var action = await AppActionFactory.RunAsync(async () =>
         {
             AppBusyService.SetBusy(ActionName, true);
@@ -150,13 +168,6 @@ partial class STRDataGrid
                     Direction = SortDirectionEnum.Descending
                 });
             }
-            if (StatusFilter is not null)
-            {
-                intent.Filters.Add(
-                    DataGridFilterUtilities.Equal("StatusId", StatusFilter.Id)
-                );
-            }
-
             var started = Stopwatch.GetTimestamp();
             try { return await DataGetter(intent); }
             finally
@@ -167,6 +178,7 @@ partial class STRDataGrid
         }, AppActionOptionPresets.Loading(ActionName));
 
         AppBusyService.SetBusy(ActionName, false);
+        action.ThrowIfUnsuccessful();
         if (action.IsSuccess) InitialGridLoadSucceeded = true;
         return DataGridResultVM<StockTransferRequestDataGridVM>.New(action.Result.data ?? [], action.Result.count);
     }

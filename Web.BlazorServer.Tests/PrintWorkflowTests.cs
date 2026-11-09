@@ -21,6 +21,10 @@ using Web.BlazorServer.Services.Repositories;
 using Web.BlazorServer.ViewModels.Transaction.Packing;
 using Web.BlazorServer.ViewModels.Transaction.Receiving;
 using Xunit;
+using InventorySTRGrid = Web.BlazorServer.Components.Pages.Transaction.StockTransferRequest.Components.STRDataGrid;
+using InventorySTRRow = Web.BlazorServer.ViewModels.Transaction.StockTransferRequest.StockTransferRequestDataGridVM;
+using SupplierReturnRow = Web.BlazorServer.ViewModels.Transaction.SupplierReturn.SupplierReturnDataGridVM;
+using TripTicketRow = Web.BlazorServer.ViewModels.Transaction.TripTicket.TripTicketDataGridVM;
 
 namespace Web.BlazorServer.Tests;
 
@@ -204,6 +208,55 @@ public class PrintWorkflowTests : TestContext
         Assert.Same(fresh, Assert.Single(selected));
     }
 
+    [Fact]
+    public async Task Inventory_STR_sync_preserves_rows_on_failure_and_count_retry_requests_fresh_totals()
+    {
+        Services.AddSingleton(Substitute.For<IGridSettingsService>());
+        Services.AddSingleton(Substitute.For<Web.BlazorServer.Handlers.Repositories.Transaction.StockTransferRequest.IStockTransferRequestHandler>());
+        Services.AddSingleton<IAppActionFactory>(new AppActionFactory(Substitute.For<IToastService>(), Substitute.For<IBusyService>()));
+        var fail = false;
+        var countIntents = new List<DataGridIntent>();
+        Task<(IEnumerable<InventorySTRRow>, int)> Rows(DataGridIntent intent)
+        {
+            if (intent.Take == 1) countIntents.Add(intent.Snapshot());
+            return fail
+                ? Task.FromException<(IEnumerable<InventorySTRRow>, int)>(new InvalidOperationException("backend unavailable"))
+                : Task.FromResult<(IEnumerable<InventorySTRRow>, int)>(([new() { Id = 42, ReferenceNumber = "STR-42" }], 8));
+        }
+        var cut = RenderComponent<InventorySTRGrid>(p => p.Add(x => x.DataGetter, Rows));
+        cut.WaitForAssertion(() => Assert.Equal(2, countIntents.Count));
+        var grid = cut.FindComponent<AppDataGrid<InventorySTRRow>>().Instance;
+        fail = true;
+        await cut.FindAll("button").Single(button => button.TextContent.Contains("sync")).ClickAsync(new());
+        Assert.Equal(GridRefreshOutcome.Failed, grid.LastRefreshOutcome);
+        Assert.Equal("STR-42", Assert.Single(grid.DGResult.Items).ReferenceNumber);
+        var badges = cut.FindComponent<PrintStatusView>();
+        Assert.True(badges.Instance.CountsStale);
+        fail = false;
+        await badges.FindAll("button").Single(button => button.TextContent == "Retry counts").ClickAsync(new());
+        Assert.False(badges.Instance.CountsStale);
+        Assert.Equal(6, countIntents.Count);
+        Assert.All(countIntents, intent => Assert.Equal(GridReadPolicy.Fresh, intent.ReadPolicy));
+        await cut.FindAll("button").Single(button => button.TextContent.Contains("sync")).ClickAsync(new());
+        Assert.Equal(GridRefreshOutcome.Succeeded, grid.LastRefreshOutcome);
+        Assert.Null(grid.RefreshError);
+
+        // Changing a feature filter is a different scope: previous rows must
+        // not remain under the newly selected status/date when that read fails.
+        fail = true;
+        await cut.Find(".print-status-tab.printed").ClickAsync(new());
+        Assert.Empty(grid.DGResult.Items);
+        Assert.Contains("selected scope", grid.RefreshError);
+        fail = false;
+        await cut.FindAll("button").Single(button => button.TextContent.Contains("sync")).ClickAsync(new());
+        Assert.Single(grid.DGResult.Items);
+        fail = true;
+        var picker = cut.FindComponent<GridDateRange>();
+        await picker.InvokeAsync(() => picker.Instance.OnApply.InvokeAsync((new DateTime(2026, 10, 1), new DateTime(2026, 10, 2))));
+        Assert.Empty(grid.DGResult.Items);
+        Assert.Contains("selected scope", grid.RefreshError);
+    }
+
     [Theory]
     [InlineData("STR", true)]
     [InlineData("RETURNS", true)]
@@ -219,23 +272,27 @@ public class PrintWorkflowTests : TestContext
         var intents = new List<DataGridIntent>();
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var emptyRows = false;
+        var nullDates = false;
         async Task Record(DataGridIntent intent)
         {
             intents.Add(intent.Snapshot());
             started.TrySetResult();
             await release.Task;
         }
-        async Task<(IEnumerable<T>, int)> Rows<T>(DataGridIntent intent) where T : new()
+        async Task<(IEnumerable<T>, int)> Rows<T>(DataGridIntent intent, Func<DateTime?, T> create)
         {
             await Record(intent);
-            return (new[] { new T() }, 100);
+            if (emptyRows) return (Array.Empty<T>(), 0);
+            var first = new DateTime(2026, 9, 1).AddDays(intent.Skip);
+            return (new[] { create(nullDates ? null : first.AddDays(2)), create(nullDates ? null : first), create(null) }, 100);
         }
         str.GetStockTransferRequestsList(Arg.Any<DataGridIntent>(), Arg.Any<int>()).Returns(call =>
-            Rows<Web.BlazorServer.ViewModels.Transaction.Packing.STR.StockTransferRequestPackingDataGridVM>(call.Arg<DataGridIntent>()));
+            Rows(call.Arg<DataGridIntent>(), date => new Web.BlazorServer.ViewModels.Transaction.Packing.STR.StockTransferRequestPackingDataGridVM { Date = date }));
         returns.GetReturnsList(Arg.Any<DataGridIntent>(), Arg.Any<int>()).Returns(call =>
-            Rows<Web.BlazorServer.ViewModels.Transaction.Packing.Returns.ReturnsPackingDataGridVM>(call.Arg<DataGridIntent>()));
+            Rows(call.Arg<DataGridIntent>(), date => new Web.BlazorServer.ViewModels.Transaction.Packing.Returns.ReturnsPackingDataGridVM { Date = date }));
         vra.GetVendorReturnAuthorizationsList(Arg.Any<DataGridIntent>(), Arg.Any<int>()).Returns(call =>
-            Rows<Web.BlazorServer.ViewModels.Transaction.Packing.VendorReturnAuthorization.VendorReturnAuthorizationPackingDataGridVM>(call.Arg<DataGridIntent>()));
+            Rows(call.Arg<DataGridIntent>(), date => new Web.BlazorServer.ViewModels.Transaction.Packing.VendorReturnAuthorization.VendorReturnAuthorizationPackingDataGridVM { Date = date }));
         var counts = 0;
         returns.GetPackingPrintStatusCounts(Arg.Any<DataGridIntent>(), Arg.Any<CancellationToken>())
             .Returns(_ => { counts++; return Task.FromResult(new PrintStatusCountsDTO { ForPrinting = 4, Printed = 2 }); });
@@ -287,6 +344,70 @@ public class PrintWorkflowTests : TestContext
         Assert.Equal(GridReadPolicy.Fresh, intents.Last().ReadPolicy);
         Assert.Equal(2, counts);
         Assert.Equal(savedSettings ? 2 : 0, Page());
+        Assert.DoesNotContain(intent.Filters, filter => filter.Property == "Date");
+
+        // Display dates come from this page, but are not applied to reads.
+        var picker = cut.FindComponent<GridDateRange>();
+        var firstDate = new DateTime(2026, 9, 1).AddDays(intent.Skip);
+        Assert.Equal(firstDate, picker.Instance.StartDate);
+        Assert.Equal(firstDate.AddDays(2), picker.Instance.EndDate);
+        Assert.Single(picker.FindAll("button"), button => button.TextContent == "Apply");
+        Assert.DoesNotContain(picker.FindAll("button"), button => button.TextContent is "Today" or "Clear");
+        Assert.DoesNotContain("Source-order date", cut.Markup);
+        Assert.DoesNotContain("Badges count", cut.Markup);
+        await cut.InvokeAsync(async () =>
+        {
+            switch (source)
+            {
+                case "STR": await cut.FindComponent<AppDataGrid<Web.BlazorServer.ViewModels.Transaction.Packing.STR.StockTransferRequestPackingDataGridVM>>().Instance.DataGrid!.GoToPage(1); break;
+                case "RETURNS": await cut.FindComponent<AppDataGrid<Web.BlazorServer.ViewModels.Transaction.Packing.Returns.ReturnsPackingDataGridVM>>().Instance.DataGrid!.GoToPage(1); break;
+                default: await cut.FindComponent<AppDataGrid<Web.BlazorServer.ViewModels.Transaction.Packing.VendorReturnAuthorization.VendorReturnAuthorizationPackingDataGridVM>>().Instance.DataGrid!.GoToPage(1); break;
+            }
+        });
+        Assert.Equal(3, intents.Count);
+        Assert.DoesNotContain(intents.Last().Filters, filter => filter.Property == "Date");
+        Assert.Equal(new DateTime(2026, 9, 1).AddDays(intents.Last().Skip), picker.Instance.StartDate);
+        Assert.Equal(2, counts);
+
+        emptyRows = true;
+        await cut.FindAll("button").Single(button => button.TextContent.Contains("sync")).ClickAsync(new());
+        Assert.Null(picker.Instance.StartDate);
+        Assert.Null(picker.Instance.EndDate);
+        emptyRows = false;
+        nullDates = true;
+        await cut.FindAll("button").Single(button => button.TextContent.Contains("sync")).ClickAsync(new());
+        Assert.Null(picker.Instance.StartDate);
+        Assert.Null(picker.Instance.EndDate);
+        nullDates = false;
+        await cut.FindAll("button").Single(button => button.TextContent.Contains("sync")).ClickAsync(new());
+
+        var selectedStart = new DateTime(2026, 10, 1);
+        var selectedEnd = new DateTime(2026, 10, 5);
+        var beforeApply = intents.Count;
+        var beforeApplyCounts = counts;
+        await picker.InvokeAsync(() => picker.FindComponents<Radzen.Blazor.RadzenDatePicker<DateTime?>>()[0].Instance.Change.InvokeAsync(selectedStart));
+        await picker.InvokeAsync(() => picker.FindComponents<Radzen.Blazor.RadzenDatePicker<DateTime?>>()[1].Instance.Change.InvokeAsync(selectedEnd));
+        Assert.Equal(beforeApply, intents.Count);
+        await picker.FindAll("button").Single(button => button.TextContent == "Apply").ClickAsync(new());
+        Assert.Equal(beforeApply + 1, intents.Count);
+        Assert.Equal(0, Page());
+        Assert.Equal(beforeApplyCounts, counts);
+        var start = Assert.IsType<DateTime>(Assert.Single(intents.Last().Filters,
+            filter => filter.Property == "Date" && filter.ComparisonOperator == ComparisonOperatorEnum.GreaterThanOrEqual).Value);
+        var end = Assert.IsType<DateTime>(Assert.Single(intents.Last().Filters,
+            filter => filter.Property == "Date" && filter.ComparisonOperator == ComparisonOperatorEnum.LessThan).Value);
+        Assert.Equal(selectedStart, start);
+        Assert.Equal(selectedEnd.AddDays(1), end);
+
+        await cut.Find(".print-status-tab.printed").ClickAsync(new());
+        await cut.FindAll("button").Single(button => button.TextContent.Contains("sync")).ClickAsync(new());
+        Assert.Equal(2, intents.Last().Filters.Count(filter => filter.Property == "Date"));
+        Assert.Equal(beforeApplyCounts + 1, counts);
+        // An empty filtered result must keep the operator's range visible.
+        emptyRows = true;
+        await cut.FindAll("button").Single(button => button.TextContent.Contains("sync")).ClickAsync(new());
+        Assert.Equal(selectedStart, picker.Instance.StartDate);
+        Assert.Equal(selectedEnd, picker.Instance.EndDate);
     }
 
     [Theory]
@@ -365,6 +486,135 @@ public class PrintWorkflowTests : TestContext
         Assert.Equal(0, intents.Last().Skip);
         Assert.Equal(0, Page());
         Assert.Equal(2, counts);
+    }
+
+    [Theory]
+    [InlineData("PO")]
+    [InlineData("RECEIVING_STR")]
+    [InlineData("RETURNS")]
+    [InlineData("INVENTORY_STR")]
+    [InlineData("RTS")]
+    [InlineData("TT")]
+    public async Task Transaction_pickers_display_page_dates_without_filtering_until_apply(string source)
+    {
+        var receiving = Substitute.For<IReceivingHandler>();
+        var supplier = Substitute.For<Web.BlazorServer.Handlers.Repositories.Transaction.SupplierReturn.ISupplierReturnHandler>();
+        var trip = Substitute.For<Web.BlazorServer.Handlers.Repositories.Transaction.TripTicket.ITripTicketHandler>();
+        Services.AddSingleton(receiving);
+        Services.AddSingleton(supplier);
+        Services.AddSingleton(trip);
+        Services.AddSingleton<IHttpContextAccessor>(new HttpContextAccessor
+        {
+            HttpContext = new DefaultHttpContext
+            {
+                User = new System.Security.Claims.ClaimsPrincipal(new System.Security.Claims.ClaimsIdentity(
+                    new[] { new System.Security.Claims.Claim("Permissions", "[]") }, "test"))
+            }
+        });
+        Services.AddSingleton(Substitute.For<Web.BlazorServer.Handlers.Repositories.Transaction.StockTransferRequest.IStockTransferRequestHandler>());
+        Services.AddScoped<IGridSettingsService, GridSettingsService>();
+        Services.AddSingleton<IAppActionFactory>(new AppActionFactory(Substitute.For<IToastService>(), Substitute.For<IBusyService>()));
+        var rowIntents = new List<DataGridIntent>();
+        var countIntents = new List<DataGridIntent>();
+        var pageStart = new DateTime(2026, 10, 3);
+        var empty = false;
+        Task<(IEnumerable<T>, int)> Rows<T>(DataGridIntent intent, Func<DateTime, T> create)
+        {
+            if (intent.Take == 1)
+            {
+                countIntents.Add(intent.Snapshot());
+                return Task.FromResult<(IEnumerable<T>, int)>((Array.Empty<T>(), 100));
+            }
+            rowIntents.Add(intent.Snapshot());
+            return Task.FromResult<(IEnumerable<T>, int)>(empty
+                ? (Array.Empty<T>(), 0)
+                : (new[] { create(pageStart.AddDays(2)), create(pageStart) }, 100));
+        }
+        receiving.GetPurchaseOrderDataGridAsync(Arg.Any<DataGridIntent>()).Returns(call => Rows(call.Arg<DataGridIntent>(), date => new PurchaseOrderDataGridVM { Date = date }));
+        receiving.GetTransferOrderDataGridAsync(Arg.Any<DataGridIntent>()).Returns(call => Rows(call.Arg<DataGridIntent>(), date => new TransferOrderDataGridVM { Date = date }));
+        receiving.GetReturnsDataGridAsync(Arg.Any<DataGridIntent>()).Returns(call => Rows(call.Arg<DataGridIntent>(), date => new ReturnsDataGridVM { Date = date }));
+        receiving.GetReceivingPrintStatusCounts(Arg.Any<DataGridIntent>(), Arg.Any<CancellationToken>()).Returns(call =>
+        {
+            countIntents.Add(call.Arg<DataGridIntent>().Snapshot());
+            return Task.FromResult(new PrintStatusCountsDTO { ForPrinting = 8, Printed = 2 });
+        });
+        supplier.GetReturnsDataGridAsync(Arg.Any<DataGridIntent>()).Returns(call => Rows(call.Arg<DataGridIntent>(), date => new SupplierReturnRow { Date = date }));
+        supplier.GetReturnStatuses(Arg.Any<DataGridIntent>()).Returns(Task.FromResult<(IEnumerable<Web.BlazorServer.ViewModels.Transaction.SupplierReturn.ReturnStatusVM>, int)>(([], 0)));
+        trip.GetTTDataGridAsync(Arg.Any<DataGridIntent>(), Arg.Any<int>()).Returns(call => Rows(call.Arg<DataGridIntent>(), date => new TripTicketRow { TripDate = date }));
+        IRenderedFragment cut = source switch
+        {
+            "PO" => RenderComponent<PurchaseOrderGrid>(),
+            "RECEIVING_STR" => RenderComponent<TransferOrderGrid>(),
+            "RETURNS" => RenderComponent<ReturnsGrid>(),
+            "INVENTORY_STR" => RenderComponent<InventorySTRGrid>(p => p.Add(x => x.DataGetter, intent => Rows(intent, date => new InventorySTRRow { Date = date }))),
+            "RTS" => RenderComponent<Web.BlazorServer.Components.Pages.Transaction.SupplierReturn.Components.SupplierReturnsDataGrid>(),
+            _ => RenderComponent<Web.BlazorServer.Components.Pages.Transaction.TripTicket.Component.TripTicketDataGrid>()
+        };
+        var picker = cut.FindComponent<GridDateRange>();
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Equal(pageStart, picker.Instance.StartDate);
+            Assert.Equal(pageStart.AddDays(2), picker.Instance.EndDate);
+            Assert.NotEmpty(countIntents);
+        });
+        bool IsDate(AppFilterDescriptor filter) => filter.Property is "Date" or "TripDate" or "tcf.trandate";
+        Assert.All(rowIntents.Concat(countIntents), intent => Assert.DoesNotContain(intent.Filters, IsDate));
+
+        Task Navigate<T>() where T : class => cut.InvokeAsync(() => cut.FindComponent<AppDataGrid<T>>().Instance.DataGrid!.GoToPage(1));
+        Task Page() => source switch
+        {
+            "PO" => Navigate<PurchaseOrderDataGridVM>(),
+            "RECEIVING_STR" => Navigate<TransferOrderDataGridVM>(),
+            "RETURNS" => Navigate<ReturnsDataGridVM>(),
+            "INVENTORY_STR" => Navigate<InventorySTRRow>(),
+            "RTS" => Navigate<SupplierReturnRow>(),
+            _ => Navigate<TripTicketRow>()
+        };
+        Task Reload<T>() where T : class => cut.InvokeAsync(() => cut.FindComponent<AppDataGrid<T>>().Instance.ReloadDataAsync());
+        Task Refresh() => source switch
+        {
+            "PO" => Reload<PurchaseOrderDataGridVM>(),
+            "RECEIVING_STR" => Reload<TransferOrderDataGridVM>(),
+            "RETURNS" => Reload<ReturnsDataGridVM>(),
+            "INVENTORY_STR" => Reload<InventorySTRRow>(),
+            "RTS" => Reload<SupplierReturnRow>(),
+            _ => Reload<TripTicketRow>()
+        };
+        var beforePage = rowIntents.Count;
+        pageStart = pageStart.AddMonths(-1);
+        await Page();
+        Assert.True(rowIntents.Count > beforePage);
+        Assert.Equal(pageStart, picker.Instance.StartDate);
+        Assert.Equal(pageStart.AddDays(2), picker.Instance.EndDate);
+        Assert.DoesNotContain(rowIntents.Last().Filters, IsDate);
+        empty = true;
+        await Refresh();
+        Assert.Null(picker.Instance.StartDate);
+        Assert.Null(picker.Instance.EndDate);
+        empty = false;
+        await Refresh();
+
+        var start = new DateTime(2026, 8, 1);
+        var end = new DateTime(2026, 8, 31);
+        var beforeEdit = rowIntents.Count;
+        await picker.InvokeAsync(() => picker.FindComponents<Radzen.Blazor.RadzenDatePicker<DateTime?>>()[0].Instance.Change.InvokeAsync(start));
+        await picker.InvokeAsync(() => picker.FindComponents<Radzen.Blazor.RadzenDatePicker<DateTime?>>()[1].Instance.Change.InvokeAsync(end));
+        Assert.Equal(beforeEdit, rowIntents.Count);
+        countIntents.Clear();
+        await picker.FindAll("button").Single(button => button.TextContent == "Apply").ClickAsync(new());
+        Assert.True(rowIntents.Count > beforeEdit);
+        Assert.Equal(0, rowIntents.Last().Skip);
+        var property = source == "TT" ? "TripDate" : "Date";
+        Assert.Contains(rowIntents.Last().Filters, filter => filter.Property == property && Equals(filter.Value, start) && filter.ComparisonOperator == ComparisonOperatorEnum.GreaterThanOrEqual);
+        Assert.Contains(rowIntents.Last().Filters, filter => filter.Property == property && Equals(filter.Value, end.AddDays(1)) && filter.ComparisonOperator == ComparisonOperatorEnum.LessThan);
+        Assert.NotEmpty(countIntents);
+        Assert.All(countIntents, intent => Assert.Equal(2, intent.Filters.Count(IsDate)));
+        await Page();
+        empty = true;
+        await Refresh();
+        Assert.Equal(start, picker.Instance.StartDate);
+        Assert.Equal(end, picker.Instance.EndDate);
+        Assert.Equal(2, rowIntents.Last().Filters.Count(IsDate));
     }
 
     [Fact]
@@ -571,6 +821,24 @@ public class PrintWorkflowTests : TestContext
         var cut = RenderComponent<GridDateRange>();
         Assert.Null(cut.Instance.StartDate);
         Assert.Null(cut.Instance.EndDate);
+    }
+
+    [Fact]
+    public async Task Date_range_preserves_draft_across_parent_render_and_rejects_reversed_dates()
+    {
+        var applied = 0;
+        var cut = RenderComponent<GridDateRange>(p => p
+            .Add(x => x.OnApply, _ => applied++));
+        await cut.InvokeAsync(() => cut.FindComponents<Radzen.Blazor.RadzenDatePicker<DateTime?>>()[0].Instance.Change.InvokeAsync(new DateTime(2026, 10, 1)));
+        await cut.InvokeAsync(() => cut.FindComponents<Radzen.Blazor.RadzenDatePicker<DateTime?>>()[1].Instance.Change.InvokeAsync(new DateTime(2026, 10, 5)));
+        cut.SetParametersAndRender(p => p.Add(x => x.StartDate, (DateTime?)null));
+        await cut.FindAll("button").Single(button => button.TextContent == "Apply").ClickAsync(new());
+        Assert.Equal(1, applied);
+        cut.SetParametersAndRender(p => p
+            .Add(x => x.StartDate, new DateTime(2026, 11, 9))
+            .Add(x => x.EndDate, new DateTime(2026, 11, 8)));
+        Assert.True(cut.FindAll("button").Single(button => button.TextContent == "Apply").HasAttribute("disabled"));
+        Assert.Equal(1, applied);
     }
 
     [Fact]

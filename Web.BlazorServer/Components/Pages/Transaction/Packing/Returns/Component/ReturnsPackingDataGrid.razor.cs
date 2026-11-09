@@ -28,8 +28,26 @@ partial class ReturnsPackingDataGrid
     PrintStatusView PrintStatusView = default!;
     bool initialCountRefreshRequested;
     bool gridReadyToLoad;
+    DateTime? DateRangeStart;
+    DateTime? DateRangeEnd;
+    bool dateRangeApplied;
+
+    async Task DateRangeChanged((DateTime Start, DateTime End) range)
+    {
+        dateRangeApplied = true;
+        DateRangeStart = range.Start;
+        DateRangeEnd = range.End;
+        await DataGrid.ReloadFirstPageAsync();
+    }
+
     Task OnGridDataLoaded()
     {
+        if (!dateRangeApplied)
+        {
+            var hasDates = PrintStatusFilter.TryGetDateRange(DataGrid.DGResult.Items, row => row.Date, out var range);
+            DateRangeStart = hasDates ? range.Start : null;
+            DateRangeEnd = hasDates ? range.End : null;
+        }
         if (initialCountRefreshRequested) return Task.CompletedTask;
         initialCountRefreshRequested = true;
         _ = InvokeAsync(async () => { await Task.Yield(); await PrintStatusView.RefreshCountsAsync(); });
@@ -85,7 +103,12 @@ partial class ReturnsPackingDataGrid
         gridReadyToLoad = true;
     }
 
-    void PrepareIntent(DataGridIntent intent) => PackingFulfillmentPrintStatusFilter.Apply(intent, SelectedPrintStatus);
+    void PrepareIntent(DataGridIntent intent)
+    {
+        PackingFulfillmentPrintStatusFilter.Apply(intent, SelectedPrintStatus);
+        if (dateRangeApplied)
+            PrintStatusFilter.ApplyDateRange(intent, DateRangeStart, DateRangeEnd);
+    }
 
     async Task<DataGridResultVM<ReturnsPackingDataGridVM>> LoadDataAsync(DataGridIntent intent)
     {

@@ -13,6 +13,7 @@
             <RadzenButton Icon="sync" Size="ButtonSize.Small" Click="@SyncAsync" />
             </RadzenStack>
         </RadzenStack>
+        <GridDateRange StartDate="@DateRangeStart" EndDate="@DateRangeEnd" OnApply="@DateRangeChanged" />
     </HeaderTemplate>
     <GridColumns>
         <RadzenDataGridColumn TItem="VendorReturnAuthorizationPackingDataGridVM"

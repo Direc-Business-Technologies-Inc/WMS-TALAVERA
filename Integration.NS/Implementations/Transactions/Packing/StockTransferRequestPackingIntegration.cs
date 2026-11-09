@@ -79,6 +79,7 @@ internal class StockTransferRequestPackingIntegration(
             .WithFilters(SuiteQLFragments.PackingQueueOrPrintableLabel(sourceTracksPickedState: true))
             .WithDatagridIntent(intent, new Dictionary<string, string>
             {
+                [nameof(StrPackingDataGridNSDTO.Date)] = "t.trandate",
                 [nameof(StockTransferRequestPackingDataGridDTO.ForPrintingIFCount)] = "NVL(ifprint.forprintingcount, 0)",
                 [nameof(StockTransferRequestPackingDataGridDTO.PrintedIFCount)] = "NVL(ifprint.printedcount, 0)",
                 [nameof(StockTransferRequestPackingDataGridDTO.SingleFulfillmentId)] = "NVL(ifprint.singlefulfillmentid, 0)",

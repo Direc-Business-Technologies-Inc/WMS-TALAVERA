@@ -64,6 +64,7 @@ internal class ReturnPackingIntegration(
             .WithFilters(SuiteQLFragments.PackingQueueOrPrintableLabel(sourceTracksPickedState: true))
             .WithDatagridIntent(intent, new Dictionary<string, string>
             {
+                [nameof(ReturnPackingDataGridNSDTO.Date)] = "t.trandate",
                 [nameof(ReturnsDataGridDTO.ForPrintingIFCount)] = "NVL(ifprint.forprintingcount, 0)",
                 [nameof(ReturnsDataGridDTO.PrintedIFCount)] = "NVL(ifprint.printedcount, 0)",
                 [nameof(ReturnsDataGridDTO.SingleFulfillmentId)] = "NVL(ifprint.singlefulfillmentid, 0)",

@@ -65,6 +65,7 @@ internal class VendorReturnAuthorizationPackingIntegration(
             .WithFilters(SuiteQLFragments.PackingQueueOrPrintableLabel())
             .WithDatagridIntent(intent, new Dictionary<string, string>
             {
+                [nameof(VendorReturnAuthorizationPackingDataGridNSDTO.Date)] = "t.trandate",
                 [nameof(VendorReturnAuthorizationDataGridDTO.ForPrintingIFCount)] = "NVL(ifprint.forprintingcount, 0)",
                 [nameof(VendorReturnAuthorizationDataGridDTO.PrintedIFCount)] = "NVL(ifprint.printedcount, 0)",
                 [nameof(VendorReturnAuthorizationDataGridDTO.SingleFulfillmentId)] = "NVL(ifprint.singlefulfillmentid, 0)",

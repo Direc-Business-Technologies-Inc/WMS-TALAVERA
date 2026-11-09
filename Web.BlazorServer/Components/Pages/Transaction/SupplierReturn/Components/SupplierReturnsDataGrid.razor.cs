@@ -19,6 +19,7 @@ public partial class SupplierReturnsDataGrid
     PrintStatus SelectedPrintStatus = PrintStatus.ForPrinting;
     DateTime? DateRangeStart;
     DateTime? DateRangeEnd;
+    bool dateRangeApplied;
     PrintStatusView PrintStatusView = default!;
     bool initialCountRefreshRequested;
 
@@ -29,6 +30,12 @@ public partial class SupplierReturnsDataGrid
 
     Task OnGridDataLoaded()
     {
+        if (!dateRangeApplied)
+        {
+            var hasDates = PrintStatusFilter.TryGetDateRange(VisibleRows, row => row.Date, out var range);
+            DateRangeStart = hasDates ? range.Start : null;
+            DateRangeEnd = hasDates ? range.End : null;
+        }
         if (initialCountRefreshRequested) return Task.CompletedTask;
         initialCountRefreshRequested = true;
         _ = InvokeAsync(async () =>
@@ -68,7 +75,8 @@ public partial class SupplierReturnsDataGrid
     async Task<(IEnumerable<SupplierReturnDataGridVM>, int)> LoadDataAsync(DataGridIntent intent)
     {
         PrintStatusFilter.Apply(intent, SelectedPrintStatus);
-        PrintStatusFilter.ApplyDateRange(intent, DateRangeStart, DateRangeEnd);
+        if (dateRangeApplied)
+            PrintStatusFilter.ApplyDateRange(intent, DateRangeStart, DateRangeEnd);
         if (FilterStatus is not null)
         {
             intent.Filters.Add(
@@ -85,7 +93,8 @@ public partial class SupplierReturnsDataGrid
     }
     Task<int> PrintCountAsync(PrintStatus status) => PrintStatusFilter.CountAsync(status, async intent =>
     {
-        PrintStatusFilter.ApplyDateRange(intent, DateRangeStart, DateRangeEnd);
+        if (dateRangeApplied)
+            PrintStatusFilter.ApplyDateRange(intent, DateRangeStart, DateRangeEnd);
         if (FilterStatus is not null)
             intent.Filters.Add(DataGridFilterUtilities.Contains(nameof(SupplierReturnDataGridVM.StatusName), FilterStatus.Name));
         return await returnHandler.GetReturnsDataGridAsync(intent);
@@ -93,6 +102,7 @@ public partial class SupplierReturnsDataGrid
 
     async Task DateRangeChanged((DateTime Start, DateTime End) range)
     {
+        dateRangeApplied = true;
         DateRangeStart = range.Start;
         DateRangeEnd = range.End;
         await Grid.ReloadFirstPage();
