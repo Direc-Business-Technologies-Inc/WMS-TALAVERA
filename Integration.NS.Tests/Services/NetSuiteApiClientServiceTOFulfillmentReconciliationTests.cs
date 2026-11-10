@@ -59,6 +59,58 @@ public class NetSuiteApiClientServiceTOFulfillmentReconciliationTests
         => NetSuiteApiClientService.ReconcileTOFulfillmentLines(submitted, fresh, OrderId, UseBin);
 
     [Fact]
+    public void Fully_backordered_line_is_omitted_but_eligible_unscanned_line_keeps_its_filler()
+    {
+        var backordered = Fresh(2, 2.04m, uoMRate: 12);
+        backordered.QuantityBackOrdered = 2.04m;
+        var result = Reconcile(
+            [Submitted(5, 1), Submitted(2, 0), Submitted(8, 0)],
+            [backordered, Fresh(5, 11), Fresh(8, 5, uoMRate: 10)]);
+
+        Assert.Empty(result.RejectedScans);
+        Assert.Equal(2, result.OpenLineCount);
+        Assert.Equal(1, result.FillerCount);
+        Assert.Equal([5, 8], result.Lines.Select(x => x.LineSequenceNumber));
+        Assert.Equal(0, result.Lines.Single(x => x.LineSequenceNumber == 8).ScannedQuantity);
+        NetSuiteApiClientService.EnsureTOFulfillmentBucketIsComplete(
+            "GOOD", result.Lines, result.Lines, false);
+    }
+
+    [Fact]
+    public void Positive_scan_on_a_fully_backordered_line_is_rejected()
+    {
+        var backordered = Fresh(2, 2.04m, uoMRate: 12);
+        backordered.QuantityBackOrdered = 2.04m;
+        var result = Reconcile([Submitted(2, 0.1m)], [backordered]);
+
+        Assert.Empty(result.Lines);
+        var error = Assert.Single(result.RejectedScans);
+        Assert.Contains("WMS line 2", error);
+        Assert.Contains("fully backordered", error);
+    }
+
+    [Theory]
+    [InlineData(10, 2, 3, 0, true)]
+    [InlineData(10, 2, 8, 0, false)]
+    [InlineData(10, 0, 0, 10, true)]
+    public void Eligibility_accounts_for_shipped_and_backordered_but_not_packed_stock(
+        int ordered, int shipped, int backordered, int packed, bool eligible)
+    {
+        var fresh = Fresh(100, ordered, quantityShipped: shipped);
+        fresh.QuantityBackOrdered = backordered;
+        fresh.QuantityPacked = packed;
+
+        Assert.Equal(eligible, fresh.IsOpen);
+        var snapshot = Submitted(100, 0);
+        snapshot.LineQuantity = ordered;
+        snapshot.QuantityAlreadyShipped = shipped;
+        snapshot.LineQuantityBackOrdered = backordered;
+        snapshot.LineQuantityPacked = packed;
+        Assert.Equal(eligible ? 1 : 0,
+            NetSuiteApiClientService.PrepareTOFulfillmentEligibleLines([snapshot]).Count);
+    }
+
+    [Fact]
     public void Open_lines_not_submitted_become_zero_quantity_fillers()
     {
         var submitted = new List<PostTransferOrderDTO> { Submitted(100, 4) };

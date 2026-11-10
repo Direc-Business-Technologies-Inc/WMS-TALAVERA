@@ -1800,6 +1800,29 @@ namespace Integration.NS.Services
         internal static bool IsClosedFulfillmentLine(PostTransferOrderDTO line) =>
             line.IsLineClosed || line.RemainingQuantity <= 0;
 
+        // Source lines can remain open while their entire unshipped quantity is
+        // backordered and absent from the fulfillment transform (TO 302986).
+        // Work in raw stock units; do not subtract packed quantity here: packed
+        // stock may still be eligible to ship. Partially backordered lines stay.
+        private static bool IsTOFulfillmentEligible(
+            bool isClosed, decimal ordered, decimal shipped, decimal backordered) =>
+            !isClosed && ordered - shipped - backordered > 0;
+
+        internal static List<PostTransferOrderDTO> PrepareTOFulfillmentEligibleLines(
+            List<PostTransferOrderDTO> lines)
+        {
+            bool Eligible(PostTransferOrderDTO line) => IsTOFulfillmentEligible(
+                line.IsLineClosed, line.LineQuantity, line.QuantityAlreadyShipped, line.LineQuantityBackOrdered);
+
+            var rejected = lines.Where(x => x.ScannedQuantity > 0 && !Eligible(x)).ToList();
+            if (rejected.Count > 0)
+            {
+                throw new Exception($"Cannot post TO Item Fulfillment: scanned line(s) are no longer eligible for fulfillment (closed, fully shipped, or fully backordered): {string.Join("; ", rejected.Select(x => $"WMS line {x.LineSequenceNumber} ({x.MaterialCode} - {x.MaterialName}): scanned {x.ScannedQuantity}"))}. Reload the order and review the affected scans. Nothing was saved.");
+            }
+
+            return lines.Where(Eligible).ToList();
+        }
+
         /// <summary>
         /// Scans beyond the line's remaining open quantity cannot be fulfilled:
         /// after an earlier partial fulfillment only <c>LineQuantity -
@@ -1935,12 +1958,13 @@ namespace Integration.NS.Services
             public decimal UoMRate { get; set; } = 1m;
 
             /// <summary>
-            /// A line the transform exposes on the item sublist: not closed and
-            /// with quantity still to ship.
+            /// SuiteQL-derived fulfillment eligibility: not closed and with
+            /// non-backordered quantity still to ship. This is not a transform preview.
             /// </summary>
             public bool IsOpen =>
-                !string.Equals(IsClosed, "T", StringComparison.OrdinalIgnoreCase)
-                && (LineQuantity - QuantityShipped) > 0;
+                IsTOFulfillmentEligible(
+                    string.Equals(IsClosed, "T", StringComparison.OrdinalIgnoreCase),
+                    LineQuantity, QuantityShipped, QuantityBackOrdered);
         }
 
         /// <summary>
@@ -2449,9 +2473,9 @@ namespace Integration.NS.Services
         }
 
         /// <summary>
-        /// Builds the complete payload input from the authoritative open-line set
-        /// (D1/D6): every submitted scan that is still open survives with fresh
-        /// quantity state, and every other open line becomes a zero-quantity
+        /// Builds the complete payload input from the authoritative eligible set
+        /// (D1/D6): every submitted scan that is still eligible survives with fresh
+        /// quantity state, and every other eligible line becomes a zero-quantity
         /// filler so the transform's pre-filled item sublist is addressed on every
         /// line. The mobile vendor gate stays a work-scoping control only.
         /// </summary>
@@ -2459,7 +2483,8 @@ namespace Integration.NS.Services
         /// Only scanned submitted rows are required to be open. A submitted
         /// zero-quantity row is a stale client-side filler: it is replaced by the
         /// authoritative filler (or dropped when the line closed), never treated
-        /// as an operator conflict.
+        /// as an operator conflict. Fully backordered unshipped lines are ineligible
+        /// even when the source order still lists them as open.
         /// </remarks>
         internal static TOFulfillmentReconciliation ReconcileTOFulfillmentLines(
             IReadOnlyCollection<PostTransferOrderDTO> submitted,
@@ -2481,7 +2506,7 @@ namespace Integration.NS.Services
                 if (!openById.TryGetValue(line.LineSequenceNumber, out var fresh))
                 {
                     rejectedScans.Add(
-                        $"WMS line {line.LineSequenceNumber} ({line.MaterialCode} - {line.MaterialName}): scanned {line.ScannedQuantity}, but the line is no longer open on the order");
+                        $"WMS line {line.LineSequenceNumber} ({line.MaterialCode} - {line.MaterialName}): scanned {line.ScannedQuantity}, but the line is no longer eligible for fulfillment (closed, fully shipped, fully backordered, or absent from the current order)");
                     continue;
                 }
 
@@ -2937,7 +2962,7 @@ namespace Integration.NS.Services
                     // (or dropped) silently by the reconciliation.
                     if (reconciled.RejectedScans.Count > 0)
                     {
-                        throw new Exception($"Cannot post TO Item Fulfillment: the following scanned line(s) were fulfilled or closed after this order was loaded: {string.Join("; ", reconciled.RejectedScans)}. Reload the order and rescan the affected line(s).");
+                        throw new Exception($"Cannot post TO Item Fulfillment: the following scanned line(s) are no longer eligible for fulfillment: {string.Join("; ", reconciled.RejectedScans)}. Reload the order and review the affected scans. Nothing was saved.");
                     }
 
                     Data = reconciled.Lines;
@@ -2958,12 +2983,9 @@ namespace Integration.NS.Services
                 throw new Exception($"Cannot post TO Item Fulfillment: the following scanned line(s) were fulfilled or closed after this order was loaded: {string.Join("; ", newlyClosedScans)}. Reload the order and rescan the affected line(s).");
             }
 
-            // Partially fulfilled orders expose only their OPEN lines on the transform's
-            // item sublist; a closed line has no sublist line to address and any orderLine
-            // reference for it (scanned entry or zero-qty filler) is an invalid insert on a
-            // static sublist that fails the entire save. Strip closed / fully-shipped lines
-            // before bucketing so the payload builder only ever receives postable lines.
-            Data = Data.Where(x => !IsClosedFulfillmentLine(x)).ToList();
+            // Apply the same eligibility in rollback/fail-open snapshot paths too.
+            // Never silently drop a positive scan on an ineligible line.
+            Data = PrepareTOFulfillmentEligibleLines(Data);
 
             // Reject scans beyond the remaining open quantity before the first NetSuite
             // call: on a partially fulfilled order quantitypacked is not the open quantity,
@@ -3251,7 +3273,7 @@ namespace Integration.NS.Services
 
                     if (reconciled.RejectedScans.Count > 0)
                     {
-                        throw new Exception($"Cannot post TO Item Fulfillment: the following scanned line(s) were fulfilled or closed after this order was loaded: {string.Join("; ", reconciled.RejectedScans)}. Reload the order and rescan the affected line(s).");
+                        throw new Exception($"Cannot post TO Item Fulfillment: the following scanned line(s) are no longer eligible for fulfillment: {string.Join("; ", reconciled.RejectedScans)}. Reload the order and review the affected scans. Nothing was saved.");
                     }
 
                     Data = reconciled.Lines;
@@ -3267,7 +3289,7 @@ namespace Integration.NS.Services
                 throw new Exception($"Cannot post TO Item Fulfillment: the following scanned line(s) were fulfilled or closed after this order was loaded: {string.Join("; ", newlyClosedScans)}. Reload the order and rescan the affected line(s).");
             }
 
-            Data = Data.Where(x => !IsClosedFulfillmentLine(x)).ToList();
+            Data = PrepareTOFulfillmentEligibleLines(Data);
 
             EnsureScansWithinPackableQuantity(Data);
 
