@@ -185,6 +185,7 @@ public partial class ReceivingIntegration(
 
     public async Task<(IEnumerable<PurchaseOrderDataGridDTO>, int)> GetPurchaseOrdersListAsync(DataGridIntent intent)
     {
+        var includeCompletedReceived = intent.Filters.RemoveAll(filter => filter.Property == "IncludeCompletedReceived") > 0;
         if (intent.Sorts.Count == 0) intent.Sorts.Add(DataGridSortUtilities.Descending("ReferenceNumber"));
 
         int[] AllowedLocations = [-1];
@@ -225,7 +226,7 @@ public partial class ReceivingIntegration(
             }).ToDictionary())
             .WithFilters(
                 Equal("t.recordtype", "purchaseorder"),
-                In("t.status", new string[] { "B", "D", "E" }),
+                In("t.status", includeCompletedReceived ? new string[] { "B", "D", "E", "F", "G" } : new string[] { "B", "D", "E" }),
                 Any(
                     IsNull("t.custbody_dbti_custom_approval_status"),
                     NotEqual("t.custbody_dbti_custom_approval_status", "20")),
@@ -248,6 +249,7 @@ public partial class ReceivingIntegration(
 
     public async Task<(IEnumerable<TransferOrderDataGridDTO>, int count)> GetTransferOrderListAsync(DataGridIntent intent)
     {
+        var includeCompletedReceived = intent.Filters.RemoveAll(filter => filter.Property == "IncludeCompletedReceived") > 0;
 
         if (intent.Sorts.Count == 0) intent.Sorts.Add(DataGridSortUtilities.Descending("ReferenceNumber"));
 
@@ -290,7 +292,7 @@ public partial class ReceivingIntegration(
                 Equal("tl.mainline", "T"),
                 NotEqual("t.custbody_dbti_transfer_category", 4), // returns - bad items
                 NotEqual("t.custbody_dbti_transfer_category", 3), // returns - good items
-                In("t.status", new string[] { "F", "E" }),
+                In("t.status", includeCompletedReceived ? new string[] { "F", "E", "G" } : new string[] { "F", "E" }),
                 Any(
                     All(
                         Equal("t.recordtype", "intercompanytransferorder"),
@@ -487,6 +489,7 @@ public partial class ReceivingIntegration(
 
     public async Task<(IEnumerable<ReturnsDataGridDTO>, int count)> GetReturnsListAsync(DataGridIntent intent)
     {
+        var includeCompletedReceived = intent.Filters.RemoveAll(filter => filter.Property == "IncludeCompletedReceived") > 0;
         return await QueryListWithOffsetClampAsync(intent, "Returns list", async skipOverride =>
         {
             var response = await QueryReturnsListAsync(intent, skipOverride);
@@ -496,6 +499,8 @@ public partial class ReceivingIntegration(
 
     private async Task<Application.DataTransferObjects.Others.NS.NetSuiteResponse<ReturnsDataGridDTO>> QueryReturnsListAsync(DataGridIntent intent, int? skipOverride = null)
     {
+        var includeCompletedReceived = intent.Filters.RemoveAll(filter => filter.Property == "IncludeCompletedReceived") > 0;
+
         if (intent.Sorts.Count == 0) intent.Sorts.Add(DataGridSortUtilities.Descending("ReferenceNumber"));
 
         int[] AllowedLocations = [-1];
@@ -508,7 +513,7 @@ public partial class ReceivingIntegration(
         List<AppFilterDescriptor> filters =
         [
             In("t.recordtype", new string[] { "intercompanytransferorder", "transferorder" }),
-            In("t.status", new string[] { "F", "E" }),
+            In("t.status", includeCompletedReceived ? new string[] { "F", "E", "G" } : new string[] { "F", "E" }),
             Any(
                 Equal("t.custbody_dbti_transfer_category", 3),
                 Equal("t.custbody_dbti_transfer_category", 4)),

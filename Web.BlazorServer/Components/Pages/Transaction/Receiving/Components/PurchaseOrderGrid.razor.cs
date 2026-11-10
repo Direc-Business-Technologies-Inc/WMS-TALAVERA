@@ -106,6 +106,8 @@ public partial class PurchaseOrderGrid
     void PrepareIntent(DataGridIntent intent)
     {
         ReceivingReceiptPrintStatusFilter.ApplyToTransactions(intent, SelectedPrintStatus);
+        if (SelectedPrintStatus == PrintStatus.All)
+            intent.Filters.Add(DataGridFilterUtilities.Equal("IncludeCompletedReceived", true));
         if (dateRangeApplied)
             PrintStatusFilter.ApplyDateRange(intent, DateRangeStart, DateRangeEnd);
     }
