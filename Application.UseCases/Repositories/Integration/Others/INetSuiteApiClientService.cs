@@ -9,6 +9,8 @@ namespace Application.UseCases.Repositories.Integration.Others;
 
 public interface INetSuiteApiClientService : INotifyPropertyChanged
 {
+    Task<NetSuiteCreationReceiptDTO> CreateRecordAsync(string url, string body, CancellationToken ct = default) =>
+        MakeRequest<NetSuiteCreationReceiptDTO>(url, body, HttpMethod.Post, ct: ct);
     Task<NetSuiteResponse<T>> ExecuteSuiteQLQuery<T>(string query, int? limit = null, int? offset = null, CancellationToken ct = default);
     Task<IEnumerable<T>?> NetsuiteQuery<T>(string queryName, Dictionary<string, string>? parameters = null, int limit = 0, int offset = 0, CancellationToken ct = default);
     Task<NetSuiteResponse<T>?> NetsuiteQueryWithMetadata<T>(string queryName, Dictionary<string, string>? parameters = null, int limit = 0, int offset = 0, CancellationToken ct = default);

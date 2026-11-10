@@ -16,6 +16,9 @@ public class CachedSupplierReturnIntegration(
 {
     public const string EntityName = "SupplierReturn";
 
+    public Task<BulkFulfillmentResultDTO> SubmitBulkFulfillmentAsync(SubmitBulkFulfillmentDTO data, IReadOnlyList<int> allowedSubsidiaries, CancellationToken ct = default)
+        => inner.SubmitBulkFulfillmentAsync(data, allowedSubsidiaries, ct);
+
     public Task<(IEnumerable<SupplierReturnDataGridDTO> Data, int Count)> GetReturnsDataGridAsync(DataGridIntent intent)
         => cache.GetOrAddAsync(EntityName, nameof(GetReturnsDataGridAsync), intent,
             () => inner.GetReturnsDataGridAsync(intent));

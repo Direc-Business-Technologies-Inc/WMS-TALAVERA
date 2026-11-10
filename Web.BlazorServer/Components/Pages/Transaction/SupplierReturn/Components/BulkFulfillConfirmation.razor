@@ -2,7 +2,8 @@
 @inject Radzen.DialogService DialogService
 
 <div class="rts-bulk-confirmation">
-    <p>Are you sure you want to fulfill the following transactions?</p>
+    <p>Submit these @Rows.Count RTS records for bulk fulfillment? This creates a request in NetSuite. Fulfillment is processed separately.</p>
+    <p>@Rows.Count selected; @FilteredRows.Count() matching the search.</p>
     <div class="rts-bulk-confirmation-grid">
         <div class="rts-bulk-confirmation-search">
             <RadzenIcon Icon="search" />
@@ -24,8 +25,8 @@
         </RadzenDataGrid>
     </div>
     <div class="rts-bulk-confirmation-actions">
-        <RadzenButton Text="Back" ButtonStyle="ButtonStyle.Light" Click="@(() => DialogService.Close())" />
-        <RadzenButton Text="Select" ButtonStyle="ButtonStyle.Success" Disabled="true" />
+        <RadzenButton Text="Cancel" ButtonStyle="ButtonStyle.Light" Click="@(() => DialogService.Close(false))" />
+        <RadzenButton Text="Submit Request" ButtonStyle="ButtonStyle.Success" Disabled="@(Rows.Select(row => row.Id).Distinct().Count() < 2)" Click="@(() => DialogService.Close(true))" />
     </div>
 </div>
 

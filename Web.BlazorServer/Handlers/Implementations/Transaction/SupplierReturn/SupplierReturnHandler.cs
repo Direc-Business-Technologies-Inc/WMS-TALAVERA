@@ -3,6 +3,8 @@ using Application.UseCases.Commands.Transaction.SupplierReturn;
 using Application.UseCases.Queries.Transaction.SupplierReturn;
 using Mapster;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
+using System.Text.Json;
 using Shared.Entities;
 using Shared.Libraries.Utilities;
 using System.Linq;
@@ -16,8 +18,29 @@ namespace Web.BlazorServer.Handlers.Implementations.Transaction.SupplierReturn;
 
 public class SupplierReturnHandler(
     AppAuthenticationService authService,
-    ISender sender) : ISupplierReturnHandler
+    ISender sender,
+    IAuthorizationService authorizationService) : ISupplierReturnHandler
 {
+    public async Task<BulkFulfillmentResultDTO> SubmitBulkFulfillmentAsync(SubmitBulkFulfillmentDTO data, CancellationToken ct = default)
+    {
+        if (!authService.IsAuthenticated() || !(await authorizationService.AuthorizeAsync(
+            authService.CurrentUser, null, "permission.OSRN.CREATE")).Succeeded)
+            return BulkFulfillmentResultDTO.Reject("You do not have permission to submit bulk fulfillment requests.");
+
+        int[] subsidiaries;
+        try
+        {
+            subsidiaries = JsonSerializer.Deserialize<int[]>(authService.GetClaimValue("com.direcbusiness.wms.nsAllowedSubsidiaries")) ?? [];
+        }
+        catch (JsonException)
+        {
+            subsidiaries = [];
+        }
+        if (subsidiaries.Length == 0 || subsidiaries.Any(id => id <= 0))
+            return BulkFulfillmentResultDTO.Reject("Your subsidiary access could not be established. Sign in again or contact an administrator.");
+        return await sender.Send(new SubmitBulkFulfillmentCmd(new(data.ReturnIds?.ToArray() ?? []), subsidiaries), ct);
+    }
+
     public async Task<bool> CreateSupplierReturnAsync(SupplierReturnVM data)
     {
         var dto = data.Adapt<SupplierReturnDTO>();

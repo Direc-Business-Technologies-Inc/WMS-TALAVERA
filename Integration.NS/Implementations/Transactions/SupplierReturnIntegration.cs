@@ -23,7 +23,7 @@ using System.Threading.Tasks;
 
 namespace Integration.NS.Implementations.Transactions;
 
-public class SupplierReturnIntegration(
+public partial class SupplierReturnIntegration(
     INetSuiteApiClientService netsuiteService,
     IHttpContextAccessor httpContextAccessor,
     SuiteQLQueryBuilderFactoryService builderFactory

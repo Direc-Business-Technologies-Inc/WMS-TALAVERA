@@ -20,6 +20,7 @@ public sealed class RestCapturingNetSuiteClient : INetSuiteApiClientService
     public List<object> QueryItems { get; } = new();
     public List<string> Queries { get; } = new();
     public Func<int, Task>? OnWrite { get; set; }
+    public string? CreationLocation { get; set; }
     public int QueryCount { get; private set; }
     public Func<string, Type, object?>? OnQuery { get; set; }
     public Func<string, object?>? OnRead { get; set; }
@@ -63,6 +64,8 @@ public sealed class RestCapturingNetSuiteClient : INetSuiteApiClientService
         Writes.Add((url, reqBody, method));
         if (OnWrite is not null)
             await OnWrite(Writes.Count);
+        if (typeof(T) == typeof(NetSuiteCreationReceiptDTO))
+            return (T)(object)new NetSuiteCreationReceiptDTO(204, CreationLocation);
         return default!;
     }
 

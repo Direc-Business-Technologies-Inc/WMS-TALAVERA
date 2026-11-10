@@ -468,6 +468,9 @@ namespace Integration.NS.Services
             }
         }
 
+        public Task<NetSuiteCreationReceiptDTO> CreateRecordAsync(string url, string body, CancellationToken ct = default) =>
+            MakeRequest<NetSuiteCreationReceiptDTO>(url, body, HttpMethod.Post, ct: ct);
+
         public async Task<T> MakeRequest<T>(
         string url,
         string? reqBody,
@@ -566,6 +569,12 @@ namespace Integration.NS.Services
 
             using var httpResponse =
                 await SendRequestAsync(httpRequest, ct);
+
+            // A successful create is accepted even if its body cannot be read or parsed.
+            // Capture headers before reading content, preserving empty 204 receipts.
+            if (httpResponse.IsSuccessStatusCode && typeof(T) == typeof(NetSuiteCreationReceiptDTO))
+                return (T)(object)new NetSuiteCreationReceiptDTO((int)httpResponse.StatusCode,
+                    httpResponse.Headers.Location?.OriginalString);
 
             var responseJson =
                 await httpResponse.Content.ReadAsStringAsync(ct);

@@ -59,6 +59,20 @@ public class NetSuiteApiClientServiceResilienceTests : IDisposable
     }
 
     [Theory]
+    [InlineData("/record/v1/customrecord_bulk_fulfillment/42")]
+    [InlineData(null)]
+    public async Task Creation_receipt_preserves_empty_success_and_location(string? location)
+    {
+        var response = Response.Create().WithStatusCode(204);
+        if (location is not null) response.WithHeader("Location", location);
+        _server.Given(Request.Create().WithPath("/record/v1/customrecord_bulk_fulfillment").UsingPost()).RespondWith(response);
+        var receipt = await _service.CreateRecordAsync(_server.Url + "/record/v1/customrecord_bulk_fulfillment", "{}");
+        Assert.Equal(204, receipt.StatusCode);
+        Assert.Equal(location, receipt.Location);
+        Assert.Single(_server.LogEntries);
+    }
+
+    [Theory]
     [InlineData("null", 1)]
     [InlineData("\"0\"", 1)]
     [InlineData("-2", 1)]

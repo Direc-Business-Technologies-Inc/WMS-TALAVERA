@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components;
+using Application.DataTransferObjects.Transactions.SupplierReturn;
 using Shared.Entities;
-using Shared.Libraries.Utilities;
 using Web.BlazorServer.Components.Custom;
 using Web.BlazorServer.Components.Shared.Others;
 using Web.BlazorServer.Handlers.Repositories.Transaction.SupplierReturn;
@@ -15,13 +15,13 @@ public partial class SupplierReturnsDataGrid
 
     readonly string ActionGetReturnsToSupplier = "Get Returns to Supplier";
 
-    ReturnStatusVM? FilterStatus = null;
     PrintStatus SelectedPrintStatus = PrintStatus.ForPrinting;
     DateTime? DateRangeStart;
     DateTime? DateRangeEnd;
     bool dateRangeApplied;
     PrintStatusView PrintStatusView = default!;
     bool initialCountRefreshRequested;
+    bool BulkSubmissionBusy;
 
     QuickDataGrid<SupplierReturnDataGridVM> Grid { get; set; } = default!;
     readonly Dictionary<int, SupplierReturnDataGridVM> SelectedRows = new();
@@ -60,16 +60,46 @@ public partial class SupplierReturnsDataGrid
 
     async Task OpenBulkFulfillConfirmation()
     {
-        if (SelectedRows.Count < 2) return;
-        var rows = SelectedRows.Values.ToList();
-        await DialogService.OpenAsync("Fulfill Orders",
-            ds => builder =>
+        if (BulkSubmissionBusy || SelectedRows.Count < 2) return;
+        BulkSubmissionBusy = true;
+        // Copy display data and IDs before opening: dialog search and grid reloads cannot alter submission.
+        var rows = SelectedRows.Values.Select(row => new SupplierReturnDataGridVM
+        {
+            Id = row.Id, ReferenceNumber = row.ReferenceNumber, VendorName = row.VendorName,
+            Date = row.Date, CategoryName = row.CategoryName, PreparedBy = row.PreparedBy
+        }).ToArray();
+        var ids = rows.Select(row => row.Id).Distinct().ToArray();
+        try
+        {
+            var confirmed = await DialogService.OpenAsync("Submit Bulk Fulfillment Request",
+                ds => builder =>
             {
                 builder.OpenComponent<BulkFulfillConfirmation>(0);
                 builder.AddAttribute(1, nameof(BulkFulfillConfirmation.Rows), rows);
                 builder.CloseComponent();
             },
             new() { Width = "700px" });
+            if (confirmed is not true) return;
+            var result = await returnHandler.SubmitBulkFulfillmentAsync(new(ids));
+            if (result.Outcome == BulkFulfillmentOutcome.Submitted)
+            {
+                SelectedRows.Clear();
+                if (result.ReferenceId.HasValue) ToastService.Success(result.Message);
+                else ToastService.Warning(result.Message);
+            }
+            else if (result.Outcome == BulkFulfillmentOutcome.Uncertain)
+                ToastService.Warning(result.Message);
+            else
+                ToastService.Error(result.Message);
+        }
+        catch (Exception)
+        {
+            ToastService.Error("The request could not be confirmed. Check NetSuite before submitting again, then refresh the grid or contact an administrator.");
+        }
+        finally
+        {
+            BulkSubmissionBusy = false;
+        }
     }
 
     async Task<(IEnumerable<SupplierReturnDataGridVM>, int)> LoadDataAsync(DataGridIntent intent)
@@ -77,13 +107,6 @@ public partial class SupplierReturnsDataGrid
         PrintStatusFilter.Apply(intent, SelectedPrintStatus);
         if (dateRangeApplied)
             PrintStatusFilter.ApplyDateRange(intent, DateRangeStart, DateRangeEnd);
-        if (FilterStatus is not null)
-        {
-            intent.Filters.Add(
-                DataGridFilterUtilities.Contains(
-                    nameof(SupplierReturnDataGridVM.StatusName),
-                    FilterStatus.Name));
-        }
 
         var result = await returnHandler.GetReturnsDataGridAsync(intent);
         // Selection applies to the current page only; discard it when the grid loads another page or filter.
@@ -95,8 +118,6 @@ public partial class SupplierReturnsDataGrid
     {
         if (dateRangeApplied)
             PrintStatusFilter.ApplyDateRange(intent, DateRangeStart, DateRangeEnd);
-        if (FilterStatus is not null)
-            intent.Filters.Add(DataGridFilterUtilities.Contains(nameof(SupplierReturnDataGridVM.StatusName), FilterStatus.Name));
         return await returnHandler.GetReturnsDataGridAsync(intent);
     });
 
@@ -114,18 +135,6 @@ public partial class SupplierReturnsDataGrid
         await Grid.ReloadFirstPage();
     }
     Task RefreshPrintStatusAsync() => Task.WhenAll(Grid.Reload(), PrintStatusView.RefreshCountsAsync());
-    async Task<(IEnumerable<ReturnStatusVM>, int)> StatusProvider(DataGridIntent intent)
-    {
-        return await returnHandler.GetReturnStatuses(intent);
-    }
-
-    async Task FilterSet(ReturnStatusVM? filter)
-    {
-        FilterStatus = filter;
-
-        await Grid.Reload();
-    }
-
     async Task OnRowAction(SupplierReturnDataGridVM data)
     {
         if (RowAction.HasDelegate)
