@@ -89,10 +89,10 @@ public class PackingPendingFulfillmentFilterShapeTests
         return normalized;
     }
 
-    private static async Task<string> StrListQueryAsync()
+    private static async Task<string> StrListQueryAsync(bool includeReceived = false)
     {
         var sut = CreateStr(out var client);
-        await sut.GetPackingStockTransferRequestList(Intent(), subsidiaryId: 1);
+        await sut.GetPackingStockTransferRequestList(Intent(), subsidiaryId: 1, includeReceived: includeReceived);
         return Normalize(client.LastQuery);
     }
 
@@ -122,6 +122,16 @@ public class PackingPendingFulfillmentFilterShapeTests
         Assert.Contains("LEFT JOIN (SELECT opk.transaction AS packtran", query);
         Assert.Contains("GROUP BY opk.transaction) openpk ON openpk.packtran = t.id", query);
         Assert.Contains("ifprint.forprintingcount", query);
+    }
+
+    [Fact]
+    public async Task Str_list_includes_received_statuses_only_when_requested_for_all_tab()
+    {
+        var defaultQuery = await StrListQueryAsync();
+        var allTabQuery = await StrListQueryAsync(includeReceived: true);
+
+        Assert.Contains("t.status IN ('B', 'D', 'E')", defaultQuery);
+        Assert.Contains("t.status IN ('B', 'D', 'E', 'F', 'G')", allTabQuery);
     }
 
     [Fact]

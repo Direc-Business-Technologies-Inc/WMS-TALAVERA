@@ -32,7 +32,10 @@ public static class PackingFulfillmentPrintStatusFilter
         }
 
         intent.Filters.Add(DataGridFilterUtilities.In("tcf.recordtype", new[] { "transferorder", "intercompanytransferorder" }));
-        intent.Filters.Add(DataGridFilterUtilities.In("tcf.status", new[] { "B", "D", "E" }));
+        intent.Filters.Add(DataGridFilterUtilities.In("tcf.status",
+            status == PrintStatus.All
+                ? new[] { "B", "D", "E", "F", "G" }
+                : new[] { "B", "D", "E" }));
         intent.Filters.Add(DataGridFilterUtilities.In("tcf.custbody_dbti_transfer_category",
             source == "RETURNS" ? new[] { "3", "4" } : new[] { "1", "2" }));
     }

@@ -141,7 +141,8 @@ partial class STRPackingDataGrid
             var succeeded = false;
             try
             {
-                var result = await StrHandler.GetStockTransferRequestsList(intent, CurrentUserService.NsSubsidiaryId);
+                var result = await StrHandler.GetStockTransferRequestsList(
+                    intent, CurrentUserService.NsSubsidiaryId, includeReceived: SelectedPrintStatus == PrintStatus.All);
                 succeeded = true;
                 return result;
             }

@@ -22,16 +22,16 @@ internal class VendorReturnAuthorizationPackingIntegration(
     SuiteQLQueryBuilderFactoryService builderFactory,
     Integration.NS.Implementations.Others.Caching.GridResultCache? readCache = null) : IVendorReturnAuthorizationPackingIntegration
 {
-    public Task<(IEnumerable<VendorReturnAuthorizationDataGridDTO> Data, int Count)> GetPackingVendorReturnAuthorizationsList(DataGridIntent intent, int subsidiaryId)
+    public Task<(IEnumerable<VendorReturnAuthorizationDataGridDTO> Data, int Count)> GetPackingVendorReturnAuthorizationsList(DataGridIntent intent, int subsidiaryId, bool includeReceived = false)
     {
         intent = intent.Snapshot();
-        return readCache is null ? ReadListAsync(intent, subsidiaryId)
+        return readCache is null ? ReadListAsync(intent, subsidiaryId, includeReceived)
             : readCache.ReadAsync("Packing", nameof(GetPackingVendorReturnAuthorizationsList), intent,
-                ct => { var snapshot = intent.Snapshot(); snapshot.CancellationToken = ct; return ReadListAsync(snapshot, subsidiaryId); },
-                intent.CancellationToken, false, subsidiaryId);
+                ct => { var snapshot = intent.Snapshot(); snapshot.CancellationToken = ct; return ReadListAsync(snapshot, subsidiaryId, includeReceived); },
+                intent.CancellationToken, false, subsidiaryId, includeReceived);
     }
 
-    private async Task<(IEnumerable<VendorReturnAuthorizationDataGridDTO> Data, int Count)> ReadListAsync(DataGridIntent intent, int subsidiaryId)
+    private async Task<(IEnumerable<VendorReturnAuthorizationDataGridDTO> Data, int Count)> ReadListAsync(DataGridIntent intent, int subsidiaryId, bool includeReceived)
     {
 
         if (intent.Sorts.Count == 0) intent.Sorts.Add(DataGridSortUtilities.Descending(nameof(VendorReturnAuthorizationPackingDataGridNSDTO.DateLastModified)));
@@ -61,7 +61,7 @@ internal class VendorReturnAuthorizationPackingIntegration(
             .WithFilters(
                 Equal("tl.mainline", "T"),
                 Equal("t.subsidiary", subsidiaryId))
-            .WithFilters(PackingVendorReturnAuthorizationFilters())
+            .WithFilters(PackingVendorReturnAuthorizationFilters(includeReceived))
             .WithFilters(SuiteQLFragments.PackingQueueOrPrintableLabel())
             .WithDatagridIntent(intent, new Dictionary<string, string>
             {
@@ -184,12 +184,12 @@ internal class VendorReturnAuthorizationPackingIntegration(
         return (response.items.Select(MapLineDto), response.totalResults);
     }
 
-    private static AppFilterDescriptor[] PackingVendorReturnAuthorizationFilters()
+    private static AppFilterDescriptor[] PackingVendorReturnAuthorizationFilters(bool includeReceived = false)
     {
         return
         [
             Equal("t.recordtype", "vendorreturnauthorization"),
-            In("t.status", new string[] { "B", "E" })
+            In("t.status", includeReceived ? new string[] { "B", "E", "F", "G" } : new string[] { "B", "E" })
         ];
     }
 

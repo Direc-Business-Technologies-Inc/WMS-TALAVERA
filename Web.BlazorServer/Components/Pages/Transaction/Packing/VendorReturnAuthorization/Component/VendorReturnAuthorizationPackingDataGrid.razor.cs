@@ -136,7 +136,7 @@ partial class VendorReturnAuthorizationPackingDataGrid
             var succeeded = false;
             try
             {
-                var result = await VraHandler.GetVendorReturnAuthorizationsList(intent, CurrentUserService.NsSubsidiaryId);
+                var result = await VraHandler.GetVendorReturnAuthorizationsList(intent, CurrentUserService.NsSubsidiaryId, includeReceived: SelectedPrintStatus == PrintStatus.All);
                 succeeded = true;
                 return result;
             }

@@ -5,7 +5,7 @@ using Shared.Entities;
 
 namespace Application.UseCases.Queries.Transaction.Packing.VendorReturnAuthorization;
 
-public record GetPackingVendorReturnAuthorizationListQry(DataGridIntent Intent, int SubsidiaryId)
+public record GetPackingVendorReturnAuthorizationListQry(DataGridIntent Intent, int SubsidiaryId, bool IncludeReceived = false)
     : IRequest<(IEnumerable<VendorReturnAuthorizationDataGridDTO> Data, int Count)>;
 
 public class GetPackingVendorReturnAuthorizationListQryHandler(IVendorReturnAuthorizationPackingIntegration integration)
@@ -17,6 +17,6 @@ public class GetPackingVendorReturnAuthorizationListQryHandler(IVendorReturnAuth
     {
         var intent = request.Intent.Snapshot();
         if (cancellationToken.CanBeCanceled) intent.CancellationToken = cancellationToken;
-        return integration.GetPackingVendorReturnAuthorizationsList(intent, request.SubsidiaryId);
+        return integration.GetPackingVendorReturnAuthorizationsList(intent, request.SubsidiaryId, request.IncludeReceived);
     }
 }

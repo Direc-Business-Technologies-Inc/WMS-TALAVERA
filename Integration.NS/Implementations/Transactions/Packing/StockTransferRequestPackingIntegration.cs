@@ -25,16 +25,16 @@ internal class StockTransferRequestPackingIntegration(
     ILogger<StockTransferRequestPackingIntegration> logger,
     Integration.NS.Implementations.Others.Caching.GridResultCache? readCache = null) : IStockTransferRequestPackingIntegration
 {
-    public Task<(IEnumerable<StockTransferRequestPackingDataGridDTO> Data, int Count)> GetPackingStockTransferRequestList(DataGridIntent intent, int subsidiaryId)
+    public Task<(IEnumerable<StockTransferRequestPackingDataGridDTO> Data, int Count)> GetPackingStockTransferRequestList(DataGridIntent intent, int subsidiaryId, bool includeReceived = false)
     {
         intent = intent.Snapshot();
-        return readCache is null ? ReadListAsync(intent, subsidiaryId)
+        return readCache is null ? ReadListAsync(intent, subsidiaryId, includeReceived)
             : readCache.ReadAsync("Packing", nameof(GetPackingStockTransferRequestList), intent,
-                ct => { var snapshot = intent.Snapshot(); snapshot.CancellationToken = ct; return ReadListAsync(snapshot, subsidiaryId); },
-                intent.CancellationToken, false, subsidiaryId);
+                ct => { var snapshot = intent.Snapshot(); snapshot.CancellationToken = ct; return ReadListAsync(snapshot, subsidiaryId, includeReceived); },
+                intent.CancellationToken, false, subsidiaryId, includeReceived);
     }
 
-    private async Task<(IEnumerable<StockTransferRequestPackingDataGridDTO> Data, int Count)> ReadListAsync(DataGridIntent intent, int subsidiaryId)
+    private async Task<(IEnumerable<StockTransferRequestPackingDataGridDTO> Data, int Count)> ReadListAsync(DataGridIntent intent, int subsidiaryId, bool includeReceived)
     {
         if (intent.Sorts.Count == 0) intent.Sorts.Add(DataGridSortUtilities.Descending(nameof(StrPackingDataGridNSDTO.DateLastModified)));
 
@@ -75,7 +75,7 @@ internal class StockTransferRequestPackingIntegration(
                     )
                 )
             )
-            .WithFilters(PackingStockTransferRequestFilters())
+            .WithFilters(PackingStockTransferRequestFilters(includeReceived))
             .WithFilters(SuiteQLFragments.PackingQueueOrPrintableLabel(sourceTracksPickedState: true))
             .WithDatagridIntent(intent, new Dictionary<string, string>
             {
@@ -265,13 +265,15 @@ internal class StockTransferRequestPackingIntegration(
     /// until the Trip Ticket ships it (<c>ordpicked</c> tracks picking, and status stays in
     /// B/D/E while the fulfillment is merely Packed).
     /// </summary>
-    private static AppFilterDescriptor[] PackingStockTransferRequestFilters()
+    private static AppFilterDescriptor[] PackingStockTransferRequestFilters(bool includeReceived = false)
     {
         return
         [
             In("t.recordtype", new string[] { "intercompanytransferorder", "transferorder" }),
             In("t.custbody_dbti_transfer_category", new string[] { "1", "2" }),
-            In("t.status", new string[] { "B", "D", "E" })
+            In("t.status", includeReceived
+                ? new string[] { "B", "D", "E", "F", "G" }
+                : new string[] { "B", "D", "E" })
         ];
     }
 

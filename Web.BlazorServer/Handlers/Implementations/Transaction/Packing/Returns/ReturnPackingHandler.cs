@@ -14,9 +14,9 @@ public class ReturnPackingHandler(ISender sender) : IReturnPackingHandler
     public Task<Application.DataTransferObjects.Transactions.PrintStatusCountsDTO> GetPackingPrintStatusCounts(DataGridIntent intent, CancellationToken ct = default)
         => sender.Send(new GetPackingPrintStatusCountsQry(intent), ct);
 
-    public async Task<(IEnumerable<ReturnsPackingDataGridVM> Data, int Count)> GetReturnsList(DataGridIntent intent, int subsidiaryId)
+    public async Task<(IEnumerable<ReturnsPackingDataGridVM> Data, int Count)> GetReturnsList(DataGridIntent intent, int subsidiaryId, bool includeReceived = false)
     {
-        GetPackingReturnListQry query = new(intent, subsidiaryId);
+        GetPackingReturnListQry query = new(intent, subsidiaryId, includeReceived);
 
         (var data, int count) = await sender.Send(query, intent.CancellationToken);
 

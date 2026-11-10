@@ -22,16 +22,16 @@ internal class ReturnPackingIntegration(
     SuiteQLQueryBuilderFactoryService builderFactory,
     Integration.NS.Implementations.Others.Caching.GridResultCache? readCache = null) : IReturnPackingIntegration
 {
-    public Task<(IEnumerable<ReturnsDataGridDTO> Data, int Count)> GetPackingReturnsList(DataGridIntent intent, int subsidiaryId)
+    public Task<(IEnumerable<ReturnsDataGridDTO> Data, int Count)> GetPackingReturnsList(DataGridIntent intent, int subsidiaryId, bool includeReceived = false)
     {
         intent = intent.Snapshot();
-        return readCache is null ? ReadListAsync(intent, subsidiaryId)
+        return readCache is null ? ReadListAsync(intent, subsidiaryId, includeReceived)
             : readCache.ReadAsync("Packing", nameof(GetPackingReturnsList), intent,
-                ct => { var snapshot = intent.Snapshot(); snapshot.CancellationToken = ct; return ReadListAsync(snapshot, subsidiaryId); },
-                intent.CancellationToken, false, subsidiaryId);
+                ct => { var snapshot = intent.Snapshot(); snapshot.CancellationToken = ct; return ReadListAsync(snapshot, subsidiaryId, includeReceived); },
+                intent.CancellationToken, false, subsidiaryId, includeReceived);
     }
 
-    private async Task<(IEnumerable<ReturnsDataGridDTO> Data, int Count)> ReadListAsync(DataGridIntent intent, int subsidiaryId)
+    private async Task<(IEnumerable<ReturnsDataGridDTO> Data, int Count)> ReadListAsync(DataGridIntent intent, int subsidiaryId, bool includeReceived)
     {
         if (intent.Sorts.Count == 0) intent.Sorts.Add(DataGridSortUtilities.Descending(nameof(ReturnPackingDataGridNSDTO.DateLastModified)));
 
@@ -60,7 +60,7 @@ internal class ReturnPackingIntegration(
             .WithFilters(
                 Equal("tl.mainline", "T"),
                 Equal("t.subsidiary", subsidiaryId))
-            .WithFilters(PackingReturnsFilters())
+            .WithFilters(PackingReturnsFilters(includeReceived))
             .WithFilters(SuiteQLFragments.PackingQueueOrPrintableLabel(sourceTracksPickedState: true))
             .WithDatagridIntent(intent, new Dictionary<string, string>
             {
@@ -183,13 +183,13 @@ internal class ReturnPackingIntegration(
         return (response.items.Select(MapLineDto), response.totalResults);
     }
 
-    private static AppFilterDescriptor[] PackingReturnsFilters()
+    private static AppFilterDescriptor[] PackingReturnsFilters(bool includeReceived = false)
     {
         return
         [
             In("t.recordtype", new string[] { "intercompanytransferorder", "transferorder" }),
             In("t.custbody_dbti_transfer_category", new string[] { "3", "4" }),
-            In("t.status", new string[] { "B", "D", "E" })
+            In("t.status", includeReceived ? new string[] { "B", "D", "E", "F", "G" } : new string[] { "B", "D", "E" })
         ];
     }
 

@@ -67,6 +67,15 @@ public class ApprovedPrintStatusFilterTests
         }
     }
 
+    [Fact]
+    public void Packing_STR_all_label_picker_includes_received_transfer_statuses()
+    {
+        var intent = new DataGridIntent();
+        PackingFulfillmentPrintStatusFilter.ApplyToFulfillments(intent, PrintStatus.All, "STR", 7);
+
+        Assert.Contains("tcf.status IN ('B', 'D', 'E', 'F', 'G')", Query(intent));
+    }
+
     [Theory]
     [InlineData("Transaction")]
     [InlineData("Packing")]

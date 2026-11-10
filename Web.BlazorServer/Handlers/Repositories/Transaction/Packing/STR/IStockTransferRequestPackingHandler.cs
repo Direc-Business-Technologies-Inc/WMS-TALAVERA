@@ -5,7 +5,7 @@ namespace Web.BlazorServer.Handlers.Repositories.Transaction.Packing.STR;
 
 public interface IStockTransferRequestPackingHandler
 {
-    Task<(IEnumerable<StockTransferRequestPackingDataGridVM> Data, int Count)> GetStockTransferRequestsList(DataGridIntent intent, int subsidiaryId);
+    Task<(IEnumerable<StockTransferRequestPackingDataGridVM> Data, int Count)> GetStockTransferRequestsList(DataGridIntent intent, int subsidiaryId, bool includeReceived = false);
     Task<StockTransferRequestInfoPackingVM?> GetPackingStockTransferRequest(string reference);
     Task<(IEnumerable<StockTransferRequestLinePackingVM> Data, int Count)> GetPackingStockTransferRequestLines(string reference, DataGridIntent intent);
 }

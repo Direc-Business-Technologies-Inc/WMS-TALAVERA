@@ -6,7 +6,7 @@ namespace Application.UseCases.Repositories.Integration.Transaction.Packing;
 
 public interface IReturnPackingIntegration
 {
-    Task<(IEnumerable<ReturnsDataGridDTO> Data, int Count)> GetPackingReturnsList(DataGridIntent intent, int subsidiaryId);
+    Task<(IEnumerable<ReturnsDataGridDTO> Data, int Count)> GetPackingReturnsList(DataGridIntent intent, int subsidiaryId, bool includeReceived = false);
     Task<ReturnsInfoDTO?> GetPackingReturn(string id);
     Task<(IEnumerable<ReturnsLineDTO> Data, int Count)> GetPackingReturnLines(string id, DataGridIntent intent);
 
