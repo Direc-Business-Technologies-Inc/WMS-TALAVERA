@@ -1269,7 +1269,11 @@ namespace Integration.NS.Services
                 JOIN transaction t ON t.id = tl.transaction
                 LEFT JOIN unitstypeuom u ON u.internalid = tl.units
                 WHERE t.id = {orderId} AND t.recordtype = 'purchaseorder'
-                    AND t.status IN ('B', 'E')
+                    AND t.status IN ('B', 'D', 'E')
+                    AND (
+                        t.custbody_dbti_custom_approval_status IS NULL 
+                        OR t.custbody_dbti_custom_approval_status != '20'
+                    )
                     AND tl.mainline = 'F' AND tl.item IS NOT NULL
                 ORDER BY tl.id
                 """;

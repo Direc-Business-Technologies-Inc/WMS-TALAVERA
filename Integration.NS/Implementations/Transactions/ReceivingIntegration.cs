@@ -225,7 +225,7 @@ public partial class ReceivingIntegration(
             }).ToDictionary())
             .WithFilters(
                 Equal("t.recordtype", "purchaseorder"),
-                In("t.status", new string[] { "B", "E" }),
+                In("t.status", new string[] { "B", "D", "E" }),
                 Any(
                     IsNull("t.custbody_dbti_custom_approval_status"),
                     NotEqual("t.custbody_dbti_custom_approval_status", "20")),
@@ -1342,7 +1342,7 @@ public partial class ReceivingIntegration(
 
         var purchaseOrderEligibility = All(
             Equal("tcf.recordtype", "purchaseorder"),
-            In("tcf.status", new[] { "B", "E" }),
+            In("tcf.status", new[] { "B", "D", "E" }),
             Any(IsNull("tcf.custbody_dbti_custom_approval_status"), NotEqual("tcf.custbody_dbti_custom_approval_status", "20")),
             NotNull("allowedpo.sourceid"),
             Any(
