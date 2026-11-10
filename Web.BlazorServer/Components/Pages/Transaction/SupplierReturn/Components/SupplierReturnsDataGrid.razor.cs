@@ -84,7 +84,7 @@ public partial class SupplierReturnsDataGrid
             if (result.Outcome == BulkFulfillmentOutcome.Submitted)
             {
                 SelectedRows.Clear();
-                if (result.ReferenceId.HasValue) ToastService.Success(result.Message);
+                if (result.ReferenceId.HasValue) ToastService.FulfillmentProcessing(result.Message);
                 else ToastService.Warning(result.Message);
             }
             else if (result.Outcome == BulkFulfillmentOutcome.Uncertain)

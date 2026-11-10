@@ -106,7 +106,7 @@ public class BulkFulfillmentWorkflowTests : TestContext
     [InlineData(true, "[7]", true)]
     public async Task Presentation_enforces_permission_and_trusted_scope(bool permitted, string scope, bool dispatched)
     {
-        var principal = new ClaimsPrincipal(new ClaimsIdentity([new Claim("com.direcbusiness.wms.nsAllowedSubsidiaries", scope)], "test"));
+        var principal = new ClaimsPrincipal(new ClaimsIdentity([new Claim("com.direcbusiness.wms.nsAllowedSubsidiaries", scope), new Claim("Id", Guid.NewGuid().ToString())], "test"));
         var auth = new AppAuthenticationService(new HttpContextAccessor { HttpContext = new DefaultHttpContext { User = principal } });
         var authorization = Substitute.For<IAuthorizationService>();
         authorization.AuthorizeAsync(principal, null, "permission.OSRN.CREATE").Returns(permitted ? AuthorizationResult.Success() : AuthorizationResult.Failed());

@@ -15,6 +15,8 @@ public static class BlazorServerDI
         services.TryAddScoped<IAppActionFactory, AppActionFactory>();
         services.TryAddScoped<IBusyService, BusyService>();
         services.TryAddScoped<IToastService, ToastService>();
+        services.TryAddSingleton<Application.UseCases.Repositories.Integration.Transaction.SupplierReturn.IBulkFulfillmentTrackingRepository,
+            InMemoryBulkFulfillmentTrackingRepository>();
         services.TryAddScoped<IGridSettingsService, GridSettingsService>();
         services.TryAddScoped<IBusyDialogService, BusyDialogService>();
 

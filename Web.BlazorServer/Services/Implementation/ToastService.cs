@@ -7,6 +7,17 @@ public class ToastService(
     NotificationService notificationService
     ) : IToastService
 {
+    public void FulfillmentProcessing(string message)
+    {
+        notificationService.Notify(new NotificationMessage
+        {
+            Severity = NotificationSeverity.Info,
+            Summary = "Fulfillment processing",
+            Detail = message,
+            Duration = 3000
+        });
+    }
+
     public void Error(string message, string? header = null)
     {
         notificationService.Notify(new NotificationMessage

@@ -38,7 +38,9 @@ public class SupplierReturnHandler(
         }
         if (subsidiaries.Length == 0 || subsidiaries.Any(id => id <= 0))
             return BulkFulfillmentResultDTO.Reject("Your subsidiary access could not be established. Sign in again or contact an administrator.");
-        return await sender.Send(new SubmitBulkFulfillmentCmd(new(data.ReturnIds?.ToArray() ?? []), subsidiaries), ct);
+        if (!Guid.TryParse(authService.GetUserId(), out var userId) || userId == Guid.Empty)
+            return BulkFulfillmentResultDTO.Reject("Your user identity could not be established. Sign in again before submitting.");
+        return await sender.Send(new SubmitBulkFulfillmentCmd(new(data.ReturnIds?.ToArray() ?? []), subsidiaries, userId), ct);
     }
 
     public async Task<bool> CreateSupplierReturnAsync(SupplierReturnVM data)

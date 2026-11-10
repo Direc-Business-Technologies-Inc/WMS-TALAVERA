@@ -8,6 +8,7 @@ using Integration.NS.Implementations.Transactions;
 using Integration.NS.Services;
 using Integration.NS.Tests.Fakes;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
 namespace Integration.NS.Tests.Implementations.Transactions;
@@ -27,8 +28,8 @@ public class BulkFulfillmentTests
     {
         var (sut, client) = Create();
         var before = DateTime.Today;
-        var result = await new SubmitBulkFulfillmentCmdHandler(sut).Handle(
-            new(new([1234, 5678, 1234]), [7]), default);
+        var result = await new SubmitBulkFulfillmentCmdHandler(sut, new BulkFulfillmentTrackingFake(), NullLogger<SubmitBulkFulfillmentCmdHandler>.Instance).Handle(
+            new(new([1234, 5678, 1234]), [7], Guid.NewGuid()), default);
         Assert.Equal(BulkFulfillmentOutcome.Submitted, result.Outcome);
         Assert.Equal(42, result.ReferenceId);
         var write = Assert.Single(client.Writes);
@@ -68,7 +69,7 @@ public class BulkFulfillmentTests
     public async Task Invalid_selection_never_queries_or_posts(int[] ids)
     {
         var (sut, client) = Create();
-        var result = await new SubmitBulkFulfillmentCmdHandler(sut).Handle(new(new(ids), [7]), default);
+        var result = await new SubmitBulkFulfillmentCmdHandler(sut, new BulkFulfillmentTrackingFake(), NullLogger<SubmitBulkFulfillmentCmdHandler>.Instance).Handle(new(new(ids), [7], Guid.NewGuid()), default);
         Assert.Equal(BulkFulfillmentOutcome.Rejected, result.Outcome);
         Assert.Empty(client.Writes);
         Assert.Empty(client.Queries);
