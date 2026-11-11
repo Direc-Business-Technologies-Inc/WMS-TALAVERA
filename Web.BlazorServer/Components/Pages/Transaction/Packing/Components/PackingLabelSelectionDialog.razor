@@ -23,6 +23,7 @@
         <Columns>
             <RadzenDataGridColumn TItem="PackedItemFulfillmentVM" Property="@nameof(PackedItemFulfillmentVM.ReferenceNumber)" Title="Item Fulfillment" />
             <RadzenDataGridColumn TItem="PackedItemFulfillmentVM" Property="@nameof(PackedItemFulfillmentVM.CreatedFrom)" Title="Created From" />
+            <RadzenDataGridColumn TItem="PackedItemFulfillmentVM" Property="@nameof(PackedItemFulfillmentVM.Vendor)" Title="Vendor" />
             <RadzenDataGridColumn TItem="PackedItemFulfillmentVM" Property="@nameof(PackedItemFulfillmentVM.Date)" Title="Date">
                 <Template Context="fulfillment">@fulfillment.Date.ToString("MMM dd, yyyy")</Template>
             </RadzenDataGridColumn>

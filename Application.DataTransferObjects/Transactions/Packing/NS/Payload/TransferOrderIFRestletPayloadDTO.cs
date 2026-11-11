@@ -25,6 +25,10 @@ public class TransferOrderIFRestletPayloadDTO
     [JsonPropertyName("shipStatus")]
     public string ShipStatus { get; set; } = "B";
 
+    [JsonPropertyName("vendorId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? VendorId { get; set; }
+
     [JsonPropertyName("lines")]
     public List<RestletLine> Lines { get; set; } = [];
 
@@ -44,6 +48,7 @@ public class TransferOrderIFRestletPayloadDTO
         {
             TransferOrderId = transferOrderId,
             ShipStatus = shipStatus,
+            VendorId = scannedLines.FirstOrDefault(x => x.VendorId is > 0)?.VendorId,
             Lines = scannedLines
                 .Where(x => x.ScannedQuantity > 0)
                 .GroupBy(x => x.LineSequenceNumber)

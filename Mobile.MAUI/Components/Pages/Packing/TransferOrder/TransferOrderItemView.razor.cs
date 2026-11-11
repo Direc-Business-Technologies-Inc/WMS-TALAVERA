@@ -956,6 +956,7 @@ public partial class TransferOrderItemView : IAsyncDisposable
             .Select(x => new TransferOrderLineVM
             {
                 NetsuiteOrderInternalId = x.NetsuiteOrderInternalId,
+                VendorId = VendorId,
                 OrderNumber = x.OrderNumber,
                 OrderType = x.OrderType,
                 OrderStatus = x.OrderStatus,

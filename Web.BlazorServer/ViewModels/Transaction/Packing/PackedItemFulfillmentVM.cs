@@ -21,6 +21,7 @@ public class PackedItemFulfillmentVM
     public DateTime DateLastModified { get; set; }
     [QuickDataGridTitle("Created From")]
     public string CreatedFrom { get; set; } = string.Empty;
+    public string Vendor { get; set; } = string.Empty;
     [QuickDataGridTitle("Transfer Category")]
     public string TransferCategory { get; set; } = string.Empty;
 }

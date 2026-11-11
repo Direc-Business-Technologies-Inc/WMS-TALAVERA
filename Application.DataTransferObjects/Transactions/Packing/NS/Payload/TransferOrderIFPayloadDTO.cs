@@ -8,6 +8,9 @@ public class TransferOrderIFPayloadDTO
     public string ShipStatus { get; set; }
     [JsonPropertyName("custbody_dbti_print_label")]
     public bool PrintLabel { get; set; }
+    [JsonPropertyName("custbody_dbti_return_to_vendor")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public ReferenceValue? ReturnToVendor { get; set; }
     [JsonPropertyName("item")]
     public ItemContainer Item { get; set; } = new();
 
@@ -22,6 +25,9 @@ public class TransferOrderIFPayloadDTO
         {
             ShipStatus = shipStatus,
             PrintLabel = printLabel,
+            ReturnToVendor = lines.FirstOrDefault(x => x.VendorId is > 0)?.VendorId is int vendorId
+                ? new ReferenceValue { Id = vendorId.ToString() }
+                : null,
 
             Item = new ItemContainer
             {

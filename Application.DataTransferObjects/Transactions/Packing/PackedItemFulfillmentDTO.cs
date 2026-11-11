@@ -15,6 +15,7 @@ namespace Application.DataTransferObjects.Transactions.Packing
         public DateTime Date { get; set; }
         public DateTime DateLastModified { get; set; }
         public string CreatedFrom { get; set; } = string.Empty;
+        public string Vendor { get; set; } = string.Empty;
         public string TransferCategory { get; set;} = string.Empty;
     }
 }
