@@ -132,6 +132,21 @@ public class PrintStatusCountsTests
         Assert.DoesNotContain("JOIN transactionline tl", client.LastQuery);
     }
 
+    [Fact]
+    public async Task Receiving_report_all_lookup_includes_completed_PO_STR_and_returns_sources()
+    {
+        var client = new CapturingNetSuiteClient();
+        var intent = new DataGridIntent { Take = 20, Skip = 0 };
+        intent.Filters.Add(DataGridFilterUtilities.Equal("IncludeCompletedReceived", true));
+        intent.Filters.Add(DataGridFilterUtilities.Equal("tcf.id", 123));
+
+        await Receiving(client).GetItemReceiptsDatagrid(intent);
+
+        Assert.Contains("tcf.status IN ('B', 'D', 'E', 'F', 'G')", client.LastQuery);
+        Assert.Contains("tcf.status IN ('F', 'E', 'G')", client.LastQuery);
+        Assert.DoesNotContain("IncludeCompletedReceived", client.LastQuery);
+    }
+
     [Theory]
     [InlineData(true)]
     [InlineData(false)]

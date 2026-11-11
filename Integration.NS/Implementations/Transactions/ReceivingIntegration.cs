@@ -489,7 +489,6 @@ public partial class ReceivingIntegration(
 
     public async Task<(IEnumerable<ReturnsDataGridDTO>, int count)> GetReturnsListAsync(DataGridIntent intent)
     {
-        var includeCompletedReceived = intent.Filters.RemoveAll(filter => filter.Property == "IncludeCompletedReceived") > 0;
         return await QueryListWithOffsetClampAsync(intent, "Returns list", async skipOverride =>
         {
             var response = await QueryReturnsListAsync(intent, skipOverride);
@@ -1335,6 +1334,7 @@ public partial class ReceivingIntegration(
 
     private SuiteQLQueryBuilder CreateItemReceiptsQuery(DataGridIntent intent)
     {
+        var includeCompletedReceived = intent.Filters.RemoveAll(filter => filter.Property == "IncludeCompletedReceived") > 0;
         int[] allowedLocations = [-1];
         var locationClaim = httpContext.HttpContext?.User?.FindFirst("com.direcbusiness.wms.nsAllowedLocations")?.Value;
         if (locationClaim is not null)
@@ -1347,7 +1347,7 @@ public partial class ReceivingIntegration(
 
         var purchaseOrderEligibility = All(
             Equal("tcf.recordtype", "purchaseorder"),
-            In("tcf.status", new[] { "B", "D", "E" }),
+            In("tcf.status", includeCompletedReceived ? new[] { "B", "D", "E", "F", "G" } : new[] { "B", "D", "E" }),
             Any(IsNull("tcf.custbody_dbti_custom_approval_status"), NotEqual("tcf.custbody_dbti_custom_approval_status", "20")),
             NotNull("allowedpo.sourceid"),
             Any(
@@ -1361,7 +1361,7 @@ public partial class ReceivingIntegration(
             All(Equal("tcf.recordtype", "transferorder"), In("tcf.subsidiary", allowedSubsidiaries)));
         var strEligibility = All(
             In("tcf.recordtype", new[] { "transferorder", "intercompanytransferorder" }),
-            In("tcf.status", new[] { "F", "E" }),
+            In("tcf.status", includeCompletedReceived ? new[] { "F", "E", "G" } : new[] { "F", "E" }),
             NotEqual("tcf.custbody_dbti_transfer_category", 3),
             NotEqual("tcf.custbody_dbti_transfer_category", 4),
             In("tcf.transferlocation", allowedLocations),
@@ -1371,7 +1371,7 @@ public partial class ReceivingIntegration(
             : In("tcf.recordtype", new[] { "transferorder", "intercompanytransferorder" });
         var returnsEligibility = All(
             In("tcf.recordtype", new[] { "transferorder", "intercompanytransferorder" }),
-            In("tcf.status", new[] { "F", "E" }),
+            In("tcf.status", includeCompletedReceived ? new[] { "F", "E", "G" } : new[] { "F", "E" }),
             Any(Equal("tcf.custbody_dbti_transfer_category", 3), Equal("tcf.custbody_dbti_transfer_category", 4)),
             In("tcf.transferlocation", allowedLocations),
             returnsTransferScope);
