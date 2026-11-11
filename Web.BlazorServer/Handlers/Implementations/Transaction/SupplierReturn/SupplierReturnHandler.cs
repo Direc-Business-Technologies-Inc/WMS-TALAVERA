@@ -38,9 +38,28 @@ public class SupplierReturnHandler(
         }
         if (subsidiaries.Length == 0 || subsidiaries.Any(id => id <= 0))
             return BulkFulfillmentResultDTO.Reject("Your subsidiary access could not be established. Sign in again or contact an administrator.");
-        if (!Guid.TryParse(authService.GetUserId(), out var userId) || userId == Guid.Empty)
-            return BulkFulfillmentResultDTO.Reject("Your user identity could not be established. Sign in again before submitting.");
-        return await sender.Send(new SubmitBulkFulfillmentCmd(new(data.ReturnIds?.ToArray() ?? []), subsidiaries, userId), ct);
+        return await sender.Send(new SubmitBulkFulfillmentCmd(new(data.ReturnIds?.ToArray() ?? []), subsidiaries), ct);
+    }
+
+    public async Task<(IEnumerable<BulkFulfillmentStatusDTO> Data, int Count)> GetBulkFulfillmentStatusesAsync(DataGridIntent intent)
+    {
+        if (!authService.IsAuthenticated() || !(await authorizationService.AuthorizeAsync(
+            authService.CurrentUser, null, "permission.OSRN.VIEW")).Succeeded) return ([], 0);
+        return await sender.Send(new GetBulkFulfillmentStatusesQry(intent, AllowedSubsidiaries()));
+    }
+
+    public async Task<IReadOnlyList<SupplierReturnDataGridVM>> GetBulkFulfillmentReturnsAsync(int bulkId)
+    {
+        if (!authService.IsAuthenticated() || !(await authorizationService.AuthorizeAsync(
+            authService.CurrentUser, null, "permission.OSRN.VIEW")).Succeeded) return [];
+        var rows = await sender.Send(new GetBulkFulfillmentReturnsQry(bulkId, AllowedSubsidiaries()));
+        return rows.Adapt<List<SupplierReturnDataGridVM>>();
+    }
+
+    private int[] AllowedSubsidiaries()
+    {
+        try { return JsonSerializer.Deserialize<int[]>(authService.GetClaimValue("com.direcbusiness.wms.nsAllowedSubsidiaries")) ?? []; }
+        catch (JsonException) { return []; }
     }
 
     public async Task<bool> CreateSupplierReturnAsync(SupplierReturnVM data)

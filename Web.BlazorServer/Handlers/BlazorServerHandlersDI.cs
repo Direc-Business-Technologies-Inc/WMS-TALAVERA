@@ -85,7 +85,6 @@ public static class BlazorServerHandlersDI
         services.TryAddTransient<IVendorReturnAuthorizationItemReceiptPackingHandler, VendorReturnAuthorizationItemReceiptPackingHandler>();
         services.TryAddTransient<ITripTicketHandler, TripTicketHandler>();
         services.TryAddTransient<ISupplierReturnHandler, SupplierReturnHandler>();
-        services.TryAddTransient<IBulkFulfillmentNotificationsHandler, BulkFulfillmentNotificationsHandler>();
         services.TryAddTransient<ICustomerHandler, CustomerHandler>();
         services.TryAddTransient<IInventoryTransferRequestHandler, InventoryTransferRequestHandler>();
         services.TryAddTransient<IInventoryHandler, InventoryHandler>();

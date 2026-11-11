@@ -242,6 +242,7 @@ public partial class SupplierReturnIntegration(
 
     public async Task<bool> CreateNewSupplierReturn(SupplierReturnDTO data)
     {
+        ValidateCreationQuantities(data);
         await ValidatePreferredVendorAsync(data);
         await ValidateOnHandQuantitiesAsync(data);
         string payload = CreatePayload(data);
@@ -287,6 +288,7 @@ public partial class SupplierReturnIntegration(
     public async Task<bool> CreateSupplierReturnFromPurchaseOrder(SupplierReturnDTO data)
     {
         if (data.SourcePO is null) throw new InvalidOperationException("INTERNAL ERROR: No purchase order reference given");
+        ValidateCreationQuantities(data);
         await ValidatePreferredVendorAsync(data);
         await ValidateOnHandQuantitiesAsync(data);
         var payload = new
@@ -496,6 +498,19 @@ public partial class SupplierReturnIntegration(
             Vendor = nsdto.VendorId.HasValue ? new Application.DataTransferObjects.Others.VendorDTO { Id = nsdto.VendorId.Value, Name = nsdto.VendorName ?? string.Empty } : null,
             PreferredVendor = nsdto.PreferredVendorId.HasValue ? new Application.DataTransferObjects.Others.VendorDTO { Id = nsdto.PreferredVendorId.Value, Name = nsdto.PreferredVendorName ?? string.Empty } : null
         });
+    }
+
+    private static void ValidateCreationQuantities(SupplierReturnDTO data)
+    {
+        if (data.Lines is null || !data.Lines.Any())
+            throw new InvalidOperationException("Add at least one RTS line before creating the return.");
+
+        var invalidLines = data.Lines.Select((line, index) => (line, index))
+            .Where(entry => entry.line.QuantityAlloted <= 0)
+            .Select(entry => entry.line.LineNumber?.ToString() ?? (entry.index + 1).ToString());
+        var numbers = string.Join(", ", invalidLines);
+        if (numbers.Length > 0)
+            throw new InvalidOperationException($"Enter a quantity greater than zero on RTS line(s): {numbers}.");
     }
 
     private async Task ValidateOnHandQuantitiesAsync(SupplierReturnDTO data)

@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Net;
 using System.Text.Json;
+using Shared.Entities;
 using Application.DataTransferObjects.Transactions.SupplierReturn;
 using Application.DataTransferObjects.Others.NS;
 using Domain.Providers;
@@ -13,6 +14,68 @@ namespace Integration.NS.Implementations.Transactions;
 
 public partial class SupplierReturnIntegration
 {
+    public async Task<(IEnumerable<BulkFulfillmentStatusDTO> Data, int Count)> GetBulkFulfillmentStatusesAsync(
+        DataGridIntent intent, IReadOnlyList<int> allowedSubsidiaries, CancellationToken ct = default)
+    {
+        if (allowedSubsidiaries.Count == 0) return ([], 0);
+        if (intent.Sorts.Count == 0)
+            intent.Sorts.Add(DataGridSortUtilities.Descending(nameof(BulkFulfillmentStatusDTO.Id)));
+        var query = builderFactory.Create()
+            .Select(("bf.id", nameof(BulkFulfillmentStatusDTO.Id)),
+                ("TO_CHAR(bf.custrecord_bf_date, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(BulkFulfillmentStatusDTO.Date)),
+                ("bf.custrecord_bf_memo", nameof(BulkFulfillmentStatusDTO.Memo)),
+                ("BUILTIN.DF(bf.custrecord_bf_status)", nameof(BulkFulfillmentStatusDTO.Status)),
+                ("bf.custrecord_bf_error_message", nameof(BulkFulfillmentStatusDTO.ErrorMessage)))
+            .From("customrecord_bulk_fulfillment bf")
+            .WithDatagridIntent(intent, new Dictionary<string, string>
+            {
+                [nameof(BulkFulfillmentStatusDTO.Date)] = "bf.custrecord_bf_date",
+                [nameof(BulkFulfillmentStatusDTO.Memo)] = "bf.custrecord_bf_memo",
+                [nameof(BulkFulfillmentStatusDTO.Status)] = "BUILTIN.DF(bf.custrecord_bf_status)",
+                [nameof(BulkFulfillmentStatusDTO.Id)] = "bf.id"
+            }).Build();
+        var response = await query.ExecuteWithPaging<BulkFulfillmentStatusDTO>(netsuiteService, ct);
+        return (response.items, response.totalResults);
+    }
+
+    public async Task<IReadOnlyList<SupplierReturnDataGridDTO>> GetBulkFulfillmentReturnsAsync(
+        int bulkId, IReadOnlyList<int> allowedSubsidiaries, CancellationToken ct = default)
+    {
+        if (bulkId <= 0 || allowedSubsidiaries.Count == 0) return [];
+        var referencesQuery = builderFactory.Create()
+            .Select(("bf.custrecord_bf_return_to_supplier_ids", nameof(BulkFulfillmentReturnIds.ReturnIds)))
+            .From("customrecord_bulk_fulfillment bf")
+            .WithFilters(DataGridFilterUtilities.Equal("bf.id", bulkId))
+            .Build();
+        var references = await netsuiteService.ExecuteSuiteQLQuery<BulkFulfillmentReturnIds>(
+            referencesQuery.Query, limit: 1, ct: ct);
+        var rawIds = references.items.FirstOrDefault()?.ReturnIds;
+        if (string.IsNullOrWhiteSpace(rawIds)) return [];
+        var ids = new List<int>();
+        foreach (var token in rawIds.Split(','))
+        {
+            if (!int.TryParse(token.Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out var id) || id <= 0)
+                throw new InvalidOperationException($"NetSuite returned an invalid RTS reference for bulk fulfillment {bulkId}.");
+            if (!ids.Contains(id)) ids.Add(id);
+        }
+        if (ids.Count == 0) return [];
+        var query = builderFactory.Create()
+            .Select(("t.id", nameof(SupplierReturnDataGridDTO.Id)),
+                ("t.tranid", nameof(SupplierReturnDataGridDTO.ReferenceNumber)),
+                ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(SupplierReturnDataGridDTO.Date)),
+                ("BUILTIN.DF(t.entity)", nameof(SupplierReturnDataGridDTO.VendorName)),
+                ("BUILTIN.DF(t.custbody_dbti_return_category)", nameof(SupplierReturnDataGridDTO.CategoryName)),
+                ("CONCAT(e.firstname,CONCAT(' ',e.lastname))", nameof(SupplierReturnDataGridDTO.PreparedBy)))
+            .From("transaction t")
+            .LeftJoin("employee e", on: "e.id = t.custbody_dbti_prepared_by")
+            .WithFilters(DataGridFilterUtilities.Equal("t.recordtype", "vendorreturnauthorization"),
+                DataGridFilterUtilities.In("t.id", ids.ToArray()),
+                DataGridFilterUtilities.In("t.subsidiary", allowedSubsidiaries.ToArray()))
+            .Build();
+        var response = await netsuiteService.ExecuteSuiteQLQuery<SupplierReturnDataGridDTO>(query.Query, limit: ids.Count, ct: ct);
+        return response.items.ToArray();
+    }
+
     public async Task<BulkFulfillmentResultDTO> SubmitBulkFulfillmentAsync(SubmitBulkFulfillmentDTO data,
         IReadOnlyList<int> allowedSubsidiaries, CancellationToken ct = default)
     {

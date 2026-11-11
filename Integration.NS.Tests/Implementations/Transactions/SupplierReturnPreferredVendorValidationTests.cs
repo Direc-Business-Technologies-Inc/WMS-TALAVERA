@@ -86,6 +86,43 @@ public class SupplierReturnPreferredVendorValidationTests
         ]
     };
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Create_rejects_zero_quantity_lines_before_contacting_netsuite(bool fromPurchaseOrder)
+    {
+        var (sut, client) = Create();
+        var data = SampleReturn();
+        if (fromPurchaseOrder) data.SourcePO = 123;
+        data.Lines = [data.Lines.First(), new SupplierReturnLineDTO
+        {
+            ItemId = 101, ItemCode = "ITEM-101", LineNumber = 2, QuantityAlloted = 0
+        }];
+
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => sut.CreateSupplierReturn(data));
+
+        Assert.Contains("line(s): 2", error.Message);
+        Assert.Empty(client.Writes);
+        Assert.Empty(client.Queries);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Create_rejects_empty_line_list_before_contacting_netsuite(bool fromPurchaseOrder)
+    {
+        var (sut, client) = Create();
+        var data = SampleReturn();
+        if (fromPurchaseOrder) data.SourcePO = 123;
+        data.Lines = [];
+
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => sut.CreateSupplierReturn(data));
+
+        Assert.Contains("Add at least one RTS line", error.Message);
+        Assert.Empty(client.Writes);
+        Assert.Empty(client.Queries);
+    }
+
     [Fact]
     public async Task Create_rejects_item_with_a_different_preferred_vendor_before_posting()
     {

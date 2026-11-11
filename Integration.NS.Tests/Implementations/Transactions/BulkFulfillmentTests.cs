@@ -9,12 +9,66 @@ using Integration.NS.Services;
 using Integration.NS.Tests.Fakes;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging.Abstractions;
+using Shared.Entities;
 using Xunit;
 
 namespace Integration.NS.Tests.Implementations.Transactions;
 
 public class BulkFulfillmentTests
 {
+    [Fact]
+    public async Task Status_grid_queries_custom_records_only_on_explicit_load()
+    {
+        var (sut, client) = Create();
+        client.QueryItems.Add(new BulkFulfillmentStatusDTO { Id = 42, Status = "Pending" });
+        Assert.Empty(client.Queries);
+        var (rows, count) = await sut.GetBulkFulfillmentStatusesAsync(new DataGridIntent { Take = 10 }, [7]);
+        Assert.Single(rows);
+        Assert.Equal(1, count);
+        Assert.Contains(client.Queries, sql => sql.Contains("customrecord_bulk_fulfillment bf") &&
+            sql.Contains("custrecord_bf_status") && sql.Contains("custrecord_bf_memo"));
+    }
+
+    [Fact]
+    public async Task Read_only_details_resolve_suitesql_ids_and_enforce_subsidiary_scope()
+    {
+        var (sut, client) = Create();
+        client.QueryItems.Add(new BulkFulfillmentReturnIds { ReturnIds = "341069, 341070, 341069" });
+        client.QueryItems.Add(new SupplierReturnDataGridDTO { Id = 341069 });
+        client.QueryItems.Add(new SupplierReturnDataGridDTO { Id = 341070 });
+        var rows = await sut.GetBulkFulfillmentReturnsAsync(301, [7]);
+        Assert.Equal(2, rows.Count);
+        Assert.Contains("custrecord_bf_return_to_supplier_ids", client.Queries[0]);
+        Assert.Contains("bf.id = 301", client.Queries[0]);
+        Assert.Contains("t.id IN", client.Queries[1]);
+        Assert.Contains("341069", client.Queries[1]);
+        Assert.Contains("341070", client.Queries[1]);
+        Assert.Contains("t.subsidiary IN", client.Queries[1]);
+        Assert.Empty(client.Reads);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    public async Task Missing_rts_references_do_not_query_transactions(string? references)
+    {
+        var (sut, client) = Create();
+        client.QueryItems.Add(new BulkFulfillmentReturnIds { ReturnIds = references });
+        Assert.Empty(await sut.GetBulkFulfillmentReturnsAsync(301, [7]));
+        Assert.Single(client.Queries);
+    }
+
+    [Theory]
+    [InlineData("341069,garbage")]
+    [InlineData("0")]
+    public async Task Invalid_rts_references_are_not_silently_treated_as_empty(string references)
+    {
+        var (sut, client) = Create();
+        client.QueryItems.Add(new BulkFulfillmentReturnIds { ReturnIds = references });
+        await Assert.ThrowsAsync<InvalidOperationException>(() => sut.GetBulkFulfillmentReturnsAsync(301, [7]));
+        Assert.Single(client.Queries);
+    }
+
     private static (SupplierReturnIntegration Sut, RestCapturingNetSuiteClient Client) Create()
     {
         var client = new RestCapturingNetSuiteClient { CreationLocation = "/record/v1/customrecord_bulk_fulfillment/42" };
@@ -28,8 +82,8 @@ public class BulkFulfillmentTests
     {
         var (sut, client) = Create();
         var before = DateTime.Today;
-        var result = await new SubmitBulkFulfillmentCmdHandler(sut, new BulkFulfillmentTrackingFake(), NullLogger<SubmitBulkFulfillmentCmdHandler>.Instance).Handle(
-            new(new([1234, 5678, 1234]), [7], Guid.NewGuid()), default);
+        var result = await new SubmitBulkFulfillmentCmdHandler(sut).Handle(
+            new(new([1234, 5678, 1234]), [7]), default);
         Assert.Equal(BulkFulfillmentOutcome.Submitted, result.Outcome);
         Assert.Equal(42, result.ReferenceId);
         var write = Assert.Single(client.Writes);
@@ -69,7 +123,7 @@ public class BulkFulfillmentTests
     public async Task Invalid_selection_never_queries_or_posts(int[] ids)
     {
         var (sut, client) = Create();
-        var result = await new SubmitBulkFulfillmentCmdHandler(sut, new BulkFulfillmentTrackingFake(), NullLogger<SubmitBulkFulfillmentCmdHandler>.Instance).Handle(new(new(ids), [7], Guid.NewGuid()), default);
+        var result = await new SubmitBulkFulfillmentCmdHandler(sut).Handle(new(new(ids), [7]), default);
         Assert.Equal(BulkFulfillmentOutcome.Rejected, result.Outcome);
         Assert.Empty(client.Writes);
         Assert.Empty(client.Queries);

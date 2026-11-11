@@ -12,6 +12,8 @@ namespace Application.UseCases.Repositories.Integration.Transaction.SupplierRetu
 public interface ISupplierReturnIntegration
 {
     Task<BulkFulfillmentResultDTO> SubmitBulkFulfillmentAsync(SubmitBulkFulfillmentDTO data, IReadOnlyList<int> allowedSubsidiaries, CancellationToken ct = default);
+    Task<(IEnumerable<BulkFulfillmentStatusDTO> Data, int Count)> GetBulkFulfillmentStatusesAsync(DataGridIntent intent, IReadOnlyList<int> allowedSubsidiaries, CancellationToken ct = default);
+    Task<IReadOnlyList<SupplierReturnDataGridDTO>> GetBulkFulfillmentReturnsAsync(int bulkId, IReadOnlyList<int> allowedSubsidiaries, CancellationToken ct = default);
     Task<(IEnumerable<SupplierReturnDataGridDTO> Data, int Count)> GetReturnsDataGridAsync(DataGridIntent intent);
     Task<(IEnumerable<ReturnCategoryDTO> Data, int Count)> GetReturnCategories(DataGridIntent intent);
     Task<(IEnumerable<ReturnStatusDTO> Data, int Count)> GetReturnStatuses(DataGridIntent intent);

@@ -9,6 +9,8 @@ namespace Web.BlazorServer.Handlers.Repositories.Transaction.SupplierReturn;
 public interface ISupplierReturnHandler
 {
     Task<BulkFulfillmentResultDTO> SubmitBulkFulfillmentAsync(SubmitBulkFulfillmentDTO data, CancellationToken ct = default);
+    Task<(IEnumerable<BulkFulfillmentStatusDTO> Data, int Count)> GetBulkFulfillmentStatusesAsync(DataGridIntent intent);
+    Task<IReadOnlyList<SupplierReturnDataGridVM>> GetBulkFulfillmentReturnsAsync(int bulkId);
     Task<(IEnumerable<SupplierReturnDataGridVM> Data, int Count)> GetReturnsDataGridAsync(DataGridIntent intent);
     Task<(IEnumerable<PurchaseOrderDataGridVM> Data, int Count)> GetPurchaseOrdersDataGridAsync(DataGridIntent intent);
     Task<(IEnumerable<ReturnCategoryVM> Data, int Count)> GetReturnCategories(DataGridIntent intent);

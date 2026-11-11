@@ -2,8 +2,15 @@
 @inject Radzen.DialogService DialogService
 
 <div class="rts-bulk-confirmation">
-    <p>Submit these @Rows.Count RTS records for bulk fulfillment? This creates a request in NetSuite. Fulfillment is processed separately.</p>
-    <p>@Rows.Count selected; @FilteredRows.Count() matching the search.</p>
+    @if (!ReadOnly)
+    {
+        <p>Submit these @Rows.Count RTS records for bulk fulfillment? This creates a request in NetSuite. Fulfillment is processed separately.</p>
+    }
+    else if (!string.IsNullOrWhiteSpace(ErrorMessage))
+    {
+        <p class="rz-text-danger">@ErrorMessage</p>
+    }
+    <p>@(ReadOnly ? $"{Rows.Count} RTS records" : $"{Rows.Count} selected"); @FilteredRows.Count() matching the search.</p>
     <div class="rts-bulk-confirmation-grid">
         <div class="rts-bulk-confirmation-search">
             <RadzenIcon Icon="search" />
@@ -25,13 +32,18 @@
         </RadzenDataGrid>
     </div>
     <div class="rts-bulk-confirmation-actions">
-        <RadzenButton Text="Cancel" ButtonStyle="ButtonStyle.Light" Click="@(() => DialogService.Close(false))" />
-        <RadzenButton Text="Submit Request" ButtonStyle="ButtonStyle.Success" Disabled="@(Rows.Select(row => row.Id).Distinct().Count() < 2)" Click="@(() => DialogService.Close(true))" />
+        <RadzenButton Text="@(ReadOnly ? "Close" : "Cancel")" ButtonStyle="ButtonStyle.Light" Click="@(() => DialogService.Close(false))" />
+        @if (!ReadOnly)
+        {
+            <RadzenButton Text="Submit Request" ButtonStyle="ButtonStyle.Success" Disabled="@(Rows.Select(row => row.Id).Distinct().Count() < 2)" Click="@(() => DialogService.Close(true))" />
+        }
     </div>
 </div>
 
 @code {
     [Parameter] public IReadOnlyList<SupplierReturnDataGridVM> Rows { get; set; } = [];
+    [Parameter] public bool ReadOnly { get; set; }
+    [Parameter] public string? ErrorMessage { get; set; }
     string SearchText = string.Empty;
 
     IEnumerable<SupplierReturnDataGridVM> FilteredRows => Rows.Where(row =>

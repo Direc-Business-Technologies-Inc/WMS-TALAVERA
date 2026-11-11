@@ -37,9 +37,8 @@ public static class WebApplicationService
         // Bulk fulfillment is hosted by Web.BlazorServer. The shared application
         // assembly scan also finds its handlers; do not expose them from the API.
         builder.Services.RemoveAll<IRequestHandler<SubmitBulkFulfillmentCmd, BulkFulfillmentResultDTO>>();
-        builder.Services.RemoveAll<IRequestHandler<ReceiveBulkFulfillmentEventCmd, BulkFulfillmentEventReceipt>>();
-        builder.Services.RemoveAll<IRequestHandler<GetBulkFulfillmentNotificationsQry, IReadOnlyList<BulkFulfillmentNotificationDTO>>>();
-        builder.Services.RemoveAll<IRequestHandler<DismissBulkFulfillmentNotificationCmd>>();
+        builder.Services.RemoveAll<IRequestHandler<GetBulkFulfillmentStatusesQry, (IEnumerable<BulkFulfillmentStatusDTO> Data, int Count)>>();
+        builder.Services.RemoveAll<IRequestHandler<GetBulkFulfillmentReturnsQry, IReadOnlyList<SupplierReturnDataGridDTO>>>();
         #endregion Application Configuration
 
         builder.Services.AddCoreWebApiServices();

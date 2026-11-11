@@ -341,6 +341,11 @@ public partial class SupplierReturnForm
 
     async Task SubmitCore()
     {
+        if (Model.Id is null && !TryValidateCreationQuantities(out var creationError))
+        {
+            ToastService.Error(creationError, "Invalid Quantity");
+            return;
+        }
         if (IsEditable)
         {
             if (!EnsureItemEntrySelections()) return;
@@ -359,6 +364,22 @@ public partial class SupplierReturnForm
 
         if (OnSubmit.HasDelegate)
             await OnSubmit.InvokeAsync(Model);
+    }
+
+    bool TryValidateCreationQuantities(out string error)
+    {
+        if (Model.Lines.Count == 0)
+        {
+            error = "Add at least one RTS line before creating the return.";
+            return false;
+        }
+
+        var invalidLines = Model.Lines.Select((line, index) => (line, index))
+            .Where(entry => entry.line.QuantityAlloted <= 0)
+            .Select(entry => entry.line.LineNumber?.ToString() ?? (entry.index + 1).ToString());
+        var numbers = string.Join(", ", invalidLines);
+        error = numbers.Length == 0 ? string.Empty : $"Enter a quantity greater than zero on RTS line(s): {numbers}.";
+        return numbers.Length == 0;
     }
 
     bool TryValidateOnHand(out string error)
