@@ -23,6 +23,7 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
 
     List<VendorReturnAuthorizationLineVM> GoodVRAItems = [];
     List<VendorReturnAuthorizationLineVM> BadVRAItems = [];
+    List<VendorReturnAuthorizationLineVM> ScansNeedingReview = [];
 
     List<VendorReturnAuthorizationLineVM> FilteredGoodVRAItems = [];
     List<VendorReturnAuthorizationLineVM> FilteredBadVRAItems = [];
@@ -173,6 +174,9 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
             Name = "SavePurchaseOrderScan",
             TaskAsync = async () =>
             {
+                if (ScansNeedingReview.Count > 0)
+                    throw new InvalidOperationException("Scanned RTS lines are no longer available. Review the missing scans before saving; reload the order to start a new scan session.");
+
                 PrepareSaveSnapshot();
                 await InvokeAsync(StateHasChanged);
                 var res = await Client.Post<bool>("/Packing/VendorReturnAuthorization/SaveScan", VRAItems);
@@ -547,6 +551,12 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
         if (operation is null)
         {
             await Toast.Warning("Wait for the current scan or operation to finish, then save again.");
+            return;
+        }
+
+        if (ScansNeedingReview.Count > 0)
+        {
+            await Toast.Warning("Scanned RTS lines are no longer available. Review the missing scans before saving; reload the order to start a new scan session.");
             return;
         }
 
@@ -977,6 +987,7 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
         // Snapshot current scanned state before refreshing
         var scannedState = GoodVRAItems
             .Concat(BadVRAItems)
+            .Concat(ScansNeedingReview)
             .GroupBy(x => new
             {
                 x.LineSequenceNumber,
@@ -989,7 +1000,8 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
                 {
                     ScannedQuantity = g.First().ScannedQuantity,
                     ScannedWeight = g.First().ScannedWeight,
-                    ScanCount = g.First().ScanCount
+                    ScanCount = g.First().ScanCount,
+                    Original = g.First()
                 });
 
         // Reload PO items
@@ -1017,6 +1029,19 @@ public partial class VendorReturnAuthorizationItemView : IAsyncDisposable
                 item.ScanCount = scanned.ScanCount;
             }
         }
+
+        // Zero-quantity rows cannot be saved even when their identities match.
+        var restoredKeys = GoodVRAItems.Concat(BadVRAItems)
+            .Where(x => x.NSLineQuantityPacked > 0)
+            .Select(x => new { x.LineSequenceNumber, x.NetsuiteMaterialInternalId, x.IsBad })
+            .ToHashSet();
+        ScansNeedingReview = scannedState
+            .Where(x => x.Value.ScannedQuantity > 0 && !restoredKeys.Contains(x.Key))
+            .Select(x => x.Value.Original)
+            .ToList();
+
+        if (ScansNeedingReview.Count > 0)
+            await Toast.Warning("Some scanned RTS lines disappeared after refresh. Their scans are preserved for review; saving is blocked until the order is reconciled.");
 
         await InvokeAsync(StateHasChanged);
     }

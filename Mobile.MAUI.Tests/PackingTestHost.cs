@@ -105,6 +105,7 @@ namespace Mobile.MAUI.Components.Pages.Packing.Returns
     {
         public List<ReturnsLineVM> TestRows => ReturnsItems;
         public List<ReturnsLineVM> TestDisplayed => FilteredReturnsItems;
+        public List<ReturnsLineVM> TestReview => ScansNeedingReview;
         public Task TestSave() => SaveScan();
         public Task TestRefresh() => Refresh();
         public Task TestScan(string value) => ProcessItemScan(value);
@@ -117,8 +118,10 @@ namespace Mobile.MAUI.Components.Pages.Packing.VendorReturnAuthorization
     {
         public List<VendorReturnAuthorizationLineVM> TestGood => GoodVRAItems;
         public List<VendorReturnAuthorizationLineVM> TestBad => BadVRAItems;
+        public List<VendorReturnAuthorizationLineVM> TestReview => ScansNeedingReview;
         public void TestGoodMode() => ScanState = Enums.CustomEnum.ToggleState.Good;
         public Task TestSave() => SaveScan();
+        public Task TestRefresh() => Refresh();
         public Task TestScan(string value) => ProcessItemScan(value);
     }
 }

@@ -21,6 +21,7 @@ public partial class ReturnsItemView : IAsyncDisposable
 
     List<ReturnsLineVM> ReturnsItems = [];
     List<ReturnsLineVM> FilteredReturnsItems = [];
+    List<ReturnsLineVM> ScansNeedingReview = [];
     ReturnsLineVM? LastScanned;
 
     ReturnsLineVM? SelectedLine;
@@ -128,6 +129,9 @@ public partial class ReturnsItemView : IAsyncDisposable
             Name = "SaveReturnsScan",
             TaskAsync = async () =>
             {
+                if (ScansNeedingReview.Count > 0)
+                    throw new InvalidOperationException("Scanned Returns lines are no longer available. Review the missing scans before saving; reload the order to start a new scan session.");
+
                 var snapshot = PrepareSaveSnapshot();
                 await InvokeAsync(StateHasChanged);
                 var res = await Client.Post<bool>("/Packing/Returns/SaveScan", snapshot);
@@ -482,6 +486,12 @@ public partial class ReturnsItemView : IAsyncDisposable
             return;
         }
 
+        if (ScansNeedingReview.Count > 0)
+        {
+            await Toast.Warning("Scanned Returns lines are no longer available. Review the missing scans before saving; reload the order to start a new scan session.");
+            return;
+        }
+
         ActionSaveScan.Result = null!;
         await ActionFactory.ExecuteAppActionAsync(ActionSaveScan, confirm: true, showToast: true);
         await InvokeAsync(StateHasChanged);
@@ -602,7 +612,7 @@ public partial class ReturnsItemView : IAsyncDisposable
         }
 
         // Snapshot current scanned state before refreshing
-        var scannedState = ReturnsItems
+        var scannedState = ReturnsItems.Concat(ScansNeedingReview)
             .GroupBy(x => new
             {
                 x.LineSequenceNumber,
@@ -616,6 +626,7 @@ public partial class ReturnsItemView : IAsyncDisposable
                     ScannedQuantity = g.First().ScannedQuantity,
                     ScannedWeight = g.First().ScannedWeight,
                     ScanCount = g.First().ScanCount,
+                    Original = g.First()
                 });
 
         // Reload PO items
@@ -642,6 +653,19 @@ public partial class ReturnsItemView : IAsyncDisposable
                 item.ScanCount = scanned.ScanCount;
             }
         }
+
+        // A returned line with no packable quantity is also omitted from the
+        // visible/saveable rows; keep its scans in review instead of losing them.
+        var restoredKeys = ReturnsItems.Where(x => x.NSLineQuantityPacked > 0)
+            .Select(x => new { x.LineSequenceNumber, x.NetsuiteMaterialInternalId, x.IsBad })
+            .ToHashSet();
+        ScansNeedingReview = scannedState
+            .Where(x => x.Value.ScannedQuantity > 0 && !restoredKeys.Contains(x.Key))
+            .Select(x => x.Value.Original)
+            .ToList();
+
+        if (ScansNeedingReview.Count > 0)
+            await Toast.Warning("Some scanned Returns lines disappeared after refresh. Their scans are preserved for review; saving is blocked until the order is reconciled.");
 
         await InvokeAsync(StateHasChanged);
     }

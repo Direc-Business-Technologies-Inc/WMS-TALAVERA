@@ -199,6 +199,98 @@ public sealed class PackingWorkflowTests : TestContext
     }
 
     [Fact]
+    public async Task Returns_disappeared_scan_stays_visible_across_refreshes_and_blocks_save_until_it_returns()
+    {
+        var page = RenderComponent<ReturnsItemView>();
+        await page.InvokeAsync(() => page.Instance.TestScan("one"));
+        var missing = page.Instance.TestRows[0];
+        _client.Respond = (url, _) => Task.FromResult<object?>(url.EndsWith("/Items")
+            ? new List<ReturnsLineVM> { new() { NetsuiteOrderInternalId = 42, LineSequenceNumber = 2, NetsuiteMaterialInternalId = 8, LineQuantity = 20, UoMRate = 1 } }
+            : null);
+        await page.InvokeAsync(page.Instance.TestRefresh);
+        Assert.Same(missing, Assert.Single(page.Instance.TestReview));
+        Assert.Equal(1, missing.ScannedQuantity);
+        Assert.True(_dirty.HasUnsavedChanges);
+        await page.InvokeAsync(page.Instance.TestSave);
+        Assert.DoesNotContain(_client.Posts, x => x.Url.EndsWith("/SaveScan"));
+
+        await page.InvokeAsync(page.Instance.TestRefresh);
+        Assert.Same(missing, Assert.Single(page.Instance.TestReview));
+
+        _client.Respond = (url, _) => Task.FromResult<object?>(url.EndsWith("/Items")
+            ? new List<ReturnsLineVM> { new() { NetsuiteOrderInternalId = 42, LineSequenceNumber = 1, NetsuiteMaterialInternalId = 7, LineQuantity = 20, UoMRate = 1 } }
+            : true);
+        await page.InvokeAsync(page.Instance.TestRefresh);
+        Assert.Empty(page.Instance.TestReview);
+        Assert.Equal(1, Assert.Single(page.Instance.TestRows).ScannedQuantity);
+        _confirmations.Enqueue(true);
+        await page.InvokeAsync(page.Instance.TestSave);
+        Assert.Equal(1, Assert.Single(Assert.IsType<List<ReturnsLineVM>>(Assert.Single(_client.Posts.Where(x => x.Url.EndsWith("/SaveScan"))).Body)).ScannedQuantity);
+    }
+
+    [Fact]
+    public async Task RTS_disappeared_good_and_bad_scans_block_save_but_intentional_partial_save_is_allowed()
+    {
+        var page = RenderComponent<VendorReturnAuthorizationItemView>();
+        page.Instance.TestGoodMode();
+        await page.InvokeAsync(() => page.Instance.TestScan("one"));
+        var originalGood = Assert.Single(page.Instance.TestGood);
+        var originalBad = Assert.Single(page.Instance.TestBad);
+        originalBad.ScannedQuantity = 1;
+        _client.Respond = (url, _) => Task.FromResult<object?>(url.EndsWith("/Items")
+            ? new List<VendorReturnAuthorizationLineVM> { new() { NetsuiteOrderInternalId = 42, LineSequenceNumber = 2, NetsuiteMaterialInternalId = 8, LineQuantity = 20, UoMRate = 1 } }
+            : null);
+        await page.InvokeAsync(page.Instance.TestRefresh);
+        Assert.Contains(originalGood, page.Instance.TestReview);
+        Assert.Contains(originalBad, page.Instance.TestReview);
+        Assert.Equal(2, page.Instance.TestReview.Count);
+        await page.InvokeAsync(page.Instance.TestSave);
+        Assert.DoesNotContain(_client.Posts, x => x.Url.EndsWith("/SaveScan"));
+
+        _client.Respond = (url, _) => Task.FromResult<object?>(url.EndsWith("/Items")
+            ? new List<VendorReturnAuthorizationLineVM> { new() { NetsuiteOrderInternalId = 42, LineSequenceNumber = 1, NetsuiteMaterialInternalId = 7, LineQuantity = 20, UoMRate = 1 } }
+            : true);
+        await page.InvokeAsync(page.Instance.TestRefresh);
+        Assert.Empty(page.Instance.TestReview);
+        Assert.Equal(1, Assert.Single(page.Instance.TestGood).ScannedQuantity);
+        Assert.Equal(1, Assert.Single(page.Instance.TestBad).ScannedQuantity);
+        _confirmations.Enqueue(true);
+        await page.InvokeAsync(page.Instance.TestSave);
+        var sent = Assert.IsType<List<VendorReturnAuthorizationLineVM>>(Assert.Single(_client.Posts.Where(x => x.Url.EndsWith("/SaveScan"))).Body);
+        Assert.Equal(1, sent.Single(x => x.IsBad).ScannedQuantity);
+        Assert.Equal(1, sent.Single(x => !x.IsBad).ScannedQuantity);
+    }
+
+    [Fact]
+    public async Task Refresh_with_zero_remaining_keeps_scans_in_review_for_both_return_workflows()
+    {
+        var returns = RenderComponent<ReturnsItemView>();
+        await returns.InvokeAsync(() => returns.Instance.TestScan("one"));
+        _client.Respond = (url, _) => Task.FromResult<object?>(url.EndsWith("/Items")
+            ? new List<ReturnsLineVM> { new() { NetsuiteOrderInternalId = 42, LineSequenceNumber = 1, NetsuiteMaterialInternalId = 7, LineQuantity = 20, LineQuantityPacked = 20, UoMRate = 1 } }
+            : null);
+        await returns.InvokeAsync(returns.Instance.TestRefresh);
+        Assert.Equal(1, Assert.Single(returns.Instance.TestReview).ScannedQuantity);
+        await returns.InvokeAsync(returns.Instance.TestSave);
+        Assert.DoesNotContain(_client.Posts, x => x.Url.EndsWith("/SaveScan"));
+        returns.Dispose();
+
+        _client.Respond = (url, _) => Task.FromResult<object?>(url.EndsWith("/Items")
+            ? new List<VendorReturnAuthorizationLineVM> { new() { NetsuiteOrderInternalId = 42, LineSequenceNumber = 1, NetsuiteMaterialInternalId = 7, LineQuantity = 20, UoMRate = 1 } }
+            : new InventoryItemVM { NetsuiteMaterialInternalId = 7, UoMRate = 1 });
+        var rts = RenderComponent<VendorReturnAuthorizationItemView>();
+        rts.Instance.TestGoodMode();
+        await rts.InvokeAsync(() => rts.Instance.TestScan("one"));
+        _client.Respond = (url, _) => Task.FromResult<object?>(url.EndsWith("/Items")
+            ? new List<VendorReturnAuthorizationLineVM> { new() { NetsuiteOrderInternalId = 42, LineSequenceNumber = 1, NetsuiteMaterialInternalId = 7, LineQuantity = 20, LineQuantityPacked = 20, UoMRate = 1 } }
+            : null);
+        await rts.InvokeAsync(rts.Instance.TestRefresh);
+        Assert.Equal(1, Assert.Single(rts.Instance.TestReview.Where(x => !x.IsBad)).ScannedQuantity);
+        await rts.InvokeAsync(rts.Instance.TestSave);
+        Assert.DoesNotContain(_client.Posts, x => x.Url.EndsWith("/SaveScan"));
+    }
+
+    [Fact]
     public async Task Failed_vendor_save_retains_current_vendor_scans_and_dirty_state()
     {
         var page = TransferOrder();

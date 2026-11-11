@@ -66,6 +66,18 @@
                     }
                 </RadzenStack>
 
+                @if (ScansNeedingReview.Count > 0)
+                {
+                    <RadzenCard class="rz-m-2 rz-p-3">
+                        <RadzenText TextStyle="TextStyle.Subtitle2">Scans need review — Save is blocked</RadzenText>
+                        <RadzenText TextStyle="TextStyle.Caption">These scanned lines are no longer in the refreshed order. Reconcile the order before starting a new scan session.</RadzenText>
+                        @foreach (var row in ScansNeedingReview)
+                        {
+                            <RadzenText TextStyle="TextStyle.Body2">@row.MaterialCode — @row.MaterialName (line @row.LineSequenceNumber): @FormatQuantity(row.ScannedQuantity) scanned</RadzenText>
+                        }
+                    </RadzenCard>
+                }
+
                 <RadzenTabs @bind-SelectedIndex="ActiveTabIndex">
                     <Tabs>
                         <RadzenTabsItem Text="Returns">
@@ -208,7 +220,7 @@
                                                   ButtonStyle="ButtonStyle.Success"
                                                   Size="ButtonSize.Small"
                                                   Click="@(async () => await SaveScan())"
-                                                  Disabled="@(SaveBtnDisabled || _session.IsBusy)" />
+                                                   Disabled="@(SaveBtnDisabled || _session.IsBusy || ScansNeedingReview.Count > 0)" />
 
                                     <RadzenText TextStyle="TextStyle.Caption" class="scan-action-label rz-m-0">
                                         Save
