@@ -1,9 +1,15 @@
 ﻿using Application.UseCases;
+using Application.UseCases.Commands.Transaction.SupplierReturn;
+using Application.UseCases.Queries.Transaction.SupplierReturn;
 using Database.Libraries;
 using Database.MsSql;
 using Integration.NS;
 using Integration.SAP;
 using Microsoft.OpenApi.Models;
+using MediatR;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Application.DataTransferObjects.Transactions.SupplierReturn;
+using Application.UseCases.Repositories.Integration.Transaction.SupplierReturn;
 using Shared.Services;
 using System.Reflection;
 
@@ -28,6 +34,12 @@ public static class WebApplicationService
 
         #region Application Configuration
         builder.Services.AddAppUseCases();
+        // Bulk fulfillment is hosted by Web.BlazorServer. The shared application
+        // assembly scan also finds its handlers; do not expose them from the API.
+        builder.Services.RemoveAll<IRequestHandler<SubmitBulkFulfillmentCmd, BulkFulfillmentResultDTO>>();
+        builder.Services.RemoveAll<IRequestHandler<ReceiveBulkFulfillmentEventCmd, BulkFulfillmentEventReceipt>>();
+        builder.Services.RemoveAll<IRequestHandler<GetBulkFulfillmentNotificationsQry, IReadOnlyList<BulkFulfillmentNotificationDTO>>>();
+        builder.Services.RemoveAll<IRequestHandler<DismissBulkFulfillmentNotificationCmd>>();
         #endregion Application Configuration
 
         builder.Services.AddCoreWebApiServices();
