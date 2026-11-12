@@ -52,6 +52,25 @@ public class TransferOrderVendorResolverTests
     ];
 
     [Fact]
+    public void Vendor_options_and_scans_display_alt_name_while_retaining_internal_id()
+    {
+        var vendor = Vendor(137, "VEND-002", "DIFFERENT COMPANY", "VEND-002 DIFFERENT COMPANY");
+        vendor.AltName = "ABC COMPANY";
+
+        var option = Assert.Single(TransferOrderVendorResolver.GetOptions(Candidates(137), [vendor]));
+        Assert.Equal(137, option.Id);
+        Assert.Equal("ABC COMPANY", option.Name);
+
+        foreach (var scan in new[] { "137", "VEND-002", "ABC COMPANY" })
+        {
+            var result = TransferOrderVendorResolver.Resolve(Candidates(137), [vendor], scan, OrderNumber);
+            Assert.True(result.Success);
+            Assert.Equal(137, result.Data!.Id);
+            Assert.Equal("ABC COMPANY", result.Data.Name);
+        }
+    }
+
+    [Fact]
     public void Vendor_options_only_include_named_vendors_from_the_document_candidates()
     {
         var options = TransferOrderVendorResolver.GetOptions(

@@ -116,6 +116,7 @@ public class VendorIntegration(
                 ("v.id", nameof(VendorNSDTO.Id)),
                 ("v.entityid", nameof(VendorNSDTO.ReferenceNumber)),
                 ("v.companyname", nameof(VendorNSDTO.CompanyName)),
+                ("v.altname", nameof(VendorNSDTO.AltName)),
                 ("v.fullname", nameof(VendorNSDTO.Name))
             )
             .From("vendor v")
@@ -145,6 +146,7 @@ public class VendorIntegration(
         public string ReferenceNumber { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
         public string CompanyName { get; set; } = string.Empty;
+        public string AltName { get; set; } = string.Empty;
         public int CategoryId { get; set; }
         public string CategoryName { get; set; } = string.Empty;
     }

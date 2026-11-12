@@ -103,7 +103,7 @@ public static class TransferOrderVendorResolver
             .Select(group =>
             {
                 var vendor = group.First();
-                var name = new[] { vendor.Name, vendor.CompanyName, vendor.ReferenceNumber }
+                var name = new[] { vendor.AltName, vendor.Name, vendor.CompanyName, vendor.ReferenceNumber }
                     .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
 
                 return new VendorLookupDTO
@@ -132,7 +132,7 @@ public static class TransferOrderVendorResolver
         }
 
         // The document's own vendor ids seed the map; the record's entityid /
-        // companyname / fullname are the names a scan can match, because the
+        // altname / companyname / fullname are the names a scan can match, because the
         // print template may not use the same value the line carried.
         var namesById = new Dictionary<int, List<string>>();
 
@@ -149,6 +149,7 @@ public static class TransferOrderVendorResolver
             }
 
             Register(namesById, vendor.Id, vendor.ReferenceNumber);
+            Register(namesById, vendor.Id, vendor.AltName);
             Register(namesById, vendor.Id, vendor.CompanyName);
             Register(namesById, vendor.Id, vendor.Name);
         }
@@ -159,6 +160,11 @@ public static class TransferOrderVendorResolver
                 $"Transfer order {orderNumber} has no vendor on its lines. " +
                 "Fulfil this order from web Packing instead.");
         }
+
+        var altNames = (vendors ?? [])
+            .Where(vendor => namesById.ContainsKey(vendor.Id) && !string.IsNullOrWhiteSpace(vendor.AltName))
+            .GroupBy(vendor => vendor.Id)
+            .ToDictionary(group => group.Key, group => group.First().AltName.Trim());
 
         // Internal-id channel: the label may carry the NetSuite vendor internal id
         // instead of a name. Only ids that are already candidates on this document
@@ -176,7 +182,8 @@ public static class TransferOrderVendorResolver
             return ApiResult<VendorLookupDTO>.Succeeded(new VendorLookupDTO
             {
                 Id = scannedId,
-                Name = namesById[scannedId].FirstOrDefault()
+                Name = altNames.GetValueOrDefault(scannedId)
+                       ?? namesById[scannedId].FirstOrDefault()
                        ?? scannedId.ToString(CultureInfo.InvariantCulture)
             });
         }
@@ -204,7 +211,8 @@ public static class TransferOrderVendorResolver
             return ApiResult<VendorLookupDTO>.Succeeded(new VendorLookupDTO
             {
                 Id = id,
-                Name = DisplayName(namesById[id], scannedVendor)
+                Name = altNames.GetValueOrDefault(id)
+                       ?? DisplayName(namesById[id], scannedVendor)
             });
         }
 
