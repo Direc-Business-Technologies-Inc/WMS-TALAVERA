@@ -72,8 +72,7 @@
             {
                 var intent = new DataGridIntent { Skip = skip, Take = 1000, ReadPolicy = GridReadPolicy.Fresh };
                 ReceivingReceiptPrintStatusFilter.ApplyToReceipts(intent, SelectedPrintStatus, Source);
-                if (SelectedPrintStatus == PrintStatus.All)
-                    intent.Filters.Add(DataGridFilterUtilities.Equal("IncludeCompletedReceived", true));
+                intent.Filters.Add(DataGridFilterUtilities.Equal("IncludeCompletedReceived", true));
                 intent.Filters.Add(DataGridFilterUtilities.Equal("tcf.id", TransactionId));
                 var (pageRows, count) = await ReceivingHandler.GetItemReceiptsDatagridAsync(intent);
                 if (disposed) return;

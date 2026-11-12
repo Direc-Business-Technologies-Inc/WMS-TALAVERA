@@ -106,7 +106,7 @@ partial class VendorReturnAuthorizationPackingDataGrid
 
     void PrepareIntent(DataGridIntent intent)
     {
-        PackingFulfillmentPrintStatusFilter.Apply(intent, SelectedPrintStatus);
+        PackingFulfillmentPrintStatusFilter.Apply(intent, SelectedPrintStatus, "VRA");
         if (dateRangeApplied)
             PrintStatusFilter.ApplyDateRange(intent, DateRangeStart, DateRangeEnd);
     }
@@ -136,7 +136,7 @@ partial class VendorReturnAuthorizationPackingDataGrid
             var succeeded = false;
             try
             {
-                var result = await VraHandler.GetVendorReturnAuthorizationsList(intent, CurrentUserService.NsSubsidiaryId, includeReceived: SelectedPrintStatus == PrintStatus.All);
+                var result = await VraHandler.GetVendorReturnAuthorizationsList(intent, CurrentUserService.NsSubsidiaryId, includeReceived: true);
                 succeeded = true;
                 return result;
             }

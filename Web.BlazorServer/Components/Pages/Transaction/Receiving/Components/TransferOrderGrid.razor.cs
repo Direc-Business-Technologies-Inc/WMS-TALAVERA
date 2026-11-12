@@ -55,6 +55,7 @@ public partial class TransferOrderGrid
     {
         var intent = new DataGridIntent { Skip = 0, Take = 1, ReadPolicy = GridReadPolicy.Fresh, CancellationToken = ct };
         ReceivingReceiptPrintStatusFilter.ApplyToReceipts(intent, PrintStatus.All, "STR");
+        intent.Filters.Add(DataGridFilterUtilities.Equal("IncludeCompletedReceived", true));
         if (dateRangeApplied)
             PrintStatusFilter.ApplyDateRange(intent, DateRangeStart, DateRangeEnd, "tcf.trandate");
         ApplyStatusCountFilter(intent);
@@ -108,9 +109,8 @@ public partial class TransferOrderGrid
 
     void PrepareIntent(DataGridIntent intent)
     {
-        ReceivingReceiptPrintStatusFilter.ApplyToTransactions(intent, SelectedPrintStatus);
-        if (SelectedPrintStatus == PrintStatus.All)
-            intent.Filters.Add(DataGridFilterUtilities.Equal("IncludeCompletedReceived", true));
+        ReceivingReceiptPrintStatusFilter.ApplyToTransactions(intent, SelectedPrintStatus, "STR");
+        intent.Filters.Add(DataGridFilterUtilities.Equal("IncludeCompletedReceived", true));
         if (dateRangeApplied)
             PrintStatusFilter.ApplyDateRange(intent, DateRangeStart, DateRangeEnd);
     }

@@ -287,11 +287,11 @@ public class PrintWorkflowTests : TestContext
             var first = new DateTime(2026, 9, 1).AddDays(intent.Skip);
             return (new[] { create(nullDates ? null : first.AddDays(2)), create(nullDates ? null : first), create(null) }, 100);
         }
-        str.GetStockTransferRequestsList(Arg.Any<DataGridIntent>(), Arg.Any<int>()).Returns(call =>
+        str.GetStockTransferRequestsList(Arg.Any<DataGridIntent>(), Arg.Any<int>(), true).Returns(call =>
             Rows(call.Arg<DataGridIntent>(), date => new Web.BlazorServer.ViewModels.Transaction.Packing.STR.StockTransferRequestPackingDataGridVM { Date = date }));
-        returns.GetReturnsList(Arg.Any<DataGridIntent>(), Arg.Any<int>()).Returns(call =>
+        returns.GetReturnsList(Arg.Any<DataGridIntent>(), Arg.Any<int>(), true).Returns(call =>
             Rows(call.Arg<DataGridIntent>(), date => new Web.BlazorServer.ViewModels.Transaction.Packing.Returns.ReturnsPackingDataGridVM { Date = date }));
-        vra.GetVendorReturnAuthorizationsList(Arg.Any<DataGridIntent>(), Arg.Any<int>()).Returns(call =>
+        vra.GetVendorReturnAuthorizationsList(Arg.Any<DataGridIntent>(), Arg.Any<int>(), true).Returns(call =>
             Rows(call.Arg<DataGridIntent>(), date => new Web.BlazorServer.ViewModels.Transaction.Packing.VendorReturnAuthorization.VendorReturnAuthorizationPackingDataGridVM { Date = date }));
         var counts = 0;
         returns.GetPackingPrintStatusCounts(Arg.Any<DataGridIntent>(), Arg.Any<CancellationToken>())
@@ -813,6 +813,32 @@ public class PrintWorkflowTests : TestContext
         Assert.DoesNotContain("RR-42", cut.Markup);
         Assert.Contains("No receiving reports match", cut.Markup);
         await handler.Received(2).GetItemReceiptsDatagridAsync(Arg.Any<DataGridIntent>());
+    }
+
+    [Theory]
+    [InlineData(PrintStatus.ForPrinting)]
+    [InlineData(PrintStatus.Printed)]
+    [InlineData(PrintStatus.All)]
+    public void Receiving_modal_includes_completed_source_statuses_for_every_print_tab(PrintStatus status)
+    {
+        var handler = Substitute.For<IReceivingHandler>();
+        DataGridIntent? requested = null;
+        handler.GetItemReceiptsDatagridAsync(Arg.Any<DataGridIntent>()).Returns(call =>
+        {
+            requested = call.Arg<DataGridIntent>().Snapshot();
+            return Task.FromResult<(IEnumerable<ItemReceiptDataGridVM>, int)>(([], 0));
+        });
+        Services.AddSingleton(handler);
+
+        var cut = RenderComponent<ReceivingReportSelectionDialog>(p => p
+            .Add(x => x.TransactionId, 100).Add(x => x.SelectedPrintStatus, status));
+        cut.WaitForAssertion(() => Assert.NotNull(requested));
+
+        Assert.Contains(requested!.Filters, filter => filter.Property == "IncludeCompletedReceived");
+        Assert.Contains(requested.Filters, filter => filter.Property == "tcf.id" && Equals(filter.Value, 100));
+        if (status == PrintStatus.All) return;
+        Assert.Contains(requested.Filters, filter => filter.Property == "t.custbody_wms_print_count" ||
+            filter.Filters.Any(child => child.Property == "t.custbody_wms_print_count"));
     }
 
     [Fact]

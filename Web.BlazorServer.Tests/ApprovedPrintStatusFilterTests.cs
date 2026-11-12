@@ -77,6 +77,44 @@ public class ApprovedPrintStatusFilterTests
     }
 
     [Theory]
+    [InlineData("Receiving", "PO", "('B', 'D', 'E')")]
+    [InlineData("Receiving", "STR", "('E', 'F')")]
+    [InlineData("Packing", "STR", "('B', 'D', 'E')")]
+    [InlineData("Packing", "VRA", "('B', 'E')")]
+    public void Zero_child_branch_remains_limited_to_open_statuses(
+        string kind, string source, string openStatuses)
+    {
+        var intent = new DataGridIntent();
+        if (kind == "Receiving") ReceivingReceiptPrintStatusFilter.ApplyToTransactions(intent, PrintStatus.ForPrinting, source);
+        else PackingFulfillmentPrintStatusFilter.Apply(intent, PrintStatus.ForPrinting, source);
+
+        var query = Query(intent);
+        Assert.Contains($"t.status IN {openStatuses}", query);
+        Assert.Contains($"{(kind == "Receiving" ? "ircount" : "ifprint")}.forprintingcount > 0", query);
+        Assert.Contains($"{(kind == "Receiving" ? "ircount" : "ifprint")}.printedcount = 0", query);
+        Assert.Equal(2, intent.Filters.Count);
+
+        var printedIntent = new DataGridIntent();
+        if (kind == "Receiving") ReceivingReceiptPrintStatusFilter.ApplyToTransactions(printedIntent, PrintStatus.Printed, source);
+        else PackingFulfillmentPrintStatusFilter.Apply(printedIntent, PrintStatus.Printed, source);
+        Assert.DoesNotContain("t.status IN", Query(printedIntent));
+        Assert.Contains("printedcount > 0", Query(printedIntent));
+    }
+
+    [Theory]
+    [InlineData("PO", false, "('B', 'D', 'E', 'F', 'G')")]
+    [InlineData("STR", false, "('E', 'F', 'G')")]
+    [InlineData("STR", true, "('B', 'D', 'E', 'F', 'G')")]
+    [InlineData("VRA", true, "('B', 'E', 'F', 'G')")]
+    public void Child_print_badges_include_all_source_statuses(string source, bool packing, string statuses)
+    {
+        var intent = new DataGridIntent();
+        if (packing) PackingFulfillmentPrintStatusFilter.ApplyToFulfillments(intent, PrintStatus.All, source, 7);
+        else ReceivingReceiptPrintStatusFilter.ApplyToReceipts(intent, PrintStatus.All, source);
+        Assert.Contains($"tcf.status IN {statuses}", Query(intent));
+    }
+
+    [Theory]
     [InlineData("Transaction")]
     [InlineData("Packing")]
     [InlineData("Receiving")]

@@ -135,7 +135,7 @@ partial class ReturnsPackingDataGrid
             var succeeded = false;
             try
             {
-                var result = await ReturnsHandler.GetReturnsList(intent, CurrentUserService.NsSubsidiaryId, includeReceived: SelectedPrintStatus == PrintStatus.All);
+                var result = await ReturnsHandler.GetReturnsList(intent, CurrentUserService.NsSubsidiaryId, includeReceived: true);
                 succeeded = true;
                 return result;
             }
