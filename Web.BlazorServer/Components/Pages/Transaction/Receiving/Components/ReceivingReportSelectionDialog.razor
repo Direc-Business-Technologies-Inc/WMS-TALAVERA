@@ -19,7 +19,10 @@
     {
         <div role="alert">The receiving reports could not be loaded. Please retry.</div>
     }
-    <RadzenDataGrid Data="@receipts" TItem="ItemReceiptDataGridVM" AllowPaging="false" Density="Density.Compact" IsLoading="@loading" EmptyText="No receiving reports match this print status.">
+    <AppTableWithSettings Data="@receipts" Id="receiving_report_selection">
+        <EmptyTemplate>
+            <p style="color: lightgrey; font-size: 24px; text-align: center; margin: 2rem;">No receiving reports match this print status.</p>
+        </EmptyTemplate>
         <Columns>
             <RadzenDataGridColumn TItem="ItemReceiptDataGridVM" Property="@nameof(ItemReceiptDataGridVM.ReferenceNumber)" Title="RR Number" />
             <RadzenDataGridColumn TItem="ItemReceiptDataGridVM" Property="@nameof(ItemReceiptDataGridVM.CreatedFrom)" Title="Created From" />
@@ -35,7 +38,7 @@
                 </Template>
             </RadzenDataGridColumn>
         </Columns>
-    </RadzenDataGrid>
+    </AppTableWithSettings>
     <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End">
         <RadzenButton Text="Refresh" Icon="refresh" Disabled="@loading" Click="@ReloadAsync" />
         <RadzenButton Text="Close" ButtonStyle="ButtonStyle.Light" Click="@CloseAsync" />

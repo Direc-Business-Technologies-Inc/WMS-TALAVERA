@@ -19,7 +19,10 @@
     {
         <div role="alert">The packing labels could not be loaded. Please retry.</div>
     }
-    <RadzenDataGrid Data="@fulfillments" TItem="PackedItemFulfillmentVM" AllowPaging="false" Density="Density.Compact" IsLoading="@loading" EmptyText="No packing labels match this print status.">
+    <AppTableWithSettings Data="@fulfillments" Id="packing_label_selection">
+        <EmptyTemplate>
+            <p style="color: lightgrey; font-size: 24px; text-align: center; margin: 2rem;">No packing labels match this print status.</p>
+        </EmptyTemplate>
         <Columns>
             <RadzenDataGridColumn TItem="PackedItemFulfillmentVM" Property="@nameof(PackedItemFulfillmentVM.ReferenceNumber)" Title="Item Fulfillment" />
             <RadzenDataGridColumn TItem="PackedItemFulfillmentVM" Property="@nameof(PackedItemFulfillmentVM.CreatedFrom)" Title="Created From" />
@@ -36,7 +39,7 @@
                 </Template>
             </RadzenDataGridColumn>
         </Columns>
-    </RadzenDataGrid>
+    </AppTableWithSettings>
     <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End">
         <RadzenButton Text="Refresh" Icon="refresh" Disabled="@loading" Click="@ReloadAsync" />
         <RadzenButton Text="Close" ButtonStyle="ButtonStyle.Light" Click="@CloseAsync" />
