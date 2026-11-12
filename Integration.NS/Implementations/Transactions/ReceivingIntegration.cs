@@ -1270,6 +1270,7 @@ public partial class ReceivingIntegration(
                 ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(ItemFulfillmentDTO.Date)),
                 ("TO_CHAR(t.lastmodifieddate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(ItemFulfillmentDTO.DateLastModified)),
                 ("t.tranid", nameof(ItemFulfillmentDTO.ReferenceNumber)),
+                ("BUILTIN.DF(t.entity)", nameof(ItemFulfillmentDTO.Vendor)),
                 ("s.name", nameof(ItemFulfillmentDTO.Status)),
                 ("CONCAT(e.firstname, CONCAT(' ', e.lastname))", nameof(ItemFulfillmentDTO.PreparedBy))
             )

@@ -2,5 +2,5 @@
 
 public partial class Footer
 {
-    public const string WebVersion = "1.5.4";
+    public const string WebVersion = "1.5.5";
 }

@@ -136,6 +136,8 @@ public sealed class GetSTRItemFulfillmentsQueryShapeTests
         Assert.Single(fixture.Client.Queries, query => query.Contains("t.tranid") && query.Contains("t.id = 208281"));
         Assert.Contains(fixture.Client.Queries, query => query.Contains("t.id IN (457)") &&
             query.Contains("itemfulfillmentstatus"));
+        Assert.Contains(fixture.Client.Queries, query => query.Contains("BUILTIN.DF(t.entity)") &&
+            query.Contains(nameof(ItemFulfillmentDTO.Vendor)));
     }
 
     [Fact]
