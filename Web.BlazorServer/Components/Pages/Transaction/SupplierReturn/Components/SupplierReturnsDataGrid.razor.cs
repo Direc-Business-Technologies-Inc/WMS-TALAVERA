@@ -71,7 +71,7 @@ public partial class SupplierReturnsDataGrid
         var ids = rows.Select(row => row.Id).Distinct().ToArray();
         try
         {
-            var confirmed = await DialogService.OpenAsync("Submit Bulk Fulfillment Request",
+            var confirmedMemo = await DialogService.OpenAsync("Submit Bulk Fulfillment Request",
                 ds => builder =>
             {
                 builder.OpenComponent<BulkFulfillConfirmation>(0);
@@ -79,8 +79,8 @@ public partial class SupplierReturnsDataGrid
                 builder.CloseComponent();
             },
             new() { Width = "700px" });
-            if (confirmed is not true) return;
-            var result = await returnHandler.SubmitBulkFulfillmentAsync(new(ids));
+            if (confirmedMemo is not string memo) return;
+            var result = await returnHandler.SubmitBulkFulfillmentAsync(new(ids, memo));
             if (result.Outcome == BulkFulfillmentOutcome.Submitted)
             {
                 SelectedRows.Clear();

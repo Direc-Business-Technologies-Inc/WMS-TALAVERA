@@ -27,16 +27,21 @@
                     <Template Context="row">@row.Date.ToString("dd-MMM-yyyy")</Template>
                 </RadzenDataGridColumn>
                 <RadzenDataGridColumn TItem="SupplierReturnDataGridVM" Property="CategoryName" Title="Category" Width="14%" />
-                <RadzenDataGridColumn TItem="SupplierReturnDataGridVM" Property="Memo" Title="Memo" Width="14%" />
                 <RadzenDataGridColumn TItem="SupplierReturnDataGridVM" Property="PreparedBy" Title="Prepared By" Width="14%" />
             </Columns>
         </RadzenDataGrid>
     </div>
+    @if (!ReadOnly)
+    {
+        <RadzenFormField Text="Bulk Fulfillment Memo" class="w-100 rz-mt-3">
+            <RadzenTextArea @bind-Value="Memo" Rows="3" aria-label="Bulk fulfillment memo" class="w-100" />
+        </RadzenFormField>
+    }
     <div class="rts-bulk-confirmation-actions">
         <RadzenButton Text="@(ReadOnly ? "Close" : "Cancel")" ButtonStyle="ButtonStyle.Light" Click="@(() => DialogService.Close(false))" />
         @if (!ReadOnly)
         {
-            <RadzenButton Text="Submit Request" ButtonStyle="ButtonStyle.Success" Disabled="@(Rows.Select(row => row.Id).Distinct().Count() < 2)" Click="@(() => DialogService.Close(true))" />
+            <RadzenButton Text="Submit Request" ButtonStyle="ButtonStyle.Success" Disabled="@(Rows.Select(row => row.Id).Distinct().Count() < 2)" Click="@(() => DialogService.Close(Memo))" />
         }
     </div>
 </div>
@@ -46,12 +51,12 @@
     [Parameter] public bool ReadOnly { get; set; }
     [Parameter] public string? ErrorMessage { get; set; }
     string SearchText = string.Empty;
+    string Memo = string.Empty;
 
     IEnumerable<SupplierReturnDataGridVM> FilteredRows => Rows.Where(row =>
         string.IsNullOrWhiteSpace(SearchText) ||
         row.ReferenceNumber.Contains(SearchText, StringComparison.OrdinalIgnoreCase) ||
         row.VendorName.Contains(SearchText, StringComparison.OrdinalIgnoreCase) ||
         row.CategoryName.Contains(SearchText, StringComparison.OrdinalIgnoreCase) ||
-        row.Memo.Contains(SearchText, StringComparison.OrdinalIgnoreCase) ||
         row.PreparedBy.Contains(SearchText, StringComparison.OrdinalIgnoreCase));
 }

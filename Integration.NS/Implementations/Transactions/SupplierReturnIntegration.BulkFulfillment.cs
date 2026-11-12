@@ -106,7 +106,7 @@ public partial class SupplierReturnIntegration
             return BulkFulfillmentResultDTO.Reject("One or more selected records are no longer accessible RTS records. Refresh the grid and review your selection.");
 
         var payload = new BulkFulfillmentPayloadDTO(
-            DateOnly.FromDateTime(DateTimeProvider.Today), ids);
+            DateOnly.FromDateTime(DateTimeProvider.Today), ids, data.Memo);
         ct.ThrowIfCancellationRequested();
         try
         {

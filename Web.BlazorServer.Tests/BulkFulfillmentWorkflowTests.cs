@@ -95,8 +95,9 @@ public class BulkFulfillmentWorkflowTests : TestContext
         cut.Find("input").Change("RTS-1234");
         Assert.Contains("2 selected; 1 matching", cut.Markup);
         Assert.Equal(2, cut.Instance.Rows.Count);
+        cut.Find("textarea").Change("Weekly returns batch");
         cut.FindAll("button").Single(button => button.TextContent.Contains("Submit Request")).Click();
-        Assert.True((bool)await confirmation);
+        Assert.Equal("Weekly returns batch", (string)await confirmation);
     }
 
     [Theory]
@@ -113,10 +114,10 @@ public class BulkFulfillmentWorkflowTests : TestContext
         var sender = Substitute.For<ISender>();
         sender.Send(Arg.Any<SubmitBulkFulfillmentCmd>(), Arg.Any<CancellationToken>())
             .Returns(new BulkFulfillmentResultDTO(BulkFulfillmentOutcome.Submitted, "Submitted", 42));
-        var result = await new SupplierReturnHandler(auth, sender, authorization).SubmitBulkFulfillmentAsync(new([1234, 5678]));
+        var result = await new SupplierReturnHandler(auth, sender, authorization).SubmitBulkFulfillmentAsync(new([1234, 5678], "Weekly returns batch"));
         Assert.Equal(dispatched ? BulkFulfillmentOutcome.Submitted : BulkFulfillmentOutcome.Rejected, result.Outcome);
         Assert.Equal(dispatched ? 1 : 0, sender.ReceivedCalls().Count());
         if (dispatched)
-            await sender.Received(1).Send(Arg.Is<SubmitBulkFulfillmentCmd>(cmd => cmd.AllowedSubsidiaries.SequenceEqual(new[] { 7 })), Arg.Any<CancellationToken>());
+            await sender.Received(1).Send(Arg.Is<SubmitBulkFulfillmentCmd>(cmd => cmd.AllowedSubsidiaries.SequenceEqual(new[] { 7 }) && cmd.Data.Memo == "Weekly returns batch"), Arg.Any<CancellationToken>());
     }
 }

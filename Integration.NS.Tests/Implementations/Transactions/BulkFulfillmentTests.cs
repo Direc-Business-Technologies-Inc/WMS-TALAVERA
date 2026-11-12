@@ -83,15 +83,16 @@ public class BulkFulfillmentTests
         var (sut, client) = Create();
         var before = DateTime.Today;
         var result = await new SubmitBulkFulfillmentCmdHandler(sut).Handle(
-            new(new([1234, 5678, 1234]), [7]), default);
+            new(new([1234, 5678, 1234], "Warehouse RTS batch"), [7]), default);
         Assert.Equal(BulkFulfillmentOutcome.Submitted, result.Outcome);
         Assert.Equal(42, result.ReferenceId);
         var write = Assert.Single(client.Writes);
         Assert.Equal(HttpMethod.Post, write.Method);
         Assert.Equal("/record/v1/customrecord_bulk_fulfillment", write.Url);
         using var json = JsonDocument.Parse(write.Body!);
-        Assert.Equal(3, json.RootElement.EnumerateObject().Count());
+        Assert.Equal(4, json.RootElement.EnumerateObject().Count());
         Assert.Equal("1", json.RootElement.GetProperty("custrecord_bf_status").GetProperty("id").GetString());
+        Assert.Equal("Warehouse RTS batch", json.RootElement.GetProperty("custrecord_bf_memo").GetString());
         Assert.Equal(new[] { "1234", "5678" }, json.RootElement.GetProperty("custrecord_bf_return_to_supplier_ids").GetProperty("items").EnumerateArray().Select(item => item.GetProperty("id").GetString()));
         Assert.Contains(json.RootElement.GetProperty("custrecord_bf_date").GetString(),
             new[] { before.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture), DateTime.Today.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture) });
@@ -103,9 +104,10 @@ public class BulkFulfillmentTests
     public void Payload_uses_rest_date_and_reference_shapes_for_the_reported_rejected_selection()
     {
         var payload = new BulkFulfillmentPayloadDTO(new DateOnly(2026, 11, 9),
-            [338717, 338293, 338713, 335754, 335753, 335851]);
+            [338717, 338293, 338713, 335754, 335753, 335851], "November supplier return batch");
         using var json = JsonDocument.Parse(JsonSerializer.Serialize(payload));
         Assert.Equal("2026-11-09", json.RootElement.GetProperty("custrecord_bf_date").GetString());
+        Assert.Equal("November supplier return batch", json.RootElement.GetProperty("custrecord_bf_memo").GetString());
         var status = json.RootElement.GetProperty("custrecord_bf_status");
         Assert.Single(status.EnumerateObject());
         Assert.Equal("1", status.GetProperty("id").GetString());

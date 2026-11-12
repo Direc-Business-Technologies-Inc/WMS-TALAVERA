@@ -15,6 +15,6 @@ public class SubmitBulkFulfillmentCmdHandler(ISupplierReturnIntegration integrat
         var ids = request.Data.ReturnIds?.Distinct().ToArray() ?? [];
         if (ids.Length < 2 || ids.Any(id => id <= 0))
             return BulkFulfillmentResultDTO.Reject("Select at least two unique RTS records with valid internal IDs.");
-        return await integration.SubmitBulkFulfillmentAsync(new(ids), request.AllowedSubsidiaries, cancellationToken);
+        return await integration.SubmitBulkFulfillmentAsync(new(ids, request.Data.Memo), request.AllowedSubsidiaries, cancellationToken);
     }
 }
