@@ -283,12 +283,13 @@ internal class ReturnPackingIntegration(
                 ("TO_CHAR(t.LastModifiedDate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(PackedItemFulfillmentDTO.DateLastModified)),
                 ("BUILTIN.DF(t.custbody_dbti_transfer_category)", nameof(PackedItemFulfillmentDTO.TransferCategory)),
                 ("BUILTIN.DF(tl.createdfrom)", nameof(PackedItemFulfillmentDTO.CreatedFrom)),
-                ("BUILTIN.DF(t.custbody_dbti_return_to_vendor)", nameof(PackedItemFulfillmentDTO.Vendor)),
+                ("COALESCE(v.altname, BUILTIN.DF(t.custbody_dbti_return_to_vendor))", nameof(PackedItemFulfillmentDTO.Vendor)),
                 ("tcf.id", nameof(PackedItemFulfillmentDTO.CreatedFromId))
             )
             .From("transaction t")
             .Join("transactionline tl", "tl.mainline = 'T' and tl.transaction = t.id")
             .LeftJoin("transaction tcf", "tcf.id = tl.createdfrom")
+            .LeftJoin("vendor v", "v.id = t.custbody_dbti_return_to_vendor")
             .WithFilters(
                 Equal("t.recordtype", "itemfulfillment"),
                 Equal("t.custbody_dbti_print_label", "T")
