@@ -27,6 +27,7 @@
                     <Template Context="row">@row.Date.ToString("dd-MMM-yyyy")</Template>
                 </RadzenDataGridColumn>
                 <RadzenDataGridColumn TItem="SupplierReturnDataGridVM" Property="CategoryName" Title="Category" Width="14%" />
+                <RadzenDataGridColumn TItem="SupplierReturnDataGridVM" Property="Memo" Title="Memo" Width="14%" />
                 <RadzenDataGridColumn TItem="SupplierReturnDataGridVM" Property="PreparedBy" Title="Prepared By" Width="14%" />
             </Columns>
         </RadzenDataGrid>
@@ -51,5 +52,6 @@
         row.ReferenceNumber.Contains(SearchText, StringComparison.OrdinalIgnoreCase) ||
         row.VendorName.Contains(SearchText, StringComparison.OrdinalIgnoreCase) ||
         row.CategoryName.Contains(SearchText, StringComparison.OrdinalIgnoreCase) ||
+        row.Memo.Contains(SearchText, StringComparison.OrdinalIgnoreCase) ||
         row.PreparedBy.Contains(SearchText, StringComparison.OrdinalIgnoreCase));
 }
