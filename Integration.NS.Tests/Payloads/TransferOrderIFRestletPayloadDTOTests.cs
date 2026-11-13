@@ -29,10 +29,12 @@ public class TransferOrderIFRestletPayloadDTOTests
         bool isBad = false,
         int vendorBin = 0,
         int preferredBin = 0,
-        int transferCategory = 1)
+        int transferCategory = 1,
+        int? vendorId = null)
         => new()
         {
             NetsuiteOrderInternalId = TransferOrderId,
+            VendorId = vendorId,
             OrderNumber = "STR-TEST",
             LineSequenceNumber = orderLine,
             IsBad = isBad,
@@ -120,6 +122,25 @@ public class TransferOrderIFRestletPayloadDTOTests
         Assert.Contains("\"shipStatus\":\"B\"", json);
         Assert.Contains("\"lines\":[", json);
         Assert.Contains("\"inventoryAssignments\":[", json);
+    }
+
+    [Fact]
+    public void Payload_includes_vendor_id_as_a_number_when_present_on_scanned_line()
+    {
+        using var document = Serialize([Line(1, 6, vendorId: 9876)]);
+
+        Assert.Equal(9876, document.RootElement.GetProperty("vendorId").GetInt32());
+    }
+
+    [Fact]
+    public void Payload_uses_source_transfer_order_vendor_when_scanned_lines_have_no_vendor()
+    {
+        var payload = TransferOrderIFRestletPayloadDTO.CreateForItemFulfillmentRestlet(
+            [Line(1, 6)], TransferOrderId, "B", isUsedBin: true, sourceVendorId: 9876);
+
+        using var document = JsonDocument.Parse(JsonSerializer.Serialize(payload, Options));
+
+        Assert.Equal(9876, document.RootElement.GetProperty("vendorId").GetInt32());
     }
 
     [Fact]

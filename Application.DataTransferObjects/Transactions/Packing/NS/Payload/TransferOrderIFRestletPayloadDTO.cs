@@ -42,13 +42,18 @@ public class TransferOrderIFRestletPayloadDTO
         List<PostTransferOrderDTO> scannedLines,
         int transferOrderId,
         string shipStatus,
-        bool isUsedBin)
+        bool isUsedBin,
+        int? sourceVendorId = null)
     {
         return new TransferOrderIFRestletPayloadDTO
         {
             TransferOrderId = transferOrderId,
             ShipStatus = shipStatus,
-            VendorId = scannedLines.FirstOrDefault(x => x.VendorId is > 0)?.VendorId,
+            // Prefer the source transfer order's header vendor. Some mobile clients
+            // submit scanned line DTOs without the selected vendor copied onto them.
+            VendorId = sourceVendorId is > 0
+                ? sourceVendorId
+                : scannedLines.FirstOrDefault(x => x.VendorId is > 0)?.VendorId,
             Lines = scannedLines
                 .Where(x => x.ScannedQuantity > 0)
                 .GroupBy(x => x.LineSequenceNumber)

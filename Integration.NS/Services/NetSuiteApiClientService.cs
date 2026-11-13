@@ -1967,6 +1967,25 @@ namespace Integration.NS.Services
                     LineQuantity, QuantityShipped, QuantityBackOrdered);
         }
 
+        private sealed class TOFulfillmentVendorState
+        {
+            public int? VendorId { get; set; }
+        }
+
+        private async Task<int?> GetTOFulfillmentSourceVendorIdAsync(int orderId)
+        {
+            var query = $"""
+                SELECT t.custbody_dbti_return_to_vendor AS VendorId
+                FROM transaction t
+                WHERE t.id = {orderId}
+                    AND t.recordtype IN ('transferorder', 'intercompanytransferorder')
+                """;
+
+            var response = await ExecuteSuiteQLQuery<TOFulfillmentVendorState>(query, 1, 0);
+            var vendorId = response.items?.FirstOrDefault()?.VendorId;
+            return vendorId is > 0 ? vendorId : null;
+        }
+
         /// <summary>
         /// Reads an id that NetSuite may return as a bare number, a numeric string, or a
         /// reference object (<c>{"id":"1001"}</c>). A strict <c>int?</c> binding throws on the
@@ -3301,11 +3320,26 @@ namespace Integration.NS.Services
 
             var shipStatus = Data.FirstOrDefault()?.IsTripTicketExempt == true ? "C" : "B";
             var url = ItemFulfillmentRestletUrl;
+            var sourceVendorId = Data.FirstOrDefault(x => x.VendorId is > 0)?.VendorId;
+            if (sourceVendorId is null)
+            {
+                try
+                {
+                    sourceVendorId = await GetTOFulfillmentSourceVendorIdAsync(orderId);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex,
+                        "Could not read source vendor for transfer order {OrderId}; posting the fulfillment without vendorId.",
+                        orderId);
+                }
+            }
 
             string? jsonString = null;
             try
             {
-                var payload = TransferOrderIFRestletPayloadDTO.CreateForItemFulfillmentRestlet(scanned, orderId, shipStatus, isUsedBin);
+                var payload = TransferOrderIFRestletPayloadDTO.CreateForItemFulfillmentRestlet(
+                    scanned, orderId, shipStatus, isUsedBin, sourceVendorId);
 
                 jsonString = JsonSerializer.Serialize(payload, JsonSerializerOption);
 
