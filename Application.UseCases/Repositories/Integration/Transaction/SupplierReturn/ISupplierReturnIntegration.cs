@@ -22,6 +22,7 @@ public interface ISupplierReturnIntegration
     Task<bool> CreateSupplierReturn(SupplierReturnDTO data);
     Task<bool> UpdateSupplierReturn(SupplierReturnDTO data);
     Task<bool> SubmitSupplierReturnForApproval(SupplierReturnDTO data);
+    Task<bool> ApproveSupplierReturnAsync(int recordId, IReadOnlyList<int> allowedSubsidiaries, CancellationToken ct = default);
     Task<(IEnumerable<PurchaseOrderDataGridDTO>, int)> GetPurchaseOrdersListAsync(DataGridIntent intent);
     Task<SupplierReturnDTO?> GetReturnFromPurchaseOrderAsync(string purchaseOrderId);
     Task<IEnumerable<SupplierReturnLineDTO>> GetReturnFromPurchaseOrderLinesAsync(string purchaseOrderId);

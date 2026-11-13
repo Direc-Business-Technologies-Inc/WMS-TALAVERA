@@ -245,6 +245,49 @@ public class SupplierReturnPreferredVendorValidationTests
     }
 
     [Fact]
+    public async Task Approve_sets_the_custom_approval_list_value_for_submitted_accessible_RTS()
+    {
+        var client = new RestCapturingNetSuiteClient();
+        client.QueryItems.Add(new SupplierReturnApprovalStateNSDTO
+        {
+            Id = 123,
+            SubsidiaryId = 7,
+            SubmittedForApprovals = "T",
+            ApprovalStatusId = 3
+        });
+        var sut = new SupplierReturnIntegration(client, new HttpContextAccessor(), new SuiteQLQueryBuilderFactoryService());
+
+        await sut.ApproveSupplierReturnAsync(123, [7]);
+
+        Assert.Single(client.Writes);
+        Assert.Equal(HttpMethod.Patch, client.LastMethod);
+        Assert.Contains("vendorReturnAuthorization/123", client.LastUrl);
+        Assert.Contains("custbody_dbti_custom_approval_status", client.LastBody);
+        Assert.Contains("4", client.LastBody);
+        Assert.Contains(client.Queries, query => query.Contains("custbody_dbti_submitted_for_approval")
+            && query.Contains("t.subsidiary IN (7)"));
+    }
+
+    [Fact]
+    public async Task Approve_rejects_unsubmitted_RTS_without_patching()
+    {
+        var client = new RestCapturingNetSuiteClient();
+        client.QueryItems.Add(new SupplierReturnApprovalStateNSDTO
+        {
+            Id = 123,
+            SubsidiaryId = 7,
+            SubmittedForApprovals = "F",
+            ApprovalStatusId = 3
+        });
+        var sut = new SupplierReturnIntegration(client, new HttpContextAccessor(), new SuiteQLQueryBuilderFactoryService());
+
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => sut.ApproveSupplierReturnAsync(123, [7]));
+
+        Assert.Contains("Submit this RTS for approval", error.Message);
+        Assert.Empty(client.Writes);
+    }
+
+    [Fact]
     public async Task Update_backfills_missing_transaction_line_vendor_from_header_after_validation()
     {
         var (sut, client) = Create();

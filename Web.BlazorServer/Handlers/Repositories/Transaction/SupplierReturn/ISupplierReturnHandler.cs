@@ -22,6 +22,7 @@ public interface ISupplierReturnHandler
     Task<bool> CreateSupplierReturnAsync(SupplierReturnVM data);
     Task<bool> UpdateSupplierReturnAsync(SupplierReturnVM data);
     Task<bool> SubmitSupplierReturnForApproval(SupplierReturnVM data);
+    Task<bool> ApproveSupplierReturnAsync(int recordId);
     Task<(IEnumerable<PurchaseCategoryVM> Data, int Count)> GetPurchaseCategoriesAsync(DataGridIntent intent);
     Task<(IEnumerable<PurchaseSubcategoryVM> Data, int Count)> GetPurchaseSubCategoriesAsync(PurchaseCategoryVM category, DataGridIntent intent);
 

@@ -67,6 +67,9 @@ public class CachedSupplierReturnIntegration(
     public async Task<bool> SubmitSupplierReturnForApproval(SupplierReturnDTO data)
         => await Mutate(() => inner.SubmitSupplierReturnForApproval(data));
 
+    public Task<bool> ApproveSupplierReturnAsync(int recordId, IReadOnlyList<int> allowedSubsidiaries, CancellationToken ct = default)
+        => Mutate(() => inner.ApproveSupplierReturnAsync(recordId, allowedSubsidiaries, ct));
+
     private async Task<bool> Mutate(Func<Task<bool>> mutation)
     {
         var result = await mutation();

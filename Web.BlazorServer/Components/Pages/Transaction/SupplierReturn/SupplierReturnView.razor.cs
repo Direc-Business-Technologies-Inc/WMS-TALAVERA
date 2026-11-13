@@ -1,6 +1,8 @@
 using Mapster;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Components;
 using Web.BlazorServer.Components.Pages.Transaction.InventoryTransferRequest;
+using Web.BlazorServer.Components.Security;
 using Web.BlazorServer.Components.Shared.Others;
 using Web.BlazorServer.Handlers.Repositories.Transaction.SupplierReturn;
 using Web.BlazorServer.Helpers;
@@ -12,12 +14,15 @@ namespace Web.BlazorServer.Components.Pages.Transaction.SupplierReturn;
 public partial class SupplierReturnView
 {
     [Inject] ISupplierReturnHandler returnHandler { get; set; } = default!;
+    [Inject] AppAuthenticationService authService { get; set; } = default!;
+    [Inject] IAuthorizationService authorizationService { get; set; } = default!;
     [SupplyParameterFromQuery] public string? Ref { get; set; } = null;
 
     readonly string ActionGetReturn = "Get Return to Supplier";
     bool IsLoadingData => AppBusyService.IsBusy(ActionGetReturn);
 
     bool IsBusy = false;
+    bool CanApprove;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -52,6 +57,8 @@ public partial class SupplierReturnView
         action.OnSuccess(async (response) =>
         {
             response.Adapt(FormData);
+            CanApprove = authService.IsAuthenticated() && (await authorizationService.AuthorizeAsync(
+                authService.CurrentUser, null, "permission.OSRN.APPROVE")).Succeeded;
             await InvokeAsync(StateHasChanged);
         });
     }
@@ -82,6 +89,38 @@ public partial class SupplierReturnView
 
         IsBusy = false;
         await InvokeAsync(StateHasChanged);
+    }
+
+    async Task Approve(SupplierReturnVM _)
+    {
+        if (!CanApprove || FormData.Id is not int recordId || !FormData.IsSubmittedForApprovals)
+            return;
+
+        IsBusy = true;
+        await InvokeAsync(StateHasChanged);
+        try
+        {
+            var action = await AppActionFactory.RunConfirmedAsync(async () =>
+            {
+                await returnHandler.ApproveSupplierReturnAsync(recordId);
+            }, "Approve Return to Supplier");
+
+            action.OnSuccess(() =>
+            {
+                NavManager.NavigateTo(NavManager.Uri, true);
+                return Task.CompletedTask;
+            });
+            action.OnFailure(ex =>
+            {
+                if (ex is not null) ToastService.Error($"{ex.Message} (TALAVERA.WMS v{Footer.WebVersion})");
+                return Task.CompletedTask;
+            });
+        }
+        finally
+        {
+            IsBusy = false;
+            await InvokeAsync(StateHasChanged);
+        }
     }
 
     async Task Return(SupplierReturnVM _)

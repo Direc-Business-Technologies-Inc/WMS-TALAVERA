@@ -240,6 +240,52 @@ public partial class SupplierReturnIntegration(
         return true;
     }
 
+    public async Task<bool> ApproveSupplierReturnAsync(
+        int recordId, IReadOnlyList<int> allowedSubsidiaries, CancellationToken ct = default)
+    {
+        if (recordId <= 0) throw new ArgumentOutOfRangeException(nameof(recordId));
+        if (allowedSubsidiaries.Count == 0 || allowedSubsidiaries.Any(id => id <= 0))
+            throw new InvalidOperationException("Your subsidiary access could not be established. Sign in again or contact an administrator.");
+
+        // Re-read the current NetSuite state and scope before writing; never trust a
+        // status or subsidiary supplied by the browser.
+        var query = builderFactory.Create()
+            .Select(
+                ("t.id", nameof(SupplierReturnApprovalStateNSDTO.Id)),
+                ("t.subsidiary", nameof(SupplierReturnApprovalStateNSDTO.SubsidiaryId)),
+                ("t.custbody_dbti_submitted_for_approval", nameof(SupplierReturnApprovalStateNSDTO.SubmittedForApprovals)),
+                ("t.custbody_dbti_custom_approval_status", nameof(SupplierReturnApprovalStateNSDTO.ApprovalStatusId)))
+            .From("transaction t")
+            .WithFilters(
+                DataGridFilterUtilities.Equal("t.id", recordId),
+                DataGridFilterUtilities.Equal("t.recordtype", "vendorreturnauthorization"),
+                DataGridFilterUtilities.In("t.subsidiary", allowedSubsidiaries.ToArray()))
+            .Build();
+        var response = await netsuiteService.ExecuteSuiteQLQuery<SupplierReturnApprovalStateNSDTO>(query.Query, ct: ct);
+        var current = response.items.SingleOrDefault()
+            ?? throw new InvalidOperationException("The selected RTS is not accessible or no longer exists.");
+
+        if (!current.SubmittedForApprovals.Equals("T", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("Submit this RTS for approval before approving it.");
+        if (current.ApprovalStatusId == NetSuiteApprovalStatus.Approved)
+            throw new InvalidOperationException("This RTS is already approved.");
+
+        var uri = $"{netsuiteService.GetRestAPIURI}/record/v1/vendorReturnAuthorization/{recordId}";
+        var payload = JsonSerializer.Serialize(new
+        {
+            custbody_dbti_custom_approval_status = NetSuiteApprovalStatus.Approved
+        });
+        try
+        {
+            _ = await netsuiteService.MakeRequest<object>(uri, payload, HttpMethod.Patch, ct: ct);
+        }
+        catch (Exception ex) when (ex.Message.Equals("Empty response from NetSuite API", StringComparison.OrdinalIgnoreCase))
+        {
+            // A 204 PATCH is successful even when NetSuite returns no body.
+        }
+        return true;
+    }
+
     public async Task<bool> CreateNewSupplierReturn(SupplierReturnDTO data)
     {
         ValidateCreationQuantities(data);

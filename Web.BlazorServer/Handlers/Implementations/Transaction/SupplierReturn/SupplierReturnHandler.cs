@@ -95,6 +95,28 @@ public class SupplierReturnHandler(
         return await sender.Send(cmd); 
     }
 
+    public async Task<bool> ApproveSupplierReturnAsync(int recordId)
+    {
+        if (!authService.IsAuthenticated() || !(await authorizationService.AuthorizeAsync(
+            authService.CurrentUser, null, "permission.OSRN.APPROVE")).Succeeded)
+            throw new UnauthorizedAccessException("You do not have permission to approve supplier returns.");
+        if (recordId <= 0) throw new ArgumentOutOfRangeException(nameof(recordId));
+
+        int[] subsidiaries;
+        try
+        {
+            subsidiaries = JsonSerializer.Deserialize<int[]>(authService.GetClaimValue("com.direcbusiness.wms.nsAllowedSubsidiaries")) ?? [];
+        }
+        catch (JsonException)
+        {
+            subsidiaries = [];
+        }
+        if (subsidiaries.Length == 0 || subsidiaries.Any(id => id <= 0))
+            throw new UnauthorizedAccessException("Your subsidiary access could not be established. Sign in again or contact an administrator.");
+
+        return await sender.Send(new ApproveSupplierReturnCmd(recordId, subsidiaries));
+    }
+
     public async Task<(IEnumerable<PurchaseOrderDataGridVM> Data, int Count)> GetPurchaseOrdersDataGridAsync(DataGridIntent intent)
     { 
         GetPurchaseOrderDataGridQry query = new(intent);
