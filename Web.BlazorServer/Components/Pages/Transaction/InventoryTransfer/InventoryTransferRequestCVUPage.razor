@@ -411,6 +411,7 @@
                                          AlignItems="AlignItems.Center"
                                          Gap="16px">
                                 <RadzenButton IsBusy="@IsBusy"
+                                              Disabled="@IsSubmitting"
                                               ButtonStyle="ButtonStyle.Primary"
                                               ButtonType="ButtonType.Button"
                                               Click="@OnEditButtonPressed">
@@ -428,7 +429,7 @@
                                               Visible="@(Creating)"
                                               ButtonStyle="ButtonStyle.Success"
                                               ButtonType="ButtonType.Submit">
-                                    Save Changes
+                                    @SubmitButtonText("Save Changes")
                                 </RadzenButton>
                             </RadzenStack>
                         }

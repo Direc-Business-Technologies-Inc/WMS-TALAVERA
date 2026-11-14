@@ -221,9 +221,7 @@
                             <RadzenButton IsBusy="@IsBusy" ButtonStyle="ButtonStyle.Base" Click="@CancelEditing">
                                 Cancel
                             </RadzenButton>
-                            <RadzenButton IsBusy="@IsBusy" Visible="@Creating" ButtonStyle="ButtonStyle.Success" ButtonType="ButtonType.Submit">
-                                Save
-                            </RadzenButton>
+                            <RadzenButton IsBusy="@IsBusy" Disabled="@IsSubmitting" Visible="@Creating" ButtonStyle="ButtonStyle.Success" ButtonType="ButtonType.Submit" Text="@SubmitButtonText()" />
                         </RadzenStack>
                     </RadzenStack>
                 </RadzenColumn>

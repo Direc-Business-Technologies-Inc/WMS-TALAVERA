@@ -17,6 +17,7 @@ public partial class InventoryDetailsDialog
     [Parameter][EditorRequired] public decimal Amount { get; set; }
     [Parameter] public Types Type { get; set; } = Types.Outgoing;
     [Parameter] public int? ItemId { get; set; } = null;
+    [Parameter] public bool? ItemUsesBins { get; set; }
     [Parameter] public int? StatusId { get; set; } = null;
     [Parameter] public bool ReadOnly { get; set; } = false;
     [Parameter] public bool ChangeBadToConfiscated { get; set; } = false;
@@ -77,7 +78,7 @@ public partial class InventoryDetailsDialog
         var action = await AppActionFactory.RunLoadingAsync(async () =>
         {
             var location = await locationHandler.GetLocation(LocationId);
-            LocationHasBins = location?.HasBins ?? false;
+            LocationHasBins = (location?.HasBins ?? false) && ItemUsesBins != false;
         }, ActionGetLocation);
     }
 

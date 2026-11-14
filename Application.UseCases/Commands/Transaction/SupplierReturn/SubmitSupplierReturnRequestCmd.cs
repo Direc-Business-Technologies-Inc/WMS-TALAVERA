@@ -20,3 +20,12 @@ public class SubmitSupplierReturnRequestCmdHandler(ISupplierReturnIntegration in
         return await integ.SubmitSupplierReturnForApproval(request.dto);
     }
 }
+
+public record ApproveSupplierReturnCmd(int RecordId, IReadOnlyList<int> AllowedSubsidiaries) : IRequest<bool>;
+
+public class ApproveSupplierReturnCmdHandler(ISupplierReturnIntegration integration)
+    : IRequestHandler<ApproveSupplierReturnCmd, bool>
+{
+    public Task<bool> Handle(ApproveSupplierReturnCmd request, CancellationToken cancellationToken) =>
+        integration.ApproveSupplierReturnAsync(request.RecordId, request.AllowedSubsidiaries, cancellationToken);
+}

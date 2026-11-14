@@ -95,13 +95,13 @@ public partial class UserManagementCVU
         NavManager.NavigateTo($"/administration/user/user-management/view?ref={Ref}", true);
     }
 
-    protected override async Task HandleSubmit()
+    protected override Task HandleSubmit() => SubmitOnce.RunAsync(async () =>
     {
         if (Creating)
             await Create();
         if (Updating)
             await Update();
-    }
+    });
 
     protected override async Task InitializeEditing()
     {

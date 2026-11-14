@@ -26,6 +26,57 @@ namespace Integration.NS.Tests.Implementations.Transactions;
 /// </summary>
 public class StockTransferRequestIntegrationTests
 {
+    [Fact]
+    public async Task Date_range_uses_native_trandate_on_all_three_str_lists()
+    {
+        var (sut, client) = CreateCapturing();
+        foreach (var list in new Func<DataGridIntent, Task>[]
+        {
+            async intent => { await sut.GetTransferOrderList(intent); },
+            async intent => { await sut.GetIntercompanyTransferOrderList(intent); },
+            async intent => { await sut.GetReturnsList(intent); }
+        })
+        {
+            var intent = new DataGridIntent { Take = 10 };
+            intent.Filters.Add(DataGridFilterUtilities.GreaterThanOrEqual("Date", new DateTime(2026, 10, 29)));
+            await list(intent);
+
+            Assert.NotNull(client.LastQuery);
+            Assert.Contains("t.trandate >= TO_DATE('2026-10-29T00:00:00'", client.LastQuery);
+            Assert.DoesNotContain("TO_DATE(t.trandate", client.LastQuery);
+            Assert.DoesNotContain("WHERE TO_CHAR(t.trandate", client.LastQuery);
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Print_count_filter_is_applied_before_paging_on_all_three_transaction_lists(bool printed)
+    {
+        var (sut, client) = CreateCapturing();
+        var expectedPredicate = printed
+            ? "t.custbody_wms_print_count >= 1"
+            : "t.custbody_wms_print_count IS NULL";
+
+        foreach (var list in new Func<DataGridIntent, Task>[]
+        {
+            async intent => { await sut.GetTransferOrderList(intent); },
+            async intent => { await sut.GetIntercompanyTransferOrderList(intent); },
+            async intent => { await sut.GetReturnsList(intent); }
+        })
+        {
+            var intent = new DataGridIntent { Take = 10 };
+            intent.Filters.Add(printed
+                ? DataGridFilterUtilities.GreaterThanOrEqual("t.custbody_wms_print_count", 1)
+                : DataGridFilterUtilities.IsNull("t.custbody_wms_print_count"));
+
+            await list(intent);
+
+            Assert.NotNull(client.LastQuery);
+            Assert.Contains(expectedPredicate, client.LastQuery);
+        }
+    }
+
     private static (StockTransferRequestIntegration Sut, CapturingNetSuiteClient Client) CreateCapturing()
     {
         var client = new CapturingNetSuiteClient();

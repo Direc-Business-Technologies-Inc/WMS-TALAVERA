@@ -3,7 +3,10 @@ using Radzen;
 using Radzen.Blazor;
 using Shared.Entities;
 using Shared.Kernel;
+using Shared.Libraries.Utilities;
+using Web.BlazorServer.Components.Custom;
 using Web.BlazorServer.Components.Shared.Abstraction;
+using Web.BlazorServer.Components.Shared.Others;
 using Web.BlazorServer.Defaults;
 using Web.BlazorServer.Handlers.Repositories.Transaction.Receiving;
 using Web.BlazorServer.Services.Repositories;
@@ -22,6 +25,70 @@ partial class ReturnsGrid
     string ActionGetPurchaseOrders { get; } = EnumHelper.GetEnumDescription(AppActions.GetAllReturns);
 
     TransferOrderStatusVM? StatusFilter = null;
+    PrintStatus SelectedPrintStatus = PrintStatus.ForPrinting;
+    DateTime? DateRangeStart;
+    DateTime? DateRangeEnd;
+    bool dateRangeApplied;
+    PrintStatusView PrintStatusView = default!;
+    bool initialGridLoadSucceeded;
+    bool initialCountRefreshRequested;
+
+    Task OnGridDataLoaded()
+    {
+        if (!dateRangeApplied)
+        {
+            var hasDates = PrintStatusFilter.TryGetDateRange(DataGrid.DGResult.Items, row => row.Date, out var range);
+            DateRangeStart = hasDates ? range.Start : null;
+            DateRangeEnd = hasDates ? range.End : null;
+        }
+        if (!initialGridLoadSucceeded || initialCountRefreshRequested) return Task.CompletedTask;
+        initialCountRefreshRequested = true;
+        _ = InvokeAsync(async () => { await Task.Yield(); await PrintStatusView.RefreshCountsAsync(); });
+        return Task.CompletedTask;
+    }
+
+    async Task<Application.DataTransferObjects.Transactions.PrintStatusCountsDTO> PrintCountsAsync(CancellationToken ct)
+    {
+        var intent = new DataGridIntent { Skip = 0, Take = 1, ReadPolicy = GridReadPolicy.Fresh, CancellationToken = ct };
+        ReceivingReceiptPrintStatusFilter.ApplyToReceipts(intent, PrintStatus.All, "RETURNS");
+        intent.Filters.Add(DataGridFilterUtilities.Equal("IncludeCompletedReceived", true));
+        if (dateRangeApplied)
+            PrintStatusFilter.ApplyDateRange(intent, DateRangeStart, DateRangeEnd, "tcf.trandate");
+        ApplyStatusCountFilter(intent);
+        return await ReceivingHandler.GetReceivingPrintStatusCounts(intent, ct);
+    }
+
+    async Task DateRangeChanged((DateTime Start, DateTime End) range)
+    {
+        dateRangeApplied = true;
+        DateRangeStart = range.Start;
+        DateRangeEnd = range.End;
+        if (DataGrid.DataGrid.CurrentPage == 0)
+            await DataGrid.DataGrid.Reload();
+        else
+            await DataGrid.DataGrid.GoToPage(0);
+        await PrintStatusView.RefreshCountsAsync();
+    }
+
+    async Task PrintStatusChanged(PrintStatus status)
+    {
+        SelectedPrintStatus = status;
+        if (DataGrid.DataGrid.CurrentPage == 0)
+            await DataGrid.DataGrid.Reload();
+        else
+            await DataGrid.DataGrid.GoToPage(0);
+    }
+
+    Task ReloadFirstPageAsync() => Task.WhenAll(DataGrid.RefreshFirstPageOrThrowAsync(), PrintStatusView.RefreshCountsOrThrowAsync());
+    Task SyncAsync() => Task.WhenAll(DataGrid.ReloadFirstPageAsync(), PrintStatusView.RefreshCountsAsync());
+
+    async Task ReloadRowsAsync()
+    {
+        if (DataGrid.DataGrid.CurrentPage == 0)
+            await DataGrid.DataGrid.Reload();
+        else
+            await DataGrid.DataGrid.GoToPage(0);
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -38,9 +105,14 @@ partial class ReturnsGrid
     {
         await GridSettingsService.SetGridSettings(DataGrid.DataGrid, settings => DataGridSettings = settings ?? new());
         GridSettingsLoaded = true;
+    }
 
-        await DataGrid.DataGrid.ReloadSettings();
-        await DataGrid.DataGrid.Reload();
+    void PrepareIntent(DataGridIntent intent)
+    {
+        ReceivingReceiptPrintStatusFilter.ApplyToTransactions(intent, SelectedPrintStatus, "RETURNS");
+        intent.Filters.Add(DataGridFilterUtilities.Equal("IncludeCompletedReceived", true));
+        if (dateRangeApplied)
+            PrintStatusFilter.ApplyDateRange(intent, DateRangeStart, DateRangeEnd);
     }
 
     async Task<DataGridResultVM<ReturnsDataGridVM>> LoadDataAsync(DataGridIntent intent)
@@ -63,12 +135,15 @@ partial class ReturnsGrid
                     Direction = SortDirectionEnum.Descending
                 });
             }
-            return await ReceivingHandler.GetReturnsDataGridAsync(intent);
+            var result = await ReceivingHandler.GetReturnsDataGridAsync(intent);
+            return result;
 
             throw new Exception("Invalid source for receiving grid");
         }, AppActionOptionPresets.Loading(ActionGetPurchaseOrders));
 
+        initialGridLoadSucceeded = action.IsSuccess;
         AppBusyService.SetBusy(ActionGetPurchaseOrders, false);
+        action.ThrowIfUnsuccessful();
         return DataGridResultVM<ReturnsDataGridVM>.New(action.Result.Data ?? [], action.Result.Count);
     }
 
@@ -84,6 +159,7 @@ partial class ReturnsGrid
         if (StatusFilter is null)
         {
             await DataGrid.DataGrid.Reload();
+            await PrintStatusView.RefreshCountsAsync();
             return;
         }
 
@@ -92,6 +168,13 @@ partial class ReturnsGrid
         column.SetLogicalFilterOperator(LogicalFilterOperator.And);
 
         await DataGrid.DataGrid.Reload();
+        await PrintStatusView.RefreshCountsAsync();
+    }
+
+    void ApplyStatusCountFilter(DataGridIntent intent)
+    {
+        if (StatusFilter is not null)
+            intent.Filters.Add(DataGridFilterUtilities.Equal(nameof(ReturnsDataGridVM.Status), StatusFilter.Name));
     }
 
     void ViewItem(ReturnsDataGridVM purchaseOrder) => NavManager.NavigateTo($"/transactions/purchasing/receiving/returns/view?ref={purchaseOrder.ReferenceNumber}", true);

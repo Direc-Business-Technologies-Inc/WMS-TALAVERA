@@ -9,6 +9,8 @@
 
 ## Table of Contents
 
+Account reference: [Purchase categories, subcategories, and sample item field verification](netsuite-purchase-classification-reference.md).
+
 1. [The Problem in Plain Terms](#1-the-problem-in-plain-terms)
 2. [Design Rules (Read These First)](#2-design-rules-read-these-first)
 3. [Target Architecture](#3-target-architecture)

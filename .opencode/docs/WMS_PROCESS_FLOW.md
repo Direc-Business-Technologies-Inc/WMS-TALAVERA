@@ -133,9 +133,18 @@ Read via SuiteQL as `t.custbody_dbti_custom_approval_status`.
 
 | Id | Meaning | Editable in WMS? |
 |---|---|---|
-| 1 | None / initial | Yes |
+| 1 | Processing | Yes |
 | 2 | Draft | **Yes** |
 | 3 | Rejected | **Yes** |
+| 4 | Approved | — |
+| 20 | Closed / excluded from Receiving PO grid (NetSuite admin-confirmed) | — |
+
+Processing (1), Draft (2), Rejected (3), and Approved (4) were verified against
+the NetSuite custom-list values. Transaction-based **For Printing** tabs require
+`custbody_dbti_custom_approval_status = 4` in addition to their existing workflow
+and print-status predicates. IF/IR selectors check the source transaction's
+approval; their For Printing badge counts use the same gate. This approval gate
+does not apply to Printed, All Transactions, or custom-record Trip Tickets.
 
 **Editability rule** (identical in STR and ITR):
 ```csharp
@@ -248,8 +257,16 @@ Used only by `MarketingDocumentDEM` / `ReceivingDocumentDEM`. **STR/ITR do not u
 **Steps:**
 
 1. **Create** — `StockTransferRequestCreate.razor`
-   - Validations in `Components/STRForm.razor.cs`: ≥1 line, allotted ≤ on-hand,
+   - Validations in `Components/STRForm.razor.cs`: ≥1 line, allotted ≤ available quantity,
      **Preferred Vendor required on every line**, Requested By required
+   - **Inventory availability business decision:** STR uses NetSuite's location-level
+     `quantityavailable`, not on-hand. Item selection and source-location refresh use
+     `aggregateitemlocation.quantityavailable`; saved document lines use
+     `inventoryitemlocations.quantityavailable` for the document's source location. Both
+     sources are treated as base-unit quantities and converted for the selected line UoM
+     by dividing by its `ConversionRate` (for example, 440 base units / rate 40 = 11 units).
+     Display, barcode checks, and submit validation use this line-UoM value, which updates
+     automatically when the UoM changes.
    - `CreateStockTransferRequestCmd` → `StockTransferRequestIntegration.CreateStockTransferRequest`
    - `POST /record/v1/transferOrder` or `/record/v1/interCompanyTransferOrder`
    - Payload: `orderStatus = "A"`, `custbody_dbti_created_in_wms = true`,
@@ -390,7 +407,7 @@ AND (custbody_dbti_fully_received = 'F' OR IS NULL)
 | Capture | `BarcodeScannerDialog.razor` — keyboard-wedge into a `RadzenTextBox` | Zebra **DataWedge** broadcast |
 | Dispatch | Dialog submit → `BarcodeScanned` event | `MauiProgram.BroadcastService` **static event** |
 | Accumulator | `BarcodeStore` — batch review + revert | `GoodXItems` / `BadXItems` lists mutated live |
-| Resolution | `GetBarcodeDataQry` → `CUSTOMRECORD_BARCODE_PER_UOM` | `POST /Item/Barcodes` pre-fetched once per order |
+| Resolution | `GetBarcodeDataQry` → `CUSTOMRECORD_BARCODE_PER_UOM` | `BarcodeResolver` → `POST /Item/PerBarcode` (per scan, cached in-session) |
 
 **NetSuite targets by source:**
 
@@ -401,7 +418,7 @@ AND (custbody_dbti_fully_received = 'F' OR IS NULL)
 | Purchase Order | `Receiving/PurchaseOrder/SaveScan` | `PostPurchaseOrderIRCmd` | `purchaseOrder/{id}/!transform/itemReceipt` |
 
 **Web path**: `ItemReceiptCreatePage.razor` → `ReceivingIntegration.PostItemReceipt` →
-up to 3 concurrent posts split by inventory status, ordered **bad → good → missing**
+up to 3 sequential posts split by inventory status, ordered **bad → good → missing**
 (`INVENTORY_STATUS_ID_GOOD=1`, `_BAD=3`, `_MISSING=6`).
 
 **Pre-flight guards in `ReceivingIntegration.PostItemReceipt`:**
@@ -411,11 +428,28 @@ up to 3 concurrent posts split by inventory status, ordered **bad → good → m
   and invisible to IF-based math
 
 **Receiving list filters:**
+- Purchase Orders: native status `IN ('B','E')` and custom approval status
+  `(custbody_dbti_custom_approval_status IS NULL OR
+  custbody_dbti_custom_approval_status != '20')`. NetSuite admin confirmed `20`
+  is the custom status used for closed orders; these records are hidden from the
+  web Receiving PO grid even if the native `t.status` still maps to Pending
+  Receipt or Pending Billing. An unset custom status remains eligible (subject
+  to all other filters); native closed status `G` remains excluded. The web
+  filter is in `ReceivingIntegration.GetPurchaseOrdersListAsync`.
+- Mobile Purchase Orders: `NS_PurchaseOrder_Get_PendingReceipt.sql` and
+  `NS_PurchaseOrder_Get_ByOrderNumber.sql` use the same native `B`/`E` eligibility
+  and exclude custom approval status `20`; they explicitly exclude native `G`
+  (Closed) as well. The `B`/`E` allowlist already excludes `G`; the explicit
+  predicate documents the closed-state rule. A null custom approval status remains
+  eligible.
 - Direct TO: `status IN ('F','E')`, `transactionlinetype = 'RECEIVING'`
 - Via IF: `NS_TO_Get_Itemfulfillments.sql` **requires `t.status='C'`** ← the trip-ticket gate
 
-**End state:** item receipts created; when `quantityshiprecv == quantity` the TO
-auto-closes and `custbody_dbti_fully_received='T'` removes the IF from every open pool.
+**End state:** NetSuite natively links IF→IR in `nexttransactionlinelink`
+(`linktype='TOrdCost'`) and TO line→IR line in its transaction-line links. WMS
+computes IF completion from those links, so the picker does not depend on
+`custbody_dbti_fully_received` or a RESTlet update. The TO's own
+`quantityshiprecv` remains the order-wide over-receipt ceiling.
 
 ---
 

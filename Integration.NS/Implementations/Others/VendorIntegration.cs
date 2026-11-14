@@ -98,6 +98,36 @@ public class VendorIntegration(
         return GetVendorsBySubsidiaryListAsync(newIntent, subsidiary, ct);
     }
 
+    /// <summary>
+    ///     Reads the vendor records for a known set of internal ids. Deliberately
+    ///     not paged: the caller passes the handful of vendors on one document.
+    /// </summary>
+    public async Task<IEnumerable<VendorDTO>> GetVendorsByIdsAsync(IEnumerable<int> ids, CancellationToken ct = default)
+    {
+        var vendorIds = (ids ?? []).Where(id => id > 0).Distinct().ToArray();
+
+        if (vendorIds.Length == 0)
+        {
+            return [];
+        }
+
+        var query = builderFactory.Create()
+            .Select(
+                ("v.id", nameof(VendorNSDTO.Id)),
+                ("v.entityid", nameof(VendorNSDTO.ReferenceNumber)),
+                ("v.companyname", nameof(VendorNSDTO.CompanyName)),
+                ("v.altname", nameof(VendorNSDTO.AltName)),
+                ("v.fullname", nameof(VendorNSDTO.Name))
+            )
+            .From("vendor v")
+            .WithFilters(DataGridFilterUtilities.In("v.id", vendorIds))
+            .Build();
+
+        var result = await netsuiteService.ExecuteSuiteQLQuery<VendorNSDTO>(query.Query, ct: ct);
+
+        return result.items.Select(ConvertNSDTO);
+    }
+
 
     public VendorDTO ConvertNSDTO(VendorNSDTO nsdto)
     {
@@ -116,6 +146,7 @@ public class VendorIntegration(
         public string ReferenceNumber { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
         public string CompanyName { get; set; } = string.Empty;
+        public string AltName { get; set; } = string.Empty;
         public int CategoryId { get; set; }
         public string CategoryName { get; set; } = string.Empty;
     }

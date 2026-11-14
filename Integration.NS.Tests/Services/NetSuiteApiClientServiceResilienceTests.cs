@@ -4,6 +4,7 @@ using Application.DataTransferObjects.Others.NS;
 using Integration.NS.Exceptions;
 using Integration.NS.Resilience;
 using Integration.NS.Services;
+using Integration.NS.Implementations.Others.Caching;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging.Abstractions;
 using WireMock.RequestBuilders;
@@ -57,7 +58,134 @@ public class NetSuiteApiClientServiceResilienceTests : IDisposable
         NetSuitePipelines.ResetRetryDelayForTests();
     }
 
+    [Theory]
+    [InlineData("/record/v1/customrecord_bulk_fulfillment/42")]
+    [InlineData(null)]
+    public async Task Creation_receipt_preserves_empty_success_and_location(string? location)
+    {
+        var response = Response.Create().WithStatusCode(204);
+        if (location is not null) response.WithHeader("Location", location);
+        _server.Given(Request.Create().WithPath("/record/v1/customrecord_bulk_fulfillment").UsingPost()).RespondWith(response);
+        var receipt = await _service.CreateRecordAsync(_server.Url + "/record/v1/customrecord_bulk_fulfillment", "{}");
+        Assert.Equal(204, receipt.StatusCode);
+        Assert.Equal(location, receipt.Location);
+        Assert.Single(_server.LogEntries);
+    }
+
+    [Theory]
+    [InlineData("null", 1)]
+    [InlineData("\"0\"", 1)]
+    [InlineData("-2", 1)]
+    [InlineData("4", 5)]
+    public async Task Trip_ticket_print_click_reads_custom_field_and_accepts_successful_204_patch(string current, int expected)
+    {
+        _server.Given(Request.Create().WithPath("/query/v1/suiteql").UsingPost())
+            .RespondWith(Response.Create().WithStatusCode(200)
+                .WithBody($"{{\"items\":[{{\"printcount\":{current}}}],\"totalResults\":1}}"));
+        _server.Given(Request.Create().WithPath("/record/v1/customrecord_dbti_trip_ticket/42").UsingPatch())
+            .RespondWith(Response.Create().WithStatusCode(204));
+
+        await _service.IncrementTripTicketPrintCountAsync(42);
+
+        Assert.Equal(2, _server.LogEntries.Count());
+        var patch = Assert.Single(_server.LogEntries.Where(entry => entry.RequestMessage.Method == "PATCH"));
+        Assert.Equal($"{{\"custrecord_trt_print_count\":{expected}}}", patch.RequestMessage.Body);
+    }
+
+    [Fact]
+    public async Task Trip_ticket_rejected_patch_preserves_the_NetSuite_error()
+    {
+        _server.Given(Request.Create().WithPath("/query/v1/suiteql").UsingPost())
+            .RespondWith(Response.Create().WithStatusCode(200).WithBody("{\"items\":[{\"printcount\":0}],\"totalResults\":1}"));
+        _server.Given(Request.Create().WithPath("/record/v1/customrecord_dbti_trip_ticket/42").UsingPatch())
+            .RespondWith(Response.Create().WithStatusCode(403).WithBody("{\"o:errorDetails\":[{\"detail\":\"Permission denied for print field\"}]}"));
+
+        var error = await Assert.ThrowsAsync<NetSuiteValidationException>(() => _service.IncrementTripTicketPrintCountAsync(42));
+
+        Assert.Contains("Permission denied", error.Message);
+        Assert.Equal(2, _server.LogEntries.Count());
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task RTS_print_invalidates_supplier_return_cache_only_after_success(bool success)
+    {
+        using var store = new GridCacheStore(100, TimeSpan.FromSeconds(60));
+        var accessor = new HttpContextAccessor
+        {
+            HttpContext = new DefaultHttpContext
+            {
+                User = new System.Security.Claims.ClaimsPrincipal(new System.Security.Claims.ClaimsIdentity(new[]
+                {
+                    new System.Security.Claims.Claim("com.direcbusiness.wms.nsEmployeeId", "7")
+                }, "test"))
+            }
+        };
+        var cache = new GridResultCache(store, accessor, null);
+        await cache.GetOrAddAsync(CachedSupplierReturnIntegration.EntityName, "Returns", null, () => Task.FromResult("old"));
+        _server.Given(Request.Create().WithPath("/query/v1/suiteql").UsingPost())
+            .RespondWith(Response.Create().WithStatusCode(200).WithBody("{\"items\":[{\"printcount\":0}],\"totalResults\":1}"));
+        _server.Given(Request.Create().WithPath("/record/v1/vendorReturnAuthorization/42").UsingPatch())
+            .RespondWith(Response.Create().WithStatusCode(success ? 204 : 403));
+        var service = new NetSuiteApiClientService(accessor, null!, NullLogger<NetSuiteApiClientService>.Instance, store);
+
+        if (success) await service.IncrementPrintCountAsync("vendorReturnAuthorization", 42);
+        else await Assert.ThrowsAsync<NetSuiteValidationException>(() => service.IncrementPrintCountAsync("vendorReturnAuthorization", 42));
+
+        var value = await cache.GetOrAddAsync(CachedSupplierReturnIntegration.EntityName, "Returns", null, () => Task.FromResult("fresh"));
+        Assert.Equal(success ? "fresh" : "old", value);
+    }
+
     // AC2 / property 3 — a write that gets 429 is retried once and succeeds.
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Interactive_admission_expiry_is_busy_sends_nothing_and_does_not_release_unowned_permit(bool oauth1)
+    {
+        var semaphore = (SemaphoreSlim)typeof(NetSuiteApiClientService)
+            .GetField("_requestSemaphore", BindingFlags.NonPublic | BindingFlags.Static)!.GetValue(null)!;
+        var available = semaphore.CurrentCount;
+        for (var i = 0; i < available; i++) await semaphore.WaitAsync();
+        var original = Environment.GetEnvironmentVariable("NETSUITE_INTERACTIVE_ADMISSION_SECONDS");
+        Environment.SetEnvironmentVariable("NETSUITE_INTERACTIVE_ADMISSION_SECONDS", "0.03");
+        try
+        {
+            var request = oauth1
+                ? _service.MakeRequestOAuth1<object>(_server.Url + "/restlet", null, HttpMethod.Get, NetSuiteRequestKind.Read)
+                : _service.MakeRequest<object>(_server.Url + "/query/v1/suiteql", "{}", HttpMethod.Post);
+            await Assert.ThrowsAsync<Shared.Entities.GridAdmissionBusyException>(() => request.WaitAsync(TimeSpan.FromSeconds(5)));
+            Assert.Equal(0, semaphore.CurrentCount);
+            Assert.Empty(_server.LogEntries);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("NETSUITE_INTERACTIVE_ADMISSION_SECONDS", original);
+            semaphore.Release(available);
+        }
+        Assert.Equal(available, semaphore.CurrentCount);
+    }
+
+    [Fact]
+    public async Task Cancelled_queued_read_never_sends_after_capacity_recovers()
+    {
+        var semaphore = (SemaphoreSlim)typeof(NetSuiteApiClientService)
+            .GetField("_requestSemaphore", BindingFlags.NonPublic | BindingFlags.Static)!.GetValue(null)!;
+        var available = semaphore.CurrentCount;
+        for (var i = 0; i < available; i++) await semaphore.WaitAsync();
+        using var cancellation = new CancellationTokenSource();
+        try
+        {
+            var request = _service.MakeRequest<object>(_server.Url + "/query/v1/suiteql", "{}", HttpMethod.Post, ct: cancellation.Token);
+            cancellation.Cancel();
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => request);
+            Assert.Equal(0, semaphore.CurrentCount);
+        }
+        finally { semaphore.Release(available); }
+        Assert.Empty(_server.LogEntries);
+        Assert.Equal(available, semaphore.CurrentCount);
+    }
+
     [Fact]
     public async Task Write_429_is_retried_once_and_succeeds()
     {

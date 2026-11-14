@@ -8,7 +8,7 @@
 <RadzenDataGrid TItem="TItem"
                 Visible="@(GridSettingsLoaded && Visible && !IsBusy)"
                 @ref=@(DataGrid)
-                Count="@(Data.Count)"
+                Count="@(Data.Count())"
                 IsLoading="@(IsBusy)"
                 Data=@(Data)
                 @bind-Value=@(SelectedItems)

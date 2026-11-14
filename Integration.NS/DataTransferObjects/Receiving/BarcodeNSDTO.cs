@@ -14,6 +14,8 @@ public class BarcodeNSDTO
     public string ItemCode { get; set; } = string.Empty;
     public decimal ItemWeight { get; set; }
     public int ItemId { get; set; }
+    public int? PurchaseCategoryId { get; set; }
+    public int? PurchaseSubcategoryId { get; set; }
     public string UoMName { get; set; } = string.Empty;
     public decimal QuantityOnHand { get; set; }
     public decimal QuantityAvailable { get; set; }

@@ -35,13 +35,16 @@ public class ReceivingHandler(
     public async Task<(IEnumerable<PurchaseOrderDataGridVM> Data, int Count)> GetPurchaseOrderDataGridAsync(DataGridIntent intent)
     {
         GetPurchaseOrdersQry qry = new(intent);
-        (IEnumerable<PurchaseOrderDataGridDTO> Data, int Count) = await Sender.Send(qry);
+        (IEnumerable<PurchaseOrderDataGridDTO> Data, int Count) = await Sender.Send(qry, intent.CancellationToken);
 
         var x = Data.Select(x => new PurchaseOrderDataGridVM
         {
 
             Status = x.Status,
             Id = x.Id,
+            ForPrintingIRCount = x.ForPrintingIRCount,
+            PrintedIRCount = x.PrintedIRCount,
+            SingleReceiptId = x.SingleReceiptId,
             ReferenceNumber = x.ReferenceNumber,
             Date = x.Date,
             DeliveryDate = x.DeliveryDate,
@@ -56,9 +59,13 @@ public class ReceivingHandler(
     public async Task<(IEnumerable<ReturnsDataGridVM> Data, int Count)> GetReturnsDataGridAsync(DataGridIntent intent)
     {
         GetReturnsListQry qry = new (intent);
-        (var data, var count) = await Sender.Send(qry);
+        (var data, var count) = await Sender.Send(qry, intent.CancellationToken);
         var x = data.Select(x => new ReturnsDataGridVM
         {
+            Id = x.Id,
+            ForPrintingIRCount = x.ForPrintingIRCount,
+            PrintedIRCount = x.PrintedIRCount,
+            SingleReceiptId = x.SingleReceiptId,
             Status = x.Status,
             ReferenceNumber = x.ReferenceNumber,
             Date = x.Date,
@@ -77,12 +84,15 @@ public class ReceivingHandler(
     public async Task<(IEnumerable<TransferOrderDataGridVM> Data, int Count)> GetTransferOrderDataGridAsync(DataGridIntent intent)
     {
         GetTransferOrdersQry qry = new(intent);
-        (IEnumerable<TransferOrderDataGridDTO> Data, int Count) = await Sender.Send(qry);
+        (IEnumerable<TransferOrderDataGridDTO> Data, int Count) = await Sender.Send(qry, intent.CancellationToken);
 
         var x = Data.Select(x => new TransferOrderDataGridVM
         {
             Status = x.Status,
             Id = x.Id,
+            ForPrintingIRCount = x.ForPrintingIRCount,
+            PrintedIRCount = x.PrintedIRCount,
+            SingleReceiptId = x.SingleReceiptId,
             ReferenceNumber = x.ReferenceNumber,
             Date = x.Date,
             Location = x.Location,
@@ -189,6 +199,13 @@ public class ReceivingHandler(
         var dto = new ItemReceiptDTO();
 
         data.Adapt(dto);
+        // The DTO stores this flag as T/F while the web model exposes a bool.
+        dto.Lines = data.Lines.Select(line =>
+        {
+            var mapped = line.Adapt<ItemReceiptLineDTO>();
+            mapped.ItemUseBins = line.ItemUsesBins ? "T" : "F";
+            return mapped;
+        }).ToList();
         dto.SourceType = data.SourceType switch
         {
             ItemReceiptVM.SourceTypes.PurchaseOrder => ItemReceiptDTO.SourceTypes.PurchaseOrder,
@@ -206,12 +223,12 @@ public class ReceivingHandler(
         return await Sender.Send(cmd);
     }
 
-    public async Task<(IEnumerable<ItemFulfillmentVM>, int)> GetTransferOrderItemFulfillments(int toId, DataGridIntent intent)
+    public async Task<(IEnumerable<ItemFulfillmentVM>, int, int)> GetTransferOrderItemFulfillments(int toId, DataGridIntent intent)
     {
         GetItemFulfillmentsForTransferOrderQry query = new GetItemFulfillmentsForTransferOrderQry(toId, intent);
         var response = await Sender.Send(query);
 
-        return (response.Item1.Adapt<IEnumerable<ItemFulfillmentVM>>(), response.Item2);
+        return (response.Items.Adapt<IEnumerable<ItemFulfillmentVM>>(), response.TotalResults, response.SkippedUnverifiableCount);
     }
 
     public async Task<IEnumerable<ItemFulfillmentLineVM>> GetItemFulfillmentLinesAsync(int ifid, DataGridIntent intent)
@@ -237,6 +254,9 @@ public class ReceivingHandler(
 
         return (data.Adapt<IEnumerable<ItemReceiptDataGridVM>>(), count);
     }
+
+    public Task<Application.DataTransferObjects.Transactions.PrintStatusCountsDTO> GetReceivingPrintStatusCounts(DataGridIntent intent, CancellationToken ct = default)
+        => Sender.Send(new GetReceivingPrintStatusCountsQry(intent), ct);
     
     public async Task<(IEnumerable<PurchaseOrderStatusVM>, int)> GetPurchaseOrderStatuses(DataGridIntent intent)
     {

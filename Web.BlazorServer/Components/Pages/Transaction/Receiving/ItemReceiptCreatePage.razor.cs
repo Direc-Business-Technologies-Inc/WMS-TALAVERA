@@ -72,7 +72,7 @@ partial class ItemReceiptCreatePage
             var nsEmployee = authService.GetClaimValue("com.direcbusiness.wms.nsEmployeeName");
             FormData.PreparedBy = string.IsNullOrEmpty(nsEmployee) ? "No Netsuite Account Registered" : nsEmployee;
             FormData.ReceivedBy = FormData.PreparedBy;
-            FormData.ItemFulfillmentId = IfId ?? -1;
+            FormData.ItemFulfillmentId = IfId;
             return Task.CompletedTask;
         });
 
@@ -85,15 +85,21 @@ partial class ItemReceiptCreatePage
         IsBusy = true;
         await InvokeAsync(StateHasChanged);
 
+        var options = AppActionOptionPresets.Confirmed(ActionCreateItemReceipt);
+        options.ShowToastOnSuccess = false;
         var action = await AppActionFactory.RunAsync(async () =>
         {
             if (receivingHandler is null) throw new Exception("No handlers registered for item receipt");
-            return await receivingHandler.PostItemReceipt(model);
+            var posted = await receivingHandler.PostItemReceipt(model);
+            if (!posted)
+                throw new InvalidOperationException("Item receipt was not confirmed. Check NetSuite before retrying.");
+            return posted;
 
-        }, AppActionOptionPresets.Confirmed(ActionCreateItemReceipt));
+        }, options);
 
         action.OnSuccess(async (res) =>
         {
+            ToastService.Success("Item receipt posted to NetSuite. The source order may remain open if quantities are still outstanding.");
             await Task.Delay(100);
 
             NavManager.NavigateTo("/transactions/purchasing/receiving");

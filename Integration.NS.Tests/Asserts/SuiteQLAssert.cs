@@ -171,6 +171,144 @@ public static partial class SuiteQLAssert
                $"terminates the literal early and NetSuite rejects the query with 400 INVALID_PARAMETER. Query: {query}";
     }
 
+    /// <summary>
+    /// Rule 1 of .opencode/docs/SuiteQL-Shape-Rules.md: a derived table must
+    /// never reference an alias of the outer query. NetSuite answers that with
+    /// <c>400 INVALID_PARAMETER ... Invalid or unsupported search</c>.
+    /// Correlation is allowed only in the JOIN's ON clause, against the derived
+    /// table's own output columns.
+    /// <para>
+    /// Scope: subqueries in the FROM/JOIN clause only. A single-level scalar
+    /// subquery in the SELECT list is accepted by NetSuite in production
+    /// (<c>NS_TO_Get_Itemfulfillment_Items.sql</c> correlates on
+    /// <c>tl.transaction</c>/<c>tl.id</c>), so flagging that class would force
+    /// working queries to change. The recorded rejections are the nested
+    /// (two-level) links and the derived-table shapes.
+    /// </para>
+    /// </summary>
+    public static void NoOuterAliasReferenceInDerivedTable(string query)
+    {
+        var (outsideLiterals, _) = StripLiterals(query);
+        var outerAliases = OuterAliases(outsideLiterals);
+
+        if (outerAliases.Count == 0) return;
+
+        foreach (var body in DerivedTableBodies(outsideLiterals))
+        {
+            var ownAliases = AliasesIntroduced(body);
+
+            foreach (var alias in outerAliases)
+            {
+                if (ownAliases.Contains(alias)) continue;
+
+                if (!Regex.IsMatch(body, $@"\b{Regex.Escape(alias)}\s*\.", RegexOptions.IgnoreCase)) continue;
+
+                Assert.Fail(
+                    $"derived table references outer alias '{alias}'. NetSuite rejects a correlated subquery/derived table " +
+                    $"with 400 INVALID_PARAMETER (Rule 1). Resolve the correlation inside the derived table and join on its " +
+                    $"output columns instead. Query: {query}");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Aliases bound at the top level of the statement (<c>FROM t</c>,
+    /// <c>JOIN x y</c>). Text inside parentheses is skipped, so a derived
+    /// table's own joins are not mistaken for outer aliases.
+    /// </summary>
+    private static HashSet<string> OuterAliases(string outsideLiterals)
+    {
+        var topLevel = new StringBuilder(outsideLiterals.Length);
+        var depth = 0;
+
+        foreach (var ch in outsideLiterals)
+        {
+            if (ch == '(') depth++;
+            else if (ch == ')') depth--;
+            else if (depth == 0) topLevel.Append(ch);
+        }
+
+        var aliases = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (System.Text.RegularExpressions.Match match in FromOrJoinAlias().Matches(topLevel.ToString()))
+        {
+            AddIfAlias(aliases, match.Groups["alias"].Value);
+        }
+
+        // Aliases of derived tables: "JOIN ( ... ) ig ON ..." — the parens are
+        // stripped above, so match the closing paren in the original text.
+        foreach (System.Text.RegularExpressions.Match match in DerivedTableAlias().Matches(outsideLiterals))
+        {
+            AddIfAlias(aliases, match.Groups["alias"].Value);
+        }
+
+        return aliases;
+    }
+
+    /// <summary>
+    /// Bodies (without the wrapping parens) of every derived table —
+    /// <c>FROM (SELECT ...)</c> / <c>JOIN (SELECT ...)</c>.
+    /// </summary>
+    private static IEnumerable<string> DerivedTableBodies(string outsideLiterals)
+    {
+        var starts = DerivedTableStart().Matches(outsideLiterals);
+
+        foreach (System.Text.RegularExpressions.Match start in starts)
+        {
+            var open = start.Index + start.Value.IndexOf('(');
+            var depth = 0;
+            var close = -1;
+
+            for (var i = open; i < outsideLiterals.Length; i++)
+            {
+                if (outsideLiterals[i] == '(') depth++;
+                else if (outsideLiterals[i] == ')' && --depth == 0)
+                {
+                    close = i;
+                    break;
+                }
+            }
+
+            if (close < 0) continue;
+
+            yield return outsideLiterals[(open + 1)..close];
+        }
+    }
+
+    /// <summary>Aliases the subquery binds itself (its own FROM/JOIN).</summary>
+    private static HashSet<string> AliasesIntroduced(string body)
+    {
+        var aliases = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (System.Text.RegularExpressions.Match match in FromOrJoinAlias().Matches(body))
+        {
+            AddIfAlias(aliases, match.Groups["alias"].Value);
+        }
+
+        return aliases;
+    }
+
+    /// <summary>
+    /// A table reference with no alias puts a clause keyword where the alias
+    /// would be (<c>FROM AggregateItemLocation ORDER BY ...</c>). Keeping those
+    /// out of the alias set stops the lint inventing "aliases" like ORDER.
+    /// </summary>
+    private static void AddIfAlias(HashSet<string> aliases, string candidate)
+    {
+        if (!SqlKeyword().IsMatch(candidate)) aliases.Add(candidate);
+    }
+
+    [GeneratedRegex(@"\b(?:FROM|JOIN)\s+(?!\()[A-Za-z_]\w*\s+(?:AS\s+)?(?<alias>[A-Za-z_]\w*)", RegexOptions.IgnoreCase)]
+    private static partial Regex FromOrJoinAlias();
+
+    [GeneratedRegex(@"\)\s+(?:AS\s+)?(?<alias>[A-Za-z_]\w*)\s+ON\b", RegexOptions.IgnoreCase)]
+    private static partial Regex DerivedTableAlias();
+
+    [GeneratedRegex(@"(?:FROM|JOIN)\s*\(\s*SELECT\b", RegexOptions.IgnoreCase)]
+    private static partial Regex DerivedTableStart();
+
+    [GeneratedRegex(@"^(?:AS|ON|WHERE|AND|OR|GROUP|ORDER|HAVING|LEFT|RIGHT|INNER|OUTER|FULL|JOIN|UNION|LIMIT|OFFSET)$", RegexOptions.IgnoreCase)]
+    private static partial Regex SqlKeyword();
+
     [GeneratedRegex(@"IN\s*\(\s*\)", RegexOptions.IgnoreCase)]
     private static partial Regex EmptyInList();
 

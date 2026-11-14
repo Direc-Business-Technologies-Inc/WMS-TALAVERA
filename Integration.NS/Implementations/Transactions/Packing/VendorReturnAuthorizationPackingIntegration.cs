@@ -19,9 +19,19 @@ internal class VendorReturnAuthorizationPackingIntegration(
     INetSuiteApiClientService netsuiteService,
     ISqlQueryManager sqlQuery,
     IHttpContextAccessor httpContextAccessor,
-    SuiteQLQueryBuilderFactoryService builderFactory) : IVendorReturnAuthorizationPackingIntegration
+    SuiteQLQueryBuilderFactoryService builderFactory,
+    Integration.NS.Implementations.Others.Caching.GridResultCache? readCache = null) : IVendorReturnAuthorizationPackingIntegration
 {
-    public async Task<(IEnumerable<VendorReturnAuthorizationDataGridDTO> Data, int Count)> GetPackingVendorReturnAuthorizationsList(DataGridIntent intent, int subsidiaryId)
+    public Task<(IEnumerable<VendorReturnAuthorizationDataGridDTO> Data, int Count)> GetPackingVendorReturnAuthorizationsList(DataGridIntent intent, int subsidiaryId, bool includeReceived = false)
+    {
+        intent = intent.Snapshot();
+        return readCache is null ? ReadListAsync(intent, subsidiaryId, includeReceived)
+            : readCache.ReadAsync("Packing", nameof(GetPackingVendorReturnAuthorizationsList), intent,
+                ct => { var snapshot = intent.Snapshot(); snapshot.CancellationToken = ct; return ReadListAsync(snapshot, subsidiaryId, includeReceived); },
+                intent.CancellationToken, false, subsidiaryId, includeReceived);
+    }
+
+    private async Task<(IEnumerable<VendorReturnAuthorizationDataGridDTO> Data, int Count)> ReadListAsync(DataGridIntent intent, int subsidiaryId, bool includeReceived)
     {
 
         if (intent.Sorts.Count == 0) intent.Sorts.Add(DataGridSortUtilities.Descending(nameof(VendorReturnAuthorizationPackingDataGridNSDTO.DateLastModified)));
@@ -36,21 +46,34 @@ internal class VendorReturnAuthorizationPackingIntegration(
                 ("BUILTIN.DF(tl.location)", nameof(VendorReturnAuthorizationPackingDataGridNSDTO.Location)),
                 ("BUILTIN.DF(t.transferlocation)", nameof(VendorReturnAuthorizationPackingDataGridNSDTO.TransferLocation)),
                 ("s.name", nameof(VendorReturnAuthorizationPackingDataGridNSDTO.Status)),
-                ("t.memo", nameof(VendorReturnAuthorizationPackingDataGridNSDTO.Remarks))
+                ("t.memo", nameof(VendorReturnAuthorizationPackingDataGridNSDTO.Remarks)),
+                ("NVL(ifprint.forprintingcount, 0)", nameof(VendorReturnAuthorizationDataGridDTO.ForPrintingIFCount)),
+                ("NVL(ifprint.printedcount, 0)", nameof(VendorReturnAuthorizationDataGridDTO.PrintedIFCount)),
+                ("NVL(ifprint.singlefulfillmentid, 0)", nameof(VendorReturnAuthorizationDataGridDTO.SingleFulfillmentId)),
+                ("CASE WHEN openpk.packtran IS NULL THEN 0 ELSE 1 END", nameof(VendorReturnAuthorizationDataGridDTO.PendingPackLinesCount))
             )
             .From("transaction t")
             .Join("transactionline tl", on: "tl.transaction = t.id")
+            .LeftJoin(SuiteQLFragments.PackingFulfillmentPrintCounts, "ifprint.sourceid = t.id")
             .Join("entity e", on: "t.entity = e.id")
             .LeftJoin("VendorReturnAuthorizationStatus s", "s.id = t.status")
-            .InnerJoin(SuiteQLFragments.PendingPackingLines("quantityshiprecv"), on: SuiteQLFragments.PendingPackingLinesJoinPredicate)
+            .LeftJoin(SuiteQLFragments.PendingPackingLines("quantityshiprecv"), on: SuiteQLFragments.PendingPackingLinesJoinPredicate)
             .WithFilters(
                 Equal("tl.mainline", "T"),
                 Equal("t.subsidiary", subsidiaryId))
-            .WithFilters(PackingVendorReturnAuthorizationFilters())
-            .WithDatagridIntent(intent)
+            .WithFilters(PackingVendorReturnAuthorizationFilters(includeReceived))
+            .WithFilters(SuiteQLFragments.PackingQueueOrPrintableLabel())
+            .WithDatagridIntent(intent, new Dictionary<string, string>
+            {
+                [nameof(VendorReturnAuthorizationPackingDataGridNSDTO.Date)] = "t.trandate",
+                [nameof(VendorReturnAuthorizationDataGridDTO.ForPrintingIFCount)] = "NVL(ifprint.forprintingcount, 0)",
+                [nameof(VendorReturnAuthorizationDataGridDTO.PrintedIFCount)] = "NVL(ifprint.printedcount, 0)",
+                [nameof(VendorReturnAuthorizationDataGridDTO.SingleFulfillmentId)] = "NVL(ifprint.singlefulfillmentid, 0)",
+                [nameof(VendorReturnAuthorizationDataGridDTO.PendingPackLinesCount)] = "CASE WHEN openpk.packtran IS NULL THEN 0 ELSE 1 END"
+            })
             .Build();
 
-        var response = await query.ExecuteWithPaging<VendorReturnAuthorizationPackingDataGridNSDTO>(netsuiteService);
+        var response = await query.ExecuteWithPaging<VendorReturnAuthorizationPackingDataGridNSDTO>(netsuiteService, intent.CancellationToken);
 
         return (response.items.Select(MapDataGridDto), response.totalResults);
     }
@@ -148,6 +171,7 @@ internal class VendorReturnAuthorizationPackingIntegration(
                 ("q.UoMName", nameof(VendorReturnAuthorizationPackingLineNSDTO.UoM)),
                 ("q.LocationName", nameof(VendorReturnAuthorizationPackingLineNSDTO.Warehouse)),
                 ("q.LocationItemQuantityAvailable", nameof(VendorReturnAuthorizationPackingLineNSDTO.QuantityAvailable)),
+                ("q.LocationItemQuantityOnHand", nameof(VendorReturnAuthorizationPackingLineNSDTO.QuantityOnHand)),
                 ("q.LineQuantity", nameof(VendorReturnAuthorizationPackingLineNSDTO.QuantityPlanned)),
                 ("q.LineQuantityPacked", nameof(VendorReturnAuthorizationPackingLineNSDTO.QuantityReceived))
             )
@@ -160,12 +184,12 @@ internal class VendorReturnAuthorizationPackingIntegration(
         return (response.items.Select(MapLineDto), response.totalResults);
     }
 
-    private static AppFilterDescriptor[] PackingVendorReturnAuthorizationFilters()
+    private static AppFilterDescriptor[] PackingVendorReturnAuthorizationFilters(bool includeReceived = false)
     {
         return
         [
             Equal("t.recordtype", "vendorreturnauthorization"),
-            In("t.status", new string[] { "B", "E" })
+            In("t.status", includeReceived ? new string[] { "B", "E", "F", "G" } : new string[] { "B", "E" })
         ];
     }
 
@@ -174,6 +198,10 @@ internal class VendorReturnAuthorizationPackingIntegration(
         return new()
         {
             Id = nsdto.Id,
+            ForPrintingIFCount = nsdto.ForPrintingIFCount,
+            PrintedIFCount = nsdto.PrintedIFCount,
+            SingleFulfillmentId = nsdto.SingleFulfillmentId,
+            PendingPackLinesCount = nsdto.PendingPackLinesCount,
             ReferenceNumber = nsdto.ReferenceNumber,
             Date = nsdto.Date,
             SourceSubsidiary = nsdto.SourceSubsidiary,
@@ -210,6 +238,7 @@ internal class VendorReturnAuthorizationPackingIntegration(
             UoM = nsdto.UoM,
             Warehouse = nsdto.Warehouse,
             QuantityAvailable = nsdto.QuantityAvailable,
+            QuantityOnHand = nsdto.QuantityOnHand,
             QuantityPlanned = nsdto.QuantityPlanned,
             QuantityReceived = nsdto.QuantityReceived,
         };

@@ -46,7 +46,7 @@ public partial class TripTicketFulfillmentSelection
 
     async Task LoadGridSettings()
     {
-        SelectedFulfillments = [.. Document.ItemFulfillments];
+        SelectedFulfillments = [.. Document.ItemFulfillments.Where(x => x is not null)];
 
         await GridSettingsService.SetGridSettings(FulfillmentsDataGrid.DataGrid, settings => FulfillmentsDataGridSettings = settings ?? new());
         GridSettingsLoaded = true;
@@ -118,32 +118,33 @@ public partial class TripTicketFulfillmentSelection
 
     void ApplyItemSelection(ItemFulfillmentVM item)
     {
-        var selectedItem = SelectedFulfillments.FirstOrDefault(x => x.OrderNumber == item.OrderNumber);
+        var selectedItem = SelectedFulfillments.FirstOrDefault(x =>
+            x is not null && x.NetsuiteOrderInternalId == item.NetsuiteOrderInternalId);
 
         if (selectedItem is not null)
         {
             SelectedFulfillments.Remove(selectedItem);
 
-            if (Document.ItemFulfillments.Any(x => x.NetsuiteOrderInternalId == item.NetsuiteOrderInternalId))
-                Document.ItemFulfillments = [.. Document.ItemFulfillments.Where(x => x.NetsuiteOrderInternalId != item.NetsuiteOrderInternalId)];
+            if (Document.ItemFulfillments.Any(x => x is not null && x.NetsuiteOrderInternalId == item.NetsuiteOrderInternalId))
+                Document.ItemFulfillments = [.. Document.ItemFulfillments.Where(x => x is not null && x.NetsuiteOrderInternalId != item.NetsuiteOrderInternalId)];
 
 
             bool hasOtherItemsWithSameLocation = SelectedFulfillments
-            .Any(x => x.NetsuiteToLocationInternalId == item.NetsuiteToLocationInternalId);
+            .Any(x => x is not null && x.NetsuiteToLocationInternalId == item.NetsuiteToLocationInternalId);
 
             bool hasOtherItemsWithSameSubsidiary = SelectedFulfillments
-            .Any(x => x.NetsuiteToSubsidiaryInternalId == item.NetsuiteToSubsidiaryInternalId);
+            .Any(x => x is not null && x.NetsuiteToSubsidiaryInternalId == item.NetsuiteToSubsidiaryInternalId);
 
             if (!hasOtherItemsWithSameLocation && Document.Destinations is not null)
             {
                 Document.Destinations = [.. Document.Destinations
-                .Where(d => d.NetsuiteLocationInternalId != item.NetsuiteToLocationInternalId)];
+                .Where(d => d is not null && d.NetsuiteLocationInternalId != item.NetsuiteToLocationInternalId)];
             }
 
             if (!hasOtherItemsWithSameSubsidiary && Document.ToSubsidiaries is not null)
             {
                 Document.ToSubsidiaries = [.. Document.ToSubsidiaries
-                .Where(d => d.NetsuiteSubsidiaryInternalId != item.NetsuiteToSubsidiaryInternalId)];
+                .Where(d => d is not null && d.NetsuiteSubsidiaryInternalId != item.NetsuiteToSubsidiaryInternalId)];
             }
 
             // Option B (Alternative): If unselecting should clear ALL selected destinations completely, use this instead:
@@ -153,25 +154,29 @@ public partial class TripTicketFulfillmentSelection
         {
             SelectedFulfillments.Add(item);
 
-            if (!Document.ItemFulfillments.Any(x => x.NetsuiteOrderInternalId == item.NetsuiteOrderInternalId))
+            if (!Document.ItemFulfillments.Any(x => x is not null && x.NetsuiteOrderInternalId == item.NetsuiteOrderInternalId))
                 Document.ItemFulfillments = [.. Document.ItemFulfillments, item];
 
             var matchingDestination = DestinationLocations
-                ?.FirstOrDefault(d => d.NetsuiteLocationInternalId == item.NetsuiteToLocationInternalId);
+                ?.FirstOrDefault(d => d is not null && d.NetsuiteLocationInternalId == item.NetsuiteToLocationInternalId);
 
-            var currentDestinations = Document.Destinations ?? [];
+            var currentDestinations = (Document.Destinations ?? []).Where(d => d is not null).ToList();
             if (!currentDestinations.Any(d => d.NetsuiteLocationInternalId == item.NetsuiteToLocationInternalId))
             {
-                Document.Destinations = [.. currentDestinations, matchingDestination];
+                Document.Destinations = matchingDestination is null
+                    ? currentDestinations
+                    : [.. currentDestinations, matchingDestination];
             }
 
             var matchingSubsidiary = ToSubsidiaries 
-                ?.FirstOrDefault(s => s.NetsuiteSubsidiaryInternalId == item.NetsuiteToSubsidiaryInternalId);
+                ?.FirstOrDefault(s => s is not null && s.NetsuiteSubsidiaryInternalId == item.NetsuiteToSubsidiaryInternalId);
 
-            var currentSubsidiaries = Document.ToSubsidiaries ?? [];
+            var currentSubsidiaries = (Document.ToSubsidiaries ?? []).Where(s => s is not null).ToList();
             if (!currentSubsidiaries.Any(s => s.NetsuiteSubsidiaryInternalId == item.NetsuiteToSubsidiaryInternalId))
             {
-                Document.ToSubsidiaries = [.. currentSubsidiaries, matchingSubsidiary];
+                Document.ToSubsidiaries = matchingSubsidiary is null
+                    ? currentSubsidiaries
+                    : [.. currentSubsidiaries, matchingSubsidiary];
             }
         }
 
@@ -194,7 +199,8 @@ public partial class TripTicketFulfillmentSelection
         var pageItems = PageItems;
         return SelectAllHeader.Compute(
             pageItems.Count,
-            pageItems.Count(item => SelectedFulfillments.Any(x => x.OrderNumber == item.OrderNumber)));
+            pageItems.Count(item => SelectedFulfillments.Any(x =>
+                x is not null && x.NetsuiteOrderInternalId == item.NetsuiteOrderInternalId)));
     }
 
     async Task ToggleAllItems(bool? value)
@@ -203,7 +209,8 @@ public partial class TripTicketFulfillmentSelection
 
         foreach (var item in PageItems)
         {
-            bool isSelected = SelectedFulfillments.Any(x => x.OrderNumber == item.OrderNumber);
+            bool isSelected = SelectedFulfillments.Any(x =>
+                x is not null && x.NetsuiteOrderInternalId == item.NetsuiteOrderInternalId);
 
             // ApplyItemSelection toggles, so only touch items whose state
             // actually differs from the requested one.

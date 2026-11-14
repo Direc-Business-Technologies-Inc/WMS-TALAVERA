@@ -1,14 +1,18 @@
 using Microsoft.AspNetCore.Components;
+using System.Diagnostics;
 using Radzen;
 using Shared.Entities;
 using Shared.Kernel;
 using Web.BlazorServer.Components.Pages.Transaction.Packing;
+using Web.BlazorServer.Components.Custom;
 using Web.BlazorServer.Components.Shared.Abstraction;
 using Web.BlazorServer.Defaults;
 using Web.BlazorServer.Handlers.Repositories.Transaction.Packing.VendorReturnAuthorization;
 using Web.BlazorServer.Services.Repositories;
 using Web.BlazorServer.ViewModels.Abstraction;
 using Web.BlazorServer.ViewModels.Transaction.Packing.VendorReturnAuthorization;
+using Web.BlazorServer.ViewModels.Transaction.Packing;
+using Web.BlazorServer.Components.Pages.Transaction.Packing.Components;
 
 namespace Web.BlazorServer.Components.Pages.Transaction.Packing.VendorReturnAuthorization.Component;
 
@@ -16,9 +20,69 @@ partial class VendorReturnAuthorizationPackingDataGrid
 {
     [Inject] IGridSettingsService GridSettingsService { get; set; } = default!;
     [Inject] IVendorReturnAuthorizationPackingHandler VraHandler { get; set; } = default!;
+    [Inject] Web.BlazorServer.Handlers.Repositories.Transaction.Packing.Returns.IReturnPackingHandler PackingHandler { get; set; } = default!;
+    [Inject] ILogger<VendorReturnAuthorizationPackingDataGrid> Logger { get; set; } = default!;
 
     AppDataGrid<VendorReturnAuthorizationPackingDataGridVM> DataGrid { get; set; } = default!;
     DataGridSettings DataGridSettings { get; set; } = new();
+    PrintStatus SelectedPrintStatus = PrintStatus.ForPrinting;
+    PrintStatusView PrintStatusView = default!;
+    bool initialCountRefreshRequested;
+    bool gridReadyToLoad;
+    DateTime? DateRangeStart;
+    DateTime? DateRangeEnd;
+    bool dateRangeApplied;
+
+    async Task DateRangeChanged((DateTime Start, DateTime End) range)
+    {
+        dateRangeApplied = true;
+        DateRangeStart = range.Start;
+        DateRangeEnd = range.End;
+        await DataGrid.ReloadFirstPageAsync();
+    }
+
+    Task OnGridDataLoaded()
+    {
+        if (!dateRangeApplied)
+        {
+            var hasDates = PrintStatusFilter.TryGetDateRange(DataGrid.DGResult.Items, row => row.Date, out var range);
+            DateRangeStart = hasDates ? range.Start : null;
+            DateRangeEnd = hasDates ? range.End : null;
+        }
+        if (initialCountRefreshRequested) return Task.CompletedTask;
+        initialCountRefreshRequested = true;
+        _ = InvokeAsync(async () => { await Task.Yield(); await PrintStatusView.RefreshCountsAsync(); });
+        return Task.CompletedTask;
+    }
+    async Task<Application.DataTransferObjects.Transactions.PrintStatusCountsDTO> PrintCountsAsync(CancellationToken ct)
+    {
+        var started = Stopwatch.GetTimestamp();
+        var succeeded = false;
+        try
+        {
+            var intent = new DataGridIntent { Skip = 0, Take = 1 };
+            PackingFulfillmentPrintStatusFilter.ApplyToFulfillments(intent, PrintStatus.All, "VRA", CurrentUserService.NsSubsidiaryId);
+            var count = await PackingHandler.GetPackingPrintStatusCounts(intent, ct);
+            succeeded = true;
+            return count;
+        }
+        finally
+        {
+            Logger.LogInformation("Packing grid {Grid} {Operation} status {PrintStatus} completed in {ElapsedMs} ms; success: {Succeeded}",
+                "ReturnsToSupplier", "Counts", PrintStatus.All, Stopwatch.GetElapsedTime(started).TotalMilliseconds, succeeded);
+        }
+    }
+    async Task PrintStatusChanged(PrintStatus status)
+    {
+        SelectedPrintStatus = status;
+        if (DataGrid.DataGrid.CurrentPage == 0)
+            await DataGrid.DataGrid.Reload();
+        else
+            await DataGrid.DataGrid.GoToPage(0);
+    }
+
+    Task RefreshPrintStatusAsync() => Task.WhenAll(DataGrid.RefreshOrThrowAsync(), PrintStatusView.RefreshCountsOrThrowAsync());
+    Task SyncAsync() => Task.WhenAll(DataGrid.ReloadDataAsync(), PrintStatusView.RefreshCountsAsync());
 
     string ActionGetVendorReturnAuthorizations { get; } = EnumHelper.GetEnumDescription(AppActions.GetAllPackingVendorReturnAuthorizations);
 
@@ -37,9 +101,14 @@ partial class VendorReturnAuthorizationPackingDataGrid
     {
         await GridSettingsService.SetGridSettings(DataGrid.DataGrid, settings => DataGridSettings = settings ?? new());
         GridSettingsLoaded = true;
+        gridReadyToLoad = true;
+    }
 
-        await DataGrid.DataGrid.ReloadSettings();
-        await DataGrid.DataGrid.Reload();
+    void PrepareIntent(DataGridIntent intent)
+    {
+        PackingFulfillmentPrintStatusFilter.Apply(intent, SelectedPrintStatus, "VRA");
+        if (dateRangeApplied)
+            PrintStatusFilter.ApplyDateRange(intent, DateRangeStart, DateRangeEnd);
     }
 
     async Task<DataGridResultVM<VendorReturnAuthorizationPackingDataGridVM>> LoadDataAsync(DataGridIntent intent)
@@ -63,10 +132,24 @@ partial class VendorReturnAuthorizationPackingDataGrid
                 });
             }
 
-            return await VraHandler.GetVendorReturnAuthorizationsList(intent, CurrentUserService.NsSubsidiaryId);
+            var started = Stopwatch.GetTimestamp();
+            var succeeded = false;
+            try
+            {
+                var result = await VraHandler.GetVendorReturnAuthorizationsList(intent, CurrentUserService.NsSubsidiaryId, includeReceived: true);
+                succeeded = true;
+                return result;
+            }
+            finally
+            {
+                Logger.LogInformation("Packing grid {Grid} {Operation} status {PrintStatus} skip {Skip} take {Take} completed in {ElapsedMs} ms; success: {Succeeded}",
+                    "ReturnsToSupplier", "Records", SelectedPrintStatus, intent.Skip, intent.Take,
+                    Stopwatch.GetElapsedTime(started).TotalMilliseconds, succeeded);
+            }
         }, AppActionOptionPresets.Loading(ActionGetVendorReturnAuthorizations));
 
         AppBusyService.SetBusy(ActionGetVendorReturnAuthorizations, false);
+        action.ThrowIfUnsuccessful();
         return DataGridResultVM<VendorReturnAuthorizationPackingDataGridVM>.New(action.Result.Data ?? [], action.Result.Count);
     }
 
@@ -74,4 +157,5 @@ partial class VendorReturnAuthorizationPackingDataGrid
     {
         NavManager.NavigateTo(PackingRoutes.VendorReturnAuthorizationView + $"?ref={item.ReferenceNumber}", true);
     }
+
 }

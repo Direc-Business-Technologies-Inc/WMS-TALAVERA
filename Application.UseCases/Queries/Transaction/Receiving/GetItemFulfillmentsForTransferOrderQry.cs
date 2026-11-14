@@ -10,13 +10,13 @@ using System.Threading.Tasks;
 
 namespace Application.UseCases.Queries.Transaction.Receiving;
 
-public record GetItemFulfillmentsForTransferOrderQry(int toId, DataGridIntent Intent) : IRequest<(IEnumerable<ItemFulfillmentDTO>, int)>;
+public record GetItemFulfillmentsForTransferOrderQry(int toId, DataGridIntent Intent) : IRequest<ItemFulfillmentPickerResult>;
 
 public class GetItemFulfillmentsForTransferOrderQryHandler(
     IReceivingIntegration integration
-    ) : IRequestHandler<GetItemFulfillmentsForTransferOrderQry, (IEnumerable<ItemFulfillmentDTO>, int)>
+) : IRequestHandler<GetItemFulfillmentsForTransferOrderQry, ItemFulfillmentPickerResult>
 {
-    public Task<(IEnumerable<ItemFulfillmentDTO>, int)> Handle(GetItemFulfillmentsForTransferOrderQry request, CancellationToken cancellationToken)
+    public Task<ItemFulfillmentPickerResult> Handle(GetItemFulfillmentsForTransferOrderQry request, CancellationToken cancellationToken)
     {
         return integration.GetSTRItemFulfillments(request.toId, request.Intent);
     }

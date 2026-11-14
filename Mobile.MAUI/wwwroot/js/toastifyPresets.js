@@ -1,15 +1,17 @@
 ﻿
-export function ShowSuccess(message) {
+export function ShowSuccess(message, durationMs = 3000) {
     try {
         console.log(message);
         window.Toastify({
             text: message,
-            
+            duration: durationMs,
             className: "toast-success",
 
         }).showToast();
+        return true;
     } catch (e) {
-        console.log(e);
+        console.error("Unable to display success toast", e);
+        return false;
     }
 }
 

@@ -6,6 +6,7 @@ using Radzen;
 using Shared.Entities;
 using Shared.Libraries.Utilities;
 using Web.BlazorServer.Components.Custom;
+using Web.BlazorServer.Components.Base;
 using Web.BlazorServer.Components.Pages.Transaction.Others.BarcodeScanning;
 using Web.BlazorServer.Components.Shared.Abstraction;
 using Web.BlazorServer.Components.Shared.Others;
@@ -22,6 +23,8 @@ namespace Web.BlazorServer.Components.Pages.Transaction.StockTransferRequest.Com
 
 public partial class STRForm
 {
+    SubmitOnce SubmitOnce { get; } = new();
+    bool IsSubmitGuardActive => SubmitOnce.IsSubmitting;
     [Parameter][EditorRequired] public StockTransferRequestInfoVM Model { get; set; } = new();
     [Parameter] public Func<StockTransferRequestInfoVM, Task<bool>>? OnSubmit { get; set; }
     [Parameter] public EditContext? EditContext { get; set; }
@@ -74,6 +77,18 @@ public partial class STRForm
         string.IsNullOrEmpty(Model.Status.Name) ? "---" : Model.Status.Name;
     public bool IsSubmitting = false;
     public bool Disabled => IsBusy || IsSubmitting;
+    bool HasPurchaseClassification => PurchaseClassificationItemRules.IsSelected(Model.PurchaseCategory, Model.PurchaseSubcategory);
+    bool CanEnterItems => HasPurchaseClassification && Model.SourceLocation is not null;
+
+    bool EnsureItemEntrySelections()
+    {
+        if (CanEnterItems) return true;
+        ToastService.Error("Select a Purchase Category, Purchase Subcategory, and source location before adding or scanning items.", "Missing Selection");
+        return false;
+    }
+
+    bool MatchesPurchaseClassification(ItemsVM? item) =>
+        PurchaseClassificationItemRules.Matches(item, Model.PurchaseCategory, Model.PurchaseSubcategory);
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -95,17 +110,27 @@ public partial class STRForm
         await LinesTable.DataGrid.Reload();
     }
 
-    async Task HandleSubmit()
+    Task HandleSubmit() => SubmitOnce.RunAsync(HandleSubmitCore);
+
+    async Task HandleSubmitCore()
     {
+        if (!EnsureItemEntrySelections()) return;
         if (Model.Lines.Count == 0)
         {
             ToastService.Error("Please add at least one item");
             return;
         }
 
-        if (Model.Lines.Any(x => x.QuantityAlloted > x.QuantityOnHandByUoM))
+        if (Model.Lines.Any(x => x.QuantityAlloted > x.QuantityAvailableByUoM))
         {
             ToastService.Error("Some alloted items exceed the available quantity", "Error");
+            return;
+        }
+
+        if (!await PurchaseClassificationItemRules.ValidateItemsAsync(ItemsHandler,
+            Model.Lines.Select(line => line.ItemId), Model.PurchaseCategory, Model.PurchaseSubcategory))
+        {
+            ToastService.Error("Some items do not match the selected Purchase Category and Purchase Subcategory. Remove them and select matching items.", "Invalid Item");
             return;
         }
 
@@ -143,6 +168,12 @@ public partial class STRForm
 
     async Task AddItems(List<ItemsVM> items)
     {
+        if (!EnsureItemEntrySelections()) return;
+        if (items.Any(item => !MatchesPurchaseClassification(item)))
+        {
+            ToastService.Error("Some selected items do not match the selected Purchase Category and Purchase Subcategory.", "Invalid Item");
+            return;
+        }
         foreach (var item in items)
         {
             Model.Lines.Add(new()
@@ -177,19 +208,21 @@ public partial class STRForm
         return result;
     }
 
-    async Task<(IEnumerable<ItemsVM>, int)> SourceLocationItems()
+    async Task<(IEnumerable<ItemsVM>, int)> SourceLocationItems(bool includeUnavailable = false)
     {
         var itemIds = Model.Lines.Select(x => x.ItemId).Distinct().ToList();
 
         DataGridIntent intent = new DataGridIntent
         {
-            Filters = [
-                DataGridFilterUtilities.GreaterThan(nameof(ItemsVM.QuantityAvailable), 0),
-                DataGridFilterUtilities.In(nameof(ItemsVM.Id), itemIds)
-                ],
+            Filters = [DataGridFilterUtilities.In(nameof(ItemsVM.Id), itemIds)],
 
             Take = 1000
         };
+
+        if (!includeUnavailable)
+        {
+            intent.Filters.Insert(0, DataGridFilterUtilities.GreaterThan(nameof(ItemsVM.QuantityAvailable), 0));
+        }
 
         int location = Model.SourceLocation.Id;
 
@@ -276,11 +309,33 @@ public partial class STRForm
 
     async Task PurchaseCategorySet(PurchaseCategoryVM? val)
     {
-        if (Model.PurchaseCategory == val) return;
+        if (Model.PurchaseCategory?.Id == val?.Id) return;
+        if (!await ClearItemsForClassificationChange()) return;
         Model.PurchaseCategory = val;
         Model.PurchaseSubcategory = null;
 
         PurchaseSubcategoryDropdown.Reset();
+    }
+
+    async Task PurchaseSubcategorySet(PurchaseSubcategoryVM? val)
+    {
+        if (Model.PurchaseSubcategory?.Id == val?.Id) return;
+        if (!await ClearItemsForClassificationChange()) return;
+        Model.PurchaseSubcategory = val;
+    }
+
+    async Task<bool> ClearItemsForClassificationChange()
+    {
+        if ((Model.Lines.Any() || BarcodeStore.Any()) &&
+            await DialogService.Confirm("Changing purchase classification will clear added items and scanned barcodes. Continue?") != true)
+            return false;
+
+        Model.Lines.Clear();
+        BarcodeStore.Clear();
+        selectedItems.Clear();
+        selectedItemIndex = -1;
+        if (LinesTable?.DataGrid is not null) await LinesTable.DataGrid.Reload();
+        return true;
     }
 
     async Task<(IEnumerable<ItemUnitVM>, int)> ItemUnitProvider(int itemId, DataGridIntent intent)
@@ -406,6 +461,11 @@ public partial class STRForm
 
     bool IsValidBarcode(BarcodeVM barcode, out string reason)
     {
+        if (!CanEnterItems || !MatchesPurchaseClassification(barcode.Item))
+        {
+            reason = "The scanned item must match the selected Purchase Category and Purchase Subcategory.";
+            return false;
+        }
         var line = Model.Lines.FirstOrDefault(x => x.ItemId == barcode.Item?.Id);
 
         if (selectedItems.Count != 0)
@@ -420,19 +480,14 @@ public partial class STRForm
             }
         }
 
-        if (line is null)
+        var itemId = barcode.Item!.Id;
+        var allocatedBaseQuantity = Model.Lines.Where(existing => existing.ItemId == itemId)
+            .Sum(existing => existing.QuantityAlloted * (existing.UoM?.ConversionRate ?? 1));
+        var incomingBaseQuantity = barcode.UoM?.ConversionRate ?? 0;
+        var available = line?.QuantityAvailable ?? barcode.Item.QuantityAvailable;
+        if (available <= 0 || allocatedBaseQuantity + BarcodeStore.CountItemQuantity(itemId) + incomingBaseQuantity > available)
         {
-            reason = $"The item {barcode.Item?.ItemNumber} does not exist in the current document";
-            return false;
-        }
-
-        var uomRate = line.UoM?.ConversionRate ?? 1;
-        var itemCount = BarcodeStore.CountItemQuantity(line.ItemId) / uomRate;
-        var incomingCount = (barcode.UoM?.ConversionRate ?? 0) / uomRate;
-
-        if (line.QuantityOnHandByUoM - line.QuantityAlloted - itemCount < incomingCount)
-        {
-            reason = $"The quantity of the item {line.ItemCode} exceeds the expected amount";
+            reason = $"The scan would exceed available quantity for item {barcode.Item.ItemNumber}.";
             return false;
         }
 
@@ -456,9 +511,16 @@ public partial class STRForm
         line.QuantityAlloted = diff - itemCount;
     }
 
-    async void ApplyBarcodes()
+    async Task ApplyBarcodes()
     {
         if (!BarcodeStore.Any()) return;
+        if (!EnsureItemEntrySelections()) return;
+        if (BarcodeStore.Barcodes.Any(barcode => !MatchesPurchaseClassification(barcode.Item)))
+        {
+            ToastService.Error("Scanned items must match the selected Purchase Category and Purchase Subcategory.", "Invalid Item");
+            BarcodeStore.Clear();
+            return;
+        }
 
         foreach (var barcode in BarcodeStore.Barcodes)
         {

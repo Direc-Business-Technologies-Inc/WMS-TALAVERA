@@ -1,8 +1,10 @@
 ﻿using Microsoft.AspNetCore.Components;
+using System.Diagnostics;
 using Radzen;
 using Radzen.Blazor;
 using Shared.Entities;
 using Shared.Libraries.Utilities;
+using Web.BlazorServer.Components.Custom;
 using Web.BlazorServer.Components.Shared.Abstraction;
 using Web.BlazorServer.Components.Shared.Others;
 using Web.BlazorServer.Defaults;
@@ -16,6 +18,7 @@ namespace Web.BlazorServer.Components.Pages.Transaction.StockTransferRequest.Com
 partial class STRDataGrid
 {
     [Inject] IGridSettingsService GridSettingsService { get; set; } = default!;
+    [Inject] ILogger<STRDataGrid> Logger { get; set; } = default!;
     [Inject] IStockTransferRequestHandler strHandler { get; set; } = default!;
     [Parameter] public string? TableId { get; set; } = "str_datagrid";
 
@@ -34,6 +37,78 @@ partial class STRDataGrid
     AppDataGrid<StockTransferRequestDataGridVM> DataGrid { get; set; }
     DataGridSettings DataGridSettings { get; set; }
     TransferOrderStatusVM? StatusFilter { get; set; } = null;
+    PrintStatus SelectedPrintStatus = PrintStatus.ForPrinting;
+    DateTime? DateRangeStart;
+    DateTime? DateRangeEnd;
+    bool dateRangeApplied;
+    PrintStatusView PrintStatusView = default!;
+    bool InitialGridLoadSucceeded;
+    bool InitialCountsRequested;
+
+    Task OnGridDataLoaded()
+    {
+        if (!dateRangeApplied)
+        {
+            var hasDates = PrintStatusFilter.TryGetDateRange(DataGrid.DGResult.Items, row => row.Date, out var range);
+            DateRangeStart = hasDates ? range.Start : null;
+            DateRangeEnd = hasDates ? range.End : null;
+        }
+        if (!InitialGridLoadSucceeded || InitialCountsRequested) return Task.CompletedTask;
+
+        InitialCountsRequested = true;
+        // The grid has its result and has requested a render. Start the independent
+        // counts on the next UI turn so they cannot hold up the first grid load.
+        _ = InvokeAsync(async () =>
+        {
+            await Task.Yield();
+            await PrintStatusView.RefreshCountsAsync();
+        });
+        return Task.CompletedTask;
+    }
+
+    Task<int> PrintCountAsync(PrintStatus status) => PrintStatusFilter.CountAsync<StockTransferRequestDataGridVM>(status, async intent =>
+    {
+        intent.ReadPolicy = GridReadPolicy.Fresh;
+        if (dateRangeApplied)
+            PrintStatusFilter.ApplyDateRange(intent, DateRangeStart, DateRangeEnd);
+        if (StatusFilter is not null)
+            intent.Filters.Add(DataGridFilterUtilities.Equal("StatusId", StatusFilter.Id));
+        var started = Stopwatch.GetTimestamp();
+        try { return await DataGetter(intent); }
+        finally
+        {
+            Logger.LogInformation("STR grid {Grid} count {Status} completed in {ElapsedMs} ms",
+                TableId, status, Stopwatch.GetElapsedTime(started).TotalMilliseconds);
+        }
+    });
+
+    async Task DateRangeChanged((DateTime Start, DateTime End) range)
+    {
+        dateRangeApplied = true;
+        DateRangeStart = range.Start;
+        DateRangeEnd = range.End;
+        if (DataGrid.DataGrid.CurrentPage == 0)
+            await DataGrid.DataGrid.Reload();
+        else
+            await DataGrid.DataGrid.GoToPage(0);
+        await PrintStatusView.RefreshCountsAsync();
+    }
+
+    async Task PrintStatusChanged(PrintStatus status)
+    {
+        SelectedPrintStatus = status;
+        if (DataGrid.DataGrid.CurrentPage == 0)
+            await DataGrid.DataGrid.Reload();
+        else
+            await DataGrid.DataGrid.GoToPage(0);
+    }
+
+    async Task RefreshPrintStatusAsync()
+    {
+        await Task.WhenAll(DataGrid.RefreshOrThrowAsync(), PrintStatusView.RefreshCountsOrThrowAsync());
+    }
+
+    Task SyncAsync() => Task.WhenAll(DataGrid.ReloadDataAsync(), PrintStatusView.RefreshCountsAsync());
 
     [Parameter] public string ActionName { get; set; } = "str_datagrid";
     readonly string ActionGetTranferOrderStatuses = "Get Transfer Order Status";
@@ -61,6 +136,16 @@ partial class STRDataGrid
 
         StatusFilter = statusFilter;
         await DataGrid.DataGrid.Reload();
+        await PrintStatusView.RefreshCountsAsync();
+    }
+
+    void PrepareIntent(DataGridIntent intent)
+    {
+        PrintStatusFilter.Apply(intent, SelectedPrintStatus);
+        if (dateRangeApplied)
+            PrintStatusFilter.ApplyDateRange(intent, DateRangeStart, DateRangeEnd);
+        if (StatusFilter is not null)
+            intent.Filters.Add(DataGridFilterUtilities.Equal("StatusId", StatusFilter.Id));
     }
 
     async Task<DataGridResultVM<StockTransferRequestDataGridVM>> LoadDataAsync(DataGridIntent intent)
@@ -83,17 +168,18 @@ partial class STRDataGrid
                     Direction = SortDirectionEnum.Descending
                 });
             }
-            if (StatusFilter is not null)
+            var started = Stopwatch.GetTimestamp();
+            try { return await DataGetter(intent); }
+            finally
             {
-                intent.Filters.Add(
-                    DataGridFilterUtilities.Equal("StatusId", StatusFilter.Id)
-                );
+                Logger.LogInformation("STR grid {Grid} records completed in {ElapsedMs} ms",
+                    TableId, Stopwatch.GetElapsedTime(started).TotalMilliseconds);
             }
-
-            return await DataGetter(intent);
         }, AppActionOptionPresets.Loading(ActionName));
 
         AppBusyService.SetBusy(ActionName, false);
+        action.ThrowIfUnsuccessful();
+        if (action.IsSuccess) InitialGridLoadSucceeded = true;
         return DataGridResultVM<StockTransferRequestDataGridVM>.New(action.Result.data ?? [], action.Result.count);
     }
 
@@ -134,6 +220,7 @@ partial class STRDataGrid
         if (StatusFilter is null)
         {
             await DataGrid.DataGrid.Reload();
+            await PrintStatusView.RefreshCountsAsync();
             return;
         }
 
@@ -142,5 +229,6 @@ partial class STRDataGrid
         column.SetLogicalFilterOperator(LogicalFilterOperator.And);
 
         await DataGrid.DataGrid.Reload();
+        await PrintStatusView.RefreshCountsAsync();
     }
 }

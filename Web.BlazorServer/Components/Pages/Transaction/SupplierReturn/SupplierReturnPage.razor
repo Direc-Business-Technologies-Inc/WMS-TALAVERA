@@ -15,11 +15,21 @@
 </RadzenStack>
 
 <AppContent>
-    <SupplierReturnsDataGrid RowAction="OnRowAction" />
+    <RadzenTabs @bind-SelectedIndex="SelectedTab">
+        <Tabs>
+            <RadzenTabsItem Text="All">
+                @if (SelectedTab == 0) { <SupplierReturnsDataGrid RowAction="OnRowAction" /> }
+            </RadzenTabsItem>
+            <RadzenTabsItem Text="Bulk Fulfillment Status">
+                @if (SelectedTab == 1) { <BulkFulfillmentStatusGrid /> }
+            </RadzenTabsItem>
+        </Tabs>
+    </RadzenTabs>
 </AppContent>
 
 
 @code {
+    int SelectedTab;
     async Task OnRowAction(SupplierReturnDataGridVM data)
     {
         NavManager.NavigateTo(SupplierReturnRoutes.VIEW + $"?ref={data.ReferenceNumber}", true);

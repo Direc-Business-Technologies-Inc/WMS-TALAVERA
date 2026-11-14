@@ -3,8 +3,11 @@ using Radzen;
 using Radzen.Blazor;
 using Shared.Entities;
 using Shared.Kernel;
+using Shared.Libraries.Utilities;
+using Web.BlazorServer.Components.Custom;
 using Web.BlazorServer.Components.Pages.Transaction.InventoryTransfer.Components;
 using Web.BlazorServer.Components.Shared.Abstraction;
+using Web.BlazorServer.Components.Shared.Others;
 using Web.BlazorServer.Defaults;
 using Web.BlazorServer.Handlers.Repositories.Transaction.Receiving;
 using Web.BlazorServer.Services.Repositories;
@@ -26,6 +29,66 @@ public partial class TransferOrderGrid
     string ActionGetPurchaseOrders { get; } = EnumHelper.GetEnumDescription(AppActions.GetAllTransferOrders);
 
     TransferOrderStatusVM? StatusFilter = null;
+    PrintStatus SelectedPrintStatus = PrintStatus.ForPrinting;
+    DateTime? DateRangeStart;
+    DateTime? DateRangeEnd;
+    bool dateRangeApplied;
+    PrintStatusView PrintStatusView = default!;
+    bool initialGridLoadSucceeded;
+    bool initialCountRefreshRequested;
+
+    Task OnGridDataLoaded()
+    {
+        if (!dateRangeApplied)
+        {
+            var hasDates = PrintStatusFilter.TryGetDateRange(TransferOrderDataGrid.DGResult.Items, row => row.Date, out var range);
+            DateRangeStart = hasDates ? range.Start : null;
+            DateRangeEnd = hasDates ? range.End : null;
+        }
+        if (!initialGridLoadSucceeded || initialCountRefreshRequested) return Task.CompletedTask;
+        initialCountRefreshRequested = true;
+        _ = InvokeAsync(async () => { await Task.Yield(); await PrintStatusView.RefreshCountsAsync(); });
+        return Task.CompletedTask;
+    }
+
+    async Task<Application.DataTransferObjects.Transactions.PrintStatusCountsDTO> PrintCountsAsync(CancellationToken ct)
+    {
+        var intent = new DataGridIntent { Skip = 0, Take = 1, ReadPolicy = GridReadPolicy.Fresh, CancellationToken = ct };
+        ReceivingReceiptPrintStatusFilter.ApplyToReceipts(intent, PrintStatus.All, "STR");
+        intent.Filters.Add(DataGridFilterUtilities.Equal("IncludeCompletedReceived", true));
+        if (dateRangeApplied)
+            PrintStatusFilter.ApplyDateRange(intent, DateRangeStart, DateRangeEnd, "tcf.trandate");
+        ApplyStatusCountFilter(intent);
+        return await ReceivingHandler.GetReceivingPrintStatusCounts(intent, ct);
+    }
+
+    async Task DateRangeChanged((DateTime Start, DateTime End) range)
+    {
+        dateRangeApplied = true;
+        DateRangeStart = range.Start;
+        DateRangeEnd = range.End;
+        await Task.WhenAll(ReloadRowsAsync(), PrintStatusView.RefreshCountsAsync());
+    }
+
+    Task ReloadFirstPageAsync() => Task.WhenAll(TransferOrderDataGrid.RefreshFirstPageOrThrowAsync(), PrintStatusView.RefreshCountsOrThrowAsync());
+    Task SyncAsync() => Task.WhenAll(TransferOrderDataGrid.ReloadFirstPageAsync(), PrintStatusView.RefreshCountsAsync());
+
+    async Task ReloadRowsAsync()
+    {
+        if (TransferOrderDataGrid.DataGrid.CurrentPage == 0)
+            await TransferOrderDataGrid.DataGrid.Reload();
+        else
+            await TransferOrderDataGrid.DataGrid.GoToPage(0);
+    }
+
+    async Task PrintStatusChanged(PrintStatus status)
+    {
+        SelectedPrintStatus = status;
+        if (TransferOrderDataGrid.DataGrid.CurrentPage == 0)
+            await TransferOrderDataGrid.DataGrid.Reload();
+        else
+            await TransferOrderDataGrid.DataGrid.GoToPage(0);
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -42,9 +105,14 @@ public partial class TransferOrderGrid
     {
         await GridSettingsService.SetGridSettings(TransferOrderDataGrid.DataGrid, settings => DataGridSettings = settings ?? new());
         GridSettingsLoaded = true;
+    }
 
-        await TransferOrderDataGrid.DataGrid.ReloadSettings();
-        await TransferOrderDataGrid.DataGrid.Reload();
+    void PrepareIntent(DataGridIntent intent)
+    {
+        ReceivingReceiptPrintStatusFilter.ApplyToTransactions(intent, SelectedPrintStatus, "STR");
+        intent.Filters.Add(DataGridFilterUtilities.Equal("IncludeCompletedReceived", true));
+        if (dateRangeApplied)
+            PrintStatusFilter.ApplyDateRange(intent, DateRangeStart, DateRangeEnd);
     }
 
     async Task<DataGridResultVM<TransferOrderDataGridVM>> LoadDataAsync(DataGridIntent intent)
@@ -68,12 +136,15 @@ public partial class TransferOrderGrid
                 });
             }
 
-            return await ReceivingHandler.GetTransferOrderDataGridAsync(intent);
+            var result = await ReceivingHandler.GetTransferOrderDataGridAsync(intent);
+            return result;
 
             throw new Exception("Invalid source for receiving grid");
         }, AppActionOptionPresets.Loading(ActionGetPurchaseOrders));
 
+        initialGridLoadSucceeded = action.IsSuccess;
         AppBusyService.SetBusy(ActionGetPurchaseOrders, false);
+        action.ThrowIfUnsuccessful();
         return DataGridResultVM<TransferOrderDataGridVM>.New(action.Result.Data ?? [], action.Result.Count);
     }
 
@@ -89,6 +160,7 @@ public partial class TransferOrderGrid
         if (StatusFilter is null)
         {
             await TransferOrderDataGrid.DataGrid.Reload();
+            await PrintStatusView.RefreshCountsAsync();
             return;
         }
 
@@ -97,6 +169,13 @@ public partial class TransferOrderGrid
         column.SetLogicalFilterOperator(LogicalFilterOperator.And);
 
         await TransferOrderDataGrid.DataGrid.Reload();
+        await PrintStatusView.RefreshCountsAsync();
+    }
+
+    void ApplyStatusCountFilter(DataGridIntent intent)
+    {
+        if (StatusFilter is not null)
+            intent.Filters.Add(DataGridFilterUtilities.Equal(nameof(TransferOrderDataGridVM.Status), StatusFilter.Name));
     }
 
     void ViewTransferOrder(TransferOrderDataGridVM purchaseOrder) => NavManager.NavigateTo($"/transactions/purchasing/receiving/transfer-order/view?ref={purchaseOrder.ReferenceNumber}", true);

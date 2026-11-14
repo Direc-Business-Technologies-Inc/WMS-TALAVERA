@@ -16,6 +16,16 @@ public class CachedSupplierReturnIntegration(
 {
     public const string EntityName = "SupplierReturn";
 
+    public Task<BulkFulfillmentResultDTO> SubmitBulkFulfillmentAsync(SubmitBulkFulfillmentDTO data, IReadOnlyList<int> allowedSubsidiaries, CancellationToken ct = default)
+        => inner.SubmitBulkFulfillmentAsync(data, allowedSubsidiaries, ct);
+
+    // Status reads deliberately bypass the RTS grid cache: opening the tab must see NetSuite's latest state.
+    public Task<(IEnumerable<BulkFulfillmentStatusDTO> Data, int Count)> GetBulkFulfillmentStatusesAsync(DataGridIntent intent, IReadOnlyList<int> allowedSubsidiaries, CancellationToken ct = default)
+        => inner.GetBulkFulfillmentStatusesAsync(intent, allowedSubsidiaries, ct);
+
+    public Task<IReadOnlyList<SupplierReturnDataGridDTO>> GetBulkFulfillmentReturnsAsync(int bulkId, IReadOnlyList<int> allowedSubsidiaries, CancellationToken ct = default)
+        => inner.GetBulkFulfillmentReturnsAsync(bulkId, allowedSubsidiaries, ct);
+
     public Task<(IEnumerable<SupplierReturnDataGridDTO> Data, int Count)> GetReturnsDataGridAsync(DataGridIntent intent)
         => cache.GetOrAddAsync(EntityName, nameof(GetReturnsDataGridAsync), intent,
             () => inner.GetReturnsDataGridAsync(intent));
@@ -56,6 +66,9 @@ public class CachedSupplierReturnIntegration(
 
     public async Task<bool> SubmitSupplierReturnForApproval(SupplierReturnDTO data)
         => await Mutate(() => inner.SubmitSupplierReturnForApproval(data));
+
+    public Task<bool> ApproveSupplierReturnAsync(int recordId, IReadOnlyList<int> allowedSubsidiaries, CancellationToken ct = default)
+        => Mutate(() => inner.ApproveSupplierReturnAsync(recordId, allowedSubsidiaries, ct));
 
     private async Task<bool> Mutate(Func<Task<bool>> mutation)
     {

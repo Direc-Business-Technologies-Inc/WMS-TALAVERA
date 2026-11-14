@@ -64,8 +64,8 @@ public class UpdateTripTicketPayloadDTO
 
             // Extract Internal IDs from object properties/collections
             FromSubsidiary = tripticket.FromSubsidiary?.NetsuiteSubsidiaryInternalId ?? 0,
-            ToSubsidiary = tripticket.ToSubsidiaries?.Select(x => x.NetsuiteSubsidiaryInternalId).ToList() ?? new(),
-            Destination = tripticket.Destinations?.Select(x => x.NetsuiteLocationInternalId).ToList() ?? new(),
+            ToSubsidiary = tripticket.ToSubsidiaries?.Where(x => x is not null).Select(x => x.NetsuiteSubsidiaryInternalId).ToList() ?? new(),
+            Destination = tripticket.Destinations?.Where(x => x is not null).Select(x => x.NetsuiteLocationInternalId).ToList() ?? new(),
 
             PlateNo = tripticket.TruckPlateNumber?.NetsuiteTruckPlateNoInternalId ?? 0,
             Driver = tripticket.Driver?.NetsuiteEmployeeInternalId ?? 0,

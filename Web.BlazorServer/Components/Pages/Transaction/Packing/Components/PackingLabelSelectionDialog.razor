@@ -1,0 +1,110 @@
+@using global::Shared.Entities
+@using global::Shared.Libraries.Utilities
+@using Web.BlazorServer.Components.Custom
+@using Web.BlazorServer.ViewModels.Transaction.Packing
+@using Web.BlazorServer.Handlers.Repositories.Transaction.Packing.Returns
+@inherits BaseComponent
+@implements IDisposable
+@inject IReturnPackingHandler PackingHandler
+@inject ILogger<PackingLabelSelectionDialog> Logger
+
+<RadzenStack Gap="12px" aria-busy="@loading.ToString().ToLowerInvariant()">
+    <RadzenText TextStyle="TextStyle.Body1">Select the item fulfillment label to print.</RadzenText>
+    @if (loading)
+    {
+        <div role="status" aria-live="polite">Loading Packing Labels…</div>
+        <RadzenProgressBar Mode="ProgressBarMode.Indeterminate" ShowValue="false" Style="height: 4px" />
+    }
+    @if (loadFailed)
+    {
+        <div role="alert">The packing labels could not be loaded. Please retry.</div>
+    }
+    <AppTableWithSettings Data="@fulfillments" Id="packing_label_selection">
+        <EmptyTemplate>
+            <p style="color: lightgrey; font-size: 24px; text-align: center; margin: 2rem;">No packing labels match this print status.</p>
+        </EmptyTemplate>
+        <Columns>
+            <RadzenDataGridColumn TItem="PackedItemFulfillmentVM" Property="@nameof(PackedItemFulfillmentVM.ReferenceNumber)" Title="Item Fulfillment" />
+            <RadzenDataGridColumn TItem="PackedItemFulfillmentVM" Property="@nameof(PackedItemFulfillmentVM.CreatedFrom)" Title="Created From" />
+            <RadzenDataGridColumn TItem="PackedItemFulfillmentVM" Property="@nameof(PackedItemFulfillmentVM.Vendor)" Title="Vendor" />
+            <RadzenDataGridColumn TItem="PackedItemFulfillmentVM" Property="@nameof(PackedItemFulfillmentVM.Date)" Title="Date">
+                <Template Context="fulfillment">@fulfillment.Date.ToString("MMM dd, yyyy")</Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn TItem="PackedItemFulfillmentVM" Title="Status" Width="110px">
+                <Template Context="fulfillment">@(fulfillment.PrintCount > 0 ? "Printed" : "For Printing")</Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn TItem="PackedItemFulfillmentVM" Title="Print" Width="90px">
+                <Template Context="fulfillment">
+                    <AppPrintLink Url="@NetSuitePrint.PackingLabel(fulfillment.Id)" RecordType="itemFulfillment" RecordId="@fulfillment.Id" OnPrint="@PrintSelectedAsync" Disabled="@loading" Size="ButtonSize.ExtraSmall" />
+                </Template>
+            </RadzenDataGridColumn>
+        </Columns>
+    </AppTableWithSettings>
+    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End">
+        <RadzenButton Text="Refresh" Icon="refresh" Disabled="@loading" Click="@ReloadAsync" />
+        <RadzenButton Text="Close" ButtonStyle="ButtonStyle.Light" Click="@CloseAsync" />
+    </RadzenStack>
+</RadzenStack>
+
+@code {
+    [Parameter, EditorRequired] public int TransactionId { get; set; }
+    [Parameter] public string Source { get; set; } = "STR";
+    [Parameter] public PrintStatus SelectedPrintStatus { get; set; } = PrintStatus.ForPrinting;
+    [Parameter] public EventCallback OnPrinted { get; set; }
+
+    private List<PackedItemFulfillmentVM> fulfillments = [];
+    private bool loading;
+    private bool loadFailed;
+    private bool disposed;
+    private readonly SemaphoreSlim reloadGate = new(1, 1);
+
+    protected override Task OnInitializedAsync() => ReloadAsync();
+
+    private async Task ReloadAsync()
+    {
+        if (disposed) return;
+        await reloadGate.WaitAsync();
+        if (disposed) { reloadGate.Release(); return; }
+        loading = true;
+        loadFailed = false;
+        try
+        {
+            var rows = new List<PackedItemFulfillmentVM>();
+            var skip = 0;
+            int total;
+            do
+            {
+                var intent = new DataGridIntent { Skip = skip, Take = 1000 };
+                PackingFulfillmentPrintStatusFilter.ApplyToFulfillments(intent, SelectedPrintStatus, Source, CurrentUserService.NsSubsidiaryId);
+                intent.Filters.Add(DataGridFilterUtilities.Equal("CreatedFromId", TransactionId));
+                var (pageRows, count) = await PackingHandler.GetPackedItemFulfillments(intent);
+                if (disposed) return;
+                var page = pageRows.ToArray();
+                rows.AddRange(page);
+                total = count;
+                if (page.Length == 0) break;
+                skip += page.Length;
+            } while (skip < total);
+            fulfillments = rows.OrderByDescending(row => row.Date).ToList();
+        }
+        catch (Exception ex)
+        {
+            loadFailed = true;
+            fulfillments = [];
+            Logger.LogWarning(ex, "Could not load packing labels for {Source} {TransactionId}", Source, TransactionId);
+        }
+        finally
+        {
+            loading = false;
+            reloadGate.Release();
+        }
+    }
+
+    private async Task PrintSelectedAsync()
+    {
+        await Task.WhenAll(ReloadAsync(), OnPrinted.InvokeAsync());
+        if (loadFailed) throw new InvalidOperationException("Print count updated. Packing labels need a refresh.");
+    }
+    private void CloseAsync() => DialogService.Close();
+    public void Dispose() => disposed = true;
+}

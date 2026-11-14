@@ -1,0 +1,39 @@
+<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="8px" class="grid-date-range">
+    <RadzenDatePicker TValue="DateTime?" Value="@DraftStartDate" Change="@StartChanged" DateFormat="MMM dd, yyyy" />
+    <span>–</span>
+    <RadzenDatePicker TValue="DateTime?" Value="@DraftEndDate" Change="@EndChanged" DateFormat="MMM dd, yyyy" />
+    <RadzenButton Text="Apply" Size="ButtonSize.Small" Click="ApplyAsync" Disabled="@(!IsValid)" />
+</RadzenStack>
+
+@code {
+    [Parameter] public DateTime? StartDate { get; set; }
+    [Parameter] public DateTime? EndDate { get; set; }
+    [Parameter] public EventCallback<(DateTime Start, DateTime End)> OnApply { get; set; }
+
+    private DateTime? DraftStartDate;
+    private DateTime? DraftEndDate;
+    private bool IsValid => DraftStartDate.HasValue && DraftEndDate.HasValue && DraftStartDate.Value.Date <= DraftEndDate.Value.Date;
+    private DateTime? PreviousStartDate;
+    private DateTime? PreviousEndDate;
+    private bool Initialized;
+
+    protected override void OnParametersSet()
+    {
+        // Unrelated parent renders (e.g. badge refresh) must not discard edits.
+        if (!Initialized || PreviousStartDate != StartDate || PreviousEndDate != EndDate)
+        {
+            DraftStartDate = StartDate;
+            DraftEndDate = EndDate;
+            PreviousStartDate = StartDate;
+            PreviousEndDate = EndDate;
+            Initialized = true;
+        }
+    }
+
+    private void StartChanged(DateTime? value) => DraftStartDate = value;
+    private void EndChanged(DateTime? value) => DraftEndDate = value;
+
+    private Task ApplyAsync() => IsValid
+        ? OnApply.InvokeAsync((DraftStartDate!.Value.Date, DraftEndDate!.Value.Date))
+        : Task.CompletedTask;
+}

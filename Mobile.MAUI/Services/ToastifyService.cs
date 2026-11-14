@@ -17,13 +17,14 @@ public class ToastifyService
 
 
     }
-    public async Task Success(string Message)
+    // Returns false when Toastify cannot create the notification.
+    public async Task<bool> Success(string Message, int durationMs = 3000)
     {
         if (_jsObj is null)
         {
             _jsObj = await _jsRuntime.InvokeAsync<IJSObjectReference>("import", "/js/toastifyPresets.js");
         }
-        await _jsObj.InvokeVoidAsync("ShowSuccess", Message);
+        return await _jsObj.InvokeAsync<bool>("ShowSuccess", Message, durationMs);
     }
     public async Task Error(string Message)
     {

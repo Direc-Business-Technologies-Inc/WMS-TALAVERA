@@ -4,6 +4,7 @@ using Radzen;
 using Shared.Entities;
 using Shared.Libraries.Utilities;
 using Web.BlazorServer.Components.Custom;
+using Web.BlazorServer.Components.Base;
 using Web.BlazorServer.Components.Pages.Transaction.Others.BarcodeScanning;
 using Web.BlazorServer.Components.Shared.Abstraction;
 using Web.BlazorServer.Handlers.Repositories.Others;
@@ -19,6 +20,8 @@ namespace Web.BlazorServer.Components.Pages.Transaction.InventoryTransferRequest
 
 public partial class ITRForm
 {
+    SubmitOnce SubmitOnce { get; } = new();
+    bool IsSubmitting => SubmitOnce.IsSubmitting;
     [Inject] ISubsidiaryHandler subsidiaryHandler { get; set; } = default!;
     [Inject] ILocationHandler locationHandler { get; set; } = default!;
     [Inject] IItemsHandler itemsHandler { get; set; } = default!;
@@ -176,7 +179,9 @@ public partial class ITRForm
         await InvokeAsync(StateHasChanged);
     }
 
-    async Task Submit()
+    Task Submit() => SubmitOnce.RunAsync(SubmitCore);
+
+    async Task SubmitCore()
     {
         if (Model.Lines.Count == 0)
         {

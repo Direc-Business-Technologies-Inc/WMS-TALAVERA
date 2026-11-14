@@ -138,6 +138,22 @@ public class SuiteQLUnresolvedPropertyGuardTests
     }
 
     [Fact]
+    public void Build_GridFilterOnSelectAlias_ExpandsToColumnExpression()
+    {
+        var query = Factory.Create()
+            .Select(("uom.unitname", "Name"))
+            .From("unitsTypeUom uom")
+            .WithDatagridIntent(new DataGridIntent
+            {
+                Take = 5,
+                Filters = { DataGridFilterUtilities.Contains("Name", "bale40") }
+            })
+            .Build();
+
+        Assert.Contains("LOWER(uom.unitname) LIKE LOWER('%bale40%')", query.Query);
+    }
+
+    [Fact]
     public void Build_GridFilterGroup_DropsUnresolvedChildWithoutMalformedSql()
     {
         // A child that resolves to nothing must be dropped before the group is

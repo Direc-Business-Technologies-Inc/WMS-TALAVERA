@@ -49,6 +49,12 @@ public class AuthenticationService(ISender Sender,
                 new Claim(ClaimTypes.Role, user.Role.Name)
             };
 
+            if (user.EmployeeNs is not null)
+            {
+                claims.Add(new Claim("NsEmployeeId", user.EmployeeNs.NsId.ToString()));
+                claims.Add(new Claim("NsSubsidiaryId", user.EmployeeNs.NsSubsidiaryId.ToString()));
+            }
+
             claims.AddRange(permissionClaims);
 
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);

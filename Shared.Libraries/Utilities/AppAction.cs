@@ -45,6 +45,11 @@ public class AppAction<T> : IAppAction<T>
     public Exception? Exception { get; private set; }
 
     public void SetResult(T? result) => Result = result;
+    public void ThrowIfUnsuccessful()
+    {
+        if (IsCancelled) throw new OperationCanceledException();
+        if (Exception is not null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(Exception).Throw();
+    }
     public void SetException(Exception ex)
     {
         Exception = ex;

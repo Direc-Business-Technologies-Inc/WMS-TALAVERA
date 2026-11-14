@@ -3,6 +3,7 @@ using Mapster;
 using Microsoft.Extensions.Logging;
 using Microsoft.Net.Http.Headers;
 using Shared.Entities;
+using Shared.Libraries.Utilities;
 using System.Collections;
 using System.Text;
 using System.Text.Json;
@@ -240,6 +241,33 @@ public class SuiteQLQueryBuilder
         };
     }
 
+    /// <summary>
+    /// Reuses the list's joins, property mappings and eligibility filters without
+    /// projecting display fields, sorting, or paging. DISTINCT IDs prevent line
+    /// joins from counting the same transaction more than once.
+    /// An approval column gates only ForPrinting; Printed retains its existing scope.
+    /// Column expressions must be trusted integration-owned SQL, never user input.
+    /// </summary>
+    public SuiteQLQuery BuildPrintStatusCounts(string idColumn, string printCountColumn,
+        string? forPrintingApprovalColumn = null)
+    {
+        if (_groupBy is not null)
+            throw new InvalidOperationException("Print-status counts require an ungrouped transaction query.");
+
+        var forPrintingCondition = $"{printCountColumn} IS NULL OR {printCountColumn} <= 0";
+        if (forPrintingApprovalColumn is not null)
+            forPrintingCondition = $"({forPrintingCondition}) AND {forPrintingApprovalColumn} = {NetSuiteApprovalStatus.Approved}";
+
+        return new()
+        {
+            Query = $"SELECT COUNT(DISTINCT CASE WHEN {forPrintingCondition} THEN {idColumn} END) AS ForPrinting, " +
+                $"COUNT(DISTINCT CASE WHEN {printCountColumn} >= 1 THEN {idColumn} END) AS Printed" +
+                BuildFrom() + BuildFilters(),
+            Limit = 1,
+            Offset = 0
+        };
+    }
+
     private string? _parseSort(AppSortDescriptor sort, Dictionary<string, string>? propertyMap = null)
     {
         propertyMap ??= PropertyMap;
@@ -380,7 +408,10 @@ public class SuiteQLQueryBuilder
     {
         if (value is null) throw new InvalidOperationException($"no value given for {prop}");
 
-        if (value is DateTime dtVal) return $"TO_DATE({prop}, '{NETSUITE_DATETIME_FORMAT_STRING}') {op} TO_DATE({_stringifyValue(dtVal)}, '{NETSUITE_DATETIME_FORMAT_STRING}')";
+        // SuiteQL transaction/custom-record date columns are already DATE values.
+        // TO_DATE(column, ...) attempts to parse a DATE as text and NetSuite rejects
+        // the resulting search with INVALID_PARAMETER. Convert only the literal.
+        if (value is DateTime dtVal) return $"{prop} {op} TO_DATE({_stringifyValue(dtVal)}, '{NETSUITE_DATETIME_FORMAT_STRING}')";
         return $"{prop} {op} {_stringifyValue(value)}";
     }
 

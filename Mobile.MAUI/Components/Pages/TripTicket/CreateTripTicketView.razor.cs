@@ -54,16 +54,27 @@ public partial class CreateTripTicketView : IAsyncDisposable
             },
             OnSuccess = async (result) =>
             {
-                if (!result.Success)
+                MarkScansClean();
+
+                const string message = "Trip ticket saved successfully.";
+                var toastShown = false;
+                try
                 {
-                    await Toast.Error(result.ErrorMessage);
-                    return;
+                    toastShown = await Toast.Success(message, durationMs: 8000);
+                }
+                catch (JSException)
+                {
+                    // Import/interop failures must not hide a confirmed save.
                 }
 
-                MarkScansClean();
-                await Toast.Success("Scanned items saved sucessfully");
+                if (!toastShown)
+                {
+                    await Dialog.Alert(message, "Trip Ticket Saved");
+                }
+
                 NavManager.NavigateTo("/");
-            }
+            },
+            OnFailure = result => Toast.Error($"Action failed: {result.ErrorMessage}")
         };
 
         BroadcastService.BroadcastReceived += HandleScan;
@@ -177,7 +188,7 @@ public partial class CreateTripTicketView : IAsyncDisposable
 
         TripTicket.ItemFulfillments = ScannedItemFulfillments;
 
-        await ActionFactory.ExecuteAppActionAsync(ActionSaveScan, confirm: true, showToast: true);
+        await ActionFactory.ExecuteAppActionAsync(ActionSaveScan, confirm: true);
         await InvokeAsync(StateHasChanged);
     }
 

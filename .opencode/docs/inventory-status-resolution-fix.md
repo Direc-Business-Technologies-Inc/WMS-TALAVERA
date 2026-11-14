@@ -189,9 +189,16 @@ Passed! - Failed: 0, Passed: 294, Skipped: 0, Total: 294
 ### 9a. The 400 itself — NetSuite availability
 
 This change corrects *which* status is sent and prevents silent mis-posting. It does
-**not** address why NetSuite rejected `3`. With `3` confirmed present in the account,
-`Invalid Field Value 3` means the status is **not available in that context**, most
-likely item/location availability on the source location.
+not by itself address why NetSuite rejects a known status ID. With the status confirmed
+present in the account, `Invalid Field Value` means the status is not available in the
+item/location/bin context.
+
+The web VRA/RTS path now performs a status-aware availability preflight before posting.
+It uses the freshly reloaded VRA line's Good/Bad balance for the same vendor-assigned bin,
+preferred bin, or non-bin location that the payload builder will use. If the requested
+quantity exceeds that balance, the save fails before NetSuite receives any fulfillment
+and identifies the line, item, status, location/bin, requested quantity, and available
+quantity. See `vra-inventory-status-preflight.md`.
 
 Confirm before assuming it is fixed:
 

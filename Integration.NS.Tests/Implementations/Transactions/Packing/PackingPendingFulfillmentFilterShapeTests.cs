@@ -9,6 +9,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Shared.Entities;
 using Shared.Libraries.Utilities;
 using System.Data;
+using System.Security.Claims;
 using System.Text.RegularExpressions;
 using Xunit;
 
@@ -54,7 +55,13 @@ public class PackingPendingFulfillmentFilterShapeTests
         client = new CapturingNetSuiteClient();
         return new ReturnPackingIntegration(
             client,
-            new HttpContextAccessor(),
+            new HttpContextAccessor
+            {
+                HttpContext = new DefaultHttpContext
+                {
+                    User = new ClaimsPrincipal(new ClaimsIdentity([new Claim("NsSubsidiaryId", "1")], "test"))
+                }
+            },
             new StubSqlQueryManager(),
             new SuiteQLQueryBuilderFactoryService());
     }
@@ -82,10 +89,10 @@ public class PackingPendingFulfillmentFilterShapeTests
         return normalized;
     }
 
-    private static async Task<string> StrListQueryAsync()
+    private static async Task<string> StrListQueryAsync(bool includeReceived = false)
     {
         var sut = CreateStr(out var client);
-        await sut.GetPackingStockTransferRequestList(Intent(), subsidiaryId: 1);
+        await sut.GetPackingStockTransferRequestList(Intent(), subsidiaryId: 1, includeReceived: includeReceived);
         return Normalize(client.LastQuery);
     }
 
@@ -104,17 +111,27 @@ public class PackingPendingFulfillmentFilterShapeTests
     }
 
     // ---------------------------------------------------------------------
-    // The gate itself: an inner join onto a derived table of transactions
-    // that still have an open, unpacked line, correlated in the join
-    // predicate rather than inside the subquery.
+    // The pending-line gate is left-joined so sources with printable IF labels
+    // remain visible after their final packing line is complete.
     // ---------------------------------------------------------------------
     [Fact]
     public async Task Str_list_drops_fully_packed_orders_by_joining_the_open_line_derived_table()
     {
         var query = await StrListQueryAsync();
 
-        Assert.Contains("INNER JOIN (SELECT opk.transaction AS packtran", query);
+        Assert.Contains("LEFT JOIN (SELECT opk.transaction AS packtran", query);
         Assert.Contains("GROUP BY opk.transaction) openpk ON openpk.packtran = t.id", query);
+        Assert.Contains("ifprint.forprintingcount", query);
+    }
+
+    [Fact]
+    public async Task Str_list_includes_received_statuses_only_when_requested_for_all_tab()
+    {
+        var defaultQuery = await StrListQueryAsync();
+        var allTabQuery = await StrListQueryAsync(includeReceived: true);
+
+        Assert.Contains("t.status IN ('B', 'D', 'E')", defaultQuery);
+        Assert.Contains("t.status IN ('B', 'D', 'E', 'F', 'G')", allTabQuery);
     }
 
     [Fact]
@@ -122,7 +139,7 @@ public class PackingPendingFulfillmentFilterShapeTests
     {
         var query = await ReturnsListQueryAsync();
 
-        Assert.Contains("INNER JOIN (SELECT opk.transaction AS packtran", query);
+        Assert.Contains("LEFT JOIN (SELECT opk.transaction AS packtran", query);
         Assert.Contains("GROUP BY opk.transaction) openpk ON openpk.packtran = t.id", query);
     }
 
@@ -131,8 +148,40 @@ public class PackingPendingFulfillmentFilterShapeTests
     {
         var query = await SraListQueryAsync();
 
-        Assert.Contains("INNER JOIN (SELECT opk.transaction AS packtran", query);
+        Assert.Contains("LEFT JOIN (SELECT opk.transaction AS packtran", query);
         Assert.Contains("GROUP BY opk.transaction) openpk ON openpk.packtran = t.id", query);
+    }
+
+    [Fact]
+    public async Task All_packing_source_lists_project_the_item_fulfillment_print_counts()
+    {
+        foreach (var query in new[] { await StrListQueryAsync(), await ReturnsListQueryAsync(), await SraListQueryAsync() })
+        {
+            Assert.Contains(") ifprint ON ifprint.sourceid = t.id", query);
+            Assert.Contains("NVL(ifprint.forprintingcount, 0)", query);
+            Assert.Contains("NVL(ifprint.printedcount, 0)", query);
+            Assert.Contains("NVL(ifprint.singlefulfillmentid, 0)", query);
+        }
+    }
+
+    [Fact]
+    public async Task Packed_fulfillment_lookup_returns_count_and_source_id_for_per_fulfillment_printing()
+    {
+        var sut = CreateReturns(out var client);
+        var intent = Intent();
+        intent.Filters.Add(DataGridFilterUtilities.Equal("CreatedFromId", 42));
+        intent.Filters.Add(DataGridFilterUtilities.GreaterThanOrEqual("t.custbody_wms_print_count", 1));
+
+        await sut.GetPackedItemFulfillments(intent);
+
+        var query = Normalize(client.LastQuery);
+        Assert.Contains("t.custbody_wms_print_count AS PrintCount", query);
+        Assert.Contains("tcf.id AS CreatedFromId", query);
+        Assert.Contains("t.custbody_dbti_print_label = 'T'", query);
+        Assert.DoesNotContain("openpk", query);
+        Assert.DoesNotContain("openvra", query);
+        Assert.Contains("tcf.id = 42", query);
+        Assert.Contains("t.custbody_wms_print_count >= 1", query);
     }
 
     // ---------------------------------------------------------------------
@@ -232,7 +281,8 @@ public class PackingPendingFulfillmentFilterShapeTests
     // The gate must not reintroduce correlation from the subquery into the
     // outer query's aliases: NetSuite rejects that with 400 INVALID_PARAMETER
     // "Invalid or unsupported search" (Rule 1). The only reference to the
-    // outer transaction alias may sit in the join predicate.
+    // outer transaction alias may sit in the join predicate. The left join is
+    // intentional so completed-but-unprinted fulfillment labels remain visible.
     // ---------------------------------------------------------------------
     [Theory]
     [InlineData("Str")]
@@ -247,7 +297,7 @@ public class PackingPendingFulfillmentFilterShapeTests
             _ => await SraListQueryAsync(),
         };
 
-        var start = query.IndexOf("INNER JOIN (SELECT opk.transaction", StringComparison.Ordinal);
+        var start = query.IndexOf("LEFT JOIN (SELECT opk.transaction", StringComparison.Ordinal);
         var end = query.IndexOf("openpk ON openpk.packtran = t.id", StringComparison.Ordinal);
         Assert.True(start >= 0 && end > start, $"expected the open-line derived-table join. Query: {query}");
 
@@ -313,6 +363,64 @@ public class PackingPendingFulfillmentFilterShapeTests
         Assert.Contains("t.recordtype", sql);
         Assert.Contains("t.status IN", sql);
     }
+
+    public static IEnumerable<object[]> ScanFirstPackingLookupScripts() => new[]
+    {
+        new object[] { "NS_TO_x_Packing_Get_PendingFulfillment_ByOrderNumber.sql", "employee" },
+        new object[] { "NS_VendorReturnAuthorization_Get_PendingReturn_ByOrderNumber.sql", "employee-location" },
+        new object[] { "NS_TO_x_Return_x_Packing_Get_PendingFulfillment_ByOrderNumber.sql", false },
+    }.Select(row => new object[] { row[0], row[1], Path.Combine(Path.GetDirectoryName(ScriptsPath("NS_TO_x_Packing_Get_PendingFulfillment.sql"))!, (string)row[0]!) });
+
+    [Theory]
+    [MemberData(nameof(ScanFirstPackingLookupScripts))]
+    public void Scan_first_packing_lookup_keeps_expected_pending_filters(string name, string accessPredicate, string path)
+    {
+        Assert.False(string.IsNullOrWhiteSpace(name));
+        var sql = Normalize(File.ReadAllText(path));
+        Assert.Contains("@ordernumber", sql);
+        Assert.Contains("@subsidiaryid", sql);
+        Assert.Contains("t.recordtype", sql);
+        Assert.Contains("t.status IN", sql);
+        Assert.Contains("openpk", sql);
+        Assert.Contains("ABS(opk.quantity)", sql);
+        if (accessPredicate == "mapping")
+        {
+            Assert.Contains("@userid", sql);
+            Assert.Contains("MAP_employee_custentity_dbti_wms_user_location_access", sql);
+            Assert.Contains("map.mapone = emp.id", sql);
+        }
+        else if (accessPredicate == "employee")
+        {
+            Assert.Contains("@userid", sql);
+            Assert.Contains("JOIN employee emp ON emp.id = @userid", sql);
+        }
+        else if (accessPredicate == "employee-location")
+        {
+            Assert.Contains("@userid", sql);
+            Assert.Contains("custentity_dbti_wms_user_location_access", sql);
+            Assert.Contains("BUILTIN.DF(tl.location)", sql);
+        }
+        SuiteQLAssert.NoTrailingComma(sql);
+    }
+
+    [Fact]
+    public void Transfer_order_packing_pending_script_does_not_filter_purchase_category()
+    {
+        var path = ScriptsPath("NS_TO_x_Packing_Get_PendingFulfillment.sql");
+        var sql = Normalize(File.ReadAllText(path));
+
+        Assert.DoesNotContain("custbody_dbti_purchase_category", sql);
+    }
+
+    [Fact]
+    public void Transfer_order_packing_lookup_does_not_filter_purchase_category()
+    {
+        var path = ScriptsPath("NS_TO_x_Packing_Get_PendingFulfillment_ByOrderNumber.sql");
+        var sql = Normalize(File.ReadAllText(path));
+
+        Assert.DoesNotContain("custbody_dbti_purchase_category", sql);
+    }
+
 
     private static string ScriptsPath(string fileName)
     {

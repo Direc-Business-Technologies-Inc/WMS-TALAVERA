@@ -6,6 +6,10 @@ public class PackedItemFulfillmentVM
 {
     [QuickDataGridIgnore]
     public int Id { get; set; }
+    [QuickDataGridIgnore]
+    public int CreatedFromId { get; set; }
+    [QuickDataGridIgnore]
+    public int? PrintCount { get; set; }
     [QuickDataGridTitle("Item Fulfillment Number")]
     public string ReferenceNumber { get; set; } = string.Empty;
 
@@ -17,6 +21,7 @@ public class PackedItemFulfillmentVM
     public DateTime DateLastModified { get; set; }
     [QuickDataGridTitle("Created From")]
     public string CreatedFrom { get; set; } = string.Empty;
+    public string Vendor { get; set; } = string.Empty;
     [QuickDataGridTitle("Transfer Category")]
     public string TransferCategory { get; set; } = string.Empty;
 }

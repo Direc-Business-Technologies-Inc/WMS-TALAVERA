@@ -50,6 +50,7 @@ public class NetSuiteLimiterLoadTests
         finally
         {
             NetSuiteApiClientService.ResetUrlRootsForTests();
+            NetSuiteApiClientService.ResetHttpClientForTests();
         }
     }
 

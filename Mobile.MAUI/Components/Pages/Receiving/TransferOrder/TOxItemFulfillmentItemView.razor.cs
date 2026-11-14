@@ -30,9 +30,7 @@ public partial class TOxItemFulfillmentItemView : IAsyncDisposable
 
     string BackPath => $"/receiving/transferorder/itemfulfillment/{NetsuiteOrderInternalId}/{TOOrderNumber}";
 
-    private IJSObjectReference JsObj { get; set; }
     AppAction<List<TOxItemFulfillmentLineVM>> ActionGetTOxItemfulfillmentItems { get; set; }
-    AppAction<List<ItemBarcodesPerUoMVM>> ActionGetItemBarcodes { get; set; }
     AppAction ActionUpdateStartTime { get; set; }
     AppAction<bool> ActionSaveScan { get; set; }
 
@@ -44,8 +42,6 @@ public partial class TOxItemFulfillmentItemView : IAsyncDisposable
 
     List<TOxItemFulfillmentLineVM> MissingIFItems = [];
     TOxItemFulfillmentLineVM? LastScanned;
-    List<ItemBarcodesPerUoMVM> ItemBarcodes = [];
-    List<BarcodeRequestVM> ItemRequest = [];
 
     List<TOxItemFulfillmentLineVM> IFItems = [];
 
@@ -66,7 +62,6 @@ public partial class TOxItemFulfillmentItemView : IAsyncDisposable
     bool SaveBtnDisabled => ScanCount == 0;
     int ActiveTabIndex { get; set; } = 0;
 
-    bool NextScanIsBad = false;
     bool MoveOn = false;
     bool IsWeightDialogOpen = false;
     decimal? DefaultWeight = null;
@@ -91,7 +86,18 @@ public partial class TOxItemFulfillmentItemView : IAsyncDisposable
             },
             OnSuccess = async (result) =>
             {
-                GoodIFItems = result.Data.Select(line => new TOxItemFulfillmentLineVM
+                // The item fulfillment query joins the item's preferred bin and the vendor's bin
+                // assignment, so one transaction line can fan out into several rows with the
+                // same LineSequenceNumber. That number IS the NetSuite orderLine, and the save
+                // posts one orderLine per row, so duplicate rows break the document. Collapse
+                // to one row per line, preferring the copy that carries a bin (the restlet
+                // builder resolves the bin from the row).
+                GoodIFItems = result.Data
+                .GroupBy(line => line.LineSequenceNumber)
+                .Select(g => g
+                    .OrderByDescending(line => line.NetsuiteMaterialPrefferedBinId != 0)
+                    .First())
+                .Select(line => new TOxItemFulfillmentLineVM
                 {
                     NetsuiteOrderInternalId = line.NetsuiteOrderInternalId,
                     OrderNumber = line.OrderNumber,
@@ -132,7 +138,12 @@ public partial class TOxItemFulfillmentItemView : IAsyncDisposable
                     IsBad = false,
                 }).ToList() ?? [];
 
-                BadIFItems = result.Data.Select(line => new TOxItemFulfillmentLineVM
+                BadIFItems = result.Data
+                .GroupBy(line => line.LineSequenceNumber)
+                .Select(g => g
+                    .OrderByDescending(line => line.NetsuiteMaterialPrefferedBinId != 0)
+                    .First())
+                .Select(line => new TOxItemFulfillmentLineVM
                 {
                     NetsuiteOrderInternalId = line.NetsuiteOrderInternalId,
                     OrderNumber = line.OrderNumber,
@@ -171,30 +182,6 @@ public partial class TOxItemFulfillmentItemView : IAsyncDisposable
                 }).ToList() ?? [];
 
                 ApplySearch();
-                await InvokeAsync(StateHasChanged);
-            },
-        };
-
-        ActionGetItemBarcodes = new AppAction<List<ItemBarcodesPerUoMVM>>
-        {
-            Name = "GetItemBarcodes",
-            TaskAsync = async () =>
-            {
-                await InvokeAsync(StateHasChanged);
-                var res = await Client.Post<List<ItemBarcodesPerUoMVM>>("/Item/Barcodes", ItemRequest);
-                return res;
-            },
-            OnSuccess = async (result) =>
-            {
-                ItemBarcodes = result.Data ?? [];
-
-                await InvokeAsync(StateHasChanged);
-            },
-
-            OnFailure = async (result) =>
-            {
-                await Toast.Error($"Failed to load item barcodes: {result.ErrorMessage}");
-
                 await InvokeAsync(StateHasChanged);
             },
         };
@@ -238,13 +225,6 @@ public partial class TOxItemFulfillmentItemView : IAsyncDisposable
 
             await ActionFactory.ExecuteAppActionAsync(ActionGetTOxItemfulfillmentItems);
 
-            ItemRequest = GoodIFItems.Select(i => new BarcodeRequestVM
-            {
-                NetsuiteMaterialInternalId = i.NetsuiteMaterialInternalId,
-            }).ToList();
-
-            await ActionFactory.ExecuteAppActionAsync(ActionGetItemBarcodes);
-
             string? userAuth = await SecureStorage.GetAsync("UserAuth");
             if (userAuth is not null)
             {
@@ -252,12 +232,6 @@ public partial class TOxItemFulfillmentItemView : IAsyncDisposable
 
                 UserId = auth.NetsuiteEmployeeInternalId;
             }
-        }
-
-        if (IFItems.Count > 0 && JsObj is null)
-        {
-            JsObj = await Js.InvokeAsync<IJSObjectReference>("import", "./js/IntersectionObserver.js");
-            await JsObj.InvokeVoidAsync("ObserveRecentScanned");
         }
     }
 
@@ -445,13 +419,23 @@ public partial class TOxItemFulfillmentItemView : IAsyncDisposable
                 return;
             }
 
-            var barcode = await ResolveBarcodeAsync(scanned);
+            var resolution = await BarcodeResolver.ResolveAsync(scanned);
 
-            if (barcode is null)
+            if (!resolution.IsFound)
             {
-                await Toast.Warning($"Unknown barcode: {scanned}");
+                if (resolution.IsFailure)
+                {
+                    await Toast.Error(resolution.Message);
+                }
+                else
+                {
+                    await Toast.Warning(resolution.Message);
+                }
+
                 return;
             }
+
+            var barcode = resolution.Barcode!;
 
             var goodLine = GoodIFItems.FirstOrDefault(x =>
                     x.NetsuiteMaterialInternalId == barcode.NetsuiteMaterialInternalId &&
@@ -555,6 +539,8 @@ public partial class TOxItemFulfillmentItemView : IAsyncDisposable
 
                 LastScanned = goodLine;
             }
+
+            await RevealLastScanned();
 
             ScanCount++;
             ChangeWeight = null; // reset the ChangeWeight after each scan
@@ -763,12 +749,6 @@ public partial class TOxItemFulfillmentItemView : IAsyncDisposable
         await InvokeAsync(StateHasChanged);
     }
 
-    void ToggleQuality()
-    {
-        NextScanIsBad = !NextScanIsBad;
-        InvokeAsync(StateHasChanged);
-    }
-
     void ToggleMove()
     {
         MoveOn = !MoveOn;
@@ -812,71 +792,6 @@ public partial class TOxItemFulfillmentItemView : IAsyncDisposable
         ChangeWeight = await GetWeightAsync("", "");
     }
 
-    /// <summary>
-    /// Resolves a scanned barcode for this view. Prefers the barcode list
-    /// preloaded for the document; when that list is empty (the load failed or
-    /// has not finished) it retries the load once; when the list simply does not
-    /// contain the scan it falls back to the authoritative per-barcode lookup.
-    /// Returns null only when NetSuite knows no such barcode.
-    /// </summary>
-    private async Task<ItemBarcodesPerUoMVM?> ResolveBarcodeAsync(string scanned)
-    {
-        var cached = FindCachedBarcode(scanned);
-
-        if (cached is not null)
-        {
-            return cached;
-        }
-
-        if (ItemBarcodes.Count == 0)
-        {
-            ItemRequest = GoodIFItems
-                .Select(i => new BarcodeRequestVM
-                {
-                    NetsuiteMaterialInternalId = i.NetsuiteMaterialInternalId
-                })
-                .ToList();
-
-            await ActionFactory.ExecuteAppActionAsync(ActionGetItemBarcodes);
-
-            cached = FindCachedBarcode(scanned);
-
-            if (cached is not null)
-            {
-                return cached;
-            }
-        }
-
-        var res = await Client.Post<InventoryItemVM>("/Item/PerBarcode", new { Barcode = scanned });
-
-        if (res?.Data is null)
-        {
-            return null;
-        }
-
-        var resolved = new ItemBarcodesPerUoMVM
-        {
-            NetsuiteMaterialInternalId = res.Data.NetsuiteMaterialInternalId,
-            MaterialCode = res.Data.MaterialCode,
-            MaterialName = res.Data.MaterialName,
-            MaterialWeight = res.Data.MaterialWeight,
-            UoMName = res.Data.UoMName,
-            UoMRate = res.Data.UoMRate,
-            MaterialBarcode = scanned,
-        };
-
-        ItemBarcodes.Add(resolved);
-
-        return resolved;
-    }
-
-    private ItemBarcodesPerUoMVM? FindCachedBarcode(string scanned)
-    {
-        return ItemBarcodes.FirstOrDefault(x =>
-            !string.IsNullOrWhiteSpace(x.MaterialBarcode) &&
-            x.MaterialBarcode.Equals(scanned, StringComparison.OrdinalIgnoreCase));
-    }
-
     async Task MoveScan(string scanned)
     {
         try
@@ -884,13 +799,23 @@ public partial class TOxItemFulfillmentItemView : IAsyncDisposable
             TOxItemFulfillmentLineVM? badLine;
             TOxItemFulfillmentLineVM? goodLine;
 
-            var barcode = await ResolveBarcodeAsync(scanned);
+            var resolution = await BarcodeResolver.ResolveAsync(scanned);
 
-            if (barcode is null)
+            if (!resolution.IsFound)
             {
-                await Toast.Warning($"Unknown barcode: {scanned}");
+                if (resolution.IsFailure)
+                {
+                    await Toast.Error(resolution.Message);
+                }
+                else
+                {
+                    await Toast.Warning(resolution.Message);
+                }
+
                 return;
             }
+
+            var barcode = resolution.Barcode!;
 
             if (ActiveTabIndex == 1)
             {
@@ -1029,13 +954,23 @@ public partial class TOxItemFulfillmentItemView : IAsyncDisposable
             TOxItemFulfillmentLineVM? badLine;
             TOxItemFulfillmentLineVM? goodLine;
 
-            var barcode = await ResolveBarcodeAsync(scanned);
+            var resolution = await BarcodeResolver.ResolveAsync(scanned);
 
-            if (barcode is null)
+            if (!resolution.IsFound)
             {
-                await Toast.Warning($"Unknown barcode: {scanned}");
+                if (resolution.IsFailure)
+                {
+                    await Toast.Error(resolution.Message);
+                }
+                else
+                {
+                    await Toast.Warning(resolution.Message);
+                }
+
                 return;
             }
+
+            var barcode = resolution.Barcode!;
 
             if (ActiveTabIndex == 1)
             {
@@ -1202,16 +1137,6 @@ public partial class TOxItemFulfillmentItemView : IAsyncDisposable
             }
         }
 
-        // Refresh barcode requests from the refreshed IF
-        ItemRequest = GoodIFItems
-            .Select(i => new BarcodeRequestVM
-            {
-                NetsuiteMaterialInternalId = i.NetsuiteMaterialInternalId
-            })
-            .ToList();
-
-        await ActionFactory.ExecuteAppActionAsync(ActionGetItemBarcodes);
-
         await InvokeAsync(StateHasChanged);
     }
 
@@ -1264,75 +1189,12 @@ public partial class TOxItemFulfillmentItemView : IAsyncDisposable
         MarkScansClean();
         BroadcastService.BroadcastReceived -= HandleItemScan;
 
-        if (JsObj is not null)
-        {
-            try
-            {
-                JsObj.InvokeVoidAsync("UnObserveRecentScanned");
-                await JsObj.InvokeVoidAsync("Dispose");
-            }
-            catch
-            {
-                // ignore cleanup errors
-            }
-
-            try
-            {
-                await JsObj.DisposeAsync();
-            }
-            finally
-            {
-                JsObj = null;
-            }
-        }
+        await DisposeLastScannedPanel();
     }
 
     #region Button States
     private ToggleState ScanState { get; set; } = ToggleState.Base;
 
-    private string ScanStateIcon => ScanState switch
-    {
-        ToggleState.Base => "check",
-        ToggleState.Good => "check",
-        ToggleState.Bad => "block",
-        _ => "check"
-    };
-
-    private string ScanStateLabel => ScanState switch
-    {
-        ToggleState.Base => "Good",
-        ToggleState.Good => "Good",
-        ToggleState.Bad => "Bad",
-        _ => "Good"
-    };
-
-    private ButtonStyle ScanStateButtonStyle => ScanState switch
-    {
-        ToggleState.Base => ButtonStyle.Base,
-        ToggleState.Good => ButtonStyle.Success,
-        ToggleState.Bad => ButtonStyle.Danger,
-        _ => ButtonStyle.Base
-    };
-
-    private void ToggleScanState()
-    {
-        ScanState = ScanState switch
-        {
-            ToggleState.Base => ToggleState.Good,
-            ToggleState.Good => ToggleState.Bad,
-            ToggleState.Bad => ToggleState.Base,
-            _ => ToggleState.Base
-        };
-
-        NextScanIsBad = ScanState switch
-        {
-            ToggleState.Base => false,
-            ToggleState.Good => false,
-            ToggleState.Bad => true,
-            _ => false
-        };
-
-        InvokeAsync(StateHasChanged);
-    }
+    private bool NextScanIsBad => ScanState == ToggleState.Bad;
     #endregion
 }

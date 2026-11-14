@@ -3,6 +3,10 @@ namespace Integration.NS.DataTransferObjects.Packing.STR;
 public class StrPackingDataGridNSDTO
 {
     public int Id { get; set; }
+    public int ForPrintingIFCount { get; set; }
+    public int PrintedIFCount { get; set; }
+    public int SingleFulfillmentId { get; set; }
+    public int PendingPackLinesCount { get; set; }
     public string ReferenceNumber { get; set; } = string.Empty;
     public string SourceSubsidiary { get; set; } = string.Empty;
     public string DestinationSubsidiary { get; set; } = string.Empty;

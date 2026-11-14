@@ -1,0 +1,77 @@
+openapi: 3.0.3
+info:
+  title: WMS NetSuite Bulk Fulfillment Callback
+  version: 1.0.0
+  description: Process-local completion notifications. No database or restart durability.
+paths:
+  /api/integrations/netsuite/bulk-fulfillment-events:
+    post:
+      operationId: receiveBulkFulfillmentEvent
+      summary: Report Done or Failed processing for a NetSuite BF record
+      description: >-
+        Requires HTTPS. Reuse the complete payload on retries. New events for a BF
+        use a new eventId and higher sequence. A 202 acknowledgment is memory-only.
+      security:
+        - NetSuiteWebhookKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BulkFulfillmentEvent'
+            example:
+              eventId: 27e74b95-47e9-4e2c-99f1-a50506f5c7d2
+              bulkFulfillmentId: 301
+              sequence: 1
+              status: Done
+              message: 2 of 2 RTS fulfilled. Item Fulfillments are available.
+      responses:
+        '202':
+          description: Accepted in current-process memory, or identical duplicate. Empty response body.
+        '400':
+          description: Invalid JSON, unsupported fields/values, or HTTPS required. Correct request before retrying.
+        '401':
+          description: Missing or incorrect machine credential.
+        '409':
+          description: Event ID or BF sequence already belongs to a different payload.
+        '413':
+          description: Request exceeds 16 KiB.
+        '503':
+          description: Server credential not configured or process-local capacity exhausted.
+        '500':
+          description: Unexpected failure. Retry identical notification with backoff.
+components:
+  securitySchemes:
+    NetSuiteWebhookKey:
+      type: apiKey
+      in: header
+      name: X-NetSuite-Webhook-Key
+      description: Shared secret configured by the deployment; at least 32 characters.
+  schemas:
+    BulkFulfillmentEvent:
+      type: object
+      required: [eventId, bulkFulfillmentId, sequence, status]
+      properties:
+        eventId:
+          type: string
+          format: uuid
+          description: Nonempty UUID stable across delivery retries.
+        bulkFulfillmentId:
+          type: integer
+          format: int32
+          minimum: 1
+          description: NetSuite customrecord_bulk_fulfillment internal ID.
+        sequence:
+          type: integer
+          format: int64
+          minimum: 1
+          description: Increasing per-BF logical event version, not HTTP attempt count.
+        status:
+          type: string
+          enum: [Done, Failed]
+          description: Case-sensitive processing outcome.
+        message:
+          type: string
+          nullable: true
+          maxLength: 4000
+          description: Optional plain-text processing details; not interpreted as markup or business logic.

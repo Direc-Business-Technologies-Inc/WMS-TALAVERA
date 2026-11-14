@@ -5,6 +5,7 @@ namespace Web.BlazorServer.Handlers.Repositories.Transaction.Receiving;
 
 public interface IReceivingHandler
 {
+    Task<Application.DataTransferObjects.Transactions.PrintStatusCountsDTO> GetReceivingPrintStatusCounts(DataGridIntent intent, CancellationToken ct = default);
     Task<(IEnumerable<PurchaseOrderDataGridVM> Data, int Count)> GetPurchaseOrderDataGridAsync(DataGridIntent intent);
     Task<(IEnumerable<TransferOrderDataGridVM> Data, int Count)> GetTransferOrderDataGridAsync(DataGridIntent intent);
     Task<(IEnumerable<ReturnsDataGridVM> Data, int Count)> GetReturnsDataGridAsync(DataGridIntent intent);
@@ -17,7 +18,7 @@ public interface IReceivingHandler
     Task<bool> PostGoodsReceiptPOAsync(PurchaseOrderVM data);
     Task<BarcodeVM?> GetBarcodeData(string barcode, int? location);
     Task<IEnumerable<ItemFulfillmentLineVM>> GetItemFulfillmentLinesAsync(int ifid, DataGridIntent intent);
-    Task<(IEnumerable<ItemFulfillmentVM>, int)> GetTransferOrderItemFulfillments(int toId, DataGridIntent intent);
+    Task<(IEnumerable<ItemFulfillmentVM>, int, int)> GetTransferOrderItemFulfillments(int toId, DataGridIntent intent);
     Task<(IEnumerable<ItemReceiptDataGridVM>, int)> GetItemReceiptsDatagridAsync(DataGridIntent intent);
     Task<(IEnumerable<TransferOrderStatusVM>, int)> GetTransferOrderStatuses(DataGridIntent intent);
     Task<(IEnumerable<PurchaseOrderStatusVM>, int)> GetPurchaseOrderStatuses(DataGridIntent intent);

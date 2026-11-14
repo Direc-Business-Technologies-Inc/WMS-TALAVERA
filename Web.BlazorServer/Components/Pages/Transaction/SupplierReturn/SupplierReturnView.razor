@@ -41,6 +41,7 @@
             OnSecondaryAction="@(FormData.IsSubmittedForApprovals ? default! : Edit)"
             SecondaryActionString="Edit"
             OnApprovalAction="@(FormData.IsSubmittedForApprovals ? default! : SubmitForApproval)"
+            OnApproveAction="@(CanApprove && FormData.IsSubmittedForApprovals && FormData.Status?.Id != global::Shared.Libraries.Utilities.NetSuiteApprovalStatus.Approved.ToString() ? Approve : default!)"
             />
     }
 </AppContent>

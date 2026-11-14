@@ -22,6 +22,11 @@ public class TransferOrderLineDTO : TransactionDTO
     public decimal VendorAssignedBinQuantityAvailableGood { get; set; }
     public decimal VendorAssignedBinQuantityAvailableBad { get; set; }
 
+    // Per-line vendor requested on the STR (custcol_dbti_vendor). Nullable:
+    // documents created before per-line vendors existed carry no value.
+    public int? VendorId { get; set; }
+    public string? VendorName { get; set; }
+
     // NetSuite 'T'/'F' flag on the transaction line. A closed line is fully
     // shipped (or closed outright) and is NOT present on the
     // !transform/itemFulfillment item sublist, so posting it is an invalid

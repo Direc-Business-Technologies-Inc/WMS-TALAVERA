@@ -30,12 +30,25 @@ NetSuite rejects the correlated form with `400 [INVALID_PARAMETER] ... Search er
  occurred: Invalid or unsupported search`.
 
 **Incidents:**
+- 2026-10-20 — mobile Inventory Counting item load: the counted quantities were added as four
+  scalar correlated subqueries over `inventoryassignment`
+  (`WHERE ia.transaction = t.id AND ia.transactionline = tl.id`), together with
+  `tl.countquantity` (an unconfirmed column) and bare-numeric `inventorystatus` compares.
+  The request failed and the mobile client — which deserialized the error body regardless of
+  status code — reported it as `Value cannot be null. (Parameter 'source')` with an empty
+  screen, hiding the real cause. Fix: two filtered derived tables (`ig`, `ib`) joined on
+  `TransactionId`/`TransactionLineId`; quoted statuses; no `countquantity`. Change record:
+  `.opencode/docs/changes/2026-10-20-inventory-counting-mobile-fixes.md`.
 - 2026-10-13 — STR/Returns web item-receipt load: `IF_TO_LINE_ID` (one level of
   correlation) and `IF_TO_LINE_RECEIVED_QTY` (nested two levels, reaching the outer
   `uom` alias) in `ReceivingIntegration.GetItemReceiptItemFulfillmentLinesAsync`.
   Fix: `IF_TO_LINE_MAP` derived table. Only the Item Fulfillment branch was affected,
   which is why the error appeared user-specific — it was actually path-specific
-  (STR/Returns web flow vs. the PO flow).
+   (STR/Returns web flow vs. the PO flow).
+  **2026-10-27 follow-up:** the derived-table example illustrates SQL shape only;
+  native operational `nextline` is not an IF accounting `transactionline.id`.
+  Receiving now validates expanded operational records against native source-line
+  links. See `changes/2026-10-27-receiving-operational-fulfillment-lines.md`.
 - 2026-10-08 — barcode search: scoping `itemvendor` in the outer join predicate
   (`pv.subsidiary = loc.subsidiary`) against an unscoped derived table was rejected;
   the subsidiary had to be resolved inside the table
@@ -48,6 +61,20 @@ NetSuite rejects the correlated form with `400 [INVALID_PARAMETER] ... Search er
    (transactions that still have an open line with quantity left to pack) is inner-joined
    on the transaction id, so a fully packed order drops out of the packing lists. Write it
    this way, not as `EXISTS (... WHERE sub.transaction = t.id)`.
+
+**A single-level scalar subquery in the SELECT list is accepted** — do not "fix" a working
+   one. `NS_TO_Get_Itemfulfillment_Items.sql` correlates
+   `(SELECT SUM(rtl.quantity) ... WHERE pttl.previousdoc = tl.transaction AND
+   pttl.previousline = tl.id)` and has run in production since the TO flow shipped. What
+   NetSuite rejects is correlation that reaches an outer alias from *inside a derived table*
+   in the FROM/JOIN clause, and the nested (two-level) scalar form. The lint is scoped to the
+   derived-table case for exactly this reason.
+
+**Enforced by:** `SuiteQLAssert.NoOuterAliasReferenceInDerivedTable`, run over every real
+   script by `NSScriptsWellFormedTests.Real_script_has_no_outer_alias_reference_in_derived_table`,
+   with both-direction fixtures in `SuiteQLDerivedTableCorrelationTests`. The Inventory
+   Counting script additionally has three targeted checks (no `(SELECT`, quoted
+   `inventorystatus`, no `.countquantity` projection).
 
 **A "still has work to do" gate cannot be expressed as an order-state predicate.** Both
    order-state columns available on `transaction` — `ordpicked` (picking) and `status`
@@ -185,6 +212,65 @@ join result, but it is not a parse error.
 `SuiteQLTextCommentTests.No_shipping_script_carries_a_sql_comment`, which scans the
 real `NSScripts/*.sql`. Coverage currently extends to `.sql` files only — see the
 open items in the change record.
+
+## Rule 8 — Scope aggregate tables before joining them to a picker
+
+Syntactically valid aggregate derived tables may still fail with NetSuite `500
+UNEXPECTED_ERROR` when they scan account-wide transaction tables and rely on an
+outer predicate to reduce the result afterward. NetSuite does not reliably push
+the outer predicate into the aggregate.
+
+```sql
+-- REJECTED in the STR fulfillment picker: aggregates every transaction line.
+JOIN (SELECT transaction, SUM(ABS(quantity)) AS qty
+      FROM transactionline
+      GROUP BY transaction) totals ON totals.transaction = t.id
+WHERE ml.createdfrom = :strId
+
+-- Accepted strategy: resolve the small candidate id set first, then aggregate
+-- with a direct predicate in a separate query.
+SELECT transaction, SUM(ABS(quantity)) AS qty
+FROM transactionline
+WHERE transaction IN (:candidateIfIds)
+GROUP BY transaction
+```
+
+Do not use the similarly named `nexttransactionlink` header table for this
+relationship. This account returns `500 UNEXPECTED_ERROR` from that table even
+for one IF and without joins. Use the runtime-verified
+`nexttransactionlinelink`, and read document links and line totals separately:
+
+```sql
+SELECT iflink.previousdoc, iflink.nextdoc
+FROM nexttransactionlinelink iflink
+WHERE iflink.previousdoc IN (:candidateIfIds)
+  AND iflink.previoustype = 'ItemShip'
+  AND iflink.nexttype = 'ItemRcpt'
+  AND iflink.linktype = 'TOrdCost';
+
+SELECT receiptline.transaction, SUM(ABS(receiptline.quantity))
+FROM transactionline receiptline
+WHERE receiptline.transaction IN (:linkedReceiptIds)
+  AND receiptline.mainline = 'F'
+  AND receiptline.item IS NOT NULL
+GROUP BY receiptline.transaction;
+```
+
+Qualify every link-table column. NetSuite reports bare columns such as
+`previoustype` as `Unknown identifier` even when only one table is in scope.
+Deduplicate `(previousdoc, nextdoc)` pairs in application code before assigning
+receipt totals; native link rows are not guaranteed to be unique.
+
+**Incident:** 2026-10-26 — Issue 182 changed the Web STR Item Fulfillment picker
+to compare fulfilled and linked-receipt quantities. Its two unbounded aggregate
+derived tables repeatedly returned `500 UNEXPECTED_ERROR`. Follow-up probes
+isolated the failure to the mistakenly used `nexttransactionlink` header table;
+the previously validated table was `nexttransactionlinelink`. The final fix uses
+the validated line-link table, resolves candidate ids first, reads IF-to-IR links
+and receipt totals separately, combines them in C#, and executes the paged query
+only for ids with a positive remainder.
+
+**Enforced by:** `GetSTRItemFulfillmentsQueryShapeTests`.
 
 ## Adding a new rule
 

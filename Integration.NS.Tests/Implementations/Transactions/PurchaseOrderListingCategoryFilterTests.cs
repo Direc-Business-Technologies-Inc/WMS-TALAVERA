@@ -24,6 +24,22 @@ namespace Integration.NS.Tests.Implementations.Transactions;
 /// </summary>
 public class PurchaseOrderListingCategoryFilterTests
 {
+    [Fact]
+    public async Task Date_range_filters_purchase_order_date_without_converting_the_column()
+    {
+        var (sut, client) = CreateCapturing();
+        var intent = new DataGridIntent { Take = 10 };
+        intent.Filters.Add(DataGridFilterUtilities.GreaterThanOrEqual("Date", new DateTime(2026, 10, 29)));
+        intent.Filters.Add(DataGridFilterUtilities.LessThan("Date", new DateTime(2026, 10, 30)));
+
+        await sut.GetPurchaseOrdersListAsync(intent);
+
+        Assert.NotNull(client.LastQuery);
+        Assert.Contains("t.trandate >= TO_DATE('2026-10-29T00:00:00'", client.LastQuery);
+        Assert.Contains("t.trandate < TO_DATE('2026-10-30T00:00:00'", client.LastQuery);
+        Assert.DoesNotContain("TO_DATE(t.trandate", client.LastQuery);
+    }
+
     private static (ReceivingIntegration Sut, CapturingNetSuiteClient Client) CreateCapturing()
     {
         var client = new CapturingNetSuiteClient();
@@ -52,6 +68,21 @@ public class PurchaseOrderListingCategoryFilterTests
         Assert.Contains(
             "(t.custbody_dbti_purchase_category != 3 OR t.custbody_dbti_purchase_subcategory IN ('4', '5', '9'))",
             where);
+    }
+
+    [Fact]
+    public async Task Purchase_order_list_query_excludes_custom_closed_status_but_allows_unset_status()
+    {
+        var (sut, client) = CreateCapturing();
+
+        await sut.GetPurchaseOrdersListAsync(new DataGridIntent { Take = 10 });
+
+        Assert.NotNull(client.LastQuery);
+        var query = System.Text.RegularExpressions.Regex.Replace(client.LastQuery, @"\s+", " ");
+        Assert.Contains(
+            "(t.custbody_dbti_custom_approval_status IS NULL OR t.custbody_dbti_custom_approval_status != '20')",
+            query);
+        Assert.Contains("t.status IN ('B', 'E')", query);
     }
 
     /// <summary>
@@ -102,5 +133,19 @@ public class PurchaseOrderListingCategoryFilterTests
         Assert.NotNull(client.LastQuery);
         Assert.Contains("AS PurchaseCategory", client.LastQuery);
         Assert.Contains("AS PurchaseSubcategory", client.LastQuery);
+    }
+
+    [Fact]
+    public async Task Purchase_order_list_uses_the_alias_for_receipt_print_counts()
+    {
+        var (sut, client) = CreateCapturing();
+
+        await sut.GetPurchaseOrdersListAsync(new DataGridIntent { Take = 10 });
+
+        Assert.NotNull(client.LastQuery);
+        var query = System.Text.RegularExpressions.Regex.Replace(client.LastQuery, @"\s+", " ");
+        Assert.Matches(@"\) ircount ON ircount\.sourceid = t\.id", query);
+        Assert.Contains("NVL(ircount.forprintingcount, 0) AS ForPrintingIRCount", query);
+        Assert.Contains("NVL(ircount.printedcount, 0) AS PrintedIRCount", query);
     }
 }

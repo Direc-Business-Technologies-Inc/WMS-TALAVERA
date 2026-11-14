@@ -9,13 +9,21 @@ namespace Application.UseCases.Repositories.Integration.Others;
 
 public interface INetSuiteApiClientService : INotifyPropertyChanged
 {
+    Task<NetSuiteCreationReceiptDTO> CreateRecordAsync(string url, string body, CancellationToken ct = default) =>
+        MakeRequest<NetSuiteCreationReceiptDTO>(url, body, HttpMethod.Post, ct: ct);
     Task<NetSuiteResponse<T>> ExecuteSuiteQLQuery<T>(string query, int? limit = null, int? offset = null, CancellationToken ct = default);
     Task<IEnumerable<T>?> NetsuiteQuery<T>(string queryName, Dictionary<string, string>? parameters = null, int limit = 0, int offset = 0, CancellationToken ct = default);
+    Task<NetSuiteResponse<T>?> NetsuiteQueryWithMetadata<T>(string queryName, Dictionary<string, string>? parameters = null, int limit = 0, int offset = 0, CancellationToken ct = default);
     Task<T> MakeRequest<T>(string url, string? reqBody, HttpMethod method, NetSuiteRequestKind? kind = null, NetSuiteRetryProfile profile = NetSuiteRetryProfile.Interactive, CancellationToken ct = default);
     Task<T> MakeRequestOAuth1<T>(string url, string? reqBody, HttpMethod method, NetSuiteRequestKind? kind = null, NetSuiteRetryProfile profile = NetSuiteRetryProfile.Interactive, CancellationToken ct = default);
 
     string GetRestAPIURI { get; }
     string GetRestletURI { get; }
+
+    Task IncrementPrintCountAsync(string recordType, int recordId, CancellationToken ct = default) =>
+        throw new NotSupportedException("Print count updates are not supported by this client.");
+    Task IncrementTripTicketPrintCountAsync(int recordId, CancellationToken ct = default) =>
+        throw new NotSupportedException("Trip Ticket print count updates are not supported by this client.");
 
 
     Task<bool> SaveTOItemFulfillment(List<PostTransferOrderDTO> Data);

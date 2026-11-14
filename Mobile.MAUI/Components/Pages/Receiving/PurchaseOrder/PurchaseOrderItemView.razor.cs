@@ -20,10 +20,7 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
     [Parameter]
     public string OrderNumber { get; set; }
 
-    private IJSObjectReference JsObj { get; set; }
-
     AppAction<List<PurchaseOrderLineVM>> ActionGetPOItems { get; set; }
-    AppAction<List<ItemBarcodesPerUoMVM>> ActionGetItemBarcodes { get; set; }
     AppAction ActionUpdateStartTime { get; set; }
     AppAction<bool> ActionSaveScan { get; set; }
 
@@ -34,10 +31,9 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
     List<PurchaseOrderLineVM> FilteredBadPOItems = [];
 
     PurchaseOrderLineVM? LastScanned;
-    List<ItemBarcodesPerUoMVM> ItemBarcodes = [];
-    List<BarcodeRequestVM> ItemRequest = [];
 
     List<PurchaseOrderLineVM> POItems = [];
+    private bool _saveInProgress;
 
     PurchaseOrderLineVM? GoodSelectedLine;
     PurchaseOrderLineVM? BadSelectedLine;
@@ -55,9 +51,8 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
     }
     int ActiveTabIndex { get; set; } = 0;
 
-    bool SaveBtnDisabled => ScanCount == 0;
+    bool SaveBtnDisabled => ScanCount == 0 || _saveInProgress;
 
-    bool NextScanIsBad = false;
     bool MoveOn = false;
     bool IsMissing { get; set; }
     bool IsWeightDialogOpen = false;
@@ -182,36 +177,6 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
             }
         };
 
-        ActionGetItemBarcodes = new AppAction<List<ItemBarcodesPerUoMVM>>
-        {
-            Name = "GetItemBarcodes",
-
-            TaskAsync = async () =>
-            {
-                await InvokeAsync(StateHasChanged);
-
-                var res = await Client.Post<List<ItemBarcodesPerUoMVM>>(
-                    "/Item/Barcodes",
-                    ItemRequest);
-
-                return res;
-            },
-
-            OnSuccess = async (result) =>
-            {
-                ItemBarcodes = result.Data ?? [];
-
-                await InvokeAsync(StateHasChanged);
-            },
-
-            OnFailure = async (result) =>
-            {
-                await Toast.Error($"Failed to load item barcodes: {result.ErrorMessage}");
-
-                await InvokeAsync(StateHasChanged);
-            }
-        };
-
         ActionSaveScan = new AppAction<bool>
         {
             Name = "SavePurchaseOrderScan",
@@ -258,13 +223,6 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
 
             await ActionFactory.ExecuteAppActionAsync(ActionGetPOItems);
 
-            ItemRequest = GoodPOItems.Select(i => new BarcodeRequestVM
-            {
-                NetsuiteMaterialInternalId = i.NetsuiteMaterialInternalId
-            }).ToList();
-
-            await ActionFactory.ExecuteAppActionAsync(ActionGetItemBarcodes);
-
             string? userAuth = await SecureStorage.GetAsync("UserAuth");
 
             if (userAuth is not null)
@@ -276,15 +234,6 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
                     UserId = auth.NetsuiteEmployeeInternalId;
                 }
             }
-        }
-
-        if (GoodPOItems.Count > 0 && JsObj is null)
-        {
-            JsObj = await Js.InvokeAsync<IJSObjectReference>(
-                "import",
-                "./js/IntersectionObserver.js");
-
-            await JsObj.InvokeVoidAsync("ObserveRecentScanned");
         }
     }
 
@@ -389,6 +338,15 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
 
                 if (result is ManualEntryDialog.ManualEntryResult entry)
                 {
+                    if (_saveInProgress) return;
+
+                    if (entry.GoodQty < 0 || entry.BadQty < 0 ||
+                        entry.GoodQty + entry.BadQty > item.NSLineQuantityReceived)
+                    {
+                        await Toast.Warning($"Quantity exceeds remaining for {item.MaterialCode}. Reload the order and correct the entry.");
+                        return;
+                    }
+
                     ScanCount = 1;
 
                     item.ScannedQuantity = entry.GoodQty;
@@ -406,6 +364,8 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
                     }
 
                     LastScanned = item;
+
+                    await RevealLastScanned();
                 }
             }
             finally
@@ -483,6 +443,8 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
     {
         try
         {
+            if (_saveInProgress) return;
+
             if (ScanState == ToggleState.Base &&
                 !MoveOn &&
                 !NegateQuantity)
@@ -509,13 +471,23 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
                 return;
             }
 
-            var barcode = await ResolveBarcodeAsync(scanned);
+            var resolution = await BarcodeResolver.ResolveAsync(scanned);
 
-            if (barcode is null)
+            if (!resolution.IsFound)
             {
-                await Toast.Warning($"Unknown barcode: {scanned}");
+                if (resolution.IsFailure)
+                {
+                    await Toast.Error(resolution.Message);
+                }
+                else
+                {
+                    await Toast.Warning(resolution.Message);
+                }
+
                 return;
             }
+
+            var barcode = resolution.Barcode!;
 
             var goodLine = GoodPOItems.FirstOrDefault(x =>
                 x.NetsuiteMaterialInternalId == barcode.NetsuiteMaterialInternalId &&
@@ -597,6 +569,13 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
                     ChangeWeight = 0;
                 }
 
+                if (_saveInProgress ||
+                    goodLine.ScannedQuantity + badLine.ScannedQuantity + scanQty > goodLine.NSLineQuantityReceived)
+                {
+                    await Toast.Warning($"Scan quantity exceeds remaining quantity for item: {goodLine.MaterialCode}.");
+                    return;
+                }
+
                 badLine.ScannedQuantity +=
                     barcode.UoMRate / badLine.UoMRate;
 
@@ -644,6 +623,13 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
                     weight = barcode.DefaultWeight;
                 }
 
+                if (_saveInProgress ||
+                    goodLine.ScannedQuantity + (badLine?.ScannedQuantity ?? 0) + scanQty > goodLine.NSLineQuantityReceived)
+                {
+                    await Toast.Warning($"Scan quantity exceeds remaining quantity for item: {goodLine.MaterialCode}.");
+                    return;
+                }
+
                 goodLine.ScannedQuantity +=
                     barcode.UoMRate / goodLine.UoMRate;
 
@@ -654,6 +640,8 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
 
                 LastScanned = goodLine;
             }
+
+            await RevealLastScanned();
 
             ScanCount++;
 
@@ -670,6 +658,80 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
 
     async Task SaveScan()
     {
+        if (_saveInProgress) return;
+
+        var invalidLines = FindInvalidPOScans();
+        if (invalidLines.Count > 0)
+        {
+            await Toast.Warning($"Scans exceed the remaining PO quantity for: {string.Join(", ", invalidLines)}. Correct the scans or reload the order before saving.");
+            return;
+        }
+
+        _saveInProgress = true;
+        try
+        {
+            var result = await Dialog.OpenAsync<RemarksDialog>(
+                "Add Remarks",
+                new Dictionary<string, object> { },
+                new DialogOptions { ShowClose = true });
+
+            if (result is not RemarksDialog.RemarksResult remarksResult) return;
+            if (string.IsNullOrWhiteSpace(remarksResult.Remarks))
+            {
+                await Toast.Warning("Please add remarks.");
+                return;
+            }
+
+            invalidLines = FindInvalidPOScans();
+            if (invalidLines.Count > 0)
+            {
+                await Toast.Warning($"Scans exceed the remaining PO quantity for: {string.Join(", ", invalidLines)}. Correct the scans or reload the order before saving.");
+                return;
+            }
+
+            Remarks = remarksResult.Remarks;
+            POItems = BuildPOReceiptLines();
+            if (!POItems.Any(x => x.ScannedQuantity > 0))
+            {
+                await Toast.Warning("There are no scanned items to save.");
+                return;
+            }
+
+            await ActionFactory.ExecuteAppActionAsync(ActionSaveScan, confirm: true, showToast: true);
+        }
+        catch (Exception e)
+        {
+            await Toast.Error($"Error: {e.Message}");
+        }
+        finally
+        {
+            _saveInProgress = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private List<string> FindInvalidPOScans()
+    {
+        var invalid = new List<string>();
+        foreach (var good in GoodPOItems)
+        {
+            var bad = BadPOItems.FirstOrDefault(x =>
+                x.LineSequenceNumber == good.LineSequenceNumber &&
+                x.NetsuiteMaterialInternalId == good.NetsuiteMaterialInternalId);
+            var scanned = RoundOfNearestHundredThousands(good.ScannedQuantity) +
+                          RoundOfNearestHundredThousands(bad?.ScannedQuantity ?? 0);
+            if (scanned == 0 && good.ScannedQuantity >= 0 && (bad?.ScannedQuantity ?? 0) >= 0) continue;
+
+            if (good.UoMRate <= 0 || good.ScannedQuantity < 0 || (bad?.ScannedQuantity ?? 0) < 0 ||
+                scanned > good.NSLineQuantityReceived)
+                invalid.Add($"{good.MaterialCode} (line {good.LineSequenceNumber})");
+        }
+
+        return invalid;
+    }
+
+    private List<PurchaseOrderLineVM> BuildPOReceiptLines()
+    {
         // Post every OPEN line, not just the scanned ones. The PO !transform/itemReceipt seeds
         // its item sublist from the whole set of open lines, so a body carrying only the scanned
         // entries addresses a partial sublist and NetSuite rejects the save ("configure the
@@ -677,7 +739,7 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
         // ones travel as detail-free fillers (isReceived=false) exactly as the Returns receipt
         // does. Scanned bad rows are appended so a line scanned only as bad is still received.
         // Over-scans are left to the server's remaining-quantity guard, which names the line.
-        POItems = GoodPOItems
+        return GoodPOItems
             .Where(g => g.NSLineQuantityReceived != 0)
             .Concat(BadPOItems.Where(x => x.ScannedQuantity > 0 && x.NSLineQuantityReceived != 0))
             .Select(x => new PurchaseOrderLineVM
@@ -720,45 +782,6 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
                 ScannedWeight = x.ScannedWeight
             })
             .ToList();
-
-        if (POItems.Count == 0)
-        {
-            await Toast.Warning("There are no scanned items to save.");
-            return;
-        }
-
-        try
-        {
-            var result = await Dialog.OpenAsync<RemarksDialog>(
-                "Add Remarks",
-                new Dictionary<string, object> { },
-                new DialogOptions
-                {
-                    ShowClose = true
-                });
-
-            if (result is RemarksDialog.RemarksResult remarksResult)
-            {
-                if (string.IsNullOrWhiteSpace(remarksResult.Remarks))
-                {
-                   await Toast.Warning($"Please add remarks.");
-                   return;
-                }
-
-                Remarks = remarksResult.Remarks;
-
-                await ActionFactory.ExecuteAppActionAsync(
-                    ActionSaveScan,
-                    confirm: true,
-                    showToast: true);
-            }
-        }
-        catch (Exception e)
-        {
-            await Toast.Error($"Error: {e.Message}");
-        }
-
-        await InvokeAsync(StateHasChanged);
     }
 
     private bool IsActionPanelCollapsed;
@@ -807,71 +830,6 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
         ChangeWeight = await GetWeightAsync("", "");
     }
 
-    /// <summary>
-    /// Resolves a scanned barcode for this view. Prefers the barcode list
-    /// preloaded for the document; when that list is empty (the load failed or
-    /// has not finished) it retries the load once; when the list simply does not
-    /// contain the scan it falls back to the authoritative per-barcode lookup.
-    /// Returns null only when NetSuite knows no such barcode.
-    /// </summary>
-    private async Task<ItemBarcodesPerUoMVM?> ResolveBarcodeAsync(string scanned)
-    {
-        var cached = FindCachedBarcode(scanned);
-
-        if (cached is not null)
-        {
-            return cached;
-        }
-
-        if (ItemBarcodes.Count == 0)
-        {
-            ItemRequest = GoodPOItems
-                .Select(i => new BarcodeRequestVM
-                {
-                    NetsuiteMaterialInternalId = i.NetsuiteMaterialInternalId
-                })
-                .ToList();
-
-            await ActionFactory.ExecuteAppActionAsync(ActionGetItemBarcodes);
-
-            cached = FindCachedBarcode(scanned);
-
-            if (cached is not null)
-            {
-                return cached;
-            }
-        }
-
-        var res = await Client.Post<InventoryItemVM>("/Item/PerBarcode", new { Barcode = scanned });
-
-        if (res?.Data is null)
-        {
-            return null;
-        }
-
-        var resolved = new ItemBarcodesPerUoMVM
-        {
-            NetsuiteMaterialInternalId = res.Data.NetsuiteMaterialInternalId,
-            MaterialCode = res.Data.MaterialCode,
-            MaterialName = res.Data.MaterialName,
-            MaterialWeight = res.Data.MaterialWeight,
-            UoMName = res.Data.UoMName,
-            UoMRate = res.Data.UoMRate,
-            MaterialBarcode = scanned,
-        };
-
-        ItemBarcodes.Add(resolved);
-
-        return resolved;
-    }
-
-    private ItemBarcodesPerUoMVM? FindCachedBarcode(string scanned)
-    {
-        return ItemBarcodes.FirstOrDefault(x =>
-            !string.IsNullOrWhiteSpace(x.MaterialBarcode) &&
-            x.MaterialBarcode.Equals(scanned, StringComparison.OrdinalIgnoreCase));
-    }
-
     async Task MoveScan(string scanned)
     {
         try
@@ -879,13 +837,23 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
             PurchaseOrderLineVM? badLine;
             PurchaseOrderLineVM? goodLine;
 
-            var barcode = await ResolveBarcodeAsync(scanned);
+            var resolution = await BarcodeResolver.ResolveAsync(scanned);
 
-            if (barcode is null)
+            if (!resolution.IsFound)
             {
-                await Toast.Warning($"Unknown barcode: {scanned}");
+                if (resolution.IsFailure)
+                {
+                    await Toast.Error(resolution.Message);
+                }
+                else
+                {
+                    await Toast.Warning(resolution.Message);
+                }
+
                 return;
             }
+
+            var barcode = resolution.Barcode!;
 
             if (ActiveTabIndex == 1)
             {
@@ -1069,13 +1037,23 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
             PurchaseOrderLineVM? badLine;
             PurchaseOrderLineVM? goodLine;
 
-            var barcode = await ResolveBarcodeAsync(scanned);
+            var resolution = await BarcodeResolver.ResolveAsync(scanned);
 
-            if (barcode is null)
+            if (!resolution.IsFound)
             {
-                await Toast.Warning($"Unknown barcode: {scanned}");
+                if (resolution.IsFailure)
+                {
+                    await Toast.Error(resolution.Message);
+                }
+                else
+                {
+                    await Toast.Warning(resolution.Message);
+                }
+
                 return;
             }
+
+            var barcode = resolution.Barcode!;
 
             if (ActiveTabIndex == 1)
             {
@@ -1290,31 +1268,13 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
         MarkScansClean();
         BroadcastService.BroadcastReceived -= HandleItemScan;
 
-        if (JsObj is not null)
-        {
-            try
-            {
-                JsObj.InvokeVoidAsync("UnObserveRecentScanned");
-                await JsObj.InvokeVoidAsync("Dispose");
-            }
-            catch
-            {
-                // Ignore cleanup errors.
-            }
-
-            try
-            {
-                await JsObj.DisposeAsync();
-            }
-            finally
-            {
-                JsObj = null;
-            }
-        }
+        await DisposeLastScannedPanel();
     }
 
     private async Task Refresh()
     {
+        if (_saveInProgress) return;
+
         // Snapshot current scanned state before refreshing
         var scannedState = GoodPOItems
             .Concat(BadPOItems)
@@ -1356,62 +1316,17 @@ public partial class PurchaseOrderItemView : IAsyncDisposable
             }
         }
 
-        // Refresh barcode requests from the refreshed PO
-        ItemRequest = GoodPOItems
-            .Select(i => new BarcodeRequestVM
-            {
-                NetsuiteMaterialInternalId = i.NetsuiteMaterialInternalId
-            })
-            .ToList();
-
-        await ActionFactory.ExecuteAppActionAsync(ActionGetItemBarcodes);
+        var invalidLines = FindInvalidPOScans();
+        if (invalidLines.Count > 0)
+            await Toast.Warning($"Previous scans exceed the refreshed PO balance for: {string.Join(", ", invalidLines)}. Correct or rescan these lines before saving.");
 
         await InvokeAsync(StateHasChanged);
     }
 
 
     #region Button States
-
     private ToggleState ScanState { get; set; } = ToggleState.Base;
 
-    private string ScanStateIcon => ScanState switch
-    {
-        ToggleState.Base => "check",
-        ToggleState.Good => "check",
-        ToggleState.Bad => "block",
-        _ => "check"
-    };
-
-    private string ScanStateLabel => ScanState switch
-    {
-        ToggleState.Base => "Good",
-        ToggleState.Good => "Good",
-        ToggleState.Bad => "Bad",
-        _ => "Good"
-    };
-
-    private ButtonStyle ScanStateButtonStyle => ScanState switch
-    {
-        ToggleState.Base => ButtonStyle.Base,
-        ToggleState.Good => ButtonStyle.Success,
-        ToggleState.Bad => ButtonStyle.Danger,
-        _ => ButtonStyle.Base
-    };
-
-    private void ToggleScanState()
-    {
-        ScanState = ScanState switch
-        {
-            ToggleState.Base => ToggleState.Good,
-            ToggleState.Good => ToggleState.Bad,
-            ToggleState.Bad => ToggleState.Good,
-            _ => ToggleState.Good
-        };
-
-        NextScanIsBad = ScanState == ToggleState.Bad;
-
-        InvokeAsync(StateHasChanged);
-    }
-
+    private bool NextScanIsBad => ScanState == ToggleState.Bad;
     #endregion
 }

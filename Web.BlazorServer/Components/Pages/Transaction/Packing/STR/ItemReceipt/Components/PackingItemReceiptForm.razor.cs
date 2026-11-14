@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
+using Web.BlazorServer.Components.Base;
 using Radzen;
 using Web.BlazorServer.Components.Pages.Transaction.Others.BarcodeScanning;
 using Web.BlazorServer.Components.Shared.Abstraction;
@@ -12,6 +13,8 @@ namespace Web.BlazorServer.Components.Pages.Transaction.Packing.STR.ItemReceipt.
 
 partial class PackingItemReceiptForm
 {
+    SubmitOnce SubmitOnce { get; } = new();
+    bool IsSubmitting => SubmitOnce.IsSubmitting;
     [Parameter] public ItemReceiptPackingVM Data { get; set; } = new();
     [Parameter] public EditContext? EditContext { get; set; }
     [Parameter] public EventCallback<ItemReceiptPackingVM> OnValidSubmit { get; set; }
@@ -22,13 +25,27 @@ partial class PackingItemReceiptForm
     AppTable<ItemReceiptLinePackingVM> LinesTable = default!;
     DataGridSettings TableSettings { get; set; } = new();
 
-    List<ItemReceiptLinePackingVM> FulfillableLines => [.. Data.Lines.Where(line => !line.IsComplete)];
+    List<ItemReceiptLinePackingVM>? sourceLines;
+    List<ItemReceiptLinePackingVM> fulfillableLines = [];
 
     BarcodeStore BarcodeStore = new();
 
     bool isPlannedGreaterOpen => Data.Lines.Any(line => line.QuantityAvailable < line.QuantityOpen);
 
-    public async Task Submit()
+    protected override void OnParametersSet()
+    {
+        base.OnParametersSet();
+
+        if (!ReferenceEquals(sourceLines, Data.Lines))
+        {
+            sourceLines = Data.Lines;
+            fulfillableLines = [.. Data.Lines.Where(line => !line.IsComplete)];
+        }
+    }
+
+    public Task Submit() => SubmitOnce.RunAsync(SubmitCore);
+
+    async Task SubmitCore()
     {
         if (OnValidSubmit.HasDelegate && EditContext is not null && EditContext.Validate())
             await OnValidSubmit.InvokeAsync(Data);

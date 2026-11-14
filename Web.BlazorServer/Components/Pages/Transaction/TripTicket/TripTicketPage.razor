@@ -1,3 +1,4 @@
+@using Web.BlazorServer.Components.Custom
 @using Web.BlazorServer.Components.Pages.Transaction.TripTicket.Component
 @using Web.BlazorServer.Components.Security
 
@@ -13,5 +14,11 @@
 </RadzenStack>
 
 <AppContent>
-    <TripTicketDataGrid />
+    <RadzenTabs SelectedIndex="0">
+        <Tabs>
+            <RadzenTabsItem Text="Trip Tickets">
+                <TripTicketDataGrid />
+            </RadzenTabsItem>
+        </Tabs>
+    </RadzenTabs>
 </AppContent>

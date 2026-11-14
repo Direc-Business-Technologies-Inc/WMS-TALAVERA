@@ -9,6 +9,9 @@ namespace Application.DataTransferObjects.Transactions.Receiving;
 public class PurchaseOrderDataGridDTO
 {
     public int Id { get; set; }
+    public int ForPrintingIRCount { get; set; }
+    public int PrintedIRCount { get; set; }
+    public int SingleReceiptId { get; set; }
     public string ReferenceNumber { get; set; } = string.Empty;
     public string VendorName { get; set; } = string.Empty;
     public string PurchaseCategory { get; set; } = string.Empty;

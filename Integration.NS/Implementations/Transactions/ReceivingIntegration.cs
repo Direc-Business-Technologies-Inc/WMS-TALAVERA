@@ -22,6 +22,7 @@ using Shared.Entities;
 using Shared.Libraries.Utilities;
 using Shared.Libraries.ViewModel;
 using System.Numerics;
+using System.Diagnostics;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
@@ -30,13 +31,19 @@ using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace Integration.NS.Implementations.Transactions;
 // this class sucks
-public class ReceivingIntegration(
+public partial class ReceivingIntegration(
     INetSuiteApiClientService netsuiteService,
     IHttpContextAccessor httpContext,
     SuiteQLQueryBuilderFactoryService builderFactory,
     ILogger<ReceivingIntegration> logger)
     : IReceivingIntegration
 {
+    private const string ReceiptPrintCountsSql = "(SELECT irl.createdfrom AS sourceid, " +
+        "MAX(ir.id) AS singlereceiptid, " +
+        "SUM(CASE WHEN NVL(ir.custbody_wms_print_count, 0) < 1 THEN 1 ELSE 0 END) AS forprintingcount, " +
+        "SUM(CASE WHEN NVL(ir.custbody_wms_print_count, 0) >= 1 THEN 1 ELSE 0 END) AS printedcount " +
+        "FROM transaction ir JOIN transactionline irl ON irl.transaction = ir.id AND irl.mainline = 'T' " +
+        "WHERE ir.recordtype = 'itemreceipt' GROUP BY irl.createdfrom) ircount";
     /// <summary>
     /// NetSuite CUSTOMLIST_DBTI_PURCHASE_CATEGORY_LIST and
     /// CUSTOMRECORD_DBTI_PURCHASE_CATEGORIES ids (ordinal inserts — reordering
@@ -162,8 +169,23 @@ public class ReceivingIntegration(
         return response.items;
     }
 
+    private string AllowedPurchaseOrderLinesSql(int[] allowedLocations)
+    {
+        // Eligibility is "any line in an allowed location", not mainline location.
+        // Reduce to one source ID before joining headers/receipts to avoid fan-out.
+        var query = builderFactory.Create()
+            .Distinct()
+            .Select(("pol.transaction", "sourceid"))
+            .From("transactionline pol")
+            .Join("transaction po", "po.id = pol.transaction")
+            .WithFilters(Equal("po.recordtype", "purchaseorder"), In("pol.location", allowedLocations))
+            .Build();
+        return $"({query.Query}) allowedpo";
+    }
+
     public async Task<(IEnumerable<PurchaseOrderDataGridDTO>, int)> GetPurchaseOrdersListAsync(DataGridIntent intent)
     {
+        var includeCompletedReceived = intent.Filters.RemoveAll(filter => filter.Property == "IncludeCompletedReceived") > 0;
         if (intent.Sorts.Count == 0) intent.Sorts.Add(DataGridSortUtilities.Descending("ReferenceNumber"));
 
         int[] AllowedLocations = [-1];
@@ -188,15 +210,26 @@ public class ReceivingIntegration(
                 ("BUILTIN.DF(t.custbody_dbti_purchase_category)", "PurchaseCategory"),
                 ("BUILTIN.DF(t.custbody_dbti_purchase_subcategory)", "PurchaseSubcategory"),
                 ("s.name", nameof(PurchaseOrderDataGridDTO.Status)),
-                ("t.transferlocation", "TransferLocation"))
+                ("t.transferlocation", "TransferLocation"),
+                ("NVL(ircount.forprintingcount, 0)", nameof(PurchaseOrderDataGridDTO.ForPrintingIRCount)),
+                ("NVL(ircount.printedcount, 0)", nameof(PurchaseOrderDataGridDTO.PrintedIRCount)),
+                ("NVL(ircount.singlereceiptid, 0)", nameof(PurchaseOrderDataGridDTO.SingleReceiptId)))
             .From("transaction t")
-            .Join("transactionline tl", "tl.transaction = t.id")
+            .Join(AllowedPurchaseOrderLinesSql(AllowedLocations), "allowedpo.sourceid = t.id")
+            .LeftJoin(ReceiptPrintCountsSql, "ircount.sourceid = t.id")
             .LeftJoin("purchaseorderstatus s", on: "s.id = t.status")
-            .WithDatagridIntent(intent, PurchaseOrderColumnMap)
+            .WithDatagridIntent(intent, PurchaseOrderColumnMap.Concat(new Dictionary<string, string>
+            {
+                [nameof(PurchaseOrderDataGridDTO.ForPrintingIRCount)] = "NVL(ircount.forprintingcount, 0)",
+                [nameof(PurchaseOrderDataGridDTO.PrintedIRCount)] = "NVL(ircount.printedcount, 0)",
+                [nameof(PurchaseOrderDataGridDTO.SingleReceiptId)] = "NVL(ircount.singlereceiptid, 0)"
+            }).ToDictionary())
             .WithFilters(
                 Equal("t.recordtype", "purchaseorder"),
-                In("t.status", new string[] { "B", "E" }),
-                In("tl.location", AllowedLocations),
+                In("t.status", includeCompletedReceived ? new string[] { "B", "D", "E", "F", "G" } : new string[] { "B", "D", "E" }),
+                Any(
+                    IsNull("t.custbody_dbti_custom_approval_status"),
+                    NotEqual("t.custbody_dbti_custom_approval_status", "20")),
                 Any(
                     NotEqual("t.custbody_dbti_purchase_category", NonTradePurchaseCategoryId),
                     In("t.custbody_dbti_purchase_subcategory", NonTradeSubcategoryIds))
@@ -209,13 +242,14 @@ public class ReceivingIntegration(
         {
             if (skipOverride.HasValue) query.Offset = skipOverride.Value;
 
-            var response = await query.ExecuteWithPaging<PurchaseOrderDataGridDTO>(netsuiteService);
+            var response = await query.ExecuteWithPaging<PurchaseOrderDataGridDTO>(netsuiteService, intent.CancellationToken);
             return response;
         });
     }
 
     public async Task<(IEnumerable<TransferOrderDataGridDTO>, int count)> GetTransferOrderListAsync(DataGridIntent intent)
     {
+        var includeCompletedReceived = intent.Filters.RemoveAll(filter => filter.Property == "IncludeCompletedReceived") > 0;
 
         if (intent.Sorts.Count == 0) intent.Sorts.Add(DataGridSortUtilities.Descending("ReferenceNumber"));
 
@@ -245,16 +279,20 @@ public class ReceivingIntegration(
                 ("BUILTIN.DF(tl.location)", "Location"),
                 ("s.name", nameof(TransferOrderDataGridDTO.Status)),
                 ("t.memo", nameof(TransferOrderDataGridDTO.Remarks)),
-                ("BUILTIN.DF(t.transferlocation)", "TransferLocation")
+                ("BUILTIN.DF(t.transferlocation)", "TransferLocation"),
+                ("NVL(ircount.forprintingcount, 0)", nameof(TransferOrderDataGridDTO.ForPrintingIRCount)),
+                ("NVL(ircount.printedcount, 0)", nameof(TransferOrderDataGridDTO.PrintedIRCount)),
+                ("NVL(ircount.singlereceiptid, 0)", nameof(TransferOrderDataGridDTO.SingleReceiptId))
                 )
             .From("transaction t")
             .Join("transactionline tl", on: "tl.transaction = t.id")
+            .LeftJoin(ReceiptPrintCountsSql, "ircount.sourceid = t.id")
             .LeftJoin("transferorderstatus s", on: "t.status = s.id")
             .WithFilters(
                 Equal("tl.mainline", "T"),
                 NotEqual("t.custbody_dbti_transfer_category", 4), // returns - bad items
                 NotEqual("t.custbody_dbti_transfer_category", 3), // returns - good items
-                In("t.status", new string[] { "F", "E" }),
+                In("t.status", includeCompletedReceived ? new string[] { "F", "E", "G" } : new string[] { "F", "E" }),
                 Any(
                     All(
                         Equal("t.recordtype", "intercompanytransferorder"),
@@ -267,14 +305,18 @@ public class ReceivingIntegration(
                 ),
                 In("t.transferlocation", AllowedLocations)
             )
-            .WithDatagridIntent(intent, TransferOrderColumnMap)
+            .WithDatagridIntent(intent, TransferOrderColumnMap.Concat(new Dictionary<string, string>
+            {
+                [nameof(TransferOrderDataGridDTO.ForPrintingIRCount)] = "NVL(ircount.forprintingcount, 0)",
+                [nameof(TransferOrderDataGridDTO.PrintedIRCount)] = "NVL(ircount.printedcount, 0)"
+            }).ToDictionary())
             .Build();
 
         return await QueryListWithOffsetClampAsync(intent, "Transfer orders list", async skipOverride =>
         {
             if (skipOverride.HasValue) query.Offset = skipOverride.Value;
 
-            var response = await query.ExecuteWithPaging<TransferOrderDataGridDTO>(netsuiteService);
+            var response = await query.ExecuteWithPaging<TransferOrderDataGridDTO>(netsuiteService, intent.CancellationToken);
             return response;
         });
     }
@@ -293,6 +335,7 @@ public class ReceivingIntegration(
         string gridName,
         Func<int?, Task<Application.DataTransferObjects.Others.NS.NetSuiteResponse<T>>> executeQuery)
     {
+        var started = Stopwatch.GetTimestamp();
         try
         {
             var response = await executeQuery(null);
@@ -318,6 +361,11 @@ public class ReceivingIntegration(
 
             var retry = await executeQuery(retrySkip);
             return (retry.items, retry.totalResults);
+        }
+        finally
+        {
+            logger.LogInformation("Receiving {GridName} completed in {ElapsedMs} ms; take: {Take}; skip: {Skip}",
+                gridName, Stopwatch.GetElapsedTime(started).TotalMilliseconds, intent.Take, intent.Skip);
         }
     }
 
@@ -450,6 +498,8 @@ public class ReceivingIntegration(
 
     private async Task<Application.DataTransferObjects.Others.NS.NetSuiteResponse<ReturnsDataGridDTO>> QueryReturnsListAsync(DataGridIntent intent, int? skipOverride = null)
     {
+        var includeCompletedReceived = intent.Filters.RemoveAll(filter => filter.Property == "IncludeCompletedReceived") > 0;
+
         if (intent.Sorts.Count == 0) intent.Sorts.Add(DataGridSortUtilities.Descending("ReferenceNumber"));
 
         int[] AllowedLocations = [-1];
@@ -462,7 +512,7 @@ public class ReceivingIntegration(
         List<AppFilterDescriptor> filters =
         [
             In("t.recordtype", new string[] { "intercompanytransferorder", "transferorder" }),
-            In("t.status", new string[] { "F", "E" }),
+            In("t.status", includeCompletedReceived ? new string[] { "F", "E", "G" } : new string[] { "F", "E" }),
             Any(
                 Equal("t.custbody_dbti_transfer_category", 3),
                 Equal("t.custbody_dbti_transfer_category", 4)),
@@ -482,14 +532,23 @@ public class ReceivingIntegration(
                 ("BUILTIN.DF(t.tosubsidiary)", "DestinationSubsidiary"),
                 ("BUILTIN.DF(t.custbody_dbti_return_to_vendor)", "VendorName"),
                 ("BUILTIN.DF(ml.location)", "Location"),
-                ("s.name", nameof(ReturnsDataGridDTO.Status)),
-                ("BUILTIN.DF(t.transferlocation)", "TransferLocation"),
-                ("t.memo", "Memo")
-            )
-            .From("transaction t")
+            ("s.name", nameof(ReturnsDataGridDTO.Status)),
+            ("BUILTIN.DF(t.transferlocation)", "TransferLocation"),
+            ("t.memo", "Memo"),
+            ("NVL(ircount.forprintingcount, 0)", nameof(ReturnsDataGridDTO.ForPrintingIRCount)),
+            ("NVL(ircount.printedcount, 0)", nameof(ReturnsDataGridDTO.PrintedIRCount)),
+            ("NVL(ircount.singlereceiptid, 0)", nameof(ReturnsDataGridDTO.SingleReceiptId))
+        )
+        .From("transaction t")
+        .LeftJoin(ReceiptPrintCountsSql, "ircount.sourceid = t.id")
             .LeftJoin("transferorderstatus s", on: "s.id = t.status")
             .LeftJoin("transactionline ml", "ml.transaction = t.id AND ml.mainline = 'T'")
-            .WithDatagridIntent(intent, TransferOrderColumnMap)
+            .WithDatagridIntent(intent, TransferOrderColumnMap.Concat(new Dictionary<string, string>
+            {
+                [nameof(ReturnsDataGridDTO.ForPrintingIRCount)] = "NVL(ircount.forprintingcount, 0)",
+                [nameof(ReturnsDataGridDTO.PrintedIRCount)] = "NVL(ircount.printedcount, 0)",
+                [nameof(ReturnsDataGridDTO.SingleReceiptId)] = "NVL(ircount.singlereceiptid, 0)"
+            }).ToDictionary())
             .WithFilters([.. filters]).Build();
 
         if (skipOverride.HasValue)
@@ -497,7 +556,7 @@ public class ReceivingIntegration(
             query.Offset = skipOverride.Value;
         }
 
-        var response = await query.ExecuteWithPaging<ReturnsDataGridDTO>(netsuiteService);
+        var response = await query.ExecuteWithPaging<ReturnsDataGridDTO>(netsuiteService, intent.CancellationToken);
         return response;
     }
 
@@ -627,79 +686,23 @@ public class ReceivingIntegration(
         });
     }
 
-    /// <summary>
-    ///     Derived table mapping each Item Fulfillment line to its source TO
-    ///     RECEIVING line id (<c>tolineid</c>) and that line's <c>quantityshiprecv</c>.
-    ///     <para>
-    ///     All correlation is resolved INSIDE the derived table; the outer join
-    ///     predicate only correlates the table's own output columns (ifdoc/ifline)
-    ///     to the driving alias. A previous shape embedded the same mapping as
-    ///     correlated scalar subqueries in the SELECT list (the QuantityReceived one
-    ///     nested two levels deep, reaching the outer <c>uom</c> alias), which
-    ///     NetSuite rejects with <c>400 [INVALID_PARAMETER] ... Invalid or
-    ///     unsupported search</c> — see .opencode/docs/SuiteQL-Shape-Rules.md.
-    ///     </para>
-    /// </summary>
-    /// <returns>A parenthesised subquery. Append the join alias, e.g. $"{IF_TO_LINE_MAP} ifmap".</returns>
-    const string IF_TO_LINE_MAP = """
-            SELECT
-                tolink.nextdoc AS ifdoc,
-                tolink.nextline AS ifline,
-                ttl.id AS tolineid,
-                ttl.quantityshiprecv AS qtyrecv
-        	FROM
-        		previoustransactionlinelink tolink
-            JOIN
-                transactionline shippingline ON shippingline.id = tolink.previousline and shippingline.transaction = tolink.previousdoc
-            JOIN
-                transactionline ttl on ttl.transferorderitemlineid = shippingline.transferorderitemlineid and ttl.transaction = shippingline.transaction
-        	WHERE
-                ttl.transactionlinetype = 'RECEIVING'
-        		AND tolink.previoustype = 'TrnfrOrd'
-        """;
-
     public async Task<IEnumerable<ItemReceiptLineDTO>> GetItemReceiptItemFulfillmentLinesAsync(string docEntry)
     {
-
-        var builder = builderFactory.Create()
-            .Select(
-                ("item.itemid", "ItemCode"),
-                ("item.id", "ItemId"),
-                ("ifmap.tolineid", "LineNumber"),
-                ("uom.unitname", "UoM"),
-                ("uom.conversionrate", "UoMRate"),
-                ("loc.name", nameof(ItemReceiptLineDTO.LocationName)),
-                ("loc.id", nameof(ItemReceiptLineDTO.LocationId)),
-                ("barcode.name", nameof(ItemReceiptLineDTO.ItemBarcode)),
-                ("loc.usebins", "LocationUsesBins"),
-                ("item.displayname", "ItemDescription"),
-                ("pb.bin", "PrefferedBinAssignmentId"),
-                ("item.weight", nameof(ItemReceiptLineDTO.WeightPerItem)),
-                ("tl.custcol_dbti_actual_weight", nameof(ItemReceiptLineDTO.WeightActual)),
-                ("ABS(tl.quantity / uom.conversionrate)", "QuantityPlanned"),
-                ("item.usebins", "ItemUseBins"),
-                ("NVL(ifmap.qtyrecv / uom.conversionrate, 0)", "QuantityReceived")
-            )
-            .From("transactionline tl")
-            .Join("item", on: "tl.item = item.id")
-            .Join("transaction t", on: "tl.transaction = t.id")
-            .Join("location loc", on: "tl.location = loc.id")
-            .Join("unitstypeuom uom", on: "tl.units = uom.internalid")
-            .LeftJoin($"({IF_TO_LINE_MAP}) ifmap", "ifmap.ifdoc = tl.transaction AND ifmap.ifline = tl.id")
-            .LeftJoin("CUSTOMRECORD_BARCODE_PER_UOM barcode", "barcode.custrecord_bpu_uom = tl.units AND barcode.custrecord_bpu_item = tl.item")
-            .LeftJoin("(SELECT ibq.bin, ibq.item, b.location FROM itembinquantity ibq JOIN bin b ON ibq.bin = b.id WHERE preferredbin = \'T\') pb", on: "pb.item = item.id AND pb.location = tl.location")
-            .WithFilters(
-                Equal("t.tranid", docEntry)
-            );
-
-        var query = builder.Build();
-
-        var response = await netsuiteService.ExecuteSuiteQLQuery<ItemReceiptLineDTO>(query.Query);
-        return [.. response.items];
+        var query = builderFactory.Create().Select(("t.id", "Id"))
+            .From("transaction t").WithFilters(Equal("t.tranid", docEntry),
+                Equal("t.recordtype", "itemfulfillment")).Build();
+        var matches = await ReadCompleteAsync<OperationalDocumentIdentity>(query.Query);
+        if (matches.Count != 1 || matches[0].Id <= 0)
+            throw new InvalidOperationException("Could not uniquely identify the Item Fulfillment. Reload and retry.");
+        return await ReadOperationalFulfillmentAsync(matches[0].Id);
     }
 
 
     public async Task<IEnumerable<ItemReceiptLineDTO>> GetItemReceiptLinesAsync(string docEntry, bool transferorder = false)
+        => await GetItemReceiptLinesAsync(docEntry, transferorder, null);
+
+    private async Task<IEnumerable<ItemReceiptLineDTO>> GetItemReceiptLinesAsync(
+        string docEntry, bool transferorder, IReadOnlyCollection<int>? receivingLineIds)
     {
 
         var builder = builderFactory.Create()
@@ -726,8 +729,17 @@ public class ReceivingIntegration(
             .Join("transaction t", on: "tl.transaction = t.id")
             .Join("location loc", on: "tl.location = loc.id")
             .Join("unitstypeuom uom", on: "tl.units = uom.internalid")
-            .LeftJoin("(SELECT ibq.bin, ibq.item, b.location FROM itembinquantity ibq JOIN bin b ON ibq.bin = b.id WHERE preferredbin = \'T\') pb", on: "pb.item = item.id AND pb.location = tl.location")
-            .LeftJoin("CUSTOMRECORD_BARCODE_PER_UOM barcode", "barcode.custrecord_bpu_uom = tl.units AND barcode.custrecord_bpu_item = tl.item")
+            // These lookup tables are not guaranteed to be unique on the join keys.
+            // Collapse them before joining so one source transaction line remains one
+            // receipt row. If multiple distinct preferred bins are marked for an
+            // item/location, leave the assignment unset rather than choosing a bin
+            // arbitrarily; the user can select the correct bin in inventory detail.
+            .LeftJoin("(SELECT CASE WHEN COUNT(DISTINCT ibq.bin) = 1 THEN MIN(ibq.bin) ELSE NULL END AS bin, ibq.item, b.location FROM itembinquantity ibq JOIN bin b ON ibq.bin = b.id WHERE ibq.preferredbin = \'T\' GROUP BY ibq.item, b.location) pb", on: "pb.item = item.id AND pb.location = tl.location")
+            // A barcode-per-UoM key may have multiple records. The grid has a
+            // single display column, so use a stable representative value while
+            // retaining the source line exactly once. Barcode resolution itself
+            // still uses the barcode lookup path, not this display value.
+            .LeftJoin("(SELECT MIN(b.name) AS name, b.custrecord_bpu_item, b.custrecord_bpu_uom FROM CUSTOMRECORD_BARCODE_PER_UOM b GROUP BY b.custrecord_bpu_item, b.custrecord_bpu_uom) barcode", "barcode.custrecord_bpu_uom = tl.units AND barcode.custrecord_bpu_item = tl.item")
             .WithFilters(
                 Equal("t.tranid", docEntry),
                 Equal("tl.mainline", "F")
@@ -738,10 +750,17 @@ public class ReceivingIntegration(
             builder = builder.WithFilters(Equal("tl.transactionlinetype", "RECEIVING"));
         }
 
+        // IF verification only needs its mapped TO lines. Reading the entire TO
+        // here exceeds NetSuite's 1,000-row page for large transfer orders.
+        if (receivingLineIds is not null)
+        {
+            if (receivingLineIds.Count == 0) throw OperationalReadError("fulfillment has no mapped receiving lines");
+            builder = builder.WithFilters(In("tl.id", receivingLineIds));
+        }
+
         var query = builder.Build();
 
-        var response = await netsuiteService.ExecuteSuiteQLQuery<ItemReceiptLineDTO>(query.Query);
-        return [.. response.items];
+        return await ReadCompleteAsync<ItemReceiptLineDTO>(query.Query);
     }
 
     /// <summary>
@@ -752,8 +771,10 @@ public class ReceivingIntegration(
     /// <c>ItemReceiptLineDTO.LineNumber</c> already carries on both the IF and the
     /// non-IF load paths.
     /// </summary>
-    private async Task<IReadOnlyDictionary<int, TransferOrderLineRemaining>> GetTransferOrderLineRemainingAsync(int sourceInternalId)
+    private async Task<IReadOnlyDictionary<int, TransferOrderLineRemaining>> GetTransferOrderLineRemainingAsync(
+        int sourceInternalId, IReadOnlyCollection<int> receivingLineIds)
     {
+        if (receivingLineIds.Count == 0) throw OperationalReadError("receipt has no selected receiving lines");
         var query = builderFactory.Create()
             .Select(
                 ("tl.id", "LineId"),
@@ -770,15 +791,15 @@ public class ReceivingIntegration(
                 Equal("t.id", sourceInternalId),
                 In("t.recordtype", new[] { "transferorder", "intercompanytransferorder" }),
                 Equal("tl.mainline", "F"),
-                Equal("tl.transactionlinetype", "RECEIVING")
+                Equal("tl.transactionlinetype", "RECEIVING"),
+                In("tl.id", receivingLineIds)
             ).Build();
 
-        var response = await netsuiteService.ExecuteSuiteQLQuery<TransferOrderLineRemaining>(query.Query);
-
-        return response.items.ToDictionary(x => x.LineId);
+        var items = await ReadCompleteAsync<TransferOrderLineRemaining>(query.Query);
+        return items.ToDictionary(x => x.LineId);
     }
 
-    private sealed record TransferOrderLineRemaining
+    public sealed record TransferOrderLineRemaining
     {
         public int LineId { get; init; }
         public string ItemCode { get; init; } = string.Empty;
@@ -788,25 +809,47 @@ public class ReceivingIntegration(
         public decimal QuantityRemaining => QuantityPlanned - QuantityReceived;
     }
 
+    private async Task<IReadOnlyDictionary<int, ItemFulfillmentLineRemainingDTO>> GetItemFulfillmentLineRemainingAsync(int itemFulfillmentId, int sourceId)
+    {
+        var items = await ReadOperationalFulfillmentAsync(itemFulfillmentId, sourceId);
+        return items.ToDictionary(line => line.LineNumber, line => new ItemFulfillmentLineRemainingDTO
+        {
+            LineNumber = line.LineNumber, ItemCode = line.ItemCode, ItemDescription = line.ItemDescription,
+            QuantityPlanned = line.QuantityPlanned, QuantityFulfilled = line.QuantityFulfilled!.Value,
+            QuantityReceived = line.QuantityReceived
+        });
+    }
+
     const int INVENTORY_STATUS_ID_GOOD = 1;
     const int INVENTORY_STATUS_ID_BAD = 3;
     const int INVENTORY_STATUS_ID_MISSING = 6;
 
     public async Task<bool> PostItemReceipt(ItemReceiptDTO dto)
     {
+        ItemReceiptValidation.Validate(dto);
+        // PO transforms need explicit itemreceive=false fillers for unchecked open
+        // lines. RESTlet payloads, in contrast, must contain only selected lines.
+        if (dto.SourceType != ItemReceiptDTO.SourceTypes.PurchaseOrder)
+            dto.Lines = dto.Lines.Where(line => line.IsReceived && line.QuantityAlloted > 0).ToList();
+
         var uri = dto.SourceType == ItemReceiptDTO.SourceTypes.PurchaseOrder ?
             $"{netsuiteService.GetRestAPIURI}/record/v1/purchaseOrder/{dto.SourceInternalId}/!transform/itemReceipt" :
             $"{netsuiteService.GetRestletURI}?script=1853&deploy=1";
 
-        List<Exception> exceptions = [];
-        List<Task> tasks = [];
+        var replaceInventoryAssignment = dto.SourceType == ItemReceiptDTO.SourceTypes.PurchaseOrder &&
+            dto.Lines.Any(line => line.IsReceived && line.QuantityAlloted > 0 && line.IsLocationBinUsed);
+        if (replaceInventoryAssignment)
+            uri += "?replace=item.inventoryDetail.inventoryAssignment";
+
+        List<(int StatusId, string Payload)> posts = [];
+        List<int> completedStatuses = [];
 
         try
         {
             // A line without a resolved NetSuite line number cannot be posted:
             // orderLine: 0 is always rejected with a 400 that surfaces only a
             // terse "(0)" detail. Fail fast with a message identifying the line.
-            var unnumberedLine = dto.Lines.FirstOrDefault(x => x.LineNumber <= 0);
+            var unnumberedLine = dto.Lines.FirstOrDefault(x => x.QuantityOpen > 0 && x.LineNumber <= 0);
 
             if (unnumberedLine is not null)
             {
@@ -821,16 +864,36 @@ public class ReceivingIntegration(
             // another device already received against the same Transfer Order, because such
             // receipts are linked TO→IR and invisible to the IF-based math. Re-read the TO
             // ledger and refuse anything beyond what is left, before any HTTP post, so the
-            // failure is an actionable message instead of a terse NetSuite 400. Lines that
-            // the lookup does not resolve are left to the orderLine guard above.
+            // failure is an actionable message instead of a terse NetSuite 400. Missing
+            // ledger lines fail closed as well; their ceiling cannot be established.
             if (dto.SourceType != ItemReceiptDTO.SourceTypes.PurchaseOrder)
             {
-                var remainingByLineId = await GetTransferOrderLineRemainingAsync(dto.SourceInternalId);
+                var fulfillmentId = dto.ItemFulfillmentId!.Value;
+                var fulfillmentRemaining = await GetItemFulfillmentLineRemainingAsync(fulfillmentId, dto.SourceInternalId);
+
+                foreach (var line in dto.Lines.Where(x => x.InventoryDetails.Sum(y => y.QuantityAlloted) > 0))
+                {
+                    if (!fulfillmentRemaining.TryGetValue(line.LineNumber, out var remaining))
+                        throw new InvalidOperationException(
+                            $"Line '{line.ItemCode}' ({line.ItemDescription}) is not part of Item Fulfillment {fulfillmentId}. " +
+                            "Reload the fulfillment and retry.");
+
+                    var allotted = line.InventoryDetails.Sum(detail => detail.QuantityAlloted);
+                    if (allotted > remaining.QuantityRemaining)
+                        throw new InvalidOperationException(
+                            $"Line '{remaining.ItemCode}' ({remaining.ItemDescription}): allotted {allotted} " +
+                            $"exceeds the remaining quantity {remaining.QuantityRemaining} for Item Fulfillment {fulfillmentId}. " +
+                            "Reload and adjust quantities.");
+                }
+
+                var remainingByLineId = await GetTransferOrderLineRemainingAsync(dto.SourceInternalId,
+                    dto.Lines.Where(x => x.InventoryDetails.Sum(y => y.QuantityAlloted) > 0)
+                        .Select(x => x.LineNumber).Distinct().ToArray());
 
                 foreach (var line in dto.Lines.Where(x => x.InventoryDetails.Sum(y => y.QuantityAlloted) > 0))
                 {
                     if (!remainingByLineId.TryGetValue(line.LineNumber, out var remaining))
-                        continue;
+                        throw OperationalReadError($"source order line {line.LineNumber} is missing from the fresh ledger");
 
                     var allotted = line.InventoryDetails.Sum(y => y.QuantityAlloted);
 
@@ -850,7 +913,7 @@ public class ReceivingIntegration(
                         dto.SourceType,
                         dto.SourceInternalId);
 
-                    throw new Exception(
+                    throw new InvalidOperationException(
                         $"Line '{remaining.ItemCode}' ({remaining.ItemDescription}): allotted {allotted} " +
                         $"exceeds remaining {remaining.QuantityRemaining} ({remaining.QuantityReceived} already " +
                         "received, possibly from another device). Reload and adjust quantities.");
@@ -858,17 +921,22 @@ public class ReceivingIntegration(
             }
 
             // Determine which statuses actually exist in the receipt
-            var hasGoodLines = dto.Lines.Any(x =>
+            var hasGoodLines = dto.Lines.Any(x => x.IsReceived && x.QuantityAlloted > 0 &&
                 x.InventoryDetails.Any(y =>
-                    y.Status?.Id == INVENTORY_STATUS_ID_GOOD));
+                    y.QuantityAlloted > 0 && y.Status?.Id == INVENTORY_STATUS_ID_GOOD));
 
-            var hasBadLines = dto.Lines.Any(x =>
+            var hasBadLines = dto.Lines.Any(x => x.IsReceived && x.QuantityAlloted > 0 &&
                 x.InventoryDetails.Any(y =>
-                    y.Status?.Id == INVENTORY_STATUS_ID_BAD));
+                    y.QuantityAlloted > 0 && y.Status?.Id == INVENTORY_STATUS_ID_BAD));
 
-            var hasMissingLines = dto.Lines.Any(x =>
+            var hasMissingLines = dto.Lines.Any(x => x.IsReceived && x.QuantityAlloted > 0 &&
                 x.InventoryDetails.Any(y =>
-                    y.Status?.Id == INVENTORY_STATUS_ID_MISSING));
+                    y.QuantityAlloted > 0 && y.Status?.Id == INVENTORY_STATUS_ID_MISSING));
+
+            // Predict which PO lines earlier buckets exhaust, so later transforms
+            // do not address a line that has disappeared from their static sublist.
+            var exhaustedPOLines = new HashSet<int>();
+            var plannedPOQuantities = new Dictionary<int, decimal>();
 
             // Helper to create the correct payload for the source type
             string CreatePayload(int statusId)
@@ -876,7 +944,7 @@ public class ReceivingIntegration(
                 return dto.SourceType switch
                 {
                     ItemReceiptDTO.SourceTypes.PurchaseOrder =>
-                        CreatePOJson(dto, statusId),
+                        CreatePOJson(dto, statusId, replaceInventoryAssignment, exhaustedPOLines),
 
                     ItemReceiptDTO.SourceTypes.TransferOrder =>
                         CreateTOJson(dto, statusId),
@@ -886,41 +954,64 @@ public class ReceivingIntegration(
                 };
             }
 
-            void AddPostTask(bool hasLines, int statusId)
+            void AddPost(bool hasLines, int statusId)
             {
                 if (!hasLines)
                     return;
 
                 var payload = CreatePayload(statusId);
 
-                // G1: the entire payload (including the fulfillment id actually
-                // sent) is logged for every post attempt, successful or not.
-                logger.LogInformation(
-                    "PostItemReceipt payload ({SourceType}, status {StatusId}) to {Uri}: {Payload}",
-                    dto.SourceType,
-                    statusId,
-                    uri,
-                    payload);
+                posts.Add((statusId, payload));
 
-                tasks.Add(
-                    netsuiteService.MakeRequest<object>(
-                        uri,
-                        payload,
-                        HttpMethod.Post));
+                if (dto.SourceType == ItemReceiptDTO.SourceTypes.PurchaseOrder)
+                {
+                    foreach (var line in dto.Lines.Where(line => line.IsReceived && line.QuantityAlloted > 0))
+                    {
+                        var quantity = line.InventoryDetails.Where(detail => detail.Status?.Id == statusId)
+                            .Sum(detail => detail.QuantityAlloted);
+                        plannedPOQuantities.TryGetValue(line.LineNumber, out var earlierQuantity);
+                        plannedPOQuantities[line.LineNumber] = earlierQuantity + quantity;
+                        if (earlierQuantity + quantity >= line.QuantityOpen)
+                            exhaustedPOLines.Add(line.LineNumber);
+                    }
+                }
             }
 
-            AddPostTask(hasBadLines, INVENTORY_STATUS_ID_BAD);
-            AddPostTask(hasGoodLines, INVENTORY_STATUS_ID_GOOD);
-            AddPostTask(hasMissingLines, INVENTORY_STATUS_ID_MISSING);
+            AddPost(hasBadLines, INVENTORY_STATUS_ID_BAD);
+            AddPost(hasGoodLines, INVENTORY_STATUS_ID_GOOD);
+            AddPost(hasMissingLines, INVENTORY_STATUS_ID_MISSING);
 
-            await Task.WhenAll(tasks);
+            if (posts.Count == 0)
+                throw new InvalidOperationException("No receivable quantities with a valid inventory status were submitted.");
+
+            // Build and validate ALL payloads before the first write, then stop on the
+            // first failed bucket. Independent NetSuite receipts cannot be rolled back here.
+            foreach (var post in posts)
+            {
+                try
+                {
+                    logger.LogInformation(
+                        "PostItemReceipt payload ({SourceType}, status {StatusId}) to {Uri}: {Payload}",
+                        dto.SourceType, post.StatusId, uri, post.Payload);
+                    await netsuiteService.MakeRequest<object>(uri, post.Payload, HttpMethod.Post);
+                    completedStatuses.Add(post.StatusId);
+                }
+                catch (Exception ex)
+                {
+                    var completed = completedStatuses.Count == 0
+                        ? "No earlier status bucket was confirmed successful."
+                        : $"Partial receipt: already posted {string.Join(", ", completedStatuses.Select(ReceiptStatusName))}.";
+                    throw new InvalidOperationException(
+                        $"{completed} {ReceiptStatusName(post.StatusId)} receipt failed: {ex.Message}. " +
+                        "Later status buckets were not posted. Check NetSuite Item Receipts before retrying; " +
+                        "the failed request may have committed if its response was lost. Reload and receive only the remaining quantities.", ex);
+                }
+            }
         }
         catch (Exception ex)
         {
-            // Nothing was posted (e.g. payload construction threw before any
-            // task was created): preserve the original exception instead of
-            // swallowing it into a true return.
-            if (tasks.Count == 0)
+            // Preserve validation and payload-construction exceptions before posting.
+            if (posts.Count == 0)
             {
                 logger.LogWarning(
                     ex,
@@ -931,51 +1022,14 @@ public class ReceivingIntegration(
                 throw;
             }
 
-            foreach (var task in tasks.Where(t => t.IsFaulted))
-            {
-                foreach (var exception in task.Exception!.Flatten().InnerExceptions)
-                {
-                    // Each rewrap keeps the original exception as inner so the
-                    // stack chain reaches the log; the unreachable
-                    // "Empty response from NetSuite API" filter was removed (G5).
-                    exceptions.Add(new Exception(
-                        "Error posting items: " + exception.Message,
-                        exception));
-                }
-            }
-
-            // No faulted-task message could be captured; rethrow rather than
-            // report success.
-            if (exceptions.Count == 0)
-            {
-                logger.LogWarning(
-                    ex,
-                    "PostItemReceipt failed without faulted task detail ({SourceType}, uri: {Uri})",
-                    dto.SourceType,
-                    uri);
-
-                throw;
-            }
-        }
-
-        if (exceptions.Count > 0)
-        {
-            // The aggregate carries every collected exception as inner, so the
-            // original stack chain is preserved while the toast keeps showing
-            // the same joined message (G4/G6).
-            var aggregateException = new AggregateException(
-                string.Join(
-                    "\n\n",
-                    exceptions.Select(ex => ex.Message)),
-                exceptions);
-
             logger.LogError(
-                aggregateException,
-                "PostItemReceipt failed for {SourceType} (uri: {Uri})",
+                ex,
+                "PostItemReceipt failed for {SourceType} (uri: {Uri}); confirmed statuses: {CompletedStatuses}",
                 dto.SourceType,
-                uri);
+                uri,
+                string.Join(", ", completedStatuses));
 
-            throw aggregateException;
+            throw;
         }
 
         return true;
@@ -1046,6 +1100,8 @@ public class ReceivingIntegration(
             .Select(
                 ("b.name", nameof(BarcodeNSDTO.Barcode)),
                 ("b.custrecord_bpu_item", nameof(BarcodeNSDTO.ItemId)),
+                ("item.custitem_dbti_item_group", nameof(BarcodeNSDTO.PurchaseSubcategoryId)),
+                ("psc.custrecord_dbti_psc_purchase_category", nameof(BarcodeNSDTO.PurchaseCategoryId)),
                 ("item.description", nameof(BarcodeNSDTO.ItemName)),
                 ("item.itemId", nameof(BarcodeNSDTO.ItemCode)),
                 ("item.weight", nameof(BarcodeNSDTO.ItemWeight)),
@@ -1067,6 +1123,7 @@ public class ReceivingIntegration(
             .From("CUSTOMRECORD_BARCODE_PER_UOM b")
             .Join("unitstypeuom uom", on: "b.custrecord_bpu_uom = uom.internalid")
             .Join("item", "item.id = b.custrecord_bpu_item")
+            .LeftJoin("CUSTOMRECORD_DBTI_PURCHASE_CATEGORIES psc", on: "psc.id = item.custitem_dbti_item_group")
             .WithFilters(
                 Equal("b.name", barcode)
             );
@@ -1094,6 +1151,8 @@ public class ReceivingIntegration(
             Item = new()
             {
                 Id = barcodeData.ItemId,
+                PurchaseCategoryId = barcodeData.PurchaseCategoryId,
+                PurchaseSubcategoryId = barcodeData.PurchaseSubcategoryId,
                 Name = barcodeData.ItemName,
                 ItemNumber = barcodeData.ItemCode,
                 Weight = barcodeData.ItemWeight,
@@ -1113,12 +1172,97 @@ public class ReceivingIntegration(
     }
 
 
-    public async Task<(IEnumerable<ItemFulfillmentDTO>, int)> GetSTRItemFulfillments(int strId, DataGridIntent intent)
+    public async Task<ItemFulfillmentPickerResult> GetSTRItemFulfillments(int strId, DataGridIntent intent)
     {
+        var pickerTimer = System.Diagnostics.Stopwatch.StartNew();
         intent = intent.Adapt<DataGridIntent>();
         if (intent.Sorts.Count == 0)
             intent.Sorts.Add(DataGridSortUtilities.Descending(nameof(ItemFulfillmentDTO.DateLastModified)));
 
+        var candidatesQuery = builderFactory.Create()
+            .Distinct()
+            .Select(("t.id", nameof(ItemFulfillmentDTO.Id)))
+            .From("transaction t")
+            .Join("transactionline ml", on: "ml.transaction = t.id AND ml.mainline = 'T'")
+            .WithFilters(
+                Equal("t.recordtype", "itemfulfillment"),
+                Equal("t.status", "C"),
+                Equal("ml.createdfrom", strId))
+            .Build();
+
+        var candidatesResponse = await netsuiteService.ExecuteSuiteQLQuery<ItemFulfillmentDTO>(
+            candidatesQuery.Query,
+            limit: 1000);
+        var candidateIds = candidatesResponse.items.Select(item => item.Id).Distinct().ToArray();
+        if (candidateIds.Length == 0) return new([], 0, 0);
+        if (candidatesResponse.hasMore || candidatesResponse.totalResults > candidateIds.Length)
+            throw new InvalidOperationException(
+                $"Transfer Order {strId} has more than 1,000 Item Fulfillments; " +
+                "the receiving picker cannot verify all remaining quantities safely.");
+
+        PickerReceiptLinks? pickerLinks = null;
+        try
+        {
+            pickerLinks = await ReadPickerReceiptLinksAsync(candidateIds);
+        }
+        catch (InvalidOperationException exception)
+        {
+            // A large or unverifiable batch must never be used to decide that an
+            // IF has no receipts. The original fresh per-IF reads remain the safe fallback.
+            logger.LogWarning(exception,
+                "Receiving picker could not batch native receipt links for Transfer Order {TransferOrderId}; verifying each fulfillment separately.", strId);
+        }
+
+        PickerSourceMetadata? pickerSource = null;
+        try
+        {
+            pickerSource = await ReadPickerSourceMetadataAsync(strId, candidateIds);
+        }
+        catch (InvalidOperationException exception)
+        {
+            // A truncated batch cannot be trusted. Keep the complete per-IF
+            // mapping and metadata verification for this request.
+            logger.LogWarning(exception,
+                "Receiving picker could not batch source metadata for Transfer Order {TransferOrderId}; verifying each fulfillment separately.", strId);
+        }
+
+        // Accounting-line totals can count both +INTRANSIT and -inventory rows.
+        // Use the same verified operational quantities as the grid and preflight.
+        // Verification makes several NetSuite calls per IF. Keep a small bound so
+        // a large STR does not serialize every IF, or flood the account with 24+
+        // simultaneous verification chains. Each candidate remains independent.
+        using var verificationSlots = new SemaphoreSlim(3);
+        var checks = candidateIds.Select(async candidateId =>
+        {
+            await verificationSlots.WaitAsync();
+            try
+            {
+                var lines = await ReadOperationalFulfillmentAsync(candidateId, strId, pickerLinks, pickerSource);
+                return (Id: candidateId, Pending: lines.Any(line => line.QuantityOpen > 0), Skipped: false);
+            }
+            catch (InvalidOperationException exception)
+            {
+                // Picker discovery is best-effort per candidate: one stale or
+                // unverifiable fulfillment must not hide other receivable ones.
+                // Selection and posting repeat this verification and still fail
+                // closed for the chosen fulfillment.
+                logger.LogWarning(exception,
+                    "Skipping Item Fulfillment {ItemFulfillmentId} in the receiving picker for Transfer Order {TransferOrderId}; operational lines could not be verified.",
+                    candidateId, strId);
+                return (Id: candidateId, Pending: false, Skipped: true);
+            }
+            finally
+            {
+                verificationSlots.Release();
+            }
+        }).ToArray();
+        var verified = await Task.WhenAll(checks);
+        List<int> pendingIds = verified.Where(result => result.Pending).Select(result => result.Id).ToList();
+        var skippedUnverifiableCount = verified.Count(result => result.Skipped);
+        logger.LogInformation(
+            "Receiving picker TO {TransferOrderId}: verified {CandidateCount} IF candidates in {ElapsedMs}ms; {PendingCount} pending, {SkippedCount} unverifiable.",
+            strId, candidateIds.Length, pickerTimer.ElapsedMilliseconds, pendingIds.Count, skippedUnverifiableCount);
+        if (pendingIds.Count == 0) return new([], 0, skippedUnverifiableCount);
 
         var query = builderFactory.Create()
             .Select(
@@ -1126,6 +1270,7 @@ public class ReceivingIntegration(
                 ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(ItemFulfillmentDTO.Date)),
                 ("TO_CHAR(t.lastmodifieddate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(ItemFulfillmentDTO.DateLastModified)),
                 ("t.tranid", nameof(ItemFulfillmentDTO.ReferenceNumber)),
+                ("BUILTIN.DF(t.entity)", nameof(ItemFulfillmentDTO.Vendor)),
                 ("s.name", nameof(ItemFulfillmentDTO.Status)),
                 ("CONCAT(e.firstname, CONCAT(' ', e.lastname))", nameof(ItemFulfillmentDTO.PreparedBy))
             )
@@ -1136,14 +1281,15 @@ public class ReceivingIntegration(
             .WithFilters(
                 Equal("t.recordtype", "itemfulfillment"),
                 Equal("t.status", "C"),
-                Equal("ml.createdfrom", strId)
+                Equal("ml.createdfrom", strId),
+                In("t.id", pendingIds)
             )
             .WithDatagridIntent(intent)
             .Build();
 
         var response = await query.ExecuteWithPaging<ItemFulfillmentDTO>(netsuiteService);
 
-        return (response.items, response.totalResults);
+        return new(response.items, response.totalResults, skippedUnverifiableCount);
     }
 
     public async Task<IEnumerable<ItemFulfillmentLineDTO>> GetItemFulfillmentLines(int ifId, DataGridIntent intent)
@@ -1173,16 +1319,76 @@ public class ReceivingIntegration(
     {
         if (intent.Sorts.Count == 0)
             intent.Sorts.Add(DataGridSortUtilities.Descending(nameof(ItemReceiptDataGridDTO.DateLastModified)));
-        
-        var query = builderFactory.Create()
+
+        var query = CreateItemReceiptsQuery(intent).Build();
+        var response = await query.ExecuteWithPaging<ItemReceiptDataGridDTO>(netsuiteService, intent.CancellationToken);
+        return (response.items, response.totalResults);
+    }
+
+    public async Task<Application.DataTransferObjects.Transactions.PrintStatusCountsDTO> GetReceivingPrintStatusCounts(DataGridIntent intent, CancellationToken ct = default)
+    {
+        var query = CreateItemReceiptsQuery(intent)
+            .BuildPrintStatusCounts("t.id", "t.custbody_wms_print_count", "tcf.custbody_dbti_custom_approval_status");
+        var response = await query.ExecuteWithPaging<Application.DataTransferObjects.Transactions.PrintStatusCountsDTO>(netsuiteService, ct);
+        return response.items.Single();
+    }
+
+    private SuiteQLQueryBuilder CreateItemReceiptsQuery(DataGridIntent intent)
+    {
+        var includeCompletedReceived = intent.Filters.RemoveAll(filter => filter.Property == "IncludeCompletedReceived") > 0;
+        int[] allowedLocations = [-1];
+        var locationClaim = httpContext.HttpContext?.User?.FindFirst("com.direcbusiness.wms.nsAllowedLocations")?.Value;
+        if (locationClaim is not null)
+            allowedLocations = JsonSerializer.Deserialize<int[]>(locationClaim) ?? [-1];
+
+        List<int> allowedSubsidiaries = [];
+        var subsidiaryClaim = httpContext.HttpContext?.User?.FindFirst("com.direcbusiness.wms.nsAllowedSubsidiaries")?.Value;
+        if (subsidiaryClaim is not null)
+            allowedSubsidiaries = JsonSerializer.Deserialize<List<int>>(subsidiaryClaim) ?? [];
+
+        var purchaseOrderEligibility = All(
+            Equal("tcf.recordtype", "purchaseorder"),
+            In("tcf.status", includeCompletedReceived ? new[] { "B", "D", "E", "F", "G" } : new[] { "B", "D", "E" }),
+            Any(IsNull("tcf.custbody_dbti_custom_approval_status"), NotEqual("tcf.custbody_dbti_custom_approval_status", "20")),
+            NotNull("allowedpo.sourceid"),
+            Any(
+                NotEqual("tcf.custbody_dbti_purchase_category", NonTradePurchaseCategoryId),
+                In("tcf.custbody_dbti_purchase_subcategory", NonTradeSubcategoryIds)));
+        if (allowedSubsidiaries.Count > 0)
+            purchaseOrderEligibility.Filters.Add(In("tcf.subsidiary", allowedSubsidiaries));
+
+        var eligibleTransferOrders = Any(
+            All(Equal("tcf.recordtype", "intercompanytransferorder"), In("tcf.tosubsidiary", allowedSubsidiaries)),
+            All(Equal("tcf.recordtype", "transferorder"), In("tcf.subsidiary", allowedSubsidiaries)));
+        var strEligibility = All(
+            In("tcf.recordtype", new[] { "transferorder", "intercompanytransferorder" }),
+            In("tcf.status", includeCompletedReceived ? new[] { "F", "E", "G" } : new[] { "F", "E" }),
+            NotEqual("tcf.custbody_dbti_transfer_category", 3),
+            NotEqual("tcf.custbody_dbti_transfer_category", 4),
+            In("tcf.transferlocation", allowedLocations),
+            eligibleTransferOrders);
+        var returnsTransferScope = allowedSubsidiaries.Count > 0
+            ? eligibleTransferOrders
+            : In("tcf.recordtype", new[] { "transferorder", "intercompanytransferorder" });
+        var returnsEligibility = All(
+            In("tcf.recordtype", new[] { "transferorder", "intercompanytransferorder" }),
+            In("tcf.status", includeCompletedReceived ? new[] { "F", "E", "G" } : new[] { "F", "E" }),
+            Any(Equal("tcf.custbody_dbti_transfer_category", 3), Equal("tcf.custbody_dbti_transfer_category", 4)),
+            In("tcf.transferlocation", allowedLocations),
+            returnsTransferScope);
+
+        return builderFactory.Create()
+            .Distinct()
             .Select(
                 ("TO_CHAR(t.trandate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(ItemReceiptDataGridDTO.Date)),
                 ("TO_CHAR(t.lastmodifieddate, 'YYYY-MM-DD\"T\"HH24:MI:SS')", nameof(ItemReceiptDataGridDTO.DateLastModified)),
                 ("t.id", nameof(ItemReceiptDataGridDTO.Id)),
+                ("t.custbody_wms_print_count", nameof(ItemReceiptDataGridDTO.PrintCount)),
                 ("t.tranid", nameof(ItemReceiptDataGridDTO.ReferenceNumber)),
                 ("BUILTIN.DF(t.entity)", nameof(ItemReceiptDataGridDTO.Vendor)),
                 ("categ.name", nameof(ItemReceiptDataGridDTO.TransferCategory)),
                 ("tcf.tranid", nameof(ItemReceiptDataGridDTO.CreatedFrom)),
+                ("tcf.id", nameof(ItemReceiptDataGridDTO.CreatedFromId)),
                 ("BUILTIN.DF(tl.location)", nameof(ItemReceiptDataGridDTO.ToLocation)), //swapped with FromLocation to match the correct field in the datagrid
                 ("BUILTIN.DF(t.transferlocation)", nameof(ItemReceiptDataGridDTO.FromLocation)) 
             )
@@ -1190,17 +1396,25 @@ public class ReceivingIntegration(
             .Join("transactionline tl", "tl.transaction = t.id AND tl.mainline = 'T'")
             .LeftJoin("CUSTOMLIST_DBTI_TRANSFER_CATEGORY_LIST categ", "t.custbody_dbti_transfer_category = categ.id")
             .LeftJoin("transaction tcf", "tl.createdfrom = tcf.id")
+            .LeftJoin(AllowedPurchaseOrderLinesSql(allowedLocations), "allowedpo.sourceid = tcf.id")
             .WithFilters(
-                Equal("t.recordtype", "itemreceipt")
+                Equal("t.recordtype", "itemreceipt"),
+                Any(purchaseOrderEligibility, strEligibility, returnsEligibility)
             )
             .WithFromOrToSubsidiaries(httpContext, "t")
-            .WithDatagridIntent(intent)
-            .Build();
-
-        var response = await query.ExecuteWithPaging<ItemReceiptDataGridDTO>(netsuiteService);
-        return (response.items, response.totalResults);
+            .WithPropertyMap(nameof(ItemReceiptDataGridDTO.Date), "t.trandate")
+            .WithPropertyMap("Status", "BUILTIN.DF(tcf.status)")
+            .WithDatagridIntent(intent);
     }
 
+
+    private static string ReceiptStatusName(int statusId) => statusId switch
+    {
+        INVENTORY_STATUS_ID_GOOD => "GOOD",
+        INVENTORY_STATUS_ID_BAD => "BAD/CONFISCATED",
+        INVENTORY_STATUS_ID_MISSING => "MISSING",
+        _ => statusId.ToString()
+    };
 
     private string CreateReturnsJson(ItemReceiptDTO dto, bool isGood) => CreateTOJson(dto, isGood);
     private string CreateReturnsJson(ItemReceiptDTO dto, int statusId) => CreateTOJson(dto, statusId);
@@ -1224,7 +1438,7 @@ public class ReceivingIntegration(
                 {
                     orderLine = line.LineNumber,
                     quantity = line.InventoryDetails.Sum(x => x.Status?.Id == statusId ? x.QuantityAlloted : 0),
-                    inventoryDetail = line.InventoryDetails.Where(x => x.Status?.Id == statusId).Select(y => new
+                    inventoryDetail = line.InventoryDetails.Where(x => x.Status?.Id == statusId && x.QuantityAlloted > 0).Select(y => new
                     {
                         binNumber = y.Bin?.BinNumber,
                         inventoryStatus = statusId,
@@ -1269,7 +1483,7 @@ public class ReceivingIntegration(
                     recWeight = line.WeightPerItem * quantity,
                     actualWeight = line.WeightActual,
                     rate = statusId == INVENTORY_STATUS_ID_BAD ? 0m : (decimal?)null,
-                    inventoryDetail = line.InventoryDetails.Where(x => x.Status?.Id == statusId).Select(y => new
+                    inventoryDetail = line.InventoryDetails.Where(x => x.Status?.Id == statusId && x.QuantityAlloted > 0).Select(y => new
                     {
                         inventoryStatus = statusId,
                         quantity = y.QuantityAlloted
@@ -1334,10 +1548,10 @@ public class ReceivingIntegration(
         return JsonSerializer.Serialize(obj, JSON_OPTS);
     }
 
-    private string CreatePOJson(ItemReceiptDTO dto, int statusId)
+    private string CreatePOJson(ItemReceiptDTO dto, int statusId, bool replaceInventoryAssignment, HashSet<int>? exhaustedLines = null)
     {
         var lines = dto.Lines
-            .Where(x => x.QuantityPlanned > x.QuantityReceived)
+            .Where(x => x.QuantityPlanned > x.QuantityReceived && !(exhaustedLines?.Contains(x.LineNumber) ?? false))
             .GroupBy(x => x.LineNumber)
             .Select(g => g.First());
         var isGood = statusId == INVENTORY_STATUS_ID_GOOD;
@@ -1368,12 +1582,15 @@ public class ReceivingIntegration(
                         quantity = isItemReceived ? lineQuantity : (decimal?)null,
                         custcol_dbti_actual_weight = isItemReceived ? line.WeightActual : (decimal?)null,
                         rate = isItemReceived && isGood ? (decimal?)null : 0,
-                        inventoryDetail = isItemReceived ? new
+                        // When the transform replaces inventory assignments, every item entry
+                        // must include the sub-resource. Unreceived fillers get an empty list;
+                        // never forward stale allocations from an unchecked line.
+                        inventoryDetail = isItemReceived || replaceInventoryAssignment ? new
                         {
                             inventoryAssignment = new
                             {
                                 items = line.InventoryDetails.Where(x =>
-                                    x.Status?.Id == statusId && x.QuantityAlloted > 0).Select(x =>
+                                    isItemReceived && x.Status?.Id == statusId && x.QuantityAlloted > 0).Select(x =>
                                 new
                                 {
                                     inventoryStatus = statusId,

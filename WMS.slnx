@@ -35,5 +35,7 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="Integration.NS.Tests/Integration.NS.Tests.csproj" />
+    <Project Path="Mobile.MAUI.Tests/Mobile.MAUI.Tests.csproj" />
+    <Project Path="Web.BlazorServer.Tests/Web.BlazorServer.Tests.csproj" />
   </Folder>
 </Solution>

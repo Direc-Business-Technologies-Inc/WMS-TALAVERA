@@ -6,6 +6,7 @@ public class TripTicketDataGridDTO
     public string ParentName { get; set; } = string.Empty;
     public int NetsuiteTripTicketInternalId { get; set; }
     public string Name { get; set; } = string.Empty;
+    public int? PrintCount { get; set; }
     public int StatusId { get; set; }
     public string Status { get; set; } = string.Empty;
     public string ToSubsidiaryIds { get; set; } = string.Empty;

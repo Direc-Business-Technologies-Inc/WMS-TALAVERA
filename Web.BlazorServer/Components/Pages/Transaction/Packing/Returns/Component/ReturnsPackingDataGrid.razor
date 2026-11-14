@@ -1,14 +1,19 @@
 @using Web.BlazorServer.Components.Security
+@using Web.BlazorServer.Components.Custom
 @using Web.BlazorServer.ViewModels.Transaction.Packing.Returns
 
 @inherits BaseComponent
 
-<AppDataGrid @ref="@DataGrid" Id="packing_returns_grid" TItem="ReturnsPackingDataGridVM" DataGetter="@LoadDataAsync" GridSettings="@DataGridSettings" @bind-GridSettingsLoaded="@GridSettingsLoaded" ActionName="@ActionGetReturns">
+<AppDataGrid DeferInitialLoad="true" PrepareIntent="@PrepareIntent" @ref="@DataGrid" Id="packing_returns_grid" TItem="ReturnsPackingDataGridVM" DataGetter="@(gridReadyToLoad ? LoadDataAsync : null)" OnDataLoaded="@OnGridDataLoaded" @bind-GridSettings="@DataGridSettings" @bind-GridSettingsLoaded="@GridSettingsLoaded" AutoLoadGridSettings="false" ActionName="@ActionGetReturns">
     <HeaderTemplate>
-        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" AlignItems="AlignItems.Center" Gap="8px">
+        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center" Gap="8px">
+            <PrintStatusView @ref="PrintStatusView" Value="@SelectedPrintStatus" ValueChanged="@PrintStatusChanged" CountsGetter="@PrintCountsAsync" LoadCountsOnInitialize="false" RefreshCountsOnSelect="false" />
+            <RadzenStack Orientation="Orientation.Horizontal" Gap="8px">
             <RadzenButton Icon="settings" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@OpenTableSettings" />
-            <RadzenButton Icon="sync" Size="ButtonSize.Small" Click="DataGrid.ReloadDataAsync" />
+            <RadzenButton Icon="sync" Size="ButtonSize.Small" Click="@SyncAsync" />
+            </RadzenStack>
         </RadzenStack>
+        <GridDateRange StartDate="@DateRangeStart" EndDate="@DateRangeEnd" OnApply="@DateRangeChanged" />
     </HeaderTemplate>
     <GridColumns>
         <RadzenDataGridColumn TItem="ReturnsPackingDataGridVM"
@@ -48,9 +53,12 @@
                               Frozen
                               FrozenPosition="FrozenColumnPosition.Right"
                               Pickable="false" Sortable="false" Filterable="false"
-                              Width="35px">
+                               Width="112px">
             <Template>
-                <RadzenButton Icon="arrow_right_alt" Size="ButtonSize.ExtraSmall" Click="() => ViewReturn(context)" />
+                <RadzenStack Orientation="Orientation.Horizontal" Gap="4px">
+                    <Web.BlazorServer.Components.Pages.Transaction.Packing.Components.PackingLabelRowPrint TransactionId="@context.Id" Source="RETURNS" SelectedPrintStatus="@SelectedPrintStatus" FulfillmentCount="@(context.ForPrintingIFCount + context.PrintedIFCount)" SingleFulfillmentId="@context.SingleFulfillmentId" OnPrinted="@RefreshPrintStatusAsync" />
+                    <RadzenButton Icon="arrow_right_alt" Size="ButtonSize.ExtraSmall" Visible="@(context.PendingPackLinesCount > 0)" Click="() => ViewReturn(context)" />
+                </RadzenStack>
             </Template>
         </RadzenDataGridColumn>
     </GridColumns>

@@ -14,17 +14,15 @@ public partial class ReturnsItemView : IAsyncDisposable
 {
     [Parameter]
     public string OrderNumber { get; set; }
-    private IJSObjectReference JsObj { get; set; }
     AppAction<List<ReturnsLineVM>> ActionGetReturnsItems { get; set; }
-    AppAction<List<ItemBarcodesPerUoMVM>> ActionGetItemBarcodes { get; set; }
     AppAction ActionUpdateStartTime { get; set; }
     AppAction<bool> ActionSaveScan { get; set; }
+    private readonly Mobile.MAUI.Helpers.PackingSessionGate _session = new();
 
     List<ReturnsLineVM> ReturnsItems = [];
     List<ReturnsLineVM> FilteredReturnsItems = [];
+    List<ReturnsLineVM> ScansNeedingReview = [];
     ReturnsLineVM? LastScanned;
-    List<ItemBarcodesPerUoMVM> ItemBarcodes = [];
-    List<BarcodeRequestVM> ItemRequest = [];
 
     ReturnsLineVM? SelectedLine;
     //ReturnsLineVM? LastScanned => ReturnsItems.OrderByDescending(x => x.ScanCount).FirstOrDefault();
@@ -68,7 +66,7 @@ public partial class ReturnsItemView : IAsyncDisposable
             },
             OnSuccess = async (result) =>
             {
-                ReturnsItems = result.Data.Select(line => new ReturnsLineVM
+                ReturnsItems = (result.Data ?? []).Select(line => new ReturnsLineVM
                 {
                     NetsuiteOrderInternalId = line.NetsuiteOrderInternalId,
                     OrderNumber = line.OrderNumber,
@@ -126,30 +124,17 @@ public partial class ReturnsItemView : IAsyncDisposable
             },
         };
 
-        ActionGetItemBarcodes = new AppAction<List<ItemBarcodesPerUoMVM>>
-        {
-            Name = "GetItemBarcodes",
-            TaskAsync = async () =>
-            {
-                await InvokeAsync(StateHasChanged);
-                var res = await Client.Post<List<ItemBarcodesPerUoMVM>>("/Item/Barcodes", ItemRequest);
-                return res;
-            },
-            OnSuccess = async (result) =>
-            {
-                ItemBarcodes = result.Data ?? [];
-
-                await InvokeAsync(StateHasChanged);
-            },
-        };
-
         ActionSaveScan = new AppAction<bool>
         {
             Name = "SaveReturnsScan",
             TaskAsync = async () =>
             {
+                if (ScansNeedingReview.Count > 0)
+                    throw new InvalidOperationException("Scanned Returns lines are no longer available. Review the missing scans before saving; reload the order to start a new scan session.");
+
+                var snapshot = PrepareSaveSnapshot();
                 await InvokeAsync(StateHasChanged);
-                var res = await Client.Post<bool>("/Packing/Returns/SaveScan", ReturnsItems);
+                var res = await Client.Post<bool>("/Packing/Returns/SaveScan", snapshot);
                 return res;
             },
             OnSuccess = async (result) =>
@@ -174,19 +159,6 @@ public partial class ReturnsItemView : IAsyncDisposable
         if (firstRender)
         {
             await ActionFactory.ExecuteAppActionAsync(ActionGetReturnsItems);
-
-            ItemRequest = ReturnsItems.Select(i => new BarcodeRequestVM
-            {
-                NetsuiteMaterialInternalId = i.NetsuiteMaterialInternalId,
-            }).ToList();
-
-            await ActionFactory.ExecuteAppActionAsync(ActionGetItemBarcodes);
-        }
-
-        if (ReturnsItems.Count > 0 && JsObj is null)
-        {
-            JsObj = await Js.InvokeAsync<IJSObjectReference>("import", "./js/IntersectionObserver.js");
-            await JsObj.InvokeVoidAsync("ObserveRecentScanned");
         }
     }
 
@@ -254,8 +226,11 @@ public partial class ReturnsItemView : IAsyncDisposable
 
     #endregion
 
-    private async void SelectLine(ReturnsLineVM item)
+    private async Task SelectLine(ReturnsLineVM item)
     {
+        using var edit = _session.TryBeginEdit();
+        if (edit is null) return;
+
         if (ManualEntry)
         {
             if (!IsValidForManualEntry(item))
@@ -313,6 +288,25 @@ public partial class ReturnsItemView : IAsyncDisposable
     {
         try
         {
+            await InvokeAsync(() => ProcessItemScan(message));
+        }
+        catch (Exception e)
+        {
+            await Toast.Error(e.Message);
+        }
+    }
+
+    private async Task ProcessItemScan(string message)
+    {
+        using var edit = _session.TryBeginEdit();
+        if (edit is null)
+        {
+            await Toast.Warning("Scan not accepted while saving or refreshing. Wait, then scan again.");
+            return;
+        }
+
+        try
+        {
             var scanned = message?.Trim();
 
             if (string.IsNullOrWhiteSpace(scanned))
@@ -324,15 +318,23 @@ public partial class ReturnsItemView : IAsyncDisposable
                 return;
             }
 
-            var barcode = ItemBarcodes.FirstOrDefault(x =>
-                !string.IsNullOrWhiteSpace(x.MaterialBarcode) &&
-                x.MaterialBarcode.Equals(scanned, StringComparison.OrdinalIgnoreCase));
+            var resolution = await BarcodeResolver.ResolveAsync(scanned);
 
-            if (barcode is null)
+            if (!resolution.IsFound)
             {
-                await Toast.Warning($"Unknown barcode: {scanned}");
+                if (resolution.IsFailure)
+                {
+                    await Toast.Error(resolution.Message);
+                }
+                else
+                {
+                    await Toast.Warning(resolution.Message);
+                }
+
                 return;
             }
+
+            var barcode = resolution.Barcode!;
 
             var line = ReturnsItems.FirstOrDefault(x =>
                     x.NetsuiteMaterialInternalId == barcode.NetsuiteMaterialInternalId &&
@@ -400,6 +402,7 @@ public partial class ReturnsItemView : IAsyncDisposable
             LastScanned = line;
 
             ScanCount++;
+            await RevealLastScanned();
             //ChangeWeight = null; // reset the ChangeWeight after each scan
 
             await InvokeAsync(StateHasChanged);
@@ -414,15 +417,23 @@ public partial class ReturnsItemView : IAsyncDisposable
     {
         try
         {
-            var barcode = ItemBarcodes.FirstOrDefault(x =>
-                !string.IsNullOrWhiteSpace(x.MaterialBarcode) &&
-                x.MaterialBarcode.Equals(scanned, StringComparison.OrdinalIgnoreCase));
+            var resolution = await BarcodeResolver.ResolveAsync(scanned);
 
-            if (barcode is null)
+            if (!resolution.IsFound)
             {
-                await Toast.Warning($"Unknown barcode: {scanned}");
+                if (resolution.IsFailure)
+                {
+                    await Toast.Error(resolution.Message);
+                }
+                else
+                {
+                    await Toast.Warning(resolution.Message);
+                }
+
                 return;
             }
+
+            var barcode = resolution.Barcode!;
 
             var line = ReturnsItems.FirstOrDefault(x =>
                     x.NetsuiteMaterialInternalId == barcode.NetsuiteMaterialInternalId &&
@@ -468,7 +479,27 @@ public partial class ReturnsItemView : IAsyncDisposable
 
     async Task SaveScan()
     {
-        ReturnsItems = ReturnsItems.Where(x => x.NSLineQuantityPacked != 0)
+        using var operation = _session.TryBeginOperation();
+        if (operation is null)
+        {
+            await Toast.Warning("Wait for the current scan or operation to finish, then save again.");
+            return;
+        }
+
+        if (ScansNeedingReview.Count > 0)
+        {
+            await Toast.Warning("Scanned Returns lines are no longer available. Review the missing scans before saving; reload the order to start a new scan session.");
+            return;
+        }
+
+        ActionSaveScan.Result = null!;
+        await ActionFactory.ExecuteAppActionAsync(ActionSaveScan, confirm: true, showToast: true);
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private List<ReturnsLineVM> PrepareSaveSnapshot()
+    {
+        return ReturnsItems.Where(x => x.NSLineQuantityPacked != 0)
             .Select(x => new ReturnsLineVM
             {
                 NetsuiteOrderInternalId = x.NetsuiteOrderInternalId,
@@ -500,6 +531,7 @@ public partial class ReturnsItemView : IAsyncDisposable
 
                 LineQuantity = x.LineQuantity,
                 LineQuantityPacked = x.LineQuantityPacked,
+                LineQuantityBackOrdered = x.LineQuantityBackOrdered,
 
                 NetsuiteUoMInternalId = x.NetsuiteUoMInternalId,
                 UoMName = x.UoMName,
@@ -512,9 +544,6 @@ public partial class ReturnsItemView : IAsyncDisposable
             })
             .ToList();
 
-        await ActionFactory.ExecuteAppActionAsync(ActionSaveScan, confirm: true, showToast: true);
-
-        await InvokeAsync(StateHasChanged);
     }
 
     //async void ToggleWeight()
@@ -575,8 +604,15 @@ public partial class ReturnsItemView : IAsyncDisposable
 
     private async Task Refresh()
     {
+        using var operation = _session.TryBeginOperation();
+        if (operation is null)
+        {
+            await Toast.Warning("Wait for the current scan or operation to finish, then refresh again.");
+            return;
+        }
+
         // Snapshot current scanned state before refreshing
-        var scannedState = ReturnsItems
+        var scannedState = ReturnsItems.Concat(ScansNeedingReview)
             .GroupBy(x => new
             {
                 x.LineSequenceNumber,
@@ -590,10 +626,15 @@ public partial class ReturnsItemView : IAsyncDisposable
                     ScannedQuantity = g.First().ScannedQuantity,
                     ScannedWeight = g.First().ScannedWeight,
                     ScanCount = g.First().ScanCount,
+                    Original = g.First()
                 });
 
         // Reload PO items
+        ActionGetReturnsItems.Result = null!;
         await ActionFactory.ExecuteAppActionAsync(ActionGetReturnsItems);
+        if (ActionGetReturnsItems.Result is not { Success: true }) return;
+        SelectedLine = null;
+        LastScanned = null;
 
         // Restore scanned state
         foreach (var item in ReturnsItems)
@@ -613,15 +654,18 @@ public partial class ReturnsItemView : IAsyncDisposable
             }
         }
 
-        // Refresh barcode requests from the refreshed PO
-        ItemRequest = ReturnsItems
-            .Select(i => new BarcodeRequestVM
-            {
-                NetsuiteMaterialInternalId = i.NetsuiteMaterialInternalId
-            })
+        // A returned line with no packable quantity is also omitted from the
+        // visible/saveable rows; keep its scans in review instead of losing them.
+        var restoredKeys = ReturnsItems.Where(x => x.NSLineQuantityPacked > 0)
+            .Select(x => new { x.LineSequenceNumber, x.NetsuiteMaterialInternalId, x.IsBad })
+            .ToHashSet();
+        ScansNeedingReview = scannedState
+            .Where(x => x.Value.ScannedQuantity > 0 && !restoredKeys.Contains(x.Key))
+            .Select(x => x.Value.Original)
             .ToList();
 
-        await ActionFactory.ExecuteAppActionAsync(ActionGetItemBarcodes);
+        if (ScansNeedingReview.Count > 0)
+            await Toast.Warning("Some scanned Returns lines disappeared after refresh. Their scans are preserved for review; saving is blocked until the order is reconciled.");
 
         await InvokeAsync(StateHasChanged);
     }
@@ -631,26 +675,6 @@ public partial class ReturnsItemView : IAsyncDisposable
         MarkScansClean();
         BroadcastService.BroadcastReceived -= HandleItemScan;
 
-        if (JsObj is not null)
-        {
-            try
-            {
-                JsObj.InvokeVoidAsync("UnObserveRecentScanned");
-                await JsObj.InvokeVoidAsync("Dispose");
-            }
-            catch
-            {
-                // ignore cleanup errors
-            }
-
-            try
-            {
-                await JsObj.DisposeAsync();
-            }
-            finally
-            {
-                JsObj = null;
-            }
-        }
+        await DisposeLastScannedPanel();
     }
 }

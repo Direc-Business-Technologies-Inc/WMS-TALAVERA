@@ -8,6 +8,7 @@ using Radzen.Blazor.Rendering;
 using Shared.Entities;
 using Shared.Libraries.Utilities;
 using Web.BlazorServer.Components.Pages.Transaction.Others.BarcodeScanning;
+using Web.BlazorServer.Components.Base;
 using Web.BlazorServer.Components.Shared.Abstraction;
 using Web.BlazorServer.Handlers.Repositories.Transaction.Receiving;
 using Web.BlazorServer.ViewModels.Others;
@@ -19,6 +20,8 @@ namespace Web.BlazorServer.Components.Pages.Transaction.Receiving.Components;
 
 partial class ItemReceiptForm
 {
+    SubmitOnce SubmitOnce { get; } = new();
+    bool IsSubmitting => SubmitOnce.IsSubmitting;
     [Parameter] public ItemReceiptVM Data { get; set; } = new();
     [Parameter] public EditContext? EditContext { get; set; } = null;
     [Parameter] public EventCallback<ItemReceiptVM> OnValidSubmit { get; set; }
@@ -46,13 +49,17 @@ partial class ItemReceiptForm
     readonly List<AppFilterDescriptor> StatusFilters = [
         DataGridFilterUtilities.In(
             nameof(InventoryStatusVM.Id),
-            new List<int> { 1, 3 })
+            new List<int> { 1, 3, 6 })
     ];
 
     BarcodeStore BarcodeStore = new();
 
-    public async Task Submit()
+    public Task Submit() => SubmitOnce.RunAsync(SubmitCore);
+
+    async Task SubmitCore()
     {
+        ApplyBarcodes();
+
         if (string.IsNullOrWhiteSpace(Data.Remarks))
         {
             ToastService.Error("Please add remarks before submitting");
@@ -64,7 +71,7 @@ partial class ItemReceiptForm
             ToastService.Error("Please assign inventory details to all lines");
             return;
         }
-        if (!Data.Lines.Any(x => x.QuantityAlloted > 0))
+        if (!Data.Lines.Any(x => x.IsReceived && x.QuantityAlloted > 0))
         {
             ToastService.Error("Please assign a quantity to at least one line");
             return;
@@ -77,7 +84,6 @@ partial class ItemReceiptForm
 
         if (OnValidSubmit.HasDelegate && EditContext is not null && EditContext.Validate())
         {
-            ApplyBarcodes();
             await OnValidSubmit.InvokeAsync(Data);
         }
     }

@@ -12,7 +12,7 @@
 
     </RadzenStack>
 
-    <RadzenStack id="recent-scanned-floating" class="recent-scanned-floating">
+    <RadzenStack id="recent-scanned-floating" class="recent-scanned-floating" Visible="@(LastScanned is not null)">
 
         <RadzenStack Visible="@(LastScanned is not null)" Style="position:relative;" class="rz-p-4" Orientation="Orientation.Horizontal">
             <RadzenStack Gap="4px">
@@ -78,6 +78,18 @@
                                       Click="@ClearSearch" />
                     }
                 </RadzenStack>
+
+                @if (ScansNeedingReview.Count > 0)
+                {
+                    <RadzenCard class="rz-m-2 rz-p-3">
+                        <RadzenText TextStyle="TextStyle.Subtitle2">Scans need review — Save is blocked</RadzenText>
+                        <RadzenText TextStyle="TextStyle.Caption">These scanned lines are no longer in the refreshed order. Reconcile the order before starting a new scan session.</RadzenText>
+                        @foreach (var row in ScansNeedingReview)
+                        {
+                            <RadzenText TextStyle="TextStyle.Body2">@row.MaterialCode — @row.MaterialName (line @row.LineSequenceNumber, @(row.IsBad ? "Bad" : "Good")): @FormatQuantity(row.ScannedQuantity) scanned</RadzenText>
+                        }
+                    </RadzenCard>
+                }
 
                 <RadzenTabs @bind-SelectedIndex="ActiveTabIndex">
                     <Tabs>
@@ -172,19 +184,8 @@
                         {
                             <RadzenStack Gap="8px" Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center">
 
-                                <RadzenStack Gap="4px" Orientation="Orientation.Vertical" AlignItems="AlignItems.Center" class="scan-action-item">
-                                    <RadzenButton Class="rz-border-radius-5"
-                                                  Icon="@ScanStateIcon"
-                                                  ButtonStyle="@ScanStateButtonStyle"
-                                                  Size="ButtonSize.Small"
-                                                  Click="@ToggleScanState"
-                                                  Disabled="@ActionSaveScan.Busy" />
-
-                                    <RadzenText TextStyle="TextStyle.Caption"
-                                                Class="scan-action-label rz-m-0">
-                                        @ScanStateLabel
-                                    </RadzenText>
-                                </RadzenStack>
+                                <ScanToggleButton @bind-ScanState="ScanState"
+                                                  Disabled="@_session.IsBusy" />
 
                                 <RadzenStack Gap="4px" Orientation="Orientation.Vertical" AlignItems="AlignItems.Center" class="scan-action-item">
                                     <RadzenButton class="rz-border-radius-5"
@@ -192,7 +193,7 @@
                                                   ButtonStyle="@(MoveOn ? ButtonStyle.Success : ButtonStyle.Base)"
                                                   Size="ButtonSize.Small"
                                                   Click="@(args => ToggleMove())"
-                                                  Disabled="@(ActionSaveScan.Busy || NegateQuantity)" />
+                                                  Disabled="@(_session.IsBusy || NegateQuantity)" />
 
                                     <RadzenText TextStyle="TextStyle.Caption" class="scan-action-label rz-m-0">
                                         Move
@@ -205,7 +206,7 @@
                                                   ButtonStyle="@(NegateQuantity ? ButtonStyle.Success : ButtonStyle.Base)"
                                                   Size="ButtonSize.Small"
                                                   Click="@(args => ToggleNegateQuantity())"
-                                                  Disabled="@(ActionSaveScan.Busy || MoveOn)" />
+                                                  Disabled="@(_session.IsBusy || MoveOn)" />
 
                                     <RadzenText TextStyle="TextStyle.Caption" class="scan-action-label rz-m-0">
                                         Remove
@@ -231,7 +232,7 @@
                                                   ButtonStyle="@(ManualEntry ? ButtonStyle.Success : ButtonStyle.Base)"
                                                   Size="ButtonSize.Small"
                                                   Click="@(args => ToggleManualEntry())"
-                                                  Disabled="@(ActionSaveScan.Busy || !ValidManual)" />
+                                                  Disabled="@(_session.IsBusy || !ValidManual)" />
 
                                     <RadzenText TextStyle="TextStyle.Caption" class="scan-action-label rz-m-0">
                                         Manual
@@ -244,7 +245,7 @@
                                                   ButtonStyle="ButtonStyle.Success"
                                                   Size="ButtonSize.Small"
                                                   Click="@(async () => await SaveScan())"
-                                                  Disabled="@(SaveBtnDisabled || ActionSaveScan.Busy)" />
+                                                   Disabled="@(SaveBtnDisabled || _session.IsBusy || ScansNeedingReview.Count > 0)" />
 
                                     <RadzenText TextStyle="TextStyle.Caption" class="scan-action-label rz-m-0">
                                         Save

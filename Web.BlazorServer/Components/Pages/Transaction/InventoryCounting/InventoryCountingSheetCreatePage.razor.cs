@@ -59,7 +59,9 @@ public partial class InventoryCountingSheetCreatePage
     protected override Task InitializeEditing() => Task.CompletedTask;
     protected override Task CancelEditing() => GoBack();
 
-    protected override async Task HandleSubmit()
+    protected override Task HandleSubmit() => SubmitOnce.RunAsync(HandleCreateSheet);
+
+    async Task HandleCreateSheet()
     {
         var lines = FormData.SheetLines.Where(l => l.Quantity > 0).ToList();
 

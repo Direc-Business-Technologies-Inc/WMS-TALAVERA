@@ -47,7 +47,7 @@ public partial class TripTicketDetailsView
             },
             OnSuccess = async (result) =>
             {
-                Destination = result.Data.Select(line => new LocationVM
+                Destination = (result.Data ?? []).Select(line => new LocationVM
                 {
                     LocationName = line.LocationName,
                     NetsuiteLocationInternalId = line.NetsuiteLocationInternalId,
@@ -69,7 +69,7 @@ public partial class TripTicketDetailsView
             },
             OnSuccess = async (result) =>
             {
-                OriginLocations = result.Data.Select(line => new LocationVM
+                OriginLocations = (result.Data ?? []).Select(line => new LocationVM
                 {
                     LocationName = line.LocationName,
                     NetsuiteLocationInternalId = line.NetsuiteLocationInternalId
@@ -140,11 +140,7 @@ public partial class TripTicketDetailsView
             {
                 Subsidiaries = result.Data ?? new();
 
-                //// If we have the user subsidiary id, set the FromSubsidiary by default
-                //if (UserSubsidiaryId != 0)
-                //{
-                //    Model.FromSubsidiary = Subsidiaries.FirstOrDefault(s => s.NetsuiteSubsidiaryInternalId == UserSubsidiaryId);
-                //}
+                Model.FromSubsidiary = Subsidiaries.FirstOrDefault(s => s.NetsuiteSubsidiaryInternalId == UserSubsidiaryId);
 
                 await InvokeAsync(StateHasChanged);
             }

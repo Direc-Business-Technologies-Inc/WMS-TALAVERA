@@ -11,11 +11,14 @@ namespace Web.BlazorServer.Handlers.Implementations.Transaction.Packing.Returns;
 
 public class ReturnPackingHandler(ISender sender) : IReturnPackingHandler
 {
-    public async Task<(IEnumerable<ReturnsPackingDataGridVM> Data, int Count)> GetReturnsList(DataGridIntent intent, int subsidiaryId)
-    {
-        GetPackingReturnListQry query = new(intent, subsidiaryId);
+    public Task<Application.DataTransferObjects.Transactions.PrintStatusCountsDTO> GetPackingPrintStatusCounts(DataGridIntent intent, CancellationToken ct = default)
+        => sender.Send(new GetPackingPrintStatusCountsQry(intent), ct);
 
-        (var data, int count) = await sender.Send(query);
+    public async Task<(IEnumerable<ReturnsPackingDataGridVM> Data, int Count)> GetReturnsList(DataGridIntent intent, int subsidiaryId, bool includeReceived = false)
+    {
+        GetPackingReturnListQry query = new(intent, subsidiaryId, includeReceived);
+
+        (var data, int count) = await sender.Send(query, intent.CancellationToken);
 
         return (data.Adapt<IEnumerable<ReturnsPackingDataGridVM>>(), count);
     }
@@ -47,7 +50,7 @@ public class ReturnPackingHandler(ISender sender) : IReturnPackingHandler
     {
         GetPackedItemFulfillmentsQry query = new(intent);
 
-        (var data, int count) = await sender.Send(query);
+        (var data, int count) = await sender.Send(query, intent.CancellationToken);
 
         return (data.Adapt<IEnumerable<PackedItemFulfillmentVM>>(), count);
     }

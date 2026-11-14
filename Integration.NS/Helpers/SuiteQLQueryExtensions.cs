@@ -81,6 +81,12 @@ public static class SuiteQLQueryExtensions
         return destination ? builder.WithFilter(DataGridFilterUtilities.In($"{transactionTablename}.tosubsidiary", allowedSubsidiaries))
             : builder.WithFilter(DataGridFilterUtilities.In($"{transactionTablename}.subsidiary", allowedSubsidiaries));
     }
+    public static SuiteQLQueryBuilder WithCurrentSourceSubsidiary(this SuiteQLQueryBuilder builder, IHttpContextAccessor context, string transactionTablename)
+    {
+        return builder.WithFilter(DataGridFilterUtilities.Equal(
+            $"{transactionTablename}.subsidiary", CurrentSubsidiaryScope.RequireId(context)));
+    }
+
     public static SuiteQLQueryBuilder WithFromOrToSubsidiaries(this SuiteQLQueryBuilder builder, IHttpContextAccessor context, string transactionTablename)
     {
         if (string.IsNullOrWhiteSpace(transactionTablename)) return builder;

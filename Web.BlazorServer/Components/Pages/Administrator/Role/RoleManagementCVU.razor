@@ -61,9 +61,7 @@
                 <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="16px">
                     <RadzenButton Visible="@(Updating || Can.Update("OROL"))" Text="Cancel Edit" ButtonStyle="ButtonStyle.Base" Click="@CancelEditing" />
                     <RadzenButton Visible="@(Viewing || Can.Update("OROL"))" Text="Edit" ButtonStyle="ButtonStyle.Success" Click="@InitializeEditing" />
-                    <RadzenButton Visible="@((Creating && Can.Update("OROL")) || (Updating && Can.Create("OROL")))" ButtonStyle="ButtonStyle.Success" ButtonType="ButtonType.Submit">
-                        Save @(Updating ? "Changes" : string.Empty)
-                    </RadzenButton>
+                    <RadzenButton Visible="@((Creating && Can.Update("OROL")) || (Updating && Can.Create("OROL")))" Disabled="@IsSubmitting" ButtonStyle="ButtonStyle.Success" ButtonType="ButtonType.Submit" Text="@SubmitButtonText($"Save {(Updating ? "Changes" : string.Empty)}".Trim())" />
                 </RadzenStack>
             </RadzenStack>
         </RadzenStack>

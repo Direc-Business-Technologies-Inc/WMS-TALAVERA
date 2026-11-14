@@ -1,0 +1,110 @@
+@using global::Shared.Entities
+@using global::Shared.Libraries.Utilities
+@using Web.BlazorServer.Components.Custom
+@using Web.BlazorServer.ViewModels.Transaction.Receiving
+@using Web.BlazorServer.Handlers.Repositories.Transaction.Receiving
+@inherits BaseComponent
+@implements IDisposable
+@inject IReceivingHandler ReceivingHandler
+@inject ILogger<ReceivingReportSelectionDialog> Logger
+
+<RadzenStack Gap="12px" aria-busy="@loading.ToString().ToLowerInvariant()">
+    <RadzenText TextStyle="TextStyle.Body1">Select the item receipt to print.</RadzenText>
+    @if (loading)
+    {
+        <div role="status" aria-live="polite">Loading Receiving Reports…</div>
+        <RadzenProgressBar Mode="ProgressBarMode.Indeterminate" ShowValue="false" Style="height: 4px" />
+    }
+    @if (loadFailed)
+    {
+        <div role="alert">The receiving reports could not be loaded. Please retry.</div>
+    }
+    <AppTableWithSettings Data="@receipts" Id="receiving_report_selection">
+        <EmptyTemplate>
+            <p style="color: lightgrey; font-size: 24px; text-align: center; margin: 2rem;">No receiving reports match this print status.</p>
+        </EmptyTemplate>
+        <Columns>
+            <RadzenDataGridColumn TItem="ItemReceiptDataGridVM" Property="@nameof(ItemReceiptDataGridVM.ReferenceNumber)" Title="RR Number" />
+            <RadzenDataGridColumn TItem="ItemReceiptDataGridVM" Property="@nameof(ItemReceiptDataGridVM.CreatedFrom)" Title="Created From" />
+            <RadzenDataGridColumn TItem="ItemReceiptDataGridVM" Property="@nameof(ItemReceiptDataGridVM.Date)" Title="Date">
+                <Template Context="receipt">@receipt.Date.ToString("MMM dd, yyyy")</Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn TItem="ItemReceiptDataGridVM" Title="Status" Width="110px">
+                <Template Context="receipt">@(receipt.PrintCount > 0 ? "Printed" : "For Printing")</Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn TItem="ItemReceiptDataGridVM" Title="Print" Width="90px">
+                <Template Context="receipt">
+                    <AppPrintLink Url="@NetSuitePrint.ReceivingReport(receipt.Id)" RecordType="itemReceipt" RecordId="@receipt.Id" OnPrint="@PrintSelectedAsync" Disabled="@loading" Size="ButtonSize.ExtraSmall" />
+                </Template>
+            </RadzenDataGridColumn>
+        </Columns>
+    </AppTableWithSettings>
+    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End">
+        <RadzenButton Text="Refresh" Icon="refresh" Disabled="@loading" Click="@ReloadAsync" />
+        <RadzenButton Text="Close" ButtonStyle="ButtonStyle.Light" Click="@CloseAsync" />
+    </RadzenStack>
+</RadzenStack>
+
+@code {
+    [Parameter, EditorRequired] public int TransactionId { get; set; }
+    [Parameter] public string Source { get; set; } = "PO";
+    [Parameter] public PrintStatus SelectedPrintStatus { get; set; } = PrintStatus.ForPrinting;
+    [Parameter] public EventCallback OnPrinted { get; set; }
+
+    private List<ItemReceiptDataGridVM> receipts = [];
+    private bool loading;
+    private bool loadFailed;
+    private bool disposed;
+    private readonly SemaphoreSlim reloadGate = new(1, 1);
+
+    protected override Task OnInitializedAsync() => ReloadAsync();
+
+    private async Task ReloadAsync()
+    {
+        if (disposed) return;
+        await reloadGate.WaitAsync();
+        if (disposed) { reloadGate.Release(); return; }
+        loading = true;
+        loadFailed = false;
+        try
+        {
+            var rows = new List<ItemReceiptDataGridVM>();
+            var skip = 0;
+            int total;
+            do
+            {
+                var intent = new DataGridIntent { Skip = skip, Take = 1000, ReadPolicy = GridReadPolicy.Fresh };
+                ReceivingReceiptPrintStatusFilter.ApplyToReceipts(intent, SelectedPrintStatus, Source);
+                intent.Filters.Add(DataGridFilterUtilities.Equal("IncludeCompletedReceived", true));
+                intent.Filters.Add(DataGridFilterUtilities.Equal("tcf.id", TransactionId));
+                var (pageRows, count) = await ReceivingHandler.GetItemReceiptsDatagridAsync(intent);
+                if (disposed) return;
+                var page = pageRows.ToArray();
+                rows.AddRange(page);
+                total = count;
+                if (page.Length == 0) break;
+                skip += page.Length;
+            } while (skip < total);
+            receipts = rows.OrderByDescending(row => row.Date).ToList();
+        }
+        catch (Exception ex)
+        {
+            loadFailed = true;
+            receipts = [];
+            Logger.LogWarning(ex, "Could not load receiving reports for {Source} {TransactionId}", Source, TransactionId);
+        }
+        finally
+        {
+            loading = false;
+            reloadGate.Release();
+        }
+    }
+
+    private async Task PrintSelectedAsync()
+    {
+        await Task.WhenAll(ReloadAsync(), OnPrinted.InvokeAsync());
+        if (loadFailed) throw new InvalidOperationException("Print count updated. Receiving reports need a refresh.");
+    }
+    private void CloseAsync() => DialogService.Close();
+    public void Dispose() => disposed = true;
+}

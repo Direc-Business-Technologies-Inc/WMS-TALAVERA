@@ -28,15 +28,6 @@
             <RadzenTabsItem Text="Returns to Supplier">
                 <VendorReturnAuthorizationPackingDataGrid />
             </RadzenTabsItem>
-            <RadzenTabsItem Text="Packing Labels">
-                <QuickDataGrid DataGetter="ItemFulfillmentsProvider" ActionWidth="72">
-                    <RowActions>
-                        <RadzenButton Icon="print" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light">
-                            <RadzenLink Path="@PrintableURL(context)" Text="Print" target="_blank" Icon="print" />
-                        </RadzenButton>
-                    </RowActions>
-                </QuickDataGrid>
-            </RadzenTabsItem>
         </Tabs>
     </RadzenTabs>
 </AppContent>

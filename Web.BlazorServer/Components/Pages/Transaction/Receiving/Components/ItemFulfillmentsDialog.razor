@@ -4,6 +4,12 @@
 @using global::Shared.Entities
 @inherits BaseComponent 
 
+@if (SkippedUnverifiableCount > 0)
+{
+    <RadzenAlert Variant="Variant.Filled" AlertStyle="AlertStyle.Warning" Size="AlertSize.Small" Shade="Shade.Lighter" AllowClose="false">
+        @SkippedUnverifiableCount fulfillment(s) could not be verified and were excluded. Other verified fulfillments, if available, can still be selected. Contact support to investigate excluded records.
+    </RadzenAlert>
+}
 <QuickDataGrid TItem="ItemFulfillmentVM" DataGetter="ItemFulfillmentProvider" >
     <RowActions Context="data">
         <RadzenButton Icon="arrow_right_alt" Size="ButtonSize.ExtraSmall" Click="() => Close(data)" />
@@ -13,10 +19,13 @@
 @code {
     [Inject] IReceivingHandler receivingHandler {get; set;} = default!;
     [Parameter][EditorRequired] public int TransferOrderId { get; set; }
+    int SkippedUnverifiableCount { get; set; }
 
-    public Task<(IEnumerable<ItemFulfillmentVM>, int)> ItemFulfillmentProvider(DataGridIntent intent) 
+    public async Task<(IEnumerable<ItemFulfillmentVM>, int)> ItemFulfillmentProvider(DataGridIntent intent)
     {
-        return receivingHandler.GetTransferOrderItemFulfillments(TransferOrderId, intent);
+        var (items, count, skippedCount) = await receivingHandler.GetTransferOrderItemFulfillments(TransferOrderId, intent);
+        SkippedUnverifiableCount = skippedCount;
+        return (items, count);
     }
 
     public void Close(ItemFulfillmentVM itemfulfillment)

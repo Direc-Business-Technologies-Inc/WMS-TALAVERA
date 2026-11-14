@@ -20,7 +20,6 @@ WHERE
 	AND t.custbody_dbti_transfer_category IN ('1', '2')
 	AND t.ordpicked = 'F'
     AND t.status IN ('B', 'D', 'E')
-	AND BUILTIN.DF(t.custbody_dbti_purchase_category) = 'Trade'
 	AND (
         (t.recordtype = 'intercompanytransferorder' AND t.subsidiary = @subsidiaryid)
         OR

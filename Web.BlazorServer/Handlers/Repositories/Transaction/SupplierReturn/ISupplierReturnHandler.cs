@@ -8,6 +8,9 @@ namespace Web.BlazorServer.Handlers.Repositories.Transaction.SupplierReturn;
 
 public interface ISupplierReturnHandler
 {
+    Task<BulkFulfillmentResultDTO> SubmitBulkFulfillmentAsync(SubmitBulkFulfillmentDTO data, CancellationToken ct = default);
+    Task<(IEnumerable<BulkFulfillmentStatusDTO> Data, int Count)> GetBulkFulfillmentStatusesAsync(DataGridIntent intent);
+    Task<IReadOnlyList<SupplierReturnDataGridVM>> GetBulkFulfillmentReturnsAsync(int bulkId);
     Task<(IEnumerable<SupplierReturnDataGridVM> Data, int Count)> GetReturnsDataGridAsync(DataGridIntent intent);
     Task<(IEnumerable<PurchaseOrderDataGridVM> Data, int Count)> GetPurchaseOrdersDataGridAsync(DataGridIntent intent);
     Task<(IEnumerable<ReturnCategoryVM> Data, int Count)> GetReturnCategories(DataGridIntent intent);
@@ -19,6 +22,7 @@ public interface ISupplierReturnHandler
     Task<bool> CreateSupplierReturnAsync(SupplierReturnVM data);
     Task<bool> UpdateSupplierReturnAsync(SupplierReturnVM data);
     Task<bool> SubmitSupplierReturnForApproval(SupplierReturnVM data);
+    Task<bool> ApproveSupplierReturnAsync(int recordId);
     Task<(IEnumerable<PurchaseCategoryVM> Data, int Count)> GetPurchaseCategoriesAsync(DataGridIntent intent);
     Task<(IEnumerable<PurchaseSubcategoryVM> Data, int Count)> GetPurchaseSubCategoriesAsync(PurchaseCategoryVM category, DataGridIntent intent);
 

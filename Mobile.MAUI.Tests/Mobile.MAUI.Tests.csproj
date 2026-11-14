@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
+    <PackageReference Include="xunit" Version="2.9.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" PrivateAssets="all" />
+    <PackageReference Include="bunit" Version="1.31.3" />
+    <PackageReference Include="Radzen.Blazor" Version="10.4.5" />
+    <ProjectReference Include="../Shared.Libraries/Shared.Libraries.csproj" />
+  </ItemGroup>
+  <!-- Exercise the actual page logic without requiring Android/iOS workloads.
+       Platform/transport and Razor-generated base declarations live in the host. -->
+  <ItemGroup>
+    <Compile Include="../Mobile.MAUI/Components/Pages/Packing/**/*ItemView.razor.cs" Link="Pages/%(Filename)%(Extension)" />
+    <Compile Include="../Mobile.MAUI/Components/Reusables/ManualEntryDialog.razor.cs" Link="ManualEntryDialog.cs" />
+    <Compile Include="../Mobile.MAUI/Helpers/PackingSessionGate.cs" Link="PackingSessionGate.cs" />
+    <Compile Include="../Mobile.MAUI/Helpers/FormatHelper.cs" Link="FormatHelper.cs" />
+    <Compile Include="../Mobile.MAUI/Enums/CustomEnum.cs" Link="CustomEnum.cs" />
+    <Compile Include="../Mobile.MAUI/States/GlobalStates.cs" Link="GlobalStates.cs" />
+    <Compile Include="../Mobile.MAUI/Services/ActionFactoryService.cs" Link="ActionFactoryService.cs" />
+    <Compile Include="../Mobile.MAUI/Services/BarcodeResolver.cs" Link="BarcodeResolver.cs" />
+    <Compile Include="../Mobile.MAUI/Services/UnsaveChangesHandlerService.cs" Link="UnsaveChangesHandlerService.cs" />
+  </ItemGroup>
+</Project>

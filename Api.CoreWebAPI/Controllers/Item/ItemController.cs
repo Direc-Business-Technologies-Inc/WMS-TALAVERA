@@ -29,7 +29,21 @@ public class ItemController(ISender Sender) : Controller
     [HttpPost("PerBarcode")]
     public async Task<ApiResult<InventoryItemVM>> ItemPerBarcode(ItemBarcodeDTO req)
     {
-        var result = await Sender.Send(new GetItemPerBarcodeQry(req.Barcode));
+        var barcode = req.Barcode?.Trim();
+
+        if (string.IsNullOrWhiteSpace(barcode))
+        {
+            return ApiResult<InventoryItemVM>.Failed("Barcode is required.");
+        }
+
+        var result = await Sender.Send(new GetItemPerBarcodeQry(barcode));
+
+        // NotFound, not Failed: the caller must be able to distinguish "NetSuite
+        // has no barcode_per_uom row for this value" from "the lookup broke".
+        if (result is null)
+        {
+            return ApiResult<InventoryItemVM>.NotFound($"Unknown barcode: {barcode}");
+        }
 
         InventoryItemVM ret = result.Adapt<InventoryItemVM>();
 

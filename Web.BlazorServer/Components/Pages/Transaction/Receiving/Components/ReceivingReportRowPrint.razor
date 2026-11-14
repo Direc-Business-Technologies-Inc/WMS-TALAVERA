@@ -1,0 +1,40 @@
+@using Web.BlazorServer.Components.Custom
+@inherits BaseComponent
+
+@if (ReceiptCount == 1 && SingleReceiptId > 0)
+{
+    <AppPrintLink Url="@NetSuitePrint.ReceivingReport(SingleReceiptId)" RecordType="itemReceipt" RecordId="@SingleReceiptId" OnPrint="@OnPrinted" Size="@Size" />
+}
+else
+{
+    <RadzenButton Icon="print" Size="@Size" ButtonStyle="ButtonStyle.Light" Disabled="@(opening || ReceiptCount <= 0)" title="@(ReceiptCount <= 0 ? "No Receiving Report available" : "Select a Receiving Report")" Click="@OpenReceivingReportAsync" />
+}
+
+@code {
+    [Parameter, EditorRequired] public int TransactionId { get; set; }
+    [Parameter] public string Source { get; set; } = "PO";
+    [Parameter] public PrintStatus SelectedPrintStatus { get; set; } = PrintStatus.ForPrinting;
+    [Parameter] public int ReceiptCount { get; set; }
+    [Parameter] public int SingleReceiptId { get; set; }
+    [Parameter] public ButtonSize Size { get; set; } = ButtonSize.ExtraSmall;
+    [Parameter] public EventCallback OnPrinted { get; set; }
+    private bool opening;
+
+    private async Task OpenReceivingReportAsync()
+    {
+        if (opening || TransactionId <= 0 || ReceiptCount <= 0) return;
+        opening = true;
+        try
+        {
+            await DialogService.OpenAsync<ReceivingReportSelectionDialog>("Select Receiving Report",
+                new Dictionary<string, object?>
+                {
+                    [nameof(ReceivingReportSelectionDialog.TransactionId)] = TransactionId,
+                    [nameof(ReceivingReportSelectionDialog.Source)] = Source,
+                    [nameof(ReceivingReportSelectionDialog.SelectedPrintStatus)] = SelectedPrintStatus,
+                    [nameof(ReceivingReportSelectionDialog.OnPrinted)] = OnPrinted
+                }, new DialogOptions { Width = "760px", CloseDialogOnOverlayClick = true });
+        }
+        finally { opening = false; }
+    }
+}

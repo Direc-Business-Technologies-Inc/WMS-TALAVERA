@@ -21,6 +21,10 @@ public class PostReturnsIFCmdHandler(
     {
         try
         {
+            var orderId = request.Data.FirstOrDefault()?.NetsuiteOrderInternalId ?? 0;
+            if (orderId <= 0 || request.Data.Any(x => x.NetsuiteOrderInternalId != orderId))
+                return ApiResult<bool>.Failed("Exactly one return order is required. Nothing was saved.");
+
             var firstLine = request.Data.FirstOrDefault();
             if (firstLine is not null)
             {

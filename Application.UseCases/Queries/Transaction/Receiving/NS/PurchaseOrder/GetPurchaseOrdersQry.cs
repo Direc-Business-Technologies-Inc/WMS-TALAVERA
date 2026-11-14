@@ -7,6 +7,24 @@ using MediatR;
 namespace Application.UseCases.Queries.Transaction.Receiving.NS.PurchaseOrder;
 
 public record GetPurchaseOrdersQry(RequestPerUserDTO user) : IRequest<IEnumerable<OrdersDTO>>;
+public record GetPurchaseOrderByNumberQry(string OrderNumber, RequestPerUserDTO User) : IRequest<OrdersDTO?>;
+
+public class GetPurchaseOrderByNumberQryHandler(INetSuiteApiClientService netSuiteApiClientService)
+    : IRequestHandler<GetPurchaseOrderByNumberQry, OrdersDTO?>
+{
+    public async Task<OrdersDTO?> Handle(GetPurchaseOrderByNumberQry request, CancellationToken cancellationToken)
+    {
+        var parameters = new Dictionary<string, string>
+        {
+            ["subsidiaryid"] = request.User.NetsuiteUserSubsidiaryInternalId.ToString(),
+            ["userid"] = request.User.NetsuiteUserInternalId.ToString(),
+            ["ordernumber"] = request.OrderNumber.Trim()
+        };
+
+        var data = await netSuiteApiClientService.NetsuiteQuery<OrdersDTO>("NS_PurchaseOrder_Get_ByOrderNumber", parameters, ct: cancellationToken);
+        return data?.SingleOrDefault();
+    }
+}
 
 public class GetPurchaseOrdersQryHandler(
     INetSuiteApiClientService netSuiteApiClientService)

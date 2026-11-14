@@ -1,0 +1,44 @@
+@using Web.BlazorServer.Components.Custom
+@inherits BaseComponent
+
+@if (FulfillmentCount == 1 && SingleFulfillmentId > 0)
+{
+    <AppPrintLink Url="@NetSuitePrint.PackingLabel(SingleFulfillmentId)" RecordType="itemFulfillment" RecordId="@SingleFulfillmentId" OnPrint="@OnPrinted" Size="@Size" />
+}
+else
+{
+    <RadzenButton Icon="print" Size="@Size" ButtonStyle="ButtonStyle.Light"
+                  Disabled="@(opening || FulfillmentCount <= 0)"
+                  title="@(FulfillmentCount <= 0 ? "No packing label available" : "Select a packing label")"
+                  Click="@OpenPackingLabelAsync" />
+}
+
+@code {
+    [Parameter, EditorRequired] public int TransactionId { get; set; }
+    [Parameter] public string Source { get; set; } = "STR";
+    [Parameter] public PrintStatus SelectedPrintStatus { get; set; } = PrintStatus.ForPrinting;
+    [Parameter] public int FulfillmentCount { get; set; }
+    [Parameter] public int SingleFulfillmentId { get; set; }
+    [Parameter] public ButtonSize Size { get; set; } = ButtonSize.ExtraSmall;
+    [Parameter] public EventCallback OnPrinted { get; set; }
+    private bool opening;
+
+    private async Task OpenPackingLabelAsync()
+    {
+        if (opening || TransactionId <= 0 || FulfillmentCount <= 0) return;
+        opening = true;
+        try
+        {
+            // Open before fetching: the dialog owns loading, errors and post-print refresh.
+            await DialogService.OpenAsync<PackingLabelSelectionDialog>("Select Packing Label",
+                new Dictionary<string, object?>
+                {
+                    [nameof(PackingLabelSelectionDialog.TransactionId)] = TransactionId,
+                    [nameof(PackingLabelSelectionDialog.Source)] = Source,
+                    [nameof(PackingLabelSelectionDialog.SelectedPrintStatus)] = SelectedPrintStatus,
+                    [nameof(PackingLabelSelectionDialog.OnPrinted)] = OnPrinted
+                }, new DialogOptions { Width = "760px", CloseDialogOnOverlayClick = true });
+        }
+        finally { opening = false; }
+    }
+}

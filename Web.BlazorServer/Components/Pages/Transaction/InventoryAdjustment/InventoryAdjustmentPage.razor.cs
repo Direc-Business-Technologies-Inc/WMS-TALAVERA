@@ -73,8 +73,8 @@ public partial class InventoryAdjustmentPage
         NavManager.NavigateTo(InventoryAdjustmentRoutes.VIEW + $"?ref={item.ReferenceNumber}");
     }
 
-    // Goods receipt rows come from the NetSuite transaction table, so a row that is present is
-    // by definition printable. NetSuitePrint returns null for a defensive id <= 0.
+    // Both receipt and issue rows are NetSuite inventory adjustment transactions and use the
+    // same print scriptlet. NetSuitePrint returns null for a defensive id <= 0.
     static string? PrintUrl(InventoryAdjustmentDataGridVM data) => NetSuitePrint.InventoryAdjustmentReceipt(data.Id);
 
     async Task OnTabChanged()

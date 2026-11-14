@@ -5,6 +5,7 @@ using Radzen.Blazor;
 using Shared.Entities;
 using Shared.Kernel;
 using Shared.Libraries.Utilities;
+using Web.BlazorServer.Components.Custom;
 using Web.BlazorServer.Components.Shared.Abstraction;
 using Web.BlazorServer.Defaults;
 using Web.BlazorServer.Handlers.Repositories.Transaction.Receiving;
@@ -22,6 +23,67 @@ public partial class PurchaseOrderGrid
     DataGridSettings PurchaseOrderDataGridSettings { get; set; }
 
     PurchaseOrderStatusVM? StatusFilter = null;
+    PrintStatus SelectedPrintStatus = PrintStatus.ForPrinting;
+    DateTime? DateRangeStart;
+    DateTime? DateRangeEnd;
+    bool dateRangeApplied;
+    PrintStatusView PrintStatusView = default!;
+    bool initialGridLoadSucceeded;
+    bool initialCountRefreshRequested;
+
+    Task OnGridDataLoaded()
+    {
+        if (!dateRangeApplied)
+        {
+            var hasDates = PrintStatusFilter.TryGetDateRange(PurchaseOrderDataGrid.DGResult.Items, row => row.Date, out var range);
+            DateRangeStart = hasDates ? range.Start : null;
+            DateRangeEnd = hasDates ? range.End : null;
+        }
+        if (!initialGridLoadSucceeded || initialCountRefreshRequested) return Task.CompletedTask;
+        initialCountRefreshRequested = true;
+        _ = InvokeAsync(async () => { await Task.Yield(); await PrintStatusView.RefreshCountsAsync(); });
+        return Task.CompletedTask;
+    }
+
+    async Task<Application.DataTransferObjects.Transactions.PrintStatusCountsDTO> PrintCountsAsync(CancellationToken ct)
+    {
+        var intent = new DataGridIntent { Skip = 0, Take = 1, ReadPolicy = GridReadPolicy.Fresh, CancellationToken = ct };
+        ReceivingReceiptPrintStatusFilter.ApplyToReceipts(intent, PrintStatus.All, "PO");
+        intent.Filters.Add(DataGridFilterUtilities.Equal("IncludeCompletedReceived", true));
+        if (dateRangeApplied)
+            PrintStatusFilter.ApplyDateRange(intent, DateRangeStart, DateRangeEnd, "tcf.trandate");
+        ApplyStatusCountFilter(intent);
+        return await ReceivingHandler.GetReceivingPrintStatusCounts(intent, ct);
+    }
+
+    async Task DateRangeChanged((DateTime Start, DateTime End) range)
+    {
+        dateRangeApplied = true;
+        DateRangeStart = range.Start;
+        DateRangeEnd = range.End;
+        await ReloadFirstPageAsync();
+        await PrintStatusView.RefreshCountsAsync();
+    }
+
+    async Task ReloadFirstPageAsync()
+    {
+        if (PurchaseOrderDataGrid.DataGrid.CurrentPage == 0)
+            await PurchaseOrderDataGrid.DataGrid.Reload();
+        else
+            await PurchaseOrderDataGrid.DataGrid.GoToPage(0);
+    }
+
+    Task RefreshPrintStatusAsync() => Task.WhenAll(PurchaseOrderDataGrid.RefreshFirstPageOrThrowAsync(), PrintStatusView.RefreshCountsOrThrowAsync());
+    Task SyncAsync() => Task.WhenAll(PurchaseOrderDataGrid.ReloadFirstPageAsync(), PrintStatusView.RefreshCountsAsync());
+
+    async Task PrintStatusChanged(PrintStatus status)
+    {
+        SelectedPrintStatus = status;
+        if (PurchaseOrderDataGrid.DataGrid.CurrentPage == 0)
+            await PurchaseOrderDataGrid.DataGrid.Reload();
+        else
+            await PurchaseOrderDataGrid.DataGrid.GoToPage(0);
+    }
 
     string ActionGetPurchaseOrders { get; } = EnumHelper.GetEnumDescription(AppActions.GetAllPurchaseOrders);
 
@@ -40,9 +102,14 @@ public partial class PurchaseOrderGrid
     {
         await GridSettingsService.SetGridSettings(PurchaseOrderDataGrid.DataGrid, settings => PurchaseOrderDataGridSettings = settings ?? new());
         GridSettingsLoaded = true;
+    }
 
-        await PurchaseOrderDataGrid.DataGrid.ReloadSettings();
-        await PurchaseOrderDataGrid.DataGrid.Reload();
+    void PrepareIntent(DataGridIntent intent)
+    {
+        ReceivingReceiptPrintStatusFilter.ApplyToTransactions(intent, SelectedPrintStatus);
+        intent.Filters.Add(DataGridFilterUtilities.Equal("IncludeCompletedReceived", true));
+        if (dateRangeApplied)
+            PrintStatusFilter.ApplyDateRange(intent, DateRangeStart, DateRangeEnd);
     }
 
     async Task<DataGridResultVM<PurchaseOrderDataGridVM>> LoadDataAsync(DataGridIntent intent)
@@ -66,12 +133,15 @@ public partial class PurchaseOrderGrid
                 });
             }
 
-            return await ReceivingHandler.GetPurchaseOrderDataGridAsync(intent);
+            var result = await ReceivingHandler.GetPurchaseOrderDataGridAsync(intent);
+            return result;
 
             throw new Exception("Invalid source for receiving grid");
         }, AppActionOptionPresets.Loading(ActionGetPurchaseOrders));
 
+        initialGridLoadSucceeded = action.IsSuccess;
         AppBusyService.SetBusy(ActionGetPurchaseOrders, false);
+        action.ThrowIfUnsuccessful();
         return DataGridResultVM<PurchaseOrderDataGridVM>.New(action.Result.Data ?? [], action.Result.Count);
     }
 
@@ -87,6 +157,7 @@ public partial class PurchaseOrderGrid
         if (StatusFilter is null)
         {
             await PurchaseOrderDataGrid.DataGrid.Reload();
+            await PrintStatusView.RefreshCountsAsync();
             return;
         }
 
@@ -95,6 +166,13 @@ public partial class PurchaseOrderGrid
         column.SetLogicalFilterOperator(LogicalFilterOperator.And);
 
         await PurchaseOrderDataGrid.DataGrid.Reload();
+        await PrintStatusView.RefreshCountsAsync();
+    }
+
+    void ApplyStatusCountFilter(DataGridIntent intent)
+    {
+        if (StatusFilter is not null)
+            intent.Filters.Add(DataGridFilterUtilities.Equal(nameof(PurchaseOrderDataGridVM.Status), StatusFilter.Name));
     }
 
     void ViewPurchaseOrder(PurchaseOrderDataGridVM purchaseOrder) => NavManager.NavigateTo($"/transactions/purchasing/receiving/purchase-order/view?ref={purchaseOrder.ReferenceNumber}", true);

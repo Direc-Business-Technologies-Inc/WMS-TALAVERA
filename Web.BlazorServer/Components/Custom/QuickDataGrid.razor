@@ -1,7 +1,7 @@
 ﻿@typeparam TItem
 @inherits BaseComponent
 
-<AppDataGrid @ref="@DataGrid" Id="@(Id ?? GENERIC_DATAGRID_ID)" TItem="TItem" DataGetter="@LoadDataAsync" GridSettings="@DataGridSettings" @bind-GridSettingsLoaded="@GridSettingsLoaded" ActionName="@ActionName" >
+<AppDataGrid @ref="@DataGrid" Id="@(Id ?? GENERIC_DATAGRID_ID)" TItem="TItem" DataGetter="@LoadDataAsync" OnDataLoaded="@OnDataLoaded" GridSettings="@DataGridSettings" @bind-GridSettingsLoaded="@GridSettingsLoaded" AutoLoadGridSettings="false" ActionName="@ActionName" >
     <HeaderTemplate>
         <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween">
             <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" AlignItems="AlignItems.Center" Gap="8px">

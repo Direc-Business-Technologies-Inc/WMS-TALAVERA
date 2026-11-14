@@ -9,4 +9,6 @@ public class PatchInventoryCountingDTO : TransactionDTO
     public decimal ScannedQuantity { get; set; }
 
     public bool IsBad { get; set; }
+
+    public bool IsCounted { get; set; }
 }

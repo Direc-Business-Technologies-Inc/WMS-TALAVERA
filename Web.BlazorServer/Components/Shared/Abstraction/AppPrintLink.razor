@@ -1,3 +1,7 @@
+@using Application.UseCases.Repositories.Integration.Others
+@inject INetSuiteApiClientService NetSuiteClient
+@inject NotificationService Notifications
+@inject ILogger<AppPrintLink> Logger
 @* Opens a NetSuite printout in a new browser tab. Renders nothing when no URL is supplied,
    so grid rows for documents that cannot be printed simply omit the control.
    Icon-only by design: the label lives in the tooltip so the control stays compact in a grid row. *@
@@ -5,8 +9,18 @@
 <RadzenButton Size="@Size"
               ButtonStyle="ButtonStyle.Light"
               Visible="@CanPrint"
+              Disabled="@(isPrinting || Disabled)"
               title="Print">
-    <RadzenLink Path="@Url" Icon="print" target="_blank" title="Print" aria-label="Print" />
+    <span class="print-link-action" @onclick="OnPrintClick" @onclick:preventDefault="@isPrinting" aria-busy="@isPrinting.ToString().ToLowerInvariant()">
+        @if (isPrinting)
+        {
+            <RadzenIcon Icon="hourglass_top" aria-label="Updating print count" />
+        }
+        else
+        {
+            <RadzenLink Path="@Url" Icon="print" target="_blank" title="Print" aria-label="Print" />
+        }
+    </span>
 </RadzenButton>
 
 @code {
@@ -17,6 +31,53 @@
 
     /// <summary>Caller-side gate, e.g. ReadOnly on a form. Combined with the URL check.</summary>
     [Parameter] public bool Visible { get; set; } = true;
+    [Parameter] public bool Disabled { get; set; }
+
+    [Parameter] public EventCallback OnPrint { get; set; }
+
+    [Parameter] public string? RecordType { get; set; }
+    [Parameter] public int? RecordId { get; set; }
+    private bool isPrinting;
+
+    private async Task OnPrintClick()
+    {
+        if (Disabled || isPrinting || !CanPrint || RecordType is null || RecordId is not > 0) return;
+        isPrinting = true;
+        try
+        {
+            try
+            {
+                if (RecordType == "customrecord_dbti_trip_ticket")
+                    await NetSuiteClient.IncrementTripTicketPrintCountAsync(RecordId.Value);
+                else
+                    await NetSuiteClient.IncrementPrintCountAsync(RecordType, RecordId.Value);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Print-count update failed for {RecordType} {RecordId}", RecordType, RecordId);
+                Notifications.Notify(NotificationSeverity.Error, "Print count",
+                    $"Could not update the print count for record {RecordId}. Please refresh before retrying; the printout may already be open.");
+                return;
+            }
+
+            // The print-link click is the event being counted, not completion of
+            // the browser print dialog. Keep native new-tab navigation above.
+            try
+            {
+                await OnPrint.InvokeAsync();
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Print count updated but list refresh failed for {RecordType} {RecordId}", RecordType, RecordId);
+                Notifications.Notify(NotificationSeverity.Warning, "Refresh needed",
+                    "Print count updated, but the list could not refresh. Please refresh the list; do not print again just to refresh.");
+            }
+        }
+        finally
+        {
+            isPrinting = false;
+        }
+    }
 
     bool CanPrint => Visible && !string.IsNullOrWhiteSpace(Url);
 }

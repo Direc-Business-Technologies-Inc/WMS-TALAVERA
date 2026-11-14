@@ -24,7 +24,12 @@ public sealed class CapturingNetSuiteClient : INetSuiteApiClientService
     public List<(int? Limit, int? Offset)> Calls { get; } = [];
     public object? NextResult { get; set; }
     public List<object> NextItems { get; set; } = [];
+    public Func<string, Type, IEnumerable<object>>? QueryItems { get; set; }
+    public List<string> Queries { get; } = [];
     public int CallCount { get; private set; }
+    public CancellationToken LastCancellationToken { get; private set; }
+    public string? LastScriptName { get; private set; }
+    public Dictionary<string, string>? LastScriptParameters { get; private set; }
     /// <summary>Thrown once by the next ExecuteSuiteQLQuery call (after the call is recorded), then cleared.</summary>
     public Exception? NextException { get; set; }
     /// <summary>
@@ -40,11 +45,14 @@ public sealed class CapturingNetSuiteClient : INetSuiteApiClientService
 
     public Task<NetSuiteResponse<T>> ExecuteSuiteQLQuery<T>(string query, int? limit = null, int? offset = null, CancellationToken ct = default)
     {
+        LastCancellationToken = ct;
+        ct.ThrowIfCancellationRequested();
         CallCount++;
         LastQuery = query;
         LastLimit = limit;
         LastOffset = offset;
         Calls.Add((limit, offset));
+        Queries.Add(query);
 
         if (NextException is not null)
         {
@@ -63,8 +71,9 @@ public sealed class CapturingNetSuiteClient : INetSuiteApiClientService
             });
         }
 
+        var source = QueryItems?.Invoke(query, typeof(T)) ?? NextItems;
         var items = new List<T>();
-        foreach (var next in NextItems.OfType<T>()) items.Add(next);
+        foreach (var next in source.OfType<T>()) items.Add(next);
         if (NextResult is T typed) items.Add(typed);
         return Task.FromResult(new NetSuiteResponse<T>
         {
@@ -74,6 +83,20 @@ public sealed class CapturingNetSuiteClient : INetSuiteApiClientService
     }
 
     public Task<IEnumerable<T>?> NetsuiteQuery<T>(
+        string queryName,
+        Dictionary<string, string>? parameters = null,
+        int limit = 0,
+        int offset = 0,
+        CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        LastScriptName = queryName;
+        LastScriptParameters = parameters;
+        LastCancellationToken = ct;
+        return Task.FromResult<IEnumerable<T>?>(NextItems.OfType<T>().ToList());
+    }
+
+    public Task<NetSuiteResponse<T>?> NetsuiteQueryWithMetadata<T>(
         string queryName,
         Dictionary<string, string>? parameters = null,
         int limit = 0,

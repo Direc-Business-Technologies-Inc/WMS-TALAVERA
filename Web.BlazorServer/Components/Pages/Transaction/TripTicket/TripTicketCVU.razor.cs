@@ -79,7 +79,6 @@ partial class TripTicketCVU
     public IReadOnlyList<ItemFulfillmentVM> FulfillmentsRemoved => RemovedFulfillments.AsReadOnly();
     // ----------------------------------------------------
 
-    const string PRINTABLE_URL = "https://11608969.extforms.netsuite.com/app/site/hosting/scriptlet.nl?script=1671&deploy=1&compid=11608969&ns-at=AAEJ7tMQ9evIwFEEUifIBokQgQ0jhowAItpfjv5Smu7B76K41lU&recordType=customrecord_dbti_trip_ticket&transactionDefault=false";
     List<NavigationRouteVM> AdditionalRoutes { get; set; } =
     [
         new()
@@ -176,7 +175,9 @@ partial class TripTicketCVU
         await InvokeAsync(StateHasChanged);
     }
 
-    protected override async Task HandleSubmit()
+    protected override Task HandleSubmit() => SubmitOnce.RunAsync(HandleTripTicketSubmit);
+
+    async Task HandleTripTicketSubmit()
     {
         if (!ValidateFormData())
             return;
@@ -326,7 +327,9 @@ partial class TripTicketCVU
         AppBusyService.SetBusy(ActionGetSubsidiaries, false);
         action.OnSuccess(result =>
         {
-            FromSubsidiary = result.Count == 0 ? [] : [.. result.Data.Select(x => new SubsidiaryVM {
+            FromSubsidiary = result.Count == 0 ? [] : [.. result.Data
+                .Where(x => x.Id == CurrentUserService.NsSubsidiaryId)
+                .Select(x => new SubsidiaryVM {
                     NetsuiteSubsidiaryInternalId = x.Id,
                     SubsidiaryName = x.Name,
                 })];
@@ -363,8 +366,9 @@ partial class TripTicketCVU
 
     public async Task OnFromSubsidiaryChanged(SubsidiaryVM? value)
     {
+        FormData.FromSubsidiary = value;
         await LoadLocationsAsync(value?.NetsuiteSubsidiaryInternalId ?? 0);
-        OnFieldChanged(nameof(FormData.ToSubsidiaries));
+        OnFieldChanged(nameof(FormData.FromSubsidiary));
         await InvokeAsync(StateHasChanged);
     }
 
@@ -553,7 +557,7 @@ partial class TripTicketCVU
             return false;
         }
 
-        if (!FormData.Destinations.Any(x => x.NetsuiteLocationInternalId > 0))
+        if (FormData.Destinations?.Any(x => x is not null && x.NetsuiteLocationInternalId > 0) != true)
         {
             ToastService.Warning("Please select at least one destination.");
             return false;
@@ -583,7 +587,7 @@ partial class TripTicketCVU
             return false;
         }
 
-        if (!FormData.ItemFulfillments.Any(x => x.NetsuiteOrderInternalId > 0))
+        if (!FormData.ItemFulfillments.Any(x => x is not null && x.NetsuiteOrderInternalId > 0))
         {
             ToastService.Warning("Please add at least one fulfillment before submitting.");
             return false;
@@ -600,16 +604,16 @@ partial class TripTicketCVU
         ];
 
         bool hasOtherItemsWithSameLocation = FormData.ItemFulfillments
-            .Any(x => x.NetsuiteToLocationInternalId == line.NetsuiteToLocationInternalId);
+            .Any(x => x is not null && x.NetsuiteToLocationInternalId == line.NetsuiteToLocationInternalId);
 
         bool hasOtherItemsWithSameSubsidiary = FormData.ItemFulfillments
-            .Any(x => x.NetsuiteToSubsidiaryInternalId == line.NetsuiteToSubsidiaryInternalId);
+            .Any(x => x is not null && x.NetsuiteToSubsidiaryInternalId == line.NetsuiteToSubsidiaryInternalId);
 
         if (!hasOtherItemsWithSameLocation && FormData.Destinations is not null)
         {
             FormData.Destinations =
             [
-                .. FormData.Destinations.Where(d => d.NetsuiteLocationInternalId != line.NetsuiteToLocationInternalId)
+                .. FormData.Destinations.Where(d => d is not null && d.NetsuiteLocationInternalId != line.NetsuiteToLocationInternalId)
             ];
             OnFieldChanged(nameof(FormData.Destinations));
         }
@@ -618,7 +622,7 @@ partial class TripTicketCVU
         {
             FormData.ToSubsidiaries =
             [
-                .. FormData.ToSubsidiaries.Where(s => s.NetsuiteSubsidiaryInternalId != line.NetsuiteToSubsidiaryInternalId)
+                .. FormData.ToSubsidiaries.Where(s => s is not null && s.NetsuiteSubsidiaryInternalId != line.NetsuiteToSubsidiaryInternalId)
             ];
             OnFieldChanged(nameof(FormData.ToSubsidiaries));
         }
@@ -686,13 +690,13 @@ partial class TripTicketCVU
             ? string.Empty
             : employee.FullName.Trim();
 
-    string PrintableURL => $"{PRINTABLE_URL}&recordId={FormData.Id}";
 
     string GetLocationName(LocationVM? location) =>
         location?.LocationName ?? string.Empty;
 
     string GetDestinationsText() =>
-        string.Join(", ", FormData.Destinations
+        string.Join(", ", (FormData.Destinations ?? [])
+            .Where(x => x is not null)
             .Select(x => x.LocationName)
             .Where(x => !string.IsNullOrWhiteSpace(x)));
 
@@ -700,7 +704,8 @@ partial class TripTicketCVU
         subsidiary?.SubsidiaryName ?? string.Empty;
 
     string GetToSubsidiaryText() =>
-        string.Join(", ", FormData.ToSubsidiaries
+        string.Join(", ", (FormData.ToSubsidiaries ?? [])
+            .Where(x => x is not null)
             .Select(x => x.SubsidiaryName)
             .Where(x => !string.IsNullOrWhiteSpace(x)));
 

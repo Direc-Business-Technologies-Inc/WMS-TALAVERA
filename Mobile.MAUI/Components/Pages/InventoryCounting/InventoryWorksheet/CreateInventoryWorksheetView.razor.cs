@@ -50,7 +50,6 @@ public partial class CreateInventoryWorksheetView : IAsyncDisposable
     private int UserSubsidiaryId { get; set; }
 
     private bool MoveOn { get; set; }
-    private bool NextScanIsBad { get; set; }
     private bool NegateQuantity { get; set; }
     private bool IsActionPanelCollapsed { get; set; }
     private bool ShowAllScannedItems { get; set; }
@@ -409,28 +408,34 @@ public partial class CreateInventoryWorksheetView : IAsyncDisposable
                 return;
 
             // API - doesn't modify UI state
-            var result = await Client.Post<InventoryItemVM>(
-                "/Item/PerBarcode",
-                new { Barcode = scanned }
-            );
+            var resolution = await BarcodeResolver.ResolveAsync(scanned);
 
-            var barcode = result.Data;
-
-            if (barcode is null)
+            if (!resolution.IsFound)
             {
-                await Toast.Warning($"Unknown barcode: {scanned}");
+                if (resolution.IsFailure)
+                {
+                    await Toast.Error(resolution.Message);
+                }
+                else
+                {
+                    await Toast.Warning(resolution.Message);
+                }
+
                 return;
             }
+
+            var barcode = resolution.Barcode!;
 
             // UI/state modification
             await InvokeAsync(async () =>
             {
-                ProcessScannedItem(barcode);
+                await ProcessScannedItem(barcode);
                 await InvokeAsync(StateHasChanged);
             });
         }
         catch (NotAuthorizedException)
         {
+            await Toast.Error("Session expired. Please sign in again.");
         }
         catch (Exception e)
         {
@@ -442,9 +447,15 @@ public partial class CreateInventoryWorksheetView : IAsyncDisposable
         }
     }
 
-    private void ProcessScannedItem(InventoryItemVM barcode)
+    private async Task ProcessScannedItem(InventoryItemVM barcode)
     {
         var binInternalId = CurrentBinInternalId;
+
+        if (barcode.UoMRate <= 0)
+        {
+            await Toast.Warning($"{barcode.MaterialCode} has no UoM conversion rate. Scan not recorded.");
+            return;
+        }
 
         var line = ICItems.FirstOrDefault(x =>
             x.NetsuiteMaterialInternalId == barcode.NetsuiteMaterialInternalId &&
@@ -453,7 +464,10 @@ public partial class CreateInventoryWorksheetView : IAsyncDisposable
         if (line is null)
         {
             if (MoveOn || NegateQuantity)
+            {
+                await Toast.Warning("Move/Remove mode is on. Turn it off to record scans.");
                 return;
+            }
 
             line = new InventoryWorksheetLineVM
             {
@@ -560,6 +574,12 @@ public partial class CreateInventoryWorksheetView : IAsyncDisposable
         if (ICItems.Count == 0)
         {
             await Toast.Warning("No scanned items to save.");
+            return;
+        }
+
+        if (!ICItems.Any(x => x.GoodScannedQuantity > 0 || x.BadScannedQuantity > 0))
+        {
+            await Toast.Warning("No scanned quantities to save.");
             return;
         }
 
@@ -835,50 +855,7 @@ public partial class CreateInventoryWorksheetView : IAsyncDisposable
 
     private ToggleState ScanState { get; set; } = ToggleState.Base;
 
-    private string ScanStateIcon => ScanState switch
-    {
-        ToggleState.Base => "check",
-        ToggleState.Good => "check",
-        ToggleState.Bad => "block",
-        _ => "check"
-    };
-
-    private string ScanStateLabel => ScanState switch
-    {
-        ToggleState.Base => "Good",
-        ToggleState.Good => "Good",
-        ToggleState.Bad => "Bad",
-        _ => "Good"
-    };
-
-    private ButtonStyle ScanStateButtonStyle => ScanState switch
-    {
-        ToggleState.Base => ButtonStyle.Base,
-        ToggleState.Good => ButtonStyle.Success,
-        ToggleState.Bad => ButtonStyle.Danger,
-        _ => ButtonStyle.Base
-    };
-
-    private void ToggleScanState()
-    {
-        ScanState = ScanState switch
-        {
-            ToggleState.Base => ToggleState.Good,
-            ToggleState.Good => ToggleState.Bad,
-            ToggleState.Bad => ToggleState.Base,
-            _ => ToggleState.Base
-        };
-
-        NextScanIsBad = ScanState switch
-        {
-            ToggleState.Base => false,
-            ToggleState.Good => false,
-            ToggleState.Bad => true,
-            _ => false
-        };
-
-        InvokeAsync(StateHasChanged);
-    }
+    private bool NextScanIsBad => ScanState == ToggleState.Bad;
 
     #endregion
 

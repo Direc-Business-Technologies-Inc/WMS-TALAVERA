@@ -32,6 +32,11 @@ public class VendorReturnAuthorizationIFPayloadDTO
                         // On bin-tracked locations the transform URL carries ?replace=item.inventoryDetail.inventoryAssignment,
                         // and NetSuite rejects the request unless the body's item entries carry the sub-resource consistently.
                         // Zero-qty filler lines therefore get an EMPTY assignment so the replace target exists on every line.
+                        //
+                        // Fillers carry NO quantity field. The explicit Quantity = 0 attempt (build ce8da8a7,
+                        // 2026-10-23) was REFUTED in the field: the transform rejects a line quantity of 0 with
+                        // "Value 0.0 outside of valid min/max range for field quantity". WhenWritingNull omits
+                        // the null, restoring the field-proven shape (Transaction A passed, 2026-10-15).
                         var filler = new OrderLineItem
                         {
                             OrderLine = line.LineSequenceNumber,

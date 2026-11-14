@@ -52,4 +52,14 @@ public class ApiResult<T>
         StatusCode = 500,
         ErrorMessage = errorMessage
     };
+    /// <summary>
+    /// The request was understood but there is nothing to return (e.g. a lookup
+    /// found no row). Distinct from <see cref="Failed"/> so callers can tell
+    /// "NetSuite does not know this value" from "the call itself failed".
+    /// </summary>
+    public static ApiResult<T> NotFound(string errorMessage) => new ApiResult<T>
+    {
+        StatusCode = 404,
+        ErrorMessage = errorMessage
+    };
 }

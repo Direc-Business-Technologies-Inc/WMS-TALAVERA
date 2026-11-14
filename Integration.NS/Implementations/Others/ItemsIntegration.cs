@@ -61,6 +61,8 @@ public class ItemsIntegration(
             .Select(
                 ("i.itemid", nameof(ItemsNSDTO.ItemNumber)),
                 ("i.id", nameof(ItemsNSDTO.Id)),
+                ("psc.custrecord_dbti_psc_purchase_category", nameof(ItemsNSDTO.PurchaseCategoryId)),
+                ("i.custitem_dbti_item_group", nameof(ItemsNSDTO.PurchaseSubcategoryId)),
                 ("i.displayname", nameof(ItemsNSDTO.Name)),
                 ("i.description", nameof(ItemsNSDTO.Description)),
                 ("i.purchaseunit", nameof(ItemsNSDTO.PurchaseUnitId)),
@@ -78,6 +80,7 @@ public class ItemsIntegration(
                 ("pb.binnumber", nameof(ItemsNSDTO.PreferredBin))
             )
             .From("item i")
+            .LeftJoin("CUSTOMRECORD_DBTI_PURCHASE_CATEGORIES psc", on: "psc.id = i.custitem_dbti_item_group")
             .LeftJoin("aggregateitemlocation ail", on:"ail.item = i.id")
             .LeftJoin("location loc", on:"ail.location = loc.id")
             .LeftJoin("unitsTypeUom u1", on: "u1.internalid = i.saleunit")
@@ -117,6 +120,8 @@ public class ItemsIntegration(
                 ("(SELECT SUM(quantityavailable) FROM aggregateitemlocation WHERE item = i.id)", nameof(ItemsNSDTO.QuantityAvailable)),
                 ("i.itemid", nameof(ItemsNSDTO.ItemNumber)),
                 ("i.id", nameof(ItemsNSDTO.Id)),
+                ("psc.custrecord_dbti_psc_purchase_category", nameof(ItemsNSDTO.PurchaseCategoryId)),
+                ("i.custitem_dbti_item_group", nameof(ItemsNSDTO.PurchaseSubcategoryId)),
                 ("i.displayname", nameof(ItemsNSDTO.Name)),
                 ("i.description", nameof(ItemsNSDTO.Description)),
                 ("i.usebins", nameof(ItemsNSDTO.UseBins)),
@@ -131,6 +136,7 @@ public class ItemsIntegration(
                 ("u3.conversionrate", nameof(ItemsNSDTO.PurchaseUnitRate))
             )
             .From("item i")
+            .LeftJoin("CUSTOMRECORD_DBTI_PURCHASE_CATEGORIES psc", on: "psc.id = i.custitem_dbti_item_group")
             .LeftJoin("unitsTypeUom u1", on: "u1.internalid = i.saleunit")
             .LeftJoin("unitsTypeUom u2", on: "u2.internalid = i.stockunit")
             .LeftJoin("unitsTypeUom u3", on: "u3.internalid = i.purchaseunit")
