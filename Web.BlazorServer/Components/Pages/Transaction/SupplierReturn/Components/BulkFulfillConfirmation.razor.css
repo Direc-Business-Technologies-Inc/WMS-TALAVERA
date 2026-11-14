@@ -3,6 +3,11 @@
     font-size: 0.875rem;
 }
 
+.rts-bulk-confirmation-memo {
+    width: 100%;
+    margin-bottom: 12px;
+}
+
 .rts-bulk-confirmation-grid {
     border: 1px solid var(--rz-base-300);
     border-radius: 4px;

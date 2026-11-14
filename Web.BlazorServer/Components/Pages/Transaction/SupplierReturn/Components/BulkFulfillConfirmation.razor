@@ -12,6 +12,14 @@
     }
     <p>@(ReadOnly ? $"{Rows.Count} RTS records" : $"{Rows.Count} selected"); @FilteredRows.Count() matching the search.</p>
     <div class="rts-bulk-confirmation-grid">
+        @if (!ReadOnly)
+        {
+            <div class="rts-bulk-confirmation-memo">
+                <RadzenFormField Text="Bulk Fulfillment Memo" Style="width: 100%">
+                    <RadzenTextArea @bind-Value="Memo" Rows="3" aria-label="Bulk fulfillment memo" Style="width: 100%" />
+                </RadzenFormField>
+            </div>
+        }
         <div class="rts-bulk-confirmation-search">
             <RadzenIcon Icon="search" />
             <RadzenTextBox @bind-Value="SearchText" Placeholder="Search transactions..." aria-label="Search selected transactions" />
@@ -31,12 +39,6 @@
             </Columns>
         </RadzenDataGrid>
     </div>
-    @if (!ReadOnly)
-    {
-        <RadzenFormField Text="Bulk Fulfillment Memo" class="w-100 rz-mt-3">
-            <RadzenTextArea @bind-Value="Memo" Rows="3" aria-label="Bulk fulfillment memo" class="w-100" />
-        </RadzenFormField>
-    }
     <div class="rts-bulk-confirmation-actions">
         <RadzenButton Text="@(ReadOnly ? "Close" : "Cancel")" ButtonStyle="ButtonStyle.Light" Click="@(() => DialogService.Close(false))" />
         @if (!ReadOnly)
